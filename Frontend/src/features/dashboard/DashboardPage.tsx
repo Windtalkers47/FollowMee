@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Box, Container, Grid, Paper, Typography, CircularProgress } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import { useAppSelector } from '@/store/hooks';
-import api from '@/services/api';
+import { useAppSelector } from '../../store/hooks';
+import api from '../../services/api';
 
 interface Stats {
   totalUsers?: number;

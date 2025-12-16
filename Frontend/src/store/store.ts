@@ -1,17 +1,24 @@
 import { configureStore } from '@reduxjs/toolkit';
 import { TypedUseSelectorHook, useDispatch, useSelector } from 'react-redux';
-
-// Import your reducers here
-// import authReducer from './slices/authSlice';
-// import usersReducer from './slices/usersSlice';
+import authReducer from '../features/auth/authSlice';
 
 const store = configureStore({
   reducer: {
-    // Add your reducers here
-    // auth: authReducer,
-    // users: usersReducer,
+    auth: authReducer,
+    // Add other reducers here
   },
   devTools: process.env.NODE_ENV !== 'production',
+  middleware: (getDefaultMiddleware) =>
+    getDefaultMiddleware({
+      serializableCheck: {
+        // Ignore these action types
+        ignoredActions: ['auth/login/fulfilled'],
+        // Ignore these field paths in all actions
+        ignoredActionPaths: ['meta.arg', 'payload.timestamp'],
+        // Ignore these paths in the state
+        ignoredPaths: ['items.dates'],
+      },
+    }),
 });
 
 // Infer the `RootState` and `AppDispatch` types from the store itself

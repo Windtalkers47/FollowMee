@@ -1,22 +1,20 @@
 import axios, { AxiosError } from 'axios';
-import type { AxiosResponse } from 'axios';
+import type { AxiosResponse, InternalAxiosRequestConfig } from 'axios';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
 const api = axios.create({
   baseURL: API_URL,
+  withCredentials: true, // This is required for cookies to be sent with requests
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// Request interceptor for adding auth token
+// Request interceptor
 api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
+  (config: InternalAxiosRequestConfig) => {
+    // No need to manually set the token in headers when using httpOnly cookies
     return config;
   },
   (error: AxiosError) => {
@@ -29,9 +27,10 @@ api.interceptors.response.use(
   (response: AxiosResponse) => response,
   (error: AxiosError) => {
     if (error.response?.status === 401) {
-      // Handle unauthorized access (e.g., redirect to login)
-      localStorage.removeItem('token');
-      window.location.href = '/login';
+      // Handle unauthorized access
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login';
+      }
     }
     return Promise.reject(error);
   }

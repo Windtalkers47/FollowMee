@@ -7,9 +7,8 @@ import dataSource from './config/database';
 import dotenv from 'dotenv';
 import { logger } from './utils/logger';
 
-// Import routes (we'll create these later)
-// import authRoutes from './routes/auth.routes';
-// import userRoutes from './routes/user.routes';
+// Import routes
+import authRoutes from './routes/auth.routes';
 
 // Load environment variables
 dotenv.config();
@@ -31,11 +30,21 @@ class App {
   }
 
   private initializeMiddlewares(): void {
-    this.app.use(cors());
+    // Configure CORS with credentials support
+    this.app.use(cors({
+      origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+      credentials: true,
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization']
+    }));
+    
     this.app.use(helmet());
     this.app.use(morgan('dev'));
     this.app.use(express.json());
     this.app.use(express.urlencoded({ extended: true }));
+    
+    // Parse cookies
+    this.app.use(require('cookie-parser')());
   }
 
   private initializeRoutes(): void {
@@ -45,8 +54,10 @@ class App {
     });
 
     // API routes
-    // this.app.use('/api/auth', authRoutes);
-    // this.app.use('/api/users', userRoutes);
+    this.app.use('/api/auth', authRoutes);
+    
+    // Protected API routes (example)
+    // this.app.use('/api/users', authenticateToken, userRoutes);
 
     // 404 handler
     this.app.use((req: Request, res: Response) => {

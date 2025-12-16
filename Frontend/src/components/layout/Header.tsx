@@ -13,8 +13,8 @@ import {
   Button
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
-import { useAppDispatch, useAppSelector } from '@/store/hooks';
-import { logout } from '@/features/auth/authSlice';
+import { useAppDispatch, useAppSelector } from '../../store/hooks';
+import { logout } from '../../features/auth/authSlice';
 
 const Header = () => {
   const [anchorElUser, setAnchorElUser] = useState<null | HTMLElement>(null);

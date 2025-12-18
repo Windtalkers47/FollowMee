@@ -19,7 +19,7 @@ const dataSourceOptions: DataSourceOptions = {
     path.join(__dirname, '../entities/**/*.entity{.ts,.js}')
   ],
   migrations: [
-    path.join(__dirname, '../migrations/*{.ts,.js}')
+    path.join(__dirname, '../migrations/**/*{.ts,.js}')
   ],
   subscribers: [],
   migrationsRun: true,

@@ -1,12 +1,12 @@
 import React from 'react';
 import { Box, Typography, Button, Container } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
-import { CustomerList } from '../../components/CustomerList';
+import CustomerList from '../../components/CustomerList';
 import { customerService } from '../../services/customer.service';
 import { LoadingSpinner } from '../../components/common/LoadingSpinner';
 
 export const Customers: React.FC = () => {
-  const { data: customers, isLoading, error } = useQuery({
+  const { data: customers = [], isLoading, error } = useQuery({
     queryKey: ['customers'],
     queryFn: () => customerService.getCustomers(),
     refetchOnWindowFocus: false,
@@ -38,7 +38,7 @@ export const Customers: React.FC = () => {
 
   return (
     <Box sx={{ flexGrow: 1 }}>
-      <CustomerList />
+      <CustomerList customers={customers} />
     </Box>
   );
 };

@@ -17,17 +17,15 @@ import { Edit as EditIcon, Delete as DeleteIcon, Add as AddIcon } from '@mui/ico
 import { customerService, Customer } from '../services/customer.service';
 import CustomerModal from './CustomerModal';
 
-const CustomerList: React.FC = () => {
-  const [customers, setCustomers] = useState<Customer[]>([]);
+interface CustomerListProps {
+  customers: Customer[];
+}
+
+const CustomerList: React.FC<CustomerListProps> = ({ customers = [] }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
 
-  const fetchCustomers = async () => {
-    const data = await customerService.getCustomers();
-    setCustomers(data);
-  };
-
-  useEffect(() => {
+  // No need for fetchCustomers as we get data from props now
     fetchCustomers();
   }, []);
 

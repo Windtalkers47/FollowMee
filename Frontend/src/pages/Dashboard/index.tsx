@@ -1,161 +1,144 @@
 import React from 'react';
-import { Box, Typography, Grid, Paper, useTheme } from '@mui/material';
-import { useQuery } from '@tanstack/react-query';
-import { customerService } from '../../services/customer.service';
-import { LoadingSpinner } from '../../components/common/LoadingSpinner';
-import {
-  People as PeopleIcon,
-  AttachMoney as RevenueIcon,
-  TrendingUp as TrendingUpIcon,
-  Schedule as ScheduleIcon,
-} from '@mui/icons-material';
 
-const StatCard = ({ 
-  title, 
-  value, 
-  icon: Icon,
-  color 
-}: { 
-  title: string; 
-  value: string | number; 
-  icon: React.ElementType;
-  color: string;
-}) => (
-  <Paper 
-    elevation={2} 
-    sx={{ 
-      p: 3, 
-      height: '100%',
-      borderRadius: 2,
-      background: `linear-gradient(135deg, ${color}10 0%, ${color}05 100%)`,
-      borderLeft: `4px solid ${color}`,
-    }}
-  >
-    <Box display="flex" alignItems="center">
-      <Box 
-        sx={{ 
-          p: 1.5, 
-          mr: 2, 
-          borderRadius: 2, 
-          bgcolor: `${color}15`,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center'
-        }}
-      >
-        <Icon sx={{ color, fontSize: 32 }} />
-      </Box>
-      <Box>
-        <Typography color="textSecondary" variant="subtitle2">
-          {title}
-        </Typography>
-        <Typography variant="h5" fontWeight="bold">
-          {value}
-        </Typography>
-      </Box>
-    </Box>
-  </Paper>
+// Define types for our components
+interface StatCardProps {
+  title: string;
+  value: string;
+  change?: string;
+}
+
+interface ActivityItemProps {
+  title: string;
+  time: string;
+}
+
+// Simple stat card component
+const StatCard: React.FC<StatCardProps> = ({ title, value, change }) => (
+  <div className="stat-card">
+    <h3>{title}</h3>
+    <div className="stat-value">{value}</div>
+    {change && <div className="stat-change">{change}</div>}
+  </div>
 );
 
-export const Dashboard: React.FC = () => {
-  const theme = useTheme();
-  const { data: customers, isLoading } = useQuery({
-    queryKey: ['customers'],
-    queryFn: () => customerService.getCustomers(),
-    refetchOnWindowFocus: false,
-  });
+// Recent activity item component
+const ActivityItem: React.FC<ActivityItemProps> = ({ title, time }) => (
+  <div className="activity-item">
+    <div className="activity-dot"></div>
+    <div>
+      <div className="activity-title">{title}</div>
+      <div className="activity-time">{time}</div>
+    </div>
+  </div>
+);
 
-  if (isLoading) {
-    return <LoadingSpinner fullScreen />;
-  }
+// Main Dashboard component
+const Dashboard: React.FC = () => {
+  // Mock data for the dashboard
+  const stats = {
+    totalUsers: '12,345',
+    activeUsers: '8,765',
+    revenue: '$45,678',
+    conversion: '3.2%',
+  };
 
-  const stats = [
-    { 
-      title: 'Total Customers', 
-      value: customers?.length || 0, 
-      icon: PeopleIcon,
-      color: theme.palette.primary.main 
-    },
-    { 
-      title: 'Active Customers', 
-      value: customers?.filter(c => c.isActive).length || 0, 
-      icon: TrendingUpIcon,
-      color: theme.palette.success.main 
-    },
-    { 
-      title: 'New This Month', 
-      value: customers?.filter(c => {
-        const customerDate = new Date(c.createdAt);
-        const now = new Date();
-        return customerDate.getMonth() === now.getMonth() && 
-               customerDate.getFullYear() === now.getFullYear();
-      }).length || 0, 
-      icon: ScheduleIcon,
-      color: theme.palette.warning.main 
-    },
-    { 
-      title: 'Total Revenue', 
-      value: '฿0.00', 
-      icon: RevenueIcon,
-      color: theme.palette.info.main 
-    },
+  const recentActivity = [
+    { id: 1, title: 'New user registered', time: '2 minutes ago' },
+    { id: 2, title: 'New order received', time: '5 minutes ago' },
+    { id: 3, title: 'System updated', time: '1 hour ago' },
   ];
 
   return (
-    <Box sx={{ flexGrow: 1, p: 3 }}>
-      <Typography variant="h4" component="h1" gutterBottom>
-        Dashboard
-      </Typography>
-      
-      <Grid container spacing={3}>
-        {stats.map((stat, index) => (
-          <Grid item key={index}>
-            <StatCard 
-              title={stat.title}
-              value={stat.value}
-              icon={stat.icon}
-              color={stat.color}
-              sx={{
-                width: { xs: '100%', sm: 'auto' },
-                maxWidth: { sm: '50%', md: '25%' },
-                flex: { sm: '1 1 calc(50% - 16px)', md: '1 1 calc(25% - 24px)' }
-              }}
-            />
-          </Grid>
-        ))}
-      </Grid>
+    <div className="dashboard">
+      <div className="dashboard-header">
+        <h1>Dashboard</h1>
+        <button 
+          className="btn btn-primary" 
+          onClick={() => console.log('Create new')}
+        >
+          Create New
+        </button>
+      </div>
 
-      <Paper 
-        elevation={0} 
-        sx={{ 
-          p: 3, 
-          borderRadius: 2,
-          background: theme.palette.background.paper,
-          border: `1px solid ${theme.palette.divider}`,
-        }}
-      >
-        <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-          <Typography variant="h6" component="h2">
-            Recent Activity
-          </Typography>
-          <Typography 
-            color="primary" 
-            sx={{ 
-              cursor: 'pointer',
-              '&:hover': { textDecoration: 'underline' } 
-            }}
-          >
-            View All
-          </Typography>
-        </Box>
-        
-        <Box>
-          <Typography color="textSecondary" textAlign="center" py={4}>
-            No recent activity to display
-          </Typography>
-        </Box>
-      </Paper>
-    </Box>
+      {/* Stats Grid */}
+      <div className="stats-grid">
+        <StatCard title="Total Users" value={stats.totalUsers} change="+12.5%" />
+        <StatCard title="Active Users" value={stats.activeUsers} change="+5.2%" />
+        <StatCard title="Revenue" value={stats.revenue} change="+8.3%" />
+        <StatCard title="Conversion" value={stats.conversion} change="+1.2%" />
+      </div>
+
+      <div className="dashboard-content">
+        {/* Main Content */}
+        <div className="main-content">
+          {/* Performance Overview */}
+          <div className="card">
+            <div className="card-header">
+              <h3>Performance Overview</h3>
+              <button className="btn btn-text">View All</button>
+            </div>
+            <div className="chart-placeholder">
+              Performance Chart Placeholder
+            </div>
+          </div>
+
+          {/* Recent Activity */}
+          <div className="card">
+            <div className="card-header">
+              <h3>Recent Activity</h3>
+              <button className="btn btn-text">Refresh</button>
+            </div>
+            <div className="activity-list">
+              {recentActivity.map((activity) => (
+                <ActivityItem 
+                  key={activity.id} 
+                  title={activity.title} 
+                  time={activity.time} 
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Sidebar */}
+        <div className="sidebar-content">
+          {/* Quick Actions */}
+          <div className="card">
+            <h3>Quick Actions</h3>
+            <div className="action-buttons">
+              <button className="btn btn-outline">Create Post</button>
+              <button className="btn btn-outline">View Analytics</button>
+              <button className="btn btn-outline">Check Messages</button>
+              <button className="btn btn-outline">Manage Team</button>
+            </div>
+          </div>
+
+          {/* Notifications */}
+          <div className="card">
+            <div className="card-header">
+              <h3>Notifications</h3>
+              <span className="badge">3</span>
+            </div>
+            <div className="notification-list">
+              <div className="notification-item unread">
+                <div className="notification-title">New update available</div>
+                <div className="notification-message">
+                  Version 2.0 is now available with new features.
+                </div>
+                <div className="notification-time">2 hours ago</div>
+              </div>
+              <div className="notification-item">
+                <div className="notification-title">System maintenance</div>
+                <div className="notification-message">
+                  Scheduled maintenance this weekend.
+                </div>
+                <div className="notification-time">1 day ago</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 };
 

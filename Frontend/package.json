@@ -23,6 +23,8 @@
     "@types/react-router-dom": "^5.3.3",
     "axios": "^1.13.2",
     "date-fns": "^4.1.0",
+    "framer-motion": "^12.23.26",
+    "gsap": "^3.14.2",
     "notistack": "^3.0.2",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",

@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { CssBaseline, Box, CircularProgress } from '@mui/material';
+import { Box, CircularProgress } from '@mui/material';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAppSelector } from './store/store';
 import LandingPage from './pages/Landing';

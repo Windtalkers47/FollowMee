@@ -1,4 +1,3 @@
-import React from 'react';
 import { Box, Typography, Button, Container } from '@mui/material';
 import { useAppDispatch } from '../../store/store';
 import { logout } from '../../features/auth/authSlice';

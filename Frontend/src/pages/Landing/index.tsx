@@ -1,97 +1,100 @@
-import { Box, Button, Container, Typography } from '@mui/material';
-import { useNavigate } from 'react-router-dom';
+import { Box, Container, Typography, Button } from '@mui/material';
 import { motion } from 'framer-motion';
-import { styled } from '@mui/material/styles';
+import { useNavigate } from 'react-router-dom';
 
-const HeroSection = styled(Box)(({ theme }) => ({
-  minHeight: '100vh',
-  display: 'flex',
-  flexDirection: 'column',
-  justifyContent: 'center',
-  alignItems: 'center',
-  textAlign: 'center',
-  padding: theme.spacing(3),
-  background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
-  position: 'relative',
-  overflow: 'hidden',
-}));
-
-const Title = styled(motion.h1)(({ theme }) => ({
-  fontSize: '4rem',
-  fontWeight: 700,
-  marginBottom: theme.spacing(2),
-  color: theme.palette.primary.main,
-  [theme.breakpoints.down('md')]: {
-    fontSize: '3rem',
-  },
-}));
-
-const Subtitle = styled(motion.p)(({ theme }) => ({
-  fontSize: '1.5rem',
-  marginBottom: theme.spacing(4),
-  color: theme.palette.text.secondary,
-  maxWidth: '800px',
-}));
-
-const CTAButton = styled(Button)(({ theme }) => ({
-  padding: theme.spacing(1.5, 4),
-  fontSize: '1.1rem',
-  borderRadius: '50px',
-  textTransform: 'none',
-  fontWeight: 600,
-  margin: theme.spacing(1),
-}));
-
-const LandingPage = () => {
+function LandingPage() {
   const navigate = useNavigate();
 
   return (
-    <Box>
-      <HeroSection>
-        <Container maxWidth="md">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-          >
-            <Title>Welcome to FollowMee</Title>
-            <Subtitle>
-              Transform your social media management with our powerful dashboard.
-              Track, analyze, and grow your online presence like never before.
-            </Subtitle>
-            <Box>
-              <CTAButton
-                variant="contained"
-                color="primary"
-                size="large"
-                onClick={() => navigate('/dashboard')}
-                sx={{ mr: 2 }}
-              >
-                Go to Dashboard
-              </CTAButton>
-              <CTAButton
-                variant="outlined"
-                color="primary"
-                size="large"
-                onClick={() => {
-                  // Smooth scroll to features section
-                  document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' });
-                }}
-              >
-                Learn More
-              </CTAButton>
-            </Box>
-          </motion.div>
-        </Container>
-      </HeroSection>
+    <Box sx={{ 
+      minHeight: '100vh',
+      background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
+      padding: 3
+    }}>
+      <Container 
+        maxWidth="lg" 
+        sx={{ 
+          minHeight: '100vh',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+          alignItems: 'center',
+          textAlign: 'center',
+          color: '#2d3748',
+          py: 8
+        }}>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8 }}
+        >
+          <Typography variant="h2" component="h1" gutterBottom sx={{ 
+            fontWeight: 700,
+            mb: 3,
+          }}>
+            Welcome to FollowMee
+          </Typography>
+          <Typography variant="h5" component="p" sx={{ 
+            mb: 4,
+            maxWidth: '700px',
+            color: 'text.secondary'
+          }}>
+            Transform your social media management with our powerful dashboard.
+            Track, analyze, and grow your online presence like never before.
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', flexWrap: 'wrap' }}>
+            <Button 
+              variant="contained" 
+              size="large" 
+              onClick={() => navigate('/dashboard')}
+              sx={{
+                px: 4,
+                py: 1.5,
+                borderRadius: '50px',
+                textTransform: 'none',
+                fontSize: '1.1rem',
+                fontWeight: 600,
+                background: 'linear-gradient(45deg, #4a6cf7 0%, #a64dff 100%)',
+                '&:hover': {
+                  transform: 'translateY(-2px)',
+                  boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
+                },
+                transition: 'all 0.3s ease',
+              }}
+            >
+              Go to Dashboard
+            </Button>
+            <Button 
+              variant="outlined" 
+              size="large"
+              color="primary"
+              onClick={() => {
+                document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' });
+              }}
+              sx={{
+                px: 4,
+                py: 1.5,
+                borderRadius: '50px',
+                textTransform: 'none',
+                fontSize: '1.1rem',
+                fontWeight: 600,
+                '&:hover': {
+                  transform: 'translateY(-2px)',
+                },
+                transition: 'all 0.3s ease',
+              }}
+            >
+              Learn More
+            </Button>
+          </Box>
+        </motion.div>
 
-      {/* Features Section */}
-      <Box id="features" py={10} bgcolor="background.paper">
-        <Container maxWidth="lg">
-          <Typography variant="h3" align="center" gutterBottom>
+        {/* Features Section */}
+        <Box id="features" sx={{ mt: 12, width: '100%' }}>
+          <Typography variant="h3" sx={{ mb: 6, fontWeight: 600 }}>
             Powerful Features
           </Typography>
-          <Box display="flex" flexWrap="wrap" justifyContent="center" mt={6} gap={4}>
+          <Box display="flex" flexWrap="wrap" justifyContent="center" gap={4}>
             {[
               {
                 title: 'Analytics Dashboard',
@@ -119,28 +122,35 @@ const LandingPage = () => {
                 <Box
                   p={4}
                   height="100%"
-                  bgcolor="background.default"
+                  bgcolor="background.paper"
                   borderRadius={2}
                   boxShadow={1}
                   textAlign="center"
+                  sx={{
+                    transition: 'transform 0.3s ease, box-shadow 0.3s ease',
+                    '&:hover': {
+                      transform: 'translateY(-8px)',
+                      boxShadow: 3,
+                    }
+                  }}
                 >
                   <Typography variant="h2" gutterBottom>
                     {feature.icon}
                   </Typography>
-                  <Typography variant="h5" gutterBottom>
+                  <Typography variant="h5" gutterBottom sx={{ fontWeight: 600, mt: 2 }}>
                     {feature.title}
                   </Typography>
-                  <Typography color="textSecondary">
+                  <Typography color="text.secondary">
                     {feature.description}
                   </Typography>
                 </Box>
               </motion.div>
             ))}
           </Box>
-        </Container>
-      </Box>
+        </Box>
+      </Container>
     </Box>
   );
-};
+}
 
 export default LandingPage;

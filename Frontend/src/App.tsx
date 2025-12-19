@@ -1,49 +1,64 @@
-import React, { Suspense } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { CssBaseline, Box, CircularProgress } from '@mui/material';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { useAppSelector } from './store/store';
+import LandingPage from './pages/Landing';
 
-// Components
-const MainLayout = ({ children }: { children: React.ReactNode }) => (
-  <div className="main-layout">
-    <div className="sidebar">Sidebar</div>
-    <div className="content">{children}</div>
-  </div>
+// Lazy load other pages
+const LoginPage = React.lazy(() => import('./pages/Login'));
+const DashboardPage = React.lazy(() => import('./pages/Dashboard'));
+const NotFoundPage = () => <div>404 - Page Not Found</div>;
+
+const LoadingSpinner = () => (
+  <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+    <CircularProgress />
+  </Box>
 );
 
-const LoadingSpinner = () => <div>Loading...</div>;
+const App = () => {
+  const location = useLocation();
+  const { isAuthenticated, loading } = useAppSelector((state) => ({
+    isAuthenticated: state.auth.isAuthenticated,
+    loading: state.auth.loading,
+  }));
 
-// Pages - Keep the lazy loading for code splitting
-const Dashboard = React.lazy(() => import('./pages/Dashboard'));
-const LandingPage = React.lazy(() => import('./pages/Landing'));
-const Customers = React.lazy(() => import('./pages/Customers'));
-const NotFound = React.lazy(() => import('./pages/NotFound'));
+  // Check for existing session on initial load
+  useEffect(() => {
+    // Add session check logic here (will be implemented with cookies)
+  }, []);
 
-function App() {
+  if (loading) {
+    return <LoadingSpinner />;
+  }
+
   return (
-    <div className="app">
-      <Suspense fallback={<LoadingSpinner />}>
-        <Routes>
+    <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+      <React.Suspense fallback={<LoadingSpinner />}>
+        <Routes location={location} key={location.pathname}>
           {/* Public Routes */}
           <Route path="/" element={<LandingPage />} />
+          <Route 
+            path="/login" 
+            element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <LoginPage />} 
+          />
           
           {/* Protected Routes */}
-          <Route element={
-            <MainLayout>
-              <Routes>
-                <Route path="/dashboard" element={<Dashboard />} />
-                <Route path="/customers/*" element={<Customers />} />
-              </Routes>
-            </MainLayout>
-          }>
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/customers/*" element={<Customers />} />
-          </Route>
+          <Route 
+            path="/dashboard" 
+            element={
+              isAuthenticated ? (
+                <DashboardPage />
+              ) : (
+                <Navigate to="/login" state={{ from: location }} replace />
+              )
+            } 
+          />
           
           {/* 404 Route */}
-          <Route path="/404" element={<NotFound />} />
-          <Route path="*" element={<Navigate to="/404" replace />} />
+          <Route path="*" element={<NotFoundPage />} />
         </Routes>
-      </Suspense>
-    </div>
+      </React.Suspense>
+    </Box>
   );
 }
 

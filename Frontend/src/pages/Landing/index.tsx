@@ -5,16 +5,17 @@ import {
   Typography, 
   Card, 
   Avatar, 
-  IconButton ,
+  IconButton,
   useTheme,
-  Button
+  Button,
+  useMediaQuery
 } from '@mui/material';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Favorite as FavoriteIcon, 
   ChatBubbleOutline as ChatBubbleOutlineIcon,
   Share as ShareIcon,
-  Instagram as InstagramIcon
+  MoreHoriz as MoreHorizIcon
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 
@@ -58,7 +59,69 @@ const features = [
 const SocialProof = () => {
   const theme = useTheme();
   const [activeIndex, setActiveIndex] = React.useState(0);
-  const [isHovered, setIsHovered] = React.useState(false);
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const [isVisible, setIsVisible] = React.useState(false);
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  const [posts, setPosts] = React.useState([
+    {
+      username: 'alex_johnson',
+      name: 'Alex Johnson',
+      avatar: 'AJ',
+      content: 'Just hit 10K followers with @FollowMee! The engagement tools are next level 🚀 #SocialMediaGrowth',
+      likes: 1243,
+      comments: 89,
+      shares: 45,
+      time: '2h ago',
+      isLiked: false,
+      media: 'https://source.unsplash.com/random/800x600?social,media,post'
+    },
+    {
+      username: 'taylor_swift',
+      name: 'Taylor Swift',
+      avatar: 'TS',
+      content: 'The analytics from @FollowMee helped me understand my audience better than ever before! #DataDriven',
+      likes: 4567,
+      comments: 321,
+      shares: 189,
+      time: '5h ago',
+      isLiked: true,
+      media: 'https://source.unsplash.com/random/800x600?concert,music'
+    },
+    {
+      username: 'tech_enthusiast',
+      name: 'Tech Enthusiast',
+      avatar: 'TE',
+      content: 'If you\'re serious about growing your social presence, you need @FollowMee in your toolkit. Game changer!',
+      likes: 892,
+      comments: 45,
+      shares: 23,
+      time: '1d ago',
+      isLiked: false,
+      media: 'https://source.unsplash.com/random/800x600?tech,app'
+    }
+  ]);
+  
+  // Intersection Observer for scroll animations
+  React.useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsVisible(true);
+        }
+      },
+      { threshold: 0.1 }
+    );
+    
+    if (containerRef.current) {
+      observer.observe(containerRef.current);
+    }
+    
+    return () => {
+      if (containerRef.current) {
+        observer.unobserve(containerRef.current);
+      }
+    };
+  }, []);
 
   const socialPosts = [
     {
@@ -101,210 +164,214 @@ const SocialProof = () => {
 
   // Auto-rotate posts
   React.useEffect(() => {
-    if (isHovered) return;
-    
-    const timer = setInterval(() => {
-      setActiveIndex((prev) => (prev + 1) % socialPosts.length);
-    }, 8000);
-    
-    return () => clearInterval(timer);
-  }, [isHovered, socialPosts.length]);
+    const interval = setInterval(() => {
+      setActiveIndex((prevIndex) => 
+        prevIndex === posts.length - 1 ? 0 : prevIndex + 1
+      );
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [posts.length]);
 
   const handleLike = (index: number) => {
-    // In a real app, this would update the backend
-    socialPosts[index].isLiked = !socialPosts[index].isLiked;
-    socialPosts[index].likes += socialPosts[index].isLiked ? 1 : -1;
+    setPosts(prevPosts => {
+      const newPosts = [...prevPosts];
+      newPosts[index] = {
+        ...newPosts[index],
+        isLiked: !newPosts[index].isLiked,
+        likes: newPosts[index].isLiked 
+          ? newPosts[index].likes - 1 
+          : newPosts[index].likes + 1
+      };
+      return newPosts;
+    });
   };
 
   return (
     <Box 
-      component="section" 
-      sx={{ 
-        py: { xs: 6, md: 10 },
-        background: theme.palette.background.default,
+      ref={containerRef}
+      sx={{
         position: 'relative',
-        overflow: 'hidden'
+        overflow: 'hidden',
+        py: { xs: 4, md: 8 },
+        bgcolor: 'background.default',
       }}
     >
-      {/* Floating social icons */}
-      <Box sx={{
-        position: 'absolute',
-        top: '10%',
-        left: '5%',
-        display: { xs: 'none', lg: 'block' },
-        opacity: 0.1,
-        zIndex: 0
-      }}>
-        <InstagramIcon sx={{ fontSize: 150, color: theme.palette.primary.main }} />
-      </Box>
-
-      <Container maxWidth="lg" sx={{ position: 'relative', zIndex: 1 }}>
-        <Box textAlign="center" mb={8}>
-          <Typography 
-            variant="h3" 
-            sx={{ 
-              fontWeight: 800,
-              mb: 2,
-              background: theme => `linear-gradient(90deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              display: 'inline-block'
-            }}
+      <Container maxWidth="lg">
+        <Box
+          sx={{
+            position: 'relative',
+            zIndex: 1,
+            textAlign: 'center',
+            mb: 6,
+          }}
+        >
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
           >
-            #FollowMeeInAction
-          </Typography>
-          <Typography 
-            variant="h5" 
-            sx={{ 
-              color: 'text.secondary',
-              maxWidth: '700px',
-              mx: 'auto',
-              fontWeight: 400,
-              lineHeight: 1.6
-            }}
-          >
-            See what our community is saying about their social media success
-          </Typography>
+            <Typography
+              variant="h3"
+              component="h2"
+              sx={{
+                fontWeight: 800,
+                mb: 2,
+                fontSize: { xs: '2rem', sm: '2.5rem', md: '3rem' },
+                background: `linear-gradient(90deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                display: 'inline-block',
+              }}
+            >
+              Join Our Growing Community
+            </Typography>
+            <Typography
+              variant="h6"
+              color="text.secondary"
+              sx={{
+                maxWidth: '700px',
+                mx: 'auto',
+                mb: 4,
+                fontSize: { xs: '1rem', sm: '1.1rem' },
+              }}
+            >
+              Trusted by thousands of creators and businesses worldwide
+            </Typography>
+          </motion.div>
         </Box>
-
-        <Box 
-          sx={{ 
+        <Box
+          sx={{
+            position: 'relative',
             maxWidth: '600px',
             mx: 'auto',
-            position: 'relative',
+            mb: 8,
             borderRadius: 4,
             overflow: 'hidden',
-            boxShadow: theme.shadows[8],
+            boxShadow: 6,
+            bgcolor: 'background.paper',
             border: '1px solid',
             borderColor: 'divider',
-            bgcolor: 'background.paper'
           }}
-          onMouseEnter={() => setIsHovered(true)}
-          onMouseLeave={() => setIsHovered(false)}
         >
           <AnimatePresence mode="wait">
             <motion.div
               key={activeIndex}
-              initial={{ opacity: 0, x: 20 }}
+              initial={{ opacity: 0, x: 100 }}
               animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
+              exit={{ opacity: 0, x: -100 }}
               transition={{ duration: 0.4 }}
+              style={{ height: '100%' }}
             >
-              <Card elevation={0} sx={{ borderRadius: 0, border: 'none' }}>
-                {/* Post Header */}
+              <Card
+                sx={{
+                  borderRadius: 0,
+                  boxShadow: 'none',
+                  height: '100%',
+                  display: 'flex',
+                  flexDirection: 'column',
+                }}
+              >
                 <Box sx={{ p: 2, display: 'flex', alignItems: 'center', borderBottom: '1px solid', borderColor: 'divider' }}>
-                  <Avatar 
-                    sx={{ 
-                      width: 40, 
-                      height: 40, 
-                      bgcolor: theme.palette.primary.main,
-                      color: theme.palette.primary.contrastText,
+                  <Avatar
+                    sx={{
+                      width: 40,
+                      height: 40,
+                      mr: 1.5,
+                      bgcolor: 'primary.main',
+                      color: 'primary.contrastText',
                       fontWeight: 600,
-                      mr: 2
                     }}
                   >
-                    {socialPosts[activeIndex].avatar}
+                    {posts[activeIndex].avatar}
                   </Avatar>
-                  <Box>
-                    <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>{socialPosts[activeIndex].name}</Typography>
-                    <Typography variant="caption" color="text.secondary">@{socialPosts[activeIndex].username} • {socialPosts[activeIndex].time}</Typography>
+                  <Box sx={{ flex: 1 }}>
+                    <Typography variant="subtitle2" fontWeight={600}>
+                      {posts[activeIndex].name}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      @{posts[activeIndex].username} • {posts[activeIndex].time}
+                    </Typography>
+                  </Box>
+                  <IconButton size="small" sx={{ color: 'text.secondary' }}>
+                    <MoreHorizIcon />
+                  </IconButton>
+                </Box>
+
+                <Box sx={{ p: 3, flex: 1 }}>
+                  <Typography variant="body1" sx={{ mb: 2 }}>
+                    {posts[activeIndex].content}
+                  </Typography>
+                  
+                  <Box
+                    component={motion.div}
+                    sx={{
+                      position: 'relative',
+                      borderRadius: 2,
+                      overflow: 'hidden',
+                      height: '400px',
+                      bgcolor: 'action.hover',
+                      mb: 2,
+                    }}
+                    whileHover={{ scale: 1.02 }}
+                    transition={{ type: 'spring', stiffness: 400, damping: 10 }}
+                  >
+                    <Box
+                      component="img"
+                      src={posts[activeIndex].media}
+                      alt="Post media"
+                      sx={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover',
+                        transition: 'transform 0.3s ease-in-out',
+                      }}
+                    />
                   </Box>
                 </Box>
 
-                {/* Post Content */}
-                <Box sx={{ p: 3, pb: 2 }}>
-                  <Typography>{socialPosts[activeIndex].content}</Typography>
-                </Box>
-
-                {/* Post Media */}
-                <Box 
-                  sx={{ 
-                    height: '300px', 
-                    background: `url(${socialPosts[activeIndex].media}) center/cover no-repeat`,
-                    position: 'relative'
-                  }}
-                />
-
-                {/* Post Actions */}
-                <Box sx={{ p: 2, display: 'flex', justifyContent: 'space-between', borderTop: '1px solid', borderColor: 'divider' }}>
-                  <Box sx={{ display: 'flex', gap: 2 }}>
-                    <IconButton 
-                      size="small" 
-                      color={socialPosts[activeIndex].isLiked ? 'error' : 'default'}
-                      onClick={() => handleLike(activeIndex)}
-                    >
-                      <FavoriteIcon fontSize="small" />
-                    </IconButton>
-                    <IconButton size="small">
-                      <ChatBubbleOutlineIcon fontSize="small" />
-                    </IconButton>
-                    <IconButton size="small">
-                      <ShareIcon fontSize="small" />
-                    </IconButton>
-                  </Box>
-                  <Typography variant="caption" color="text.secondary">
-                    {socialPosts[activeIndex].likes.toLocaleString()} likes • {socialPosts[activeIndex].comments} comments
+                <Box sx={{ px: 2, pb: 2, display: 'flex', gap: 2, borderTop: '1px solid', borderColor: 'divider' }}>
+                  <IconButton
+                    size="small"
+                    onClick={() => handleLike(activeIndex)}
+                    sx={{
+                      color: posts[activeIndex].isLiked ? 'error.main' : 'text.secondary',
+                      '&:hover': {
+                        color: 'error.main',
+                        transform: 'scale(1.1)',
+                      },
+                      transition: 'all 0.2s ease-in-out',
+                    }}
+                  >
+                    <FavoriteIcon />
+                  </IconButton>
+                  <IconButton size="small" sx={{ color: 'text.secondary' }}>
+                    <ChatBubbleOutlineIcon />
+                  </IconButton>
+                  <IconButton size="small" sx={{ color: 'text.secondary' }}>
+                    <ShareIcon />
+                  </IconButton>
+                  <Box sx={{ flex: 1 }} />
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: 'text.secondary',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 0.5,
+                    }}
+                  >
+                    <FavoriteIcon fontSize="inherit" color={posts[activeIndex].isLiked ? 'error' : 'disabled'} sx={{ fontSize: '1rem' }} />
+                    {posts[activeIndex].likes.toLocaleString()}
+                    <Box component="span" mx={0.5}>•</Box>
+                    <ChatBubbleOutlineIcon fontSize="inherit" color="disabled" sx={{ fontSize: '1rem' }} />
+                    {posts[activeIndex].comments}
                   </Typography>
                 </Box>
               </Card>
             </motion.div>
           </AnimatePresence>
-
-          {/* Navigation Dots */}
-          <Box sx={{ display: 'flex', justifyContent: 'center', p: 2, bgcolor: 'background.paper' }}>
-            {socialPosts.map((_, index) => (
-              <Box
-                key={index}
-                onClick={() => setActiveIndex(index)}
-                sx={{
-                  width: 8,
-                  height: 8,
-                  borderRadius: '50%',
-                  bgcolor: index === activeIndex ? 'primary.main' : 'action.disabled',
-                  mx: 0.5,
-                  cursor: 'pointer',
-                  transition: 'all 0.3s ease',
-                  '&:hover': {
-                    bgcolor: 'primary.main',
-                    transform: 'scale(1.2)'
-                  }
-                }}
-              />
-            ))}
-          </Box>
-        </Box>
-
-        {/* Social Proof Stats */}
-        <Box 
-          sx={{ 
-            display: 'grid',
-            gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(4, 1fr)' },
-            gap: 3,
-            mt: 8,
-            textAlign: 'center'
-          }}
-        >
-          {[
-            { value: '10K+', label: 'Active Users' },
-            { value: '95%', label: 'Satisfaction' },
-            { value: '4.9/5', label: 'Rating' },
-            { value: '24/7', label: 'Support' }
-          ].map((stat, index) => (
-            <motion.div
-              key={stat.label}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: index * 0.1 }}
-            >
-              <Typography variant="h4" sx={{ fontWeight: 800, mb: 1 }}>
-                {stat.value}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                {stat.label}
-              </Typography>
-            </motion.div>
-          ))}
         </Box>
       </Container>
     </Box>
@@ -442,7 +509,7 @@ const Footer = () => {
         
         <Box sx={{ mt: 6, pt: 4, borderTop: `1px solid ${theme.palette.divider}`, textAlign: 'center' }}>
           <Typography variant="body2" color="text.secondary">
-            © {new Date().getFullYear()} FollowMee. All rights reserved.
+            {new Date().getFullYear()} FollowMee. All rights reserved.
           </Typography>
         </Box>
       </Container>

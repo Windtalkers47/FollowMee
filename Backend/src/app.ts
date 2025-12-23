@@ -3,6 +3,7 @@ import express, { Application, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
+import cookieParser from 'cookie-parser';
 import dataSource from './config/database';
 import dotenv from 'dotenv';
 import { logger } from './utils/logger';
@@ -23,28 +24,72 @@ class App {
     this.app = express();
     this.port = parseInt(process.env.PORT || '3000');
     this.database = dataSource;
+  }
 
-    this.initializeMiddlewares();
-    this.initializeRoutes();
-    this.initializeErrorHandling();
+  // Initialize the application
+  public async initialize() {
+    try {
+      // Initialize database first
+      await this.initializeDatabase();
+      
+      // Then set up other middleware and routes
+      this.initializeMiddlewares();
+      this.initializeRoutes();
+      this.initializeErrorHandling();
+      
+      logger.info('Application initialized successfully');
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error : new Error('Unknown error during initialization');
+      logger.error('Failed to initialize application:', errorMessage);
+      throw errorMessage;
+    }
+  }
+
+  // Get the port number
+  public getPort(): number {
+    return this.port;
+  }
+
+  // Initialize database connection
+  private async initializeDatabase(): Promise<void> {
+    try {
+      if (!this.database.isInitialized) {
+        await this.database.initialize();
+        logger.info('Database connection has been established successfully.');
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error : new Error('Unknown database error');
+      logger.error(`Unable to connect to the database: ${errorMessage.message}`);
+      throw errorMessage;
+    }
   }
 
   private initializeMiddlewares(): void {
-    // Configure CORS with credentials support
+    // Enable CORS with credentials
     this.app.use(cors({
-      origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+      origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization']
+      allowedHeaders: ['Content-Type', 'Authorization'],
+      exposedHeaders: ['set-cookie']
     }));
-    
+
+    // Set security HTTP headers
     this.app.use(helmet());
-    this.app.use(morgan('dev'));
+
+    // Parse JSON request body
     this.app.use(express.json());
+
+    // Parse urlencoded request body
     this.app.use(express.urlencoded({ extended: true }));
-    
+
     // Parse cookies
-    this.app.use(require('cookie-parser')());
+    this.app.use(cookieParser());
+
+    // Logger middleware
+    if (process.env.NODE_ENV === 'development') {
+      this.app.use(morgan('dev'));
+    }
   }
 
   private initializeRoutes(): void {
@@ -80,15 +125,7 @@ class App {
     });
   }
 
-  private async initializeDatabase() {
-    try {
-      await this.database.initialize();
-      // Database connection is now silent
-    } catch (error) {
-      console.error('Database connection error:', error);
-      throw error;
-    }
-  }
+
 
   private getIpAddress(): string {
     const interfaces = require('os').networkInterfaces();
@@ -105,15 +142,21 @@ class App {
 
   public async start(): Promise<void> {
     try {
+      // Initialize database connection first
       await this.initializeDatabase();
-      logger.success('Database connected successfully');
-
+      
       // Start the server
-      this.app.listen(this.port, () => {
-        logger.serverStart(this.port);
+      return new Promise((resolve) => {
+        this.app.listen(this.port, () => {
+          const ip = this.getIpAddress();
+          logger.info(`Server is running on http://${ip}:${this.port}`);
+          logger.info(`API Documentation: http://${ip}:${this.port}/api-docs`);
+          resolve();
+        });
       });
     } catch (error) {
-      console.error('Error starting the server:', error);
+      const errorMessage = error instanceof Error ? error : new Error('Failed to start the server');
+      logger.error(`Server startup error: ${errorMessage.message}`);
       process.exit(1);
     }
   }

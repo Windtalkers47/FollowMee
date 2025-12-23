@@ -1,6 +1,7 @@
 import { DataSource, DataSourceOptions } from 'typeorm';
 import dotenv from 'dotenv';
 import path from 'path';
+import { User } from '../entities/User';
 
 dotenv.config();
 
@@ -16,6 +17,7 @@ const dataSourceOptions: DataSourceOptions = {
   synchronize: !isProduction, // Set to false in production
   logging: !isProduction,
   entities: [
+    User,
     path.join(__dirname, '../entities/**/*.entity{.ts,.js}')
   ],
   migrations: [
@@ -24,6 +26,15 @@ const dataSourceOptions: DataSourceOptions = {
   subscribers: [],
   migrationsRun: true,
 };
+
+// Log the database connection options
+console.log('Database connection options:', {
+  host: dataSourceOptions.host,
+  port: dataSourceOptions.port,
+  database: dataSourceOptions.database,
+  username: dataSourceOptions.username,
+  entities: dataSourceOptions.entities
+});
 
 const dataSource = new DataSource(dataSourceOptions);
 

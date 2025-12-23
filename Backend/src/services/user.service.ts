@@ -1,91 +1,127 @@
-import { AppDataSource } from '../config/database';
-import User from '../entities/User';
-import bcrypt from 'bcryptjs';
+import * as bcrypt from 'bcryptjs';
+import { User } from '../entities/User';
+import { CreateUserDto } from '../dtos/create-user.dto';
+import { UserResponseDto } from '../dtos/user-response.dto';
+import { UserRepository } from '../repositories/user.repository';
 
 export class UserService {
-  private userRepository = AppDataSource.getRepository(User);
+  private userRepository: UserRepository;
 
-  async getAllUsers() {
-    return this.userRepository.find({
-      select: ['userId', 'userName', 'userLastName', 'userEmail', 'userPhone1', 'isActive', 'createdAt']
-    });
+  constructor() {
+    this.userRepository = new UserRepository();
   }
 
-  async getUserById(id: number) {
-    const user = await this.userRepository.findOne({ 
-      where: { userId: id },
-      select: ['userId', 'userName', 'userLastName', 'userEmail', 'userPhone1', 'isActive', 'createdAt']
-    });
+  /**
+   * Get all active users
+   */
+  async getAllUsers(): Promise<UserResponseDto[]> {
+    const users = await this.userRepository.find({ isActive: true });
+    return users.map(user => new UserResponseDto(user));
+  }
+
+  /**
+   * Get user by ID
+   */
+  async getUserById(id: number): Promise<UserResponseDto> {
+    const user = await this.userRepository.findOne({ userId: id });
     
     if (!user) {
       throw new Error('User not found');
     }
     
-    return user;
+    return new UserResponseDto(user);
   }
 
-  async createUser(userData: Omit<User, 'userId' | 'createdAt' | 'updatedAt'>) {
-    const existingUser = await this.userRepository.findOne({ 
-      where: { userEmail: userData.userEmail } 
-    });
-    
+  /**
+   * Create a new user
+   */
+  async createUser(userData: CreateUserDto): Promise<UserResponseDto> {
+    // Check if user with email already exists
+    const existingUser = await this.userRepository.findByEmail(userData.userEmail);
     if (existingUser) {
       throw new Error('User with this email already exists');
     }
 
-    const hashedPassword = await bcrypt.hash(userData.userPassword, 10);
-    const user = this.userRepository.create({
-      ...userData,
-      userPassword: hashedPassword
-    });
+    // Create new user
+    const user = new User();
+    Object.assign(user, userData);
     
-    await this.userRepository.save(user);
+    // Save will trigger the @BeforeInsert hook to hash the password
+    const createdUser = await this.userRepository.create(user);
     
-    // Don't return password
-    const { userPassword, ...result } = user;
-    return result;
+    return new UserResponseDto(createdUser);
   }
 
-  async updateUser(id: number, userData: Partial<User>) {
-    const user = await this.userRepository.findOne({ where: { userId: id } });
-    
+  /**
+   * Update user information
+   */
+  async updateUser(
+    id: number, 
+    userData: Partial<Omit<CreateUserDto, 'userPassword'>> & { userPassword?: string }
+  ): Promise<UserResponseDto> {
+    const user = await this.userRepository.findOne({ userId: id });
     if (!user) {
       throw new Error('User not found');
     }
 
-    // Don't allow updating email to an existing one
+    // Check if email is being updated and if it's already in use
     if (userData.userEmail && userData.userEmail !== user.userEmail) {
-      const existingUser = await this.userRepository.findOne({ 
-        where: { userEmail: userData.userEmail } 
-      });
-      
+      const existingUser = await this.userRepository.findByEmail(userData.userEmail);
       if (existingUser) {
         throw new Error('Email already in use');
       }
     }
 
-    // Hash new password if provided
+    // Update user data
+    Object.assign(user, userData);
+    
+    // If password is being updated, it will be hashed by the @BeforeUpdate hook
     if (userData.userPassword) {
-      userData.userPassword = await bcrypt.hash(userData.userPassword, 10);
+      user.userPassword = userData.userPassword;
     }
 
-    Object.assign(user, userData);
-    await this.userRepository.save(user);
-    
-    // Don't return password
-    const { userPassword, ...result } = user;
-    return result;
+    const updatedUser = await this.userRepository.update(id, user);
+    if (!updatedUser) {
+      throw new Error('Failed to update user');
+    }
+
+    return new UserResponseDto(updatedUser);
   }
 
-  async deleteUser(id: number) {
-    const user = await this.userRepository.findOne({ where: { userId: id } });
-    
+  /**
+   * Soft delete a user (mark as inactive)
+   */
+  async deleteUser(id: number): Promise<{ message: string }> {
+    const user = await this.userRepository.findOne({ userId: id });
     if (!user) {
       throw new Error('User not found');
     }
-    
-    await this.userRepository.remove(user);
-    return { message: 'User deleted successfully' };
+
+    await this.userRepository.markAsInactive(id);
+    return { message: 'User deactivated successfully' };
+  }
+
+  /**
+   * Change user password
+   */
+  async changePassword(userId: number, currentPassword: string, newPassword: string): Promise<boolean> {
+    const user = await this.userRepository.findByEmail(
+      (await this.getUserById(userId)).userEmail,
+      true // Include password fields
+    ) as User & { userPassword: string };
+
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    // Verify current password
+    const isPasswordValid = await bcrypt.compare(currentPassword, user.userPassword);
+    if (!isPasswordValid) {
+      throw new Error('Current password is incorrect');
+    }
+
+    // Update to new password (will be hashed by the repository)
+    return this.userRepository.updatePassword(userId, newPassword);
   }
 }
 

@@ -73,7 +73,7 @@ const SocialProof = () => {
       shares: 45,
       time: '2h ago',
       isLiked: false,
-      media: 'https://source.unsplash.com/random/800x600?social,media,post'
+      media: 'https://www.mensjournal.com/.image/w_1080,q_auto:good,c_fill,ar_16:9/MjE2MjQyMDQ3MzE5ODExNjAz/today-season-74.jpg'
     },
     {
       username: 'taylor_swift',
@@ -85,7 +85,7 @@ const SocialProof = () => {
       shares: 189,
       time: '5h ago',
       isLiked: true,
-      media: 'https://source.unsplash.com/random/800x600?concert,music'
+      media: 'https://scontent.fkkc1-1.fna.fbcdn.net/v/t39.30808-6/531678941_1316703926488089_8874715503690430905_n.jpg?_nc_cat=108&ccb=1-7&_nc_sid=127cfc&_nc_ohc=QYWlEjUYmAkQ7kNvwHDeDWY&_nc_oc=AdlDHmevO70kNNm8JgaqWjHioULjMurQmd4i21Qr1HBQe-fMB-_Jz_9RXxkp1PEtU8c&_nc_zt=23&_nc_ht=scontent.fkkc1-1.fna&_nc_gid=ZTGO3YES8hRx2XZNXPbF5A&oh=00_Aflq6nz8jBXlMKXWdLn1odaUpFTwq5a7J19eeTme4ww-FA&oe=694FED53'
     },
     {
       username: 'tech_enthusiast',
@@ -97,7 +97,7 @@ const SocialProof = () => {
       shares: 23,
       time: '1d ago',
       isLiked: false,
-      media: 'https://source.unsplash.com/random/800x600?tech,app'
+      media: 'https://blog.siggraph.org/wp-content/uploads/2016/12/28594873206_4ace807965_k-e1482172197613.jpg'
     }
   ]);
   

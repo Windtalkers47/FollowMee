@@ -1,7 +1,8 @@
 import React, { useEffect } from 'react';
 import { Box, CircularProgress } from '@mui/material';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { useAppSelector } from './store/store';
+import { useAppSelector, useAppDispatch } from './store/store';
+import { loginSuccess, logout } from './store/slices/authSlice';
 import LandingPage from './pages/Landing';
 
 // Lazy load other pages
@@ -17,6 +18,7 @@ const LoadingSpinner = () => (
 
 const App = () => {
   const location = useLocation();
+  const dispatch = useAppDispatch();
   const { isAuthenticated, loading } = useAppSelector((state) => ({
     isAuthenticated: state.auth.isAuthenticated,
     loading: state.auth.loading,
@@ -24,8 +26,24 @@ const App = () => {
 
   // Check for existing session on initial load
   useEffect(() => {
-    // Add session check logic here (will be implemented with cookies)
-  }, []);
+    const checkAuthStatus = async () => {
+      const token = localStorage.getItem('token');
+      if (token) {
+        try {
+          // Here you would typically verify the token with your backend
+          // For now, we'll just check if token exists
+          dispatch(loginSuccess({ user: null, token }));
+        } catch (error) {
+          localStorage.removeItem('token');
+          dispatch(logout());
+        }
+      } else {
+        dispatch({ type: 'auth/clearLoading' });
+      }
+    };
+
+    checkAuthStatus();
+  }, [dispatch]);
 
   if (loading) {
     return <LoadingSpinner />;

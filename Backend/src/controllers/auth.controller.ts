@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { validationResult } from 'express-validator';
 import * as bcrypt from 'bcrypt';
 import { AuthService } from '../services/auth.service';
+import emailService from '../services/email.service';
 import AppDataSource from '../config/database';
 import { User } from '../entities/User';
 import jwt from 'jsonwebtoken';
@@ -331,8 +332,13 @@ class AuthController {
           { expiresIn: '1h' }
         );
 
-        // In a real app, send email with reset link
-        console.log(`Password reset token for ${email}:`, resetToken);
+        // Save the reset token to the user record
+        user.resetToken = resetToken;
+        user.resetTokenExpires = new Date(Date.now() + 3600000); // 1 hour from now
+        await this.userRepository.save(user);
+
+        // Send password reset email
+        await emailService.sendPasswordResetEmail(email, resetToken);
       }
 
       // Always return success to prevent email enumeration
@@ -348,7 +354,7 @@ class AuthController {
         error: process.env.NODE_ENV === 'development' ? error.message : undefined
       });
     }
-  }
+  };
 
   /**
    * Reset password using a token
@@ -357,44 +363,78 @@ class AuthController {
     try {
       const { token, newPassword } = req.body;
 
-      if (!token) {
+      if (!token || !newPassword) {
         return res.status(400).json({
           success: false,
-          message: 'Token is required'
+          message: 'Token and new password are required'
         });
       }
 
-      // Find user by token
-      const user = await this.userRepository.findOne({
-        where: { resetToken: token }
-      });
+      try {
+        // First, find any user with this reset token
+        const user = await this.userRepository.findOne({
+          where: { resetToken: token }
+        });
 
-      if (!user) {
+        if (!user) {
+          return res.status(400).json({
+            success: false,
+            message: 'Invalid or expired token'
+          });
+        }
+
+        // Verify the token with the user's current password in the secret
+        const decoded = jwt.verify(token, this.JWT_SECRET + (user.userPassword || '')) as { 
+          userId: number; 
+          email: string; 
+          type: string;
+          iat: number;
+          exp: number;
+        };
+        
+        if (decoded.type !== 'password_reset') {
+          throw new Error('Invalid token type');
+        }
+
+        // Check if token is expired
+        if (decoded.exp * 1000 < Date.now()) {
+          // Clear the expired token
+          user.resetToken = undefined;
+          user.resetTokenExpires = undefined;
+          await this.userRepository.save(user);
+          
+          return res.status(400).json({
+            success: false,
+            message: 'Token has expired. Please request a new password reset.'
+          });
+        }
+
+        // Update password and clear reset token
+        user.userPassword = newPassword; // The @BeforeUpdate hook will hash it
+        user.resetToken = undefined;
+        user.resetTokenExpires = undefined;
+        await this.userRepository.save(user);
+
+        return res.status(200).json({
+          success: true,
+          message: 'Password has been reset successfully'
+        });
+      } catch (error) {
+        console.error('Token verification error:', error);
         return res.status(400).json({
           success: false,
           message: 'Invalid or expired token'
         });
       }
-
-      // Set the new password - it will be hashed by the User entity's @BeforeUpdate hook
-      user.userPassword = newPassword;
-      user.resetToken = undefined; // Use undefined instead of null
-      await this.userRepository.save(user);
-
-      return res.status(200).json({
-        success: true,
-        message: 'Password reset successful'
-      });
     } catch (error: any) {
-      console.error('Reset password error:', error);
+      console.error('Password reset error:', error);
       return res.status(500).json({
         success: false,
-        message: 'Failed to reset password',
+        message: 'Error resetting password',
         error: process.env.NODE_ENV === 'development' ? error.message : undefined
       });
     }
-  }
-
+  };
 }
 
 export default new AuthController();

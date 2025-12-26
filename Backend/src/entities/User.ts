@@ -1,6 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, BeforeInsert, BeforeUpdate } from 'typeorm';
 import { IsEmail, IsNotEmpty, IsOptional } from 'class-validator';
-import * as bcrypt from 'bcryptjs';
+import * as bcrypt from 'bcrypt';
 
 @Entity('users')
 export class User {
@@ -23,9 +23,6 @@ export class User {
   @Column({ length: 255, select: false })
   @IsNotEmpty()
   userPassword!: string;
-
-  @Column({ length: 255, nullable: true, select: false })
-  userPasswordHash?: string;
 
   @Column({ length: 20, nullable: true })
   @IsOptional()
@@ -57,17 +54,14 @@ export class User {
   @BeforeInsert()
   @BeforeUpdate()
   async hashPassword() {
-    if (this.userPassword) {
-      const salt = await bcrypt.genSalt();
-      this.userPasswordHash = await bcrypt.hash(this.userPassword, salt);
-      // Don't store plain password
-      this.userPassword = '';
+    // Only hash the password if it's been modified (or is new)
+    if (this.userPassword && !this.userPassword.startsWith('$2a$') && !this.userPassword.startsWith('$2b$')) {
+      this.userPassword = await bcrypt.hash(this.userPassword, 10);
     }
   }
 
-  // Verify password
-  async verifyPassword(password: string): Promise<boolean> {
-    return bcrypt.compare(password, this.userPasswordHash || '');
+  async verifyPassword(attempt: string): Promise<boolean> {
+    return bcrypt.compare(attempt, this.userPassword);
   }
 
   // Helper method to get full name (optional)

@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { validationResult } from 'express-validator';
+import * as bcrypt from 'bcrypt';
 import { AuthService } from '../services/auth.service';
 import AppDataSource from '../config/database';
 import { User } from '../entities/User';
@@ -45,7 +46,7 @@ class AuthController {
         });
       }
 
-      const { email, password, userName, userLastName, userPhone1 } = req.body;
+      const { email, userPassword, userName, userLastName, userPhone1 } = req.body;
 
       // Check if user already exists
       const existingUser = await this.userRepository.findOne({ 
@@ -62,11 +63,13 @@ class AuthController {
       // Create new user
       const user = new User();
       user.userEmail = email;
-      user.userPassword = password; // Will be hashed by the entity hook
       user.userName = userName;
       user.userLastName = userLastName || '';
       user.userPhone1 = userPhone1 || '';
       user.isActive = true;
+      
+      // Set the password - it will be hashed by the User entity's @BeforeInsert hook
+      user.userPassword = userPassword;
 
       // Save user to database
       await this.userRepository.save(user);
@@ -76,7 +79,7 @@ class AuthController {
       this.setAuthCookie(res, token);
 
       // Don't send back the password
-      const { userPassword, ...userWithoutPassword } = user;
+      const { userPassword: _, ...userWithoutPassword } = user;
 
       return res.status(201).json({
         success: true,
@@ -110,15 +113,27 @@ class AuthController {
 
       const { email, password } = req.body;
 
-      // Authenticate user and get user data
-      const userData = await this.authService.login(email, password, res);
-      
-      // Create a proper User instance
-      const user = new User();
-      Object.assign(user, userData);
+      // Find user by email
+      const user = await this.userRepository.findOne({ 
+        where: { userEmail: email },
+        select: ['userId', 'userEmail', 'userName', 'userPassword', 'isActive']
+      });
+
+      if (!user) {
+        throw new Error('Invalid email or password');
+      }
+
+      // Verify password using the User entity's verifyPassword method
+      const isPasswordValid = await user.verifyPassword(password);
+      if (!isPasswordValid) {
+        throw new Error('Invalid email or password');
+      }
       
       // Generate JWT token
       const token = this.generateToken(user);
+      
+      // Set HTTP-only cookie
+      this.setAuthCookie(res, token);
 
       // Don't send back the password
       const { userPassword, ...userWithoutPassword } = user;
@@ -237,7 +252,7 @@ class AuthController {
         });
       }
 
-      // Verify current password
+      // Verify current password using the User entity's verifyPassword method
       const isPasswordValid = await user.verifyPassword(currentPassword);
       if (!isPasswordValid) {
         return res.status(401).json({
@@ -246,7 +261,7 @@ class AuthController {
         });
       }
 
-      // Update password (will be hashed by the entity hook)
+      // Set the new password - it will be hashed by the User entity's @BeforeUpdate hook
       user.userPassword = newPassword;
       await this.userRepository.save(user);
 
@@ -361,7 +376,7 @@ class AuthController {
         });
       }
 
-      // Update password
+      // Set the new password - it will be hashed by the User entity's @BeforeUpdate hook
       user.userPassword = newPassword;
       user.resetToken = undefined; // Use undefined instead of null
       await this.userRepository.save(user);

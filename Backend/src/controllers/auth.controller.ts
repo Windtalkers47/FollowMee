@@ -1,11 +1,22 @@
 import { Request, Response } from 'express';
 import { validationResult } from 'express-validator';
-import * as bcrypt from 'bcrypt';
-import { AuthService } from '../services/auth.service';
+import { AuthService, TokenPayload } from '../services/auth.service';
 import emailService from '../services/email.service';
+import auditService from '../services/audit.service';
 import AppDataSource from '../config/database';
 import { User } from '../entities/User';
-import jwt from 'jsonwebtoken';
+import { UserSession } from '../entities/UserSession';
+import { In } from 'typeorm';
+import rateLimit from 'express-rate-limit';
+import * as jwt from 'jsonwebtoken';
+
+// Rate limiting for login attempts
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // Limit each IP to 5 login attempts per windowMs
+  message: 'Too many login attempts. Please try again later.',
+  skipSuccessfulRequests: true,
+});
 
 // Extend Express Request type to include user
 declare global {
@@ -22,8 +33,10 @@ declare global {
 class AuthController {
   private authService: AuthService;
   private userRepository = AppDataSource.getRepository(User);
+  private sessionRepository = AppDataSource.getRepository(UserSession);
   private readonly JWT_SECRET: string;
-  private readonly JWT_EXPIRES_IN = '24h';
+  private readonly JWT_EXPIRES_IN = '15m';
+  private readonly REFRESH_TOKEN_EXPIRES_IN_DAYS = 7;
 
   constructor() {
     this.authService = new AuthService();
@@ -32,6 +45,13 @@ class AuthController {
     if (!this.JWT_SECRET) {
       throw new Error('JWT_SECRET is not defined in environment variables');
     }
+  }
+  
+  /**
+   * Apply rate limiting to login route
+   */
+  get loginRateLimiter() {
+    return loginLimiter;
   }
 
   /**
@@ -75,9 +95,8 @@ class AuthController {
       // Save user to database
       await this.userRepository.save(user);
 
-      // Log the user in (set auth cookie)
-      const token = this.generateToken(user);
-      this.setAuthCookie(res, token);
+      // Log the user in using auth service
+      const result = await this.authService.login(email, userPassword, req, res);
 
       // Don't send back the password
       const { userPassword: _, ...userWithoutPassword } = user;
@@ -130,12 +149,9 @@ class AuthController {
         throw new Error('Invalid email or password');
       }
       
-      // Generate JWT token
-      const token = this.generateToken(user);
+      // Use auth service to handle login (includes token generation and cookie setting)
+      const result = await this.authService.login(email, password, req, res);
       
-      // Set HTTP-only cookie
-      this.setAuthCookie(res, token);
-
       // Don't send back the password
       const { userPassword, ...userWithoutPassword } = user;
 
@@ -156,24 +172,63 @@ class AuthController {
 
   /**
    * Logout user by clearing the auth cookie
-   */
-  logout = async (_req: Request, res: Response) => {
-    try {
-      res.clearCookie('token', {
-        path: '/',
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax'
       });
-      return res.status(200).json({
+    }
+  }
+
+  /**
+   * Logout user and clear session
+   */
+  logout = async (req: Request, res: Response) => {
+    try {
+      // Get refresh token from cookie
+      const refreshToken = req.cookies?.refresh_token;
+      
+      if (refreshToken) {
+        // Revoke the refresh token
+        await this.sessionRepository.update(
+          { refreshToken, isActive: true },
+          { isActive: false, revokedAt: new Date() }
+        );
+        
+        // Log the logout
+        if (req.user) {
+          await auditService.logEvent({
+            userId: req.user.userId,
+            action: 'LOGOUT',
+            status: 'SUCCESS',
+            ipAddress: req.ip,
+            userAgent: req.headers['user-agent']
+          });
+        }
+      }
+      
+      // Clear auth cookies
+      res.clearCookie('access_token');
+      res.clearCookie('refresh_token');
+      
+      res.json({
         success: true,
         message: 'Logout successful'
       });
-    } catch (error: any) {
+    } catch (error) {
       console.error('Logout error:', error);
-      return res.status(500).json({
+      
+      await auditService.logEvent({
+        userId: req.user?.userId || null,
+        action: 'LOGOUT',
+        status: 'FAILURE',
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+        details: { 
+          error: error instanceof Error ? error.message : 'Unknown error',
+          stack: error instanceof Error ? error.stack : undefined
+        }
+      });
+      
+      res.status(500).json({
         success: false,
-        message: 'Logout failed'
+        message: 'An error occurred during logout'
       });
     }
   }
@@ -281,34 +336,6 @@ class AuthController {
   }
 
   /**
-   * Generate JWT token for a user
-   */
-  private generateToken = (user: User): string => {
-    return jwt.sign(
-      { 
-        userId: user.userId, 
-        email: user.userEmail,
-        role: 'user' // Default role
-      },
-      this.JWT_SECRET,
-      { expiresIn: this.JWT_EXPIRES_IN }
-    );
-  }
-
-  /**
-   * Set authentication cookie
-   */
-  private setAuthCookie = (res: Response, token: string): void => {
-    res.cookie('token', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 24 * 60 * 60 * 1000, // 24 hours
-      path: '/',
-    });
-  }
-
-  /**
    * Request password reset
    */
   requestPasswordReset = async (req: Request, res: Response) => {
@@ -399,8 +426,8 @@ class AuthController {
         // Check if token is expired
         if (decoded.exp * 1000 < Date.now()) {
           // Clear the expired token
-          user.resetToken = undefined;
-          user.resetTokenExpires = undefined;
+          user.resetToken = null;
+          user.resetTokenExpires = null;
           await this.userRepository.save(user);
           
           return res.status(400).json({
@@ -411,8 +438,8 @@ class AuthController {
 
         // Update password and clear reset token
         user.userPassword = newPassword; // The @BeforeUpdate hook will hash it
-        user.resetToken = undefined;
-        user.resetTokenExpires = undefined;
+        user.resetToken = null;
+        user.resetTokenExpires = null;
         await this.userRepository.save(user);
 
         return res.status(200).json({

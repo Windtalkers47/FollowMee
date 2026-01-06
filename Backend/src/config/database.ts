@@ -2,6 +2,8 @@ import { DataSource, DataSourceOptions } from 'typeorm';
 import dotenv from 'dotenv';
 import path from 'path';
 import { User } from '../entities/User';
+import { UserSession } from '../entities/UserSession';
+import { AuditLog } from '../entities/AuditLog';
 
 dotenv.config();
 
@@ -18,6 +20,9 @@ const dataSourceOptions: DataSourceOptions = {
   logging: !isProduction,
   entities: [
     User,
+    UserSession,
+    AuditLog,
+    // Other entities will be loaded automatically by the glob pattern
     path.join(__dirname, '../entities/**/*.entity{.ts,.js}')
   ],
   migrations: [

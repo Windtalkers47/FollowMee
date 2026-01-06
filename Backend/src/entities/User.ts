@@ -7,33 +7,31 @@ export class User {
   @PrimaryGeneratedColumn()
   userId!: number;
 
-  @Column({ length: 50 })
+  @Column('varchar', { length: 50 })
   @IsNotEmpty()
   userName!: string;
 
-  @Column({ length: 50 })
+  @Column('varchar', { length: 50 })
   @IsNotEmpty()
   userLastName!: string;
 
-  @Column({ length: 100, unique: true })
+  @Column('varchar', { length: 100, unique: true })
   @IsEmail()
   @IsNotEmpty()
   userEmail!: string;
 
-  @Column({ length: 255, select: false })
+  @Column('varchar', { length: 255, select: false })
   @IsNotEmpty()
   userPassword!: string;
 
-  @Column({ length: 20, nullable: true })
-  @IsOptional()
-  userPhone1?: string;
+  @Column('varchar', { length: 20, nullable: true })
+  userPhone1!: string | null;
 
-  @Column({ length: 20, nullable: true })
-  @IsOptional()
-  userPhone2?: string;
+  @Column('varchar', { length: 20, nullable: true })
+  userPhone2!: string | null;
 
-  @Column({ default: true })
-  isActive: boolean = true;
+  @Column('boolean', { default: true })
+  isActive!: boolean;
 
   @CreateDateColumn({ type: 'timestamp' })
   createdAt!: Date;
@@ -41,33 +39,52 @@ export class User {
   @UpdateDateColumn({ type: 'timestamp' })
   updatedAt!: Date;
 
-  @Column({ nullable: true, select: false })
-  resetToken?: string;
+  @Column('varchar', { nullable: true, select: false })
+  resetToken!: string | null;
 
-  @Column({ type: 'timestamp', nullable: true })
-  resetTokenExpires?: Date;
+  @Column('datetime', { nullable: true })
+  resetTokenExpires!: Date | null;
 
-  @Column({ length: 50, nullable: true })
-  userRole?: string;
+  @Column('varchar', { length: 50, nullable: true })
+  role!: string | null;
 
-  // Hash password before saving
+  // Login attempt tracking
+  @Column('int', { default: 0, select: false })
+  loginAttempts!: number;
+
+  @Column('datetime', { nullable: true, select: false })
+  lastLoginAttempt!: Date | null;
+
+  @Column('datetime', { nullable: true, select: false })
+  lockedUntil!: Date | null;
+
+  @Column('datetime', { nullable: true })
+  lastLogin!: Date | null;
+
+  // -------------------------
+  // Hooks
+  // -------------------------
   @BeforeInsert()
   @BeforeUpdate()
   async hashPassword() {
-    // Only hash the password if it's been modified (or is new)
-    if (this.userPassword && !this.userPassword.startsWith('$2a$') && !this.userPassword.startsWith('$2b$')) {
+    if (
+      this.userPassword &&
+      !this.userPassword.startsWith('$2a$') &&
+      !this.userPassword.startsWith('$2b$')
+    ) {
       this.userPassword = await bcrypt.hash(this.userPassword, 10);
     }
   }
 
+  // -------------------------
+  // Domain methods
+  // -------------------------
   async verifyPassword(attempt: string): Promise<boolean> {
     return bcrypt.compare(attempt, this.userPassword);
   }
 
-  // Helper method to get full name (optional)
   get fullName(): string {
-    return `${this.userName || ''} ${this.userLastName || ''}`.trim();
+    return `${this.userName} ${this.userLastName}`.trim();
   }
 }
 
-// Export only the named export

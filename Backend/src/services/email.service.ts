@@ -20,14 +20,6 @@ class EmailService {
 
   async sendPasswordResetEmail(email: string, token: string): Promise<boolean> {
     try {
-      // console.log('Sending password reset email to:', email);
-      const options = this.transporter.options as any;
-      // console.log('SMTP Config:', {
-      //   host: options.host,
-      //   port: options.port,
-      //   secure: options.secure,
-      //   user: options.auth?.user
-      // });
 
       const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${token}`;
       const currentYear = new Date().getFullYear();
@@ -110,7 +102,7 @@ class EmailService {
       });
       
       const info = await this.transporter.sendMail(mailOptions);
-      // console.log('Email sent:', info.messageId);
+
       return true;
     } catch (error) {
       console.error('Error sending password reset email:', error);

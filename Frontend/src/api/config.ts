@@ -1,7 +1,8 @@
 // API Configuration
-export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+export const API_BASE_URL =
+  import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
-type ApiConfig = {
+export type ApiConfig = {
   baseURL: string;
   headers: Record<string, string>;
   withCredentials: boolean;
@@ -19,19 +20,26 @@ export const apiConfig: ApiConfig = {
   timeout: 10000, // 10 seconds
 };
 
-// Helper function to handle API responses
-export const handleResponse = async (response: Response) => {
+/**
+ * Generic API response handler
+ * ✔ Supports TypeScript generics
+ * ✔ Works with ApiResponse<T>
+ */
+export async function handleResponse<T>(response: Response): Promise<T> {
   const data = await response.json();
+
   if (!response.ok) {
-    const error = (data && data.message) || response.statusText;
+    const error = {
+      message: data?.message || response.statusText,
+      status: response.status,
+    };
     return Promise.reject(error);
   }
-  return data;
-};
 
-const config = {
+  return data as T;
+}
+
+export default {
   ...apiConfig,
   handleResponse,
 };
-
-export default config;

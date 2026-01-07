@@ -1,185 +1,132 @@
-import React, { useState } from 'react';
-import { 
-  Box, 
-  TextField, 
-  Button, 
-  Typography, 
-  Container, 
-  Paper, 
-  Link,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Alert,
-  CircularProgress
+import { useState, useEffect } from 'react';
+import {
+  Container,
+  Paper,
+  Typography,
+  TextField,
+  Button,
+  Checkbox,
+  FormControlLabel,
+  Box,
 } from '@mui/material';
+import { useDispatch, useSelector } from 'react-redux';
+import type { AppDispatch } from '../../store/store';
+import {
+  loginUser,
+  clearAuthError,
+  selectAuthError,
+  selectAuthLoading,
+  selectIsAuthenticated,
+} from '../../store/slices/authSlice';
 import { useNavigate } from 'react-router-dom';
-import { authApi } from '../../api/auth.api';
 
-const LoginPage = () => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [forgotOpen, setForgotOpen] = useState(false);
-  const [forgotEmail, setForgotEmail] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [message, setMessage] = useState({ text: '', severity: 'success' });
+const MAX_ATTEMPTS = 5;
+
+export default function LoginPage() {
+  const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const loading = useSelector(selectAuthLoading);
+  const error = useSelector(selectAuthError); // string | null
+  const isAuthenticated = useSelector(selectIsAuthenticated);
+
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
+  const [attempts, setAttempts] = useState(0);
+
+  // Clear error when user edits inputs
+  useEffect(() => {
+    if (error) {
+      dispatch(clearAuthError());
+    }
+  }, [email, password]);
+
+  // Redirect on success + reset attempts
+  useEffect(() => {
+    if (isAuthenticated) {
+      setAttempts(0);
+      navigate('/');
+    }
+  }, [isAuthenticated]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: Implement login logic with cookies
-    console.log('Login submitted', { email, password });
+
+    if (attempts >= MAX_ATTEMPTS) return;
+
+    const result = await dispatch(
+      loginUser({ email, password, rememberMe })
+    );
+
+    if (loginUser.rejected.match(result)) {
+      setAttempts((prev) => prev + 1);
+    }
   };
 
-  const handleForgotPassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!forgotEmail) {
-      setMessage({ text: 'Please enter your email', severity: 'error' });
-      return;
-    }
-
-    try {
-      setIsLoading(true);
-      setMessage({ text: '', severity: 'success' });
-      await authApi.forgotPassword(forgotEmail);
-      setMessage({ 
-        text: 'Password reset link has been sent to your email', 
-        severity: 'success' 
-      });
-      setForgotEmail('');
-      setTimeout(() => setForgotOpen(false), 3000);
-    } catch (error: any) {
-      const errorMessage = error.message || 'Failed to send reset email';
-      setMessage({ text: errorMessage, severity: 'error' });
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const isLocked = attempts >= MAX_ATTEMPTS;
 
   return (
     <Container component="main" maxWidth="xs">
-      <Box
-        sx={{
-          marginTop: 8,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-        }}
-      >
-        <Typography component="h1" variant="h5">
-          Sign in to FollowMee
+      <Paper sx={{ mt: 8, p: 4 }}>
+        <Typography variant="h5" textAlign="center">
+          Sign in
         </Typography>
-        <Paper elevation={3} sx={{ p: 4, mt: 3, width: '100%' }}>
-          <Box component="form" onSubmit={handleSubmit} noValidate sx={{ mt: 1 }}>
-            <TextField
-              margin="normal"
-              required
-              fullWidth
-              id="email"
-              label="Email Address"
-              name="email"
-              autoComplete="email"
-              autoFocus
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-            <TextField
-              margin="normal"
-              required
-              fullWidth
-              name="password"
-              label="Password"
-              type="password"
-              id="password"
-              autoComplete="current-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-            <Box sx={{ textAlign: 'right', mb: 2 }}>
-              <Link 
-                component="button" 
-                variant="body2"
-                onClick={() => setForgotOpen(true)}
-                sx={{ textDecoration: 'none' }}
-              >
-                Forgot password?
-              </Link>
-            </Box>
-            <Button
-              type="submit"
-              fullWidth
-              variant="contained"
-              sx={{ mt: 1, mb: 2, py: 1.5 }}
-            >
-              Sign In
-            </Button>
-            <Box sx={{ textAlign: 'center' }}>
-              <Link 
-                component="button" 
-                variant="body2" 
-                onClick={() => navigate('/register')}
-                sx={{ textDecoration: 'none' }}
-              >
-                Don't have an account? Sign Up
-              </Link>
-            </Box>
-          </Box>
-        </Paper>
-      </Box>
 
-      {/* Forgot Password Dialog */}
-      <Dialog open={forgotOpen} onClose={() => setForgotOpen(false)}>
-        <DialogTitle>Reset Your Password</DialogTitle>
-        <form onSubmit={handleForgotPassword}>
-          <DialogContent>
-            <Typography variant="body1" gutterBottom>
-              Enter your email address and we'll send you a link to reset your password.
-            </Typography>
-            {message.text && (
-              <Alert 
-                severity={message.severity as 'success' | 'error'} 
-                sx={{ mb: 2 }}
-              >
-                {message.text}
-              </Alert>
-            )}
-            <TextField
-              autoFocus
-              margin="dense"
-              id="forgot-email"
-              label="Email Address"
-              type="email"
-              fullWidth
-              variant="outlined"
-              value={forgotEmail}
-              onChange={(e) => setForgotEmail(e.target.value)}
-              disabled={isLoading}
-            />
-          </DialogContent>
-          <DialogActions sx={{ px: 3, pb: 3 }}>
-            <Button 
-              onClick={() => {
-                setForgotOpen(false);
-                setMessage({ text: '', severity: 'success' });
-              }}
-              disabled={isLoading}
-            >
-              Cancel
-            </Button>
-            <Button 
-              type="submit" 
-              variant="contained" 
-              disabled={isLoading}
-              endIcon={isLoading ? <CircularProgress size={20} /> : null}
-            >
-              {isLoading ? 'Sending...' : 'Send Reset Link'}
-            </Button>
-          </DialogActions>
-        </form>
-      </Dialog>
+        {error && (
+          <Typography color="error" sx={{ mt: 2 }}>
+            {error.message}
+          </Typography>
+        )}
+
+        {isLocked && (
+          <Typography color="error" sx={{ mt: 1 }}>
+            Too many failed attempts. Please try again later.
+          </Typography>
+        )}
+
+        <Box component="form" onSubmit={handleSubmit} sx={{ mt: 2 }}>
+          <TextField
+            fullWidth
+            margin="normal"
+            label="Email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
+
+          <TextField
+            fullWidth
+            margin="normal"
+            label="Password"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
+
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+              />
+            }
+            label="Remember me"
+          />
+
+          <Button
+            type="submit"
+            fullWidth
+            variant="contained"
+            sx={{ mt: 2 }}
+            disabled={loading || isLocked}
+          >
+            {loading ? 'Signing in...' : 'Sign in'}
+          </Button>
+        </Box>
+      </Paper>
     </Container>
   );
-};
-
-export default LoginPage;
+}

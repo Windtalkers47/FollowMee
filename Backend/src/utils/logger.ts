@@ -50,17 +50,19 @@ export class Logger {
   public serverStart(port: number | string): void {
     const divider = '='.repeat(50);
     const title = `${this.appName} is running`;
+
+    // วิธีเปิดปิด ENV Log
     
-    console.log('\n' + divider);
-    console.log(chalk.bold.blue(title));
-    console.log(divider);
-    console.log(`\n${chalk.bold('Server Information:')}`);
-    console.log(`  - Environment: ${chalk.blue(process.env.NODE_ENV || 'development')}`);
-    console.log(`  - Port: ${chalk.blue(port)}`);
-    console.log(`  - URL: ${chalk.blue(`http://localhost:${port}`)}`);
-    console.log(`  - API Docs: ${chalk.blue(`http://localhost:${port}/api-docs`)}`);
-    console.log(`  - Time: ${new Date().toLocaleString()}`);
-    console.log('\n' + divider + '\n');
+    // console.log('\n' + divider);
+    // console.log(chalk.bold.blue(title));
+    // console.log(divider);
+    // console.log(`\n${chalk.bold('Server Information:')}`);
+    // console.log(`  - Environment: ${chalk.blue(process.env.NODE_ENV || 'development')}`);
+    // console.log(`  - Port: ${chalk.blue(port)}`);
+    // console.log(`  - URL: ${chalk.blue(`http://localhost:${port}`)}`);
+    // console.log(`  - API Docs: ${chalk.blue(`http://localhost:${port}/api-docs`)}`);
+    // console.log(`  - Time: ${new Date().toLocaleString()}`);
+    // console.log('\n' + divider + '\n');
   }
 }
 

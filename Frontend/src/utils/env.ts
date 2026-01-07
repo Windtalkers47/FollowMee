@@ -5,6 +5,8 @@
  * for working with feature flags and environment-specific configurations.
  */
 
+import { API_BASE_URL } from '../api/config';
+
 /**
  * Get the current environment (development, production, test)
  */
@@ -63,8 +65,8 @@ export const env = {
   // App Info
   appName: import.meta.env.VITE_APP_NAME || 'FollowMee',
   
-  // API
-  apiUrl: import.meta.env.VITE_API_URL || 'http://localhost:3001/api',
+  // API - Using the centralized API_BASE_URL from config.ts
+  apiUrl: API_BASE_URL,
   
   // Auth
   defaultLoginRedirect: import.meta.env.VITE_DEFAULT_LOGIN_REDIRECT || '/dashboard',

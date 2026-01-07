@@ -1,17 +1,25 @@
 import React, { useEffect } from 'react';
-import { Box, CircularProgress } from '@mui/material';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { useAppSelector, useAppDispatch } from './store/store';
-import { loginSuccess, logout } from './store/slices/authSlice';
+import { Box, CircularProgress } from '@mui/material';
+import { useAppDispatch, useAppSelector } from './store/store';
+import { restoreSession, clearAuth } from './store/slices/authSlice';
 import LandingPage from './pages/Landing';
+import { API_BASE_URL } from './api/config';
 
-// Lazy load other pages
+// Lazy pages
 const LoginPage = React.lazy(() => import('./pages/Login'));
 const DashboardPage = React.lazy(() => import('./pages/Dashboard'));
 const NotFoundPage = () => <div>404 - Page Not Found</div>;
 
 const LoadingSpinner = () => (
-  <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+  <Box
+    sx={{
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'center',
+      height: '100vh',
+    }}
+  >
     <CircularProgress />
   </Box>
 );
@@ -19,65 +27,88 @@ const LoadingSpinner = () => (
 const App = () => {
   const location = useLocation();
   const dispatch = useAppDispatch();
-  const { isAuthenticated, loading } = useAppSelector((state) => ({
+
+  const { isAuthenticated, checkingSession } = useAppSelector((state) => ({
     isAuthenticated: state.auth.isAuthenticated,
-    loading: state.auth.loading,
+    checkingSession: state.auth.checkingSession,
   }));
 
-  // Check for existing session on initial load
+  // Restore session ONCE
   useEffect(() => {
-    const checkAuthStatus = async () => {
-      const token = localStorage.getItem('token');
-      if (token) {
-        try {
-          // Here you would typically verify the token with your backend
-          // For now, we'll just check if token exists
-          dispatch(loginSuccess({ user: null, token }));
-        } catch (error) {
-          localStorage.removeItem('token');
-          dispatch(logout());
+    const restoreAuthSession = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/auth/me`, {
+          credentials: 'include',
+        });
+
+        if (!response.ok) {
+          dispatch(clearAuth());
+          return;
         }
-      } else {
-        dispatch({ type: 'auth/clearLoading' });
+
+        const data = await response.json();
+
+        if (data?.data) {
+          dispatch(
+            restoreSession({
+              user: data.data,
+              accessToken: '',
+              refreshToken: '',
+              expiresIn: 3600,
+            })
+          );
+        } else {
+          dispatch(clearAuth());
+        }
+      } catch {
+        dispatch(clearAuth());
       }
     };
 
-    checkAuthStatus();
+    restoreAuthSession();
   }, [dispatch]);
 
-  if (loading) {
+  // ⛔ Gate rendering until session check finishes
+  if (checkingSession) {
     return <LoadingSpinner />;
   }
 
   return (
-    <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+    <Box sx={{ minHeight: '100vh' }}>
       <React.Suspense fallback={<LoadingSpinner />}>
-        <Routes location={location} key={location.pathname}>
-          {/* Public Routes */}
+        <Routes location={location}>
+          {/* Public */}
           <Route path="/" element={<LandingPage />} />
-          <Route 
-            path="/login" 
-            element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <LoginPage />} 
+
+          <Route
+            path="/login"
+            element={
+              isAuthenticated ? (
+                <Navigate to="/dashboard" replace />
+              ) : (
+                <LoginPage />
+              )
+            }
           />
-          
-          {/* Protected Routes */}
-          <Route 
-            path="/dashboard" 
+
+          {/* Protected */}
+          <Route
+            path="/dashboard"
             element={
               isAuthenticated ? (
                 <DashboardPage />
               ) : (
-                <Navigate to="/login" state={{ from: location }} replace />
+                <Navigate to="/login" replace />
               )
-            } 
+            }
           />
-          
-          {/* 404 Route */}
+
+          {/* 404 */}
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </React.Suspense>
     </Box>
   );
-}
+};
 
 export default App;

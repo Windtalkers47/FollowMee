@@ -43,7 +43,7 @@ export class CustomerService {
    */
   async create(createCustomerDto: CreateCustomerDto): Promise<CustomerResponseDto> {
     // Check if customer with email already exists
-    const existingCustomer = await this.customerRepository.findByEmail(createCustomerDto.customerEmail);
+    const existingCustomer = await this.customerRepository.findByEmail(createCustomerDto.customerEmail.value);
     if (existingCustomer) {
       throw new Error('A customer with this email already exists');
     }
@@ -71,8 +71,8 @@ export class CustomerService {
     }
 
     // If email is being updated, check if it's already in use
-    if (updateData.customerEmail && updateData.customerEmail !== customer.customerEmail) {
-      const existingCustomer = await this.customerRepository.findByEmail(updateData.customerEmail);
+    if (updateData.customerEmail && updateData.customerEmail.value !== customer.customerEmail) {
+      const existingCustomer = await this.customerRepository.findByEmail(updateData.customerEmail.value);
       if (existingCustomer) {
         throw new Error('Email is already in use by another customer');
       }

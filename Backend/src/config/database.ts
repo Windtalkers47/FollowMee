@@ -17,7 +17,11 @@ const dataSourceOptions: DataSourceOptions = {
   password: process.env.DB_PASSWORD || '',
   database: process.env.DB_NAME || 'followmee',
   synchronize: !isProduction, // Set to false in production
-  logging: !isProduction,
+
+  // วิธีเปิดปิด logging ใน Terminal
+  // logging: !isProduction,
+  logging: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : false,
+  
   entities: [
     User,
     UserSession,

@@ -199,7 +199,7 @@ const DashboardPage: React.FC = () => {
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={4}>
         <Box>
           <Typography variant="h4" component="h1" fontWeight="bold" gutterBottom>
-            Welcome back, {user?.name || 'User'}! 👋
+            Welcome back, {user?.userName || 'User'}! 👋
           </Typography>
           <Typography variant="subtitle1" color="text.secondary">
             Here's what's happening with your social media today
@@ -221,7 +221,7 @@ const DashboardPage: React.FC = () => {
       {/* Stats Cards */}
       <Box sx={{ mb: 4 }}>
         <Grid container spacing={3}>
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid size={{ xs: 12, md: 6 }}>
             <StatCard 
               title="Total Followers" 
               value="24.5K" 
@@ -229,7 +229,7 @@ const DashboardPage: React.FC = () => {
               color={theme.palette.primary.main}
             />
           </Grid>
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid size={{ xs: 12, md: 6 }}>
             <StatCard 
               title="Engagement Rate" 
               value="8.2%" 
@@ -237,7 +237,7 @@ const DashboardPage: React.FC = () => {
               color={theme.palette.success.main}
             />
           </Grid>
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid size={{ xs: 12, md: 6 }}>
             <StatCard 
               title="New Posts" 
               value="12" 
@@ -245,7 +245,7 @@ const DashboardPage: React.FC = () => {
               color={theme.palette.warning.main}
             />
           </Grid>
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid size={{ xs: 12, md: 6 }}>
             <StatCard 
               title="Avg. Engagement" 
               value="1.2K" 
@@ -259,7 +259,7 @@ const DashboardPage: React.FC = () => {
       {/* Charts Row */}
       <Box sx={{ mb: 4 }}>
         <Grid container spacing={3}>
-          <Grid item xs={12} md={8}>
+          <Grid size={{ xs: 12, md: 6 }}>
             <StyledCard>
               <CardContent>
                 <Typography variant="h6" gutterBottom>Engagement Overview</Typography>
@@ -279,8 +279,10 @@ const DashboardPage: React.FC = () => {
                           beginAtZero: true,
                           grid: {
                             display: true,
-                            drawBorder: false,
                           },
+                          border:{
+                            display: false,
+                          }
                         },
                         x: {
                           grid: {
@@ -294,7 +296,7 @@ const DashboardPage: React.FC = () => {
               </CardContent>
             </StyledCard>
           </Grid>
-          <Grid item xs={12} md={4}>
+          <Grid size={{ xs: 12, md: 4 }}>
             <StyledCard>
               <CardContent>
                 <Typography variant="h6" gutterBottom>Platform Performance</Typography>
@@ -314,8 +316,10 @@ const DashboardPage: React.FC = () => {
                           beginAtZero: true,
                           grid: {
                             display: true,
-                            drawBorder: false,
                           },
+                          border:{
+                            display: false,
+                          }
                         },
                         x: {
                           grid: {
@@ -335,7 +339,7 @@ const DashboardPage: React.FC = () => {
       {/* Recent Posts & Quick Actions */}
       <Box sx={{ mb: 4 }}>
         <Grid container spacing={3}>
-          <Grid item xs={12} md={8}>
+          <Grid size={{ xs: 12, md: 8 }}>
             <StyledCard>
               <CardContent>
                 <Typography variant="h6" gutterBottom>Recent Posts</Typography>
@@ -385,7 +389,7 @@ const DashboardPage: React.FC = () => {
               </CardContent>
             </StyledCard>
           </Grid>
-          <Grid item xs={12} md={4}>
+          <Grid size={{ xs: 12, md: 4 }}>
             <StyledCard>
               <CardContent>
                 <Typography variant="h6" gutterBottom>Quick Actions</Typography>

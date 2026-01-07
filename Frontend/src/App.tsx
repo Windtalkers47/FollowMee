@@ -1,15 +1,19 @@
-import React, { useEffect } from 'react';
-import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import React, { useEffect, Suspense } from 'react';
+import { Routes, Route, Navigate, useLocation, Outlet } from 'react-router-dom';
 import { Box, CircularProgress } from '@mui/material';
 import { useAppDispatch, useAppSelector } from './store/store';
 import { restoreSession, clearAuth } from './store/slices/authSlice';
-import LandingPage from './pages/Landing';
+import MainLayout from './layouts/MainLayout';
 import { API_BASE_URL } from './api/config';
 
-// Lazy pages
+// Lazy load pages
+const LandingPage = React.lazy(() => import('./pages/Landing'));
 const LoginPage = React.lazy(() => import('./pages/Login'));
 const DashboardPage = React.lazy(() => import('./pages/Dashboard'));
-const NotFoundPage = () => <div>404 - Page Not Found</div>;
+const AnalyticsPage = React.lazy(() => import('./pages/Analytics'));
+const PostsPage = React.lazy(() => import('./pages/Posts'));
+const SchedulePage = React.lazy(() => import('./pages/Schedule'));
+const AudiencePage = React.lazy(() => import('./pages/Audience'));
 
 const LoadingSpinner = () => (
   <Box
@@ -24,16 +28,34 @@ const LoadingSpinner = () => (
   </Box>
 );
 
+const ProtectedRoute = () => {
+  const isAuthenticated = useAppSelector(
+    (state) => state.auth.isAuthenticated
+  );
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return (
+    <MainLayout>
+      <Suspense fallback={<LoadingSpinner />}>
+        <Outlet />
+      </Suspense>
+    </MainLayout>
+  );
+};
+
 const App = () => {
   const location = useLocation();
   const dispatch = useAppDispatch();
 
-  const { isAuthenticated, checkingSession } = useAppSelector((state) => ({
-    isAuthenticated: state.auth.isAuthenticated,
+  const { checkingSession, isAuthenticated } = useAppSelector((state) => ({
     checkingSession: state.auth.checkingSession,
+    isAuthenticated: state.auth.isAuthenticated,
   }));
 
-  // Restore session ONCE
+  /* Restore session once */
   useEffect(() => {
     const restoreAuthSession = async () => {
       try {
@@ -60,7 +82,8 @@ const App = () => {
         } else {
           dispatch(clearAuth());
         }
-      } catch {
+      } catch (error) {
+        console.error('Restore session error:', error);
         dispatch(clearAuth());
       }
     };
@@ -68,14 +91,13 @@ const App = () => {
     restoreAuthSession();
   }, [dispatch]);
 
-  // ⛔ Gate rendering until session check finishes
   if (checkingSession) {
     return <LoadingSpinner />;
   }
 
   return (
     <Box sx={{ minHeight: '100vh' }}>
-      <React.Suspense fallback={<LoadingSpinner />}>
+      <Suspense fallback={<LoadingSpinner />}>
         <Routes location={location}>
           {/* Public */}
           <Route path="/" element={<LandingPage />} />
@@ -92,21 +114,27 @@ const App = () => {
           />
 
           {/* Protected */}
+          <Route element={<ProtectedRoute />}>
+            <Route path="/dashboard" element={<DashboardPage />} />
+            <Route path="/analytics" element={<AnalyticsPage />} />
+            <Route path="/posts" element={<PostsPage />} />
+            <Route path="/schedule" element={<SchedulePage />} />
+            <Route path="/audience" element={<AudiencePage />} />
+          </Route>
+
+          {/* 404 */}
           <Route
-            path="/dashboard"
+            path="*"
             element={
               isAuthenticated ? (
-                <DashboardPage />
+                <Navigate to="/dashboard" replace />
               ) : (
                 <Navigate to="/login" replace />
               )
             }
           />
-
-          {/* 404 */}
-          <Route path="*" element={<NotFoundPage />} />
         </Routes>
-      </React.Suspense>
+      </Suspense>
     </Box>
   );
 };

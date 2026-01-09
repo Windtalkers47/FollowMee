@@ -1,4 +1,4 @@
-import { apiConfig, handleResponse } from '../../api/config';
+import { apiConfig } from '../../api/config';
 import { CustomerData } from '../../types/customer.types';
 
 // API Response type
@@ -73,30 +73,59 @@ const apiRequest = async <T>(
       method,
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        'X-Application-Name': apiConfig.headers['X-Application-Name'],
+        ...(localStorage.getItem('token') && {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        })
       },
       credentials: 'include',
       body: data ? JSON.stringify(toApiFormat(data)) : undefined,
     });
 
-    const result = await handleResponse<{ data?: any, meta?: any }>(response);
-    
-    // Transform response data if it exists
-    if (result && 'data' in result) {
-      if (Array.isArray(result.data)) {
-        return {
-          ...result,
-          data: result.data.map(fromApiFormat)
-        } as ApiResponse<T>;
-      } else if (result.data) {
-        return {
-          ...result,
-          data: fromApiFormat(result.data)
-        } as ApiResponse<T>;
-      }
+    // Handle 204 No Content responses
+    if (response.status === 204) {
+      return { success: true } as ApiResponse<T>;
     }
 
-    return result as ApiResponse<T>;
+    const result = await response.json().catch(() => ({
+      success: false,
+      message: 'Failed to parse JSON response'
+    }));
+
+    // If the response is not ok, throw an error
+    if (!response.ok) {
+      throw new Error(
+        result.message || 
+        `Request failed with status ${response.status}: ${response.statusText}`
+      );
+    }
+    
+    // If the response is already in our expected format, return it
+    if (result && typeof result === 'object' && 'success' in result) {
+      // Transform data if it exists
+      if ('data' in result) {
+        if (Array.isArray(result.data)) {
+          return {
+            ...result,
+            data: result.data.map((item: any) => fromApiFormat(item))
+          } as ApiResponse<T>;
+        } else if (result.data && typeof result.data === 'object') {
+          return {
+            ...result,
+            data: fromApiFormat(result.data)
+          } as ApiResponse<T>;
+        }
+      }
+      return result as ApiResponse<T>;
+    }
+    
+    // If the response is just the data, wrap it in our standard response format
+    return {
+      success: true,
+      data: Array.isArray(result) 
+        ? result.map((item: any) => fromApiFormat(item))
+        : fromApiFormat(result)
+    } as ApiResponse<T>;
   } catch (error) {
     console.error('API request failed:', error);
     return {
@@ -121,7 +150,24 @@ export const customerApi = {
       ...(status && { status })
     });
     
-    return apiRequest<CustomerData[]>(`/customers?${params}`, 'GET');
+    const response = await apiRequest<CustomerData | CustomerData[]>(`/customers?${params}`, 'GET');
+    
+    // Handle case where data is a single customer object instead of an array
+    if (response.data && !Array.isArray(response.data)) {
+      return {
+        ...response,
+        data: [response.data as CustomerData],
+        meta: {
+          total: 1,
+          page: page,
+          limit: limit,
+          totalPages: 1,
+          ...response.meta
+        }
+      } as ApiResponse<CustomerData[]>;
+    }
+    
+    return response as ApiResponse<CustomerData[]>;
   },
 
   // Get single customer by ID

@@ -1,78 +1,57 @@
-import { Type } from 'class-transformer';
-import { IsEmail, IsNotEmpty, IsOptional, IsString, MaxLength, ValidateNested } from 'class-validator';
-
-export class RequiredString {
-  @IsString()
-  @IsNotEmpty()
-  value: string = '';
-}
-
-export class OptionalString {
-  @IsString()
-  @IsOptional()
-  value: string = '';
-}
+import { IsEmail, IsBoolean, IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
 
 export class CreateCustomerDto {
-  @Type(() => RequiredString)
-  @ValidateNested()
+  @IsString()
+  @IsNotEmpty({ message: 'Customer name is required' })
   @MaxLength(50, { message: 'Customer name must be at most 50 characters' })
-  customerName: RequiredString = new RequiredString();
+  customerName: string = '';
 
-  @Type(() => OptionalString)
-  @ValidateNested()
+  @IsString()
+  @IsOptional()
   @MaxLength(50, { message: 'Last name must be at most 50 characters' })
-  @IsOptional()
-  customerLastName?: OptionalString;
+  customerLastName?: string;
 
-  @Type(() => RequiredString)
-  @ValidateNested()
   @IsEmail({}, { message: 'Invalid email format' })
+  @IsNotEmpty({ message: 'Email is required' })
   @MaxLength(100, { message: 'Email must be at most 100 characters' })
-  customerEmail: RequiredString = new RequiredString();
+  customerEmail: string = '';
 
-  @Type(() => OptionalString)
-  @ValidateNested()
+  @IsString()
+  @IsOptional()
   @MaxLength(20, { message: 'Phone number must be at most 20 characters' })
-  @IsOptional()
-  customerPhone1?: OptionalString;
+  customerPhone1?: string;
 
-  @Type(() => OptionalString)
-  @ValidateNested()
+  @IsString()
+  @IsOptional()
   @MaxLength(20, { message: 'Phone number must be at most 20 characters' })
-  @IsOptional()
-  customerPhone2?: OptionalString;
+  customerPhone2?: string;
 
-  @Type(() => OptionalString)
-  @ValidateNested()
-  @MaxLength(100, { message: 'Facebook URL must be at most 100 characters' })
+  @IsString()
   @IsOptional()
-  customerFacebook?: OptionalString;
+  @MaxLength(100, { message: 'Facebook username must be at most 100 characters' })
+  customerFacebook?: string;
 
-  @Type(() => OptionalString)
-  @ValidateNested()
-  @MaxLength(100, { message: 'Instagram handle must be at most 100 characters' })
+  @IsString()
   @IsOptional()
-  customerInstagram?: OptionalString;
+  @MaxLength(100, { message: 'Instagram username must be at most 100 characters' })
+  customerInstagram?: string;
 
-  @Type(() => OptionalString)
-  @ValidateNested()
-  @MaxLength(100, { message: 'TikTok handle must be at most 100 characters' })
+  @IsString()
   @IsOptional()
-  customerTikTok?: OptionalString;
+  @MaxLength(100, { message: 'TikTok username must be at most 100 characters' })
+  customerTikTok?: string;
 
-  @Type(() => OptionalString)
-  @ValidateNested()
+  @IsString()
+  @IsOptional()
   @MaxLength(100, { message: 'Line ID must be at most 100 characters' })
-  @IsOptional()
-  customerLine?: OptionalString;
+  customerLine?: string;
 
-  @Type(() => OptionalString)
-  @ValidateNested()
-  @MaxLength(100, { message: 'X handle must be at most 100 characters' })
+  @IsString()
   @IsOptional()
-  customerX?: OptionalString;
+  @MaxLength(100, { message: 'X (Twitter) username must be at most 100 characters' })
+  customerX?: string;
 
+  @IsBoolean()
   @IsOptional()
-  isActive?: boolean;
+  isActive: boolean = true;
 }

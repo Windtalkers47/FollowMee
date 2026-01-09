@@ -14,6 +14,7 @@ const AnalyticsPage = React.lazy(() => import('./pages/Analytics'));
 const PostsPage = React.lazy(() => import('./pages/Posts'));
 const SchedulePage = React.lazy(() => import('./pages/Schedule'));
 const AudiencePage = React.lazy(() => import('./pages/Audience'));
+const CustomerPage = React.lazy(() => import('./pages/Customer'));
 
 const LoadingSpinner = () => (
   <Box
@@ -120,6 +121,7 @@ const App = () => {
             <Route path="/posts" element={<PostsPage />} />
             <Route path="/schedule" element={<SchedulePage />} />
             <Route path="/audience" element={<AudiencePage />} />
+            <Route path="/customer" element={<CustomerPage />} />
           </Route>
 
           {/* 404 */}

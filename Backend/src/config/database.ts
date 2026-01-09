@@ -4,6 +4,7 @@ import path from 'path';
 import { User } from '../entities/User';
 import { UserSession } from '../entities/UserSession';
 import { AuditLog } from '../entities/AuditLog';
+import { Customer } from '../entities/Customer';
 
 dotenv.config();
 
@@ -26,6 +27,7 @@ const dataSourceOptions: DataSourceOptions = {
     User,
     UserSession,
     AuditLog,
+    Customer,
     // Other entities will be loaded automatically by the glob pattern
     path.join(__dirname, '../entities/**/*.entity{.ts,.js}')
   ],

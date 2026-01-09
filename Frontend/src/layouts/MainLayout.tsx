@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAppDispatch } from '../store/store';
+import { logout } from '../store/slices/authSlice';
 import {
   Box,
   Drawer,
@@ -33,7 +35,8 @@ import {
   Notifications as NotificationsIcon,
   ChevronLeft as ChevronLeftIcon,
   ChevronRight as ChevronRightIcon,
-  Home as HomeIcon
+  Home as HomeIcon,
+  Group as GroupIcon
 } from '@mui/icons-material';
 
 const drawerWidth = 240;
@@ -45,6 +48,7 @@ interface MainLayoutProps {
 const MainLayout = ({ children }: MainLayoutProps) => {
   const theme = useTheme();
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [notifications] = useState([1, 2, 3]);
@@ -62,8 +66,25 @@ const MainLayout = ({ children }: MainLayoutProps) => {
   };
 
   const handleLogout = () => {
-    // Handle logout logic here
-    navigate('/login');
+    try {
+      // Clear auth state
+      dispatch(logout());
+      // Clear any stored tokens or user data
+      localStorage.removeItem('authToken');
+      // Clear all cookies
+      const cookies = document.cookie.split(';');
+      for (const cookie of cookies) {
+        const eqPos = cookie.indexOf('=');
+        const name = eqPos > -1 ? cookie.substr(0, eqPos).trim() : cookie.trim();
+        document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`;
+      }
+      // Redirect to login page
+      navigate('/login', { replace: true });
+    } catch (error) {
+      console.error('Error during logout:', error);
+      // Still navigate to login even if there was an error
+      navigate('/login', { replace: true });
+    }
   };
 
   const menuItems = [
@@ -72,6 +93,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
     { text: 'Posts', icon: <PostAddIcon />, path: '/posts' },
     { text: 'Schedule', icon: <ScheduleIcon />, path: '/schedule' },
     { text: 'Audience', icon: <PeopleIcon />, path: '/audience' },
+    { text: 'Customer', icon: <GroupIcon />, path: '/customer' },
   ];
 
   const drawer = (

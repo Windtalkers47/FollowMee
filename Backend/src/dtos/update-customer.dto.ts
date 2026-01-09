@@ -1,57 +1,55 @@
-import { Type } from 'class-transformer';
-import { IsBoolean, IsOptional, ValidateNested } from 'class-validator';
-import { OptionalString, RequiredString } from './create-customer.dto';
+import { IsString, IsEmail, IsOptional, MaxLength, IsBoolean } from 'class-validator';
 
 export class UpdateCustomerDto {
-  @Type(() => RequiredString)
-  @ValidateNested()
+  @IsString()
   @IsOptional()
-  customerName?: RequiredString;
+  @MaxLength(50, { message: 'Customer name must be at most 50 characters' })
+  customerName?: string;
 
-  @Type(() => OptionalString)
-  @ValidateNested()
+  @IsString()
   @IsOptional()
-  customerLastName?: OptionalString;
+  @MaxLength(50, { message: 'Last name must be at most 50 characters' })
+  customerLastName?: string;
 
-  @Type(() => RequiredString)
-  @ValidateNested()
+  @IsEmail({}, { message: 'Invalid email format' })
   @IsOptional()
-  customerEmail?: RequiredString;
+  @MaxLength(100, { message: 'Email must be at most 100 characters' })
+  customerEmail?: string;
 
-  @Type(() => OptionalString)
-  @ValidateNested()
+  @IsString()
   @IsOptional()
-  customerPhone1?: OptionalString;
+  @MaxLength(20, { message: 'Phone number must be at most 20 characters' })
+  customerPhone1?: string;
 
-  @Type(() => OptionalString)
-  @ValidateNested()
+  @IsString()
   @IsOptional()
-  customerPhone2?: OptionalString;
+  @MaxLength(20, { message: 'Phone number must be at most 20 characters' })
+  customerPhone2?: string;
 
-  @Type(() => OptionalString)
-  @ValidateNested()
+  @IsString()
   @IsOptional()
-  customerFacebook?: OptionalString;
+  @MaxLength(100, { message: 'Facebook username must be at most 100 characters' })
+  customerFacebook?: string;
 
-  @Type(() => OptionalString)
-  @ValidateNested()
+  @IsString()
   @IsOptional()
-  customerInstagram?: OptionalString;
+  @MaxLength(100, { message: 'Instagram username must be at most 100 characters' })
+  customerInstagram?: string;
 
-  @Type(() => OptionalString)
-  @ValidateNested()
+  @IsString()
   @IsOptional()
-  customerTikTok?: OptionalString;
+  @MaxLength(100, { message: 'TikTok username must be at most 100 characters' })
+  customerTikTok?: string;
 
-  @Type(() => OptionalString)
-  @ValidateNested()
+  @IsString()
   @IsOptional()
-  customerLine?: OptionalString;
+  @MaxLength(100, { message: 'Line ID must be at most 100 characters' })
+  customerLine?: string;
 
-  @Type(() => OptionalString)
-  @ValidateNested()
+  @IsString()
   @IsOptional()
-  customerX?: OptionalString;
+  @MaxLength(100, { message: 'X (Twitter) username must be at most 100 characters' })
+  customerX?: string;
 
   @IsBoolean()
   @IsOptional()

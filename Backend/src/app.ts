@@ -10,6 +10,7 @@ import { logger } from './utils/logger';
 
 // Import routes
 import authRoutes from './routes/auth.routes';
+import customerRoutes from './routes/customer.routes';
 
 // Load environment variables
 dotenv.config();
@@ -100,6 +101,9 @@ class App {
 
     // API routes
     this.app.use('/api/auth', authRoutes);
+    
+    // Customer routes
+    this.app.use('/api/customers', customerRoutes);
     
     // Protected API routes (example)
     // this.app.use('/api/users', authenticateToken, userRoutes);

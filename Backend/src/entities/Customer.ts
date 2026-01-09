@@ -1,42 +1,42 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm';
 
 @Entity('customers')
-@Index('IDX_customer_email', ['email'], { unique: true })
+@Index('IDX_customer_email', ['customerEmail'], { unique: true })
 export class Customer {
   @PrimaryGeneratedColumn('uuid', { name: 'customerId' })
   customerId!: string;
 
-  @Column({ name: 'customerName', length: 50, nullable: false })
-  customerName: string = '';
+  @Column({ name: 'customerName', type: 'varchar', length: 50, nullable: false })
+  customerName!: string;
 
-  @Column({ name: 'customerLastName', length: 50, nullable: true })
-  customerLastName: string | null = null;
+  @Column({ name: 'customerLastName', type: 'varchar', length: 50, nullable: true })
+  customerLastName?: string;
 
-  @Column({ name: 'customerEmail', length: 100, unique: true, nullable: false })
-  customerEmail: string = '';
+  @Column({ name: 'customerEmail', type: 'varchar', length: 100, unique: true, nullable: false })
+  customerEmail!: string;
 
-  @Column({ name: 'customerPhone1', length: 20, nullable: true })
-  customerPhone1: string | null = null;
+  @Column({ name: 'customerPhone1', type: 'varchar', length: 20, nullable: true })
+  customerPhone1?: string;
 
-  @Column({ name: 'customerPhone2', length: 20, nullable: true })
-  customerPhone2: string | null = null;
+  @Column({ name: 'customerPhone2', type: 'varchar', length: 20, nullable: true })
+  customerPhone2?: string;
 
-  @Column({ name: 'customerFacebook', length: 100, nullable: true })
-  customerFacebook: string | null = null;
+  @Column({ name: 'customerFacebook', type: 'varchar', length: 100, nullable: true })
+  customerFacebook?: string;
 
-  @Column({ name: 'customerInstagram', length: 100, nullable: true })
-  customerInstagram: string | null = null;
+  @Column({ name: 'customerInstagram', type: 'varchar', length: 100, nullable: true })
+  customerInstagram?: string;
 
-  @Column({ name: 'customerTikTok', length: 100, nullable: true })
-  customerTikTok: string | null = null;
+  @Column({ name: 'customerTikTok', type: 'varchar', length: 100, nullable: true })
+  customerTikTok?: string;
 
-  @Column({ name: 'customerLine', length: 100, nullable: true })
-  customerLine: string | null = null;
+  @Column({ name: 'customerLine', type: 'varchar', length: 100, nullable: true })
+  customerLine?: string;
 
-  @Column({ name: 'customerX', length: 100, nullable: true })
-  customerX: string | null = null;
+  @Column({ name: 'customerX', type: 'varchar', length: 100, nullable: true })
+  customerX?: string;
 
-  @Column({ name: 'isActive', default: true })
+  @Column({ name: 'isActive', type: 'boolean', default: true })
   isActive: boolean = true;
 
   @CreateDateColumn({ name: 'createdAt' })

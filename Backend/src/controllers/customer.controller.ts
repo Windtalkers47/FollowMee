@@ -1,122 +1,212 @@
-import { 
-  Body, 
-  Controller, 
-  Delete, 
-  Get, 
-  Param, 
-  Post, 
-  Put, 
-  Query, 
-  UseGuards, 
-  UsePipes, 
-  ValidationPipe,
-  HttpStatus,
-  HttpCode,
-  Req
-} from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
-import { Request } from 'express';
+import { Request, Response } from 'express';
 import { CustomerService } from '../services/customer.service';
 import { CreateCustomerDto } from '../dtos/create-customer.dto';
 import { UpdateCustomerDto } from '../dtos/update-customer.dto';
-import { CustomerResponseDto } from '../dtos/customer-response.dto';
+import { validate } from 'class-validator';
+import { plainToInstance } from 'class-transformer';
 
-@Controller('api/customers')
-@UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
 export class CustomerController {
   constructor(private readonly customerService: CustomerService) {}
 
   /**
    * Get all customers (paginated)
    */
-  @Get()
-  @UseGuards(AuthGuard('jwt'))
-  @HttpCode(HttpStatus.OK)
-  async findAll(
-    @Query('page') page = 1,
-    @Query('limit') limit = 10,
-    @Query('search') search?: string
-  ) {
-    if (search) {
-      const results = await this.customerService.search(search);
-      return { 
+  async getCustomers(req: Request, res: Response) {
+    try {
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 10;
+      
+      const [customers, total] = await this.customerService.findAll(true);
+      
+      return res.json({ 
+        success: true, 
+        data: customers,
+        meta: { 
+          total: +total, 
+          page: +page, 
+          limit: +limit,
+          totalPages: Math.ceil(Number(total) / +limit)
+        }
+      });
+    } catch (error: unknown) {
+      console.error('Error getting customers:', error);
+      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+      return res.status(500).json({ 
+        success: false, 
+        message: 'Failed to fetch customers',
+        error: errorMessage
+      });
+    }
+  }
+
+  /**
+   * Search customers
+   */
+  async searchCustomers(req: Request, res: Response) {
+    try {
+      const { search } = req.query;
+      if (!search) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'Search query is required' 
+        });
+      }
+      
+      const results = await this.customerService.search(search as string);
+      
+      return res.json({ 
         success: true, 
         data: results,
-        meta: { total: results.length, page: 1, limit: results.length }
-      };
+        meta: { 
+          total: results.length, 
+          page: 1, 
+          limit: results.length 
+        }
+      });
+    } catch (error: unknown) {
+      console.error('Error searching customers:', error);
+      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+      return res.status(500).json({ 
+        success: false, 
+        message: 'Failed to search customers',
+        error: errorMessage
+      });
     }
-
-    const [customers, total] = await this.customerService.findAll(true);
-    return { 
-      success: true, 
-      data: customers,
-      meta: { 
-        total: +total, 
-        page: +page, 
-        limit: +limit,
-        totalPages: Math.ceil(Number(total) / +limit)
-      }
-    };
   }
 
   /**
    * Get a single customer by ID
    */
-  @Get(':id')
-  @UseGuards(AuthGuard('jwt'))
-  @HttpCode(HttpStatus.OK)
-  async findOne(@Param('id') id: string) {
-    const customer = await this.customerService.findOne(id);
-    return { 
-      success: true, 
-      data: customer 
-    };
+  async getCustomerById(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const customer = await this.customerService.findOne(id);
+      
+      if (!customer) {
+        return res.status(404).json({ 
+          success: false, 
+          message: 'Customer not found' 
+        });
+      }
+      
+      return res.json({ 
+        success: true, 
+        data: customer 
+      });
+    } catch (error: unknown) {
+      console.error('Error getting customer:', error);
+      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+      return res.status(500).json({ 
+        success: false, 
+        message: 'Failed to fetch customer',
+        error: errorMessage
+      });
+    }
   }
 
   /**
    * Create a new customer
    */
-  @Post()
-  @UseGuards(AuthGuard('jwt'))
-  @HttpCode(HttpStatus.CREATED)
-  async create(@Body() createCustomerDto: CreateCustomerDto) {
-    const customer = await this.customerService.create(createCustomerDto);
-    return { 
-      success: true, 
-      data: customer,
-      message: 'Customer created successfully' 
-    };
+  async createCustomer(req: Request, res: Response) {
+    try {
+      const createCustomerDto = plainToInstance(CreateCustomerDto, req.body);
+      const errors = await validate(createCustomerDto);
+      
+      if (errors.length > 0) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'Validation failed',
+          errors: errors.map(err => Object.values(err.constraints || {})).flat()
+        });
+      }
+      
+      const customer = await this.customerService.create(createCustomerDto);
+      
+      return res.status(201).json({ 
+        success: true, 
+        data: customer,
+        message: 'Customer created successfully' 
+      });
+    } catch (error: unknown) {
+      console.error('Error creating customer:', error);
+      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+      return res.status(500).json({ 
+        success: false, 
+        message: 'Failed to create customer',
+        error: errorMessage
+      });
+    }
   }
 
   /**
    * Update a customer
    */
-  @Put(':id')
-  @UseGuards(AuthGuard('jwt'))
-  @HttpCode(HttpStatus.OK)
-  async update(
-    @Param('id') id: string,
-    @Body() updateData: UpdateCustomerDto
-  ) {
-    const customer = await this.customerService.update(id, updateData);
-    return { 
-      success: true, 
-      data: customer,
-      message: 'Customer updated successfully' 
-    };
+  async updateCustomer(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const updateData = plainToInstance(UpdateCustomerDto, req.body);
+      const errors = await validate(updateData, { skipMissingProperties: true });
+      
+      if (errors.length > 0) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'Validation failed',
+          errors: errors.map(err => Object.values(err.constraints || {})).flat()
+        });
+      }
+      
+      const customer = await this.customerService.update(id, updateData);
+      
+      if (!customer) {
+        return res.status(404).json({ 
+          success: false, 
+          message: 'Customer not found' 
+        });
+      }
+      
+      return res.json({ 
+        success: true, 
+        data: customer,
+        message: 'Customer updated successfully' 
+      });
+    } catch (error: unknown) {
+      console.error('Error updating customer:', error);
+      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+      return res.status(500).json({ 
+        success: false, 
+        message: 'Failed to update customer',
+        error: errorMessage
+      });
+    }
   }
 
   /**
    * Delete (deactivate) a customer
    */
-  @Delete(':id')
-  @UseGuards(AuthGuard('jwt'))
-  @HttpCode(HttpStatus.OK)
-  async remove(@Param('id') id: string) {
-    await this.customerService.remove(id);
-    return { 
-      success: true, 
-      message: 'Customer deactivated successfully' 
-    };
+  async deleteCustomer(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const result = await this.customerService.remove(id);
+      
+      if (!result) {
+        return res.status(404).json({ 
+          success: false, 
+          message: 'Customer not found' 
+        });
+      }
+      
+      return res.json({ 
+        success: true, 
+        message: 'Customer deactivated successfully' 
+      });
+    } catch (error: unknown) {
+      console.error('Error deleting customer:', error);
+      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+      return res.status(500).json({ 
+        success: false, 
+        message: 'Failed to deactivate customer',
+        error: errorMessage
+      });
+    }
   }
 }

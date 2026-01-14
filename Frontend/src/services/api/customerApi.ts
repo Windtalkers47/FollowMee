@@ -1,5 +1,5 @@
 import { apiConfig } from '../../api/config';
-import { CustomerData } from '../../types/customer.types';
+import { CustomerData, CustomerStatus } from '../../types/customer.types';
 
 // API Response type
 interface ApiResponse<T> {
@@ -36,6 +36,11 @@ const toApiFormat = (data: Partial<CustomerData>): any => {
     }
   });
 
+  // Remove isActive as we're now using status
+  if ('isActive' in result) {
+    delete result.isActive;
+  }
+
   return result;
 };
 
@@ -43,11 +48,20 @@ const toApiFormat = (data: Partial<CustomerData>): any => {
 const fromApiFormat = (data: any): CustomerData => {
   if (!data) return data;
   
+  // Determine status from data, default to 'active' if not provided
+  const status: CustomerStatus = ['active', 'inactive', 'canceled'].includes(data.status) 
+    ? data.status as CustomerStatus 
+    : 'active';
+  
+  // For backward compatibility, set isActive based on status
+  const isActive = status === 'active';
+  
   return {
-    customerId: data.customerId,
+    customerId: data.customerId || '',
     customerName: data.customerName || '',
     customerLastName: data.customerLastName || null,
     customerEmail: data.customerEmail || '',
+    status,
     customerPhone1: data.customerPhone1 || null,
     customerPhone2: data.customerPhone2 || null,
     customerFacebook: data.customerFacebook || null,
@@ -55,9 +69,9 @@ const fromApiFormat = (data: any): CustomerData => {
     customerTikTok: data.customerTikTok || null,
     customerLine: data.customerLine || null,
     customerX: data.customerX || null,
-    isActive: data.isActive !== undefined ? data.isActive : true,
-    createdAt: data.createdAt,
-    updatedAt: data.updatedAt,
+    isActive,
+    createdAt: data.createdAt || new Date().toISOString(),
+    updatedAt: data.updatedAt || new Date().toISOString(),
     deletedAt: data.deletedAt || null,
   };
 };
@@ -141,7 +155,7 @@ export const customerApi = {
     page: number = 1, 
     limit: number = 10, 
     search?: string,
-    status?: 'active' | 'inactive'
+    status?: CustomerStatus
   ): Promise<ApiResponse<CustomerData[]>> => {
     const params = new URLSearchParams({
       page: page.toString(),

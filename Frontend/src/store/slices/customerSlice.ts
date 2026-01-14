@@ -40,10 +40,20 @@ interface FetchCustomersParams {
 }
 
 // Helper function to transform API customer data to our Customer type
-const toCustomer = (data: CustomerData): Customer => ({
-  ...data,
-  fullName: `${data.customerName} ${data.customerLastName || ''}`.trim(),
-});
+const toCustomer = (data: CustomerData): Customer => {
+  // Ensure status is always set with a valid value
+  const status: CustomerStatus = ['active', 'inactive', 'canceled'].includes(data.status) 
+    ? data.status as CustomerStatus 
+    : 'active';
+    
+  return {
+    ...data,
+    fullName: `${data.customerName} ${data.customerLastName || ''}`.trim(),
+    status,
+    // Maintain isActive for backward compatibility
+    isActive: status === 'active'
+  };
+};
 
 // Async thunks
 export const fetchCustomers = createAsyncThunk(
@@ -53,31 +63,56 @@ export const fetchCustomers = createAsyncThunk(
     const { page, pageSize, filter } = customer;
 
     // Use provided params or fall back to state
+    // Create query params with status handling
+    const statusToUse = params.status ?? filter.status;
     const queryParams = {
       page: params.page ?? page,
       limit: params.limit ?? pageSize,
       search: params.search ?? filter.search,
-      status: params.status ?? (filter.status === 'all' ? undefined : filter.status),
+      status: statusToUse === 'all' ? undefined : statusToUse,
     };
 
+    // Determine the status to send to the API
+    // We need to check both params.status (from URL) and filter.status (from Redux state)
+    // and only pass a status if it's a valid CustomerStatus ('active', 'inactive', 'canceled')
+    let statusParam: CustomerStatus | undefined;
+    
+    // Check if we have a valid status in params
+    if (params.status && params.status !== 'all' && 
+        ['active', 'inactive', 'canceled'].includes(params.status)) {
+      statusParam = params.status as CustomerStatus;
+    } 
+    // If not in params, check the filter
+    else if (filter.status && filter.status !== 'all' && 
+             ['active', 'inactive', 'canceled'].includes(filter.status)) {
+      statusParam = filter.status as CustomerStatus;
+    }
+    // If both are 'all' or invalid, statusParam remains undefined (get all statuses)
+    
+    // Make the API call with the determined status
     const response = await customerApi.getCustomers(
       queryParams.page,
       queryParams.limit,
       queryParams.search,
-      queryParams.status as 'active' | 'inactive' | undefined,
+      statusParam, // This will be undefined for 'all' tab, or the specific status for other tabs
     );
 
     if (!response.success) {
       throw new Error(response.message || 'Failed to fetch customers');
     }
 
+    // Handle both array and single object responses
+    const customersData = Array.isArray(response.data) 
+      ? response.data 
+      : response.data ? [response.data] : [];
+
     return {
-      data: Array.isArray(response.data) ? response.data.map(toCustomer) : [],
+      data: customersData.map(toCustomer),
       meta: response.meta || {
-        total: 0,
+        total: customersData.length,
         page: queryParams.page,
         limit: queryParams.limit,
-        totalPages: 1,
+        totalPages: Math.ceil(customersData.length / queryParams.limit),
       },
     };
   },

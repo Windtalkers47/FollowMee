@@ -1,3 +1,6 @@
+// Type for customer status
+export type CustomerStatus = 'active' | 'inactive' | 'canceled' | 'all';
+
 // Base customer interface that matches the API response
 export interface CustomerData {
   customerId: string;
@@ -12,6 +15,7 @@ export interface CustomerData {
   customerLine: string | null;
   customerX: string | null;
   isActive: boolean;
+  status: CustomerStatus;
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
@@ -70,11 +74,12 @@ export interface CustomerState {
 }
 
 // Type for customer status filter
-export type CustomerStatus = 'active' | 'inactive' | 'all';
+export type CustomerStatusFilter = 'active' | 'inactive' | 'all';
 
 // Type for customer form data
 export interface CustomerFormData extends Omit<CreateCustomerDto, 'isActive'> {
   isActive: boolean;
+  status: CustomerStatus;
 }
 
 // Type for customer table row

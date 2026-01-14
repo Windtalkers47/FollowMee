@@ -28,6 +28,21 @@ export class CustomerService {
     return customers.map(c => new CustomerResponseDto(c));
   }
 
+  /**
+   * Find customers with pagination
+   * @param page Page number (1-based)
+   * @param limit Number of items per page
+   * @returns [customers, totalCount]
+   */
+  async findWithPagination(
+    page: number = 1,
+    limit: number = 10
+  ): Promise<[CustomerResponseDto[], number]> {
+    const [customers, total] = await this.customerRepository.findWithPagination(page, limit);
+    const customerDtos = customers.map(c => new CustomerResponseDto(c));
+    return [customerDtos, total];
+  }
+
   async create(dto: CreateCustomerDto): Promise<CustomerResponseDto> {
     const existing = await this.customerRepository.findByEmail(dto.customerEmail);
     if (existing) {

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CustomerStatus } from '../../types/customer.types';
+import { Customer as CustomerType, CustomerStatus } from '../../types/customer.types';
 import {
   Box,
   Typography,
@@ -18,6 +18,7 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  Divider,
   TablePagination,
   Checkbox,
   Menu,
@@ -39,29 +40,24 @@ import {
   Refresh as RefreshIcon,
   FilterAlt as FilterAltIcon,
   PersonAdd as PersonAddIcon,
+  PersonRemove as PersonRemoveIcon,
   AccessTime as AccessTimeIcon,
   Label as LabelIcon,
+  Email as EmailIcon,
+  Flag as FlagIcon,
+  Facebook as FacebookIcon,
+  Instagram as InstagramIcon,
+  MusicNote as MusicNoteIcon,
+  Message as MessageIcon,
+  Twitter as TwitterIcon,
+  Group as GroupIcon,
 } from '@mui/icons-material';
 
 import { useCustomers } from '../../hooks/useCustomers';
 import CustomerForm from '../../components/customers/CustomerForm';
 
-interface Customer {
-  customerId: string;
-  customerName: string;
-  customerLastName: string | null;
-  customerEmail: string;
-  customerPhone1: string | null;
-  customerPhone2: string | null;
-  customerFacebook: string | null;
-  customerInstagram: string | null;
-  customerTikTok: string | null;
-  customerLine: string | null;
-  customerX: string | null;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
-  fullName: string;
+interface Customer extends CustomerType {
+  // All properties are now inherited from CustomerType
 }
 
 function a11yProps(index: number) {
@@ -74,7 +70,9 @@ function a11yProps(index: number) {
 const CustomerPage = () => {
   const [tabValue, setTabValue] = useState(0);
   const [selected, setSelected] = useState<string[]>([]);
-  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [actionMenuAnchorEl, setActionMenuAnchorEl] = useState<null | HTMLElement>(null);
+  const [addMenuAnchorEl, setAddMenuAnchorEl] = useState<null | HTMLElement>(null);
+  const [selectedMember, setSelectedMember] = useState<Customer | null>(null);
   const [filterAnchorEl, setFilterAnchorEl] = useState<null | HTMLElement>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
@@ -104,8 +102,9 @@ const CustomerPage = () => {
 
   // Filter customers based on tab value
   const filteredCustomers = customers.filter(customer => {
-    if (tabValue === 1) return customer.isActive;
-    if (tabValue === 2) return !customer.isActive;
+    if (tabValue === 1) return customer.status === 'active';
+    if (tabValue === 2) return customer.status === 'inactive';
+    if (tabValue === 3) return customer.status === 'canceled';
     return true; // tabValue === 0 (All)
   });
 
@@ -120,9 +119,18 @@ const CustomerPage = () => {
 
   const handleTabChange = (_: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
-    const statusMap: (CustomerStatus | 'all')[] = ['all', 'active', 'inactive'];
+    const statusMap: (CustomerStatus | 'all')[] = ['all', 'active', 'inactive', 'canceled'];
     const selectedStatus = statusMap[newValue] || 'all';
-    handleFilterChange({ status: selectedStatus });
+    
+    // Reset to first page when changing tabs
+    handlePageChange(1);
+    
+    // Update the filter based on the selected tab
+    handleFilterChange({ 
+      status: selectedStatus as CustomerStatus | 'all',
+      // Preserve existing search filter
+      search: filter.search 
+    });
   };
 
   const handleSelectAllClick = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -136,7 +144,10 @@ const CustomerPage = () => {
 
 
 
-  const handleClick = (event: React.MouseEvent<unknown>, id: string) => {
+  const handleClick = (event: React.MouseEvent, id: string) => {
+    event.preventDefault();
+    event.stopPropagation();
+    
     const selectedIndex = selected.indexOf(id);
     let newSelected: string[] = [];
 
@@ -156,17 +167,24 @@ const CustomerPage = () => {
     setSelected(newSelected);
   };
 
-  const handleMenuClick = (event: React.MouseEvent<HTMLElement>) => {
-    setAnchorEl(event.currentTarget);
+  const handleActionMenuOpen = (event: React.MouseEvent<HTMLElement>, customer: Customer) => {
+    event.stopPropagation();
+    setActionMenuAnchorEl(event.currentTarget);
+    setSelectedMember(customer);
   };
 
+  // Handle filter menu open
   const handleFilterClick = (event: React.MouseEvent<HTMLElement>) => {
     setFilterAnchorEl(event.currentTarget);
   };
 
-  const handleClose = () => {
-    setAnchorEl(null);
-    setFilterAnchorEl(null);
+  const handleActionMenuClose = () => {
+    setActionMenuAnchorEl(null);
+    setSelectedMember(null);
+  };
+
+  const handleAddMenuClose = () => {
+    setAddMenuAnchorEl(null);
   };
 
   const handleOpenForm = (customer: Customer | null = null) => {
@@ -214,8 +232,10 @@ const CustomerPage = () => {
       try {
         await deleteCustomer(id);
         showSnackbar('Customer deleted successfully', 'success');
+        // The useCustomers hook will automatically refresh the customer list
+        // when the delete operation is successful through Redux state updates
       } catch (error) {
-        showSnackbar('Failed to delete customer', 'error');
+        showSnackbar('Error deleting customer', 'error');
       }
     }
   };
@@ -227,6 +247,13 @@ const CustomerPage = () => {
   const handleCloseSnackbar = () => {
     setSnackbar({ ...snackbar, open: false });
   };
+
+  // const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, member: AudienceMember) => {
+  //   setAnchorEl(event.currentTarget);
+  //   setSelectedMember(member);
+  // };
+
+
 
   const isSelected = (id: string) => selected.includes(id);
 
@@ -293,7 +320,7 @@ const CustomerPage = () => {
             color="primary"
             startIcon={<GroupAddIcon />}
             sx={{ borderRadius: 2, textTransform: 'none', mr: 1 }}
-            onClick={() => handleOpenForm()}
+            onClick={(e) => setAddMenuAnchorEl(e.currentTarget)}
           >
             Add Customer
           </Button>
@@ -318,57 +345,90 @@ const CustomerPage = () => {
             variant="scrollable"
             scrollButtons="auto"
           >
-            <Tab label="All" {...a11yProps(0)} />
-            <Tab
+            <Tab 
               label={
                 <Box display="flex" alignItems="center" gap={1}>
-                  <CheckCircleIcon fontSize="small" color="primary" />
+                  <GroupIcon fontSize="small" />
+                  <span>All</span>
+                  <Chip 
+                    label={customers.length} 
+                    size="small" 
+                    color="primary" 
+                    sx={{ height: 20, fontSize: '0.675rem', fontWeight: 600 }}
+                  />
+                </Box>
+              } 
+              {...a11yProps(0)} 
+            />
+            <Tab 
+              label={
+                <Box display="flex" alignItems="center" gap={1}>
+                  <CheckCircleIcon fontSize="small" color="success" />
                   <span>Active</span>
-                  <Chip
-                    label={customers.filter((m) => m.isActive).length}
-                    size="small"
-                    color="primary"
+                  <Chip 
+                    label={customers.filter((m) => m.status === 'active').length} 
+                    size="small" 
+                    color="success" 
                     sx={{ height: 20, fontSize: '0.675rem', fontWeight: 600 }}
                   />
                 </Box>
-              }
-              {...a11yProps(1)}
+              } 
+              {...a11yProps(1)} 
             />
-            <Tab
+            <Tab 
               label={
                 <Box display="flex" alignItems="center" gap={1}>
-                  <BlockIcon fontSize="small" color="action" />
+                  <BlockIcon fontSize="small" color="warning" />
                   <span>Inactive</span>
-                  <Chip
-                    label={customers.filter((m) => !m.isActive).length}
-                    size="small"
-                    color="default"
+                  <Chip 
+                    label={customers.filter(m => m.status === 'inactive').length} 
+                    size="small" 
+                    color="warning" 
                     sx={{ height: 20, fontSize: '0.675rem', fontWeight: 600 }}
                   />
                 </Box>
-              }
-              {...a11yProps(2)}
+              } 
+              {...a11yProps(2)} 
             />
+                        <Tab 
+                          label={
+                            <Box display="flex" alignItems="center" gap={1}>
+                              <BlockIcon fontSize="small" color="error" />
+                              <span>Canceled</span>
+                              <Chip 
+                                label={customers.filter(m => m.status === 'canceled').length} 
+                                size="small" 
+                                color="error" 
+                                sx={{ height: 20, fontSize: '0.675rem', fontWeight: 600 }}
+                              />
+                            </Box>
+                          } 
+                          {...a11yProps(3)} 
+                        />
           </Tabs>
         </Box>
       </Box>
 
       <Box sx={{ p: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <TextField
-          placeholder="Search customers..."
-          variant="outlined"
-          size="small"
-          value={filter.search || ''}
-          onChange={(e) => handleFilterChange({ search: e.target.value })}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon />
-              </InputAdornment>
-            ),
-          }}
-          sx={{ width: 300 }}
-        />
+      <TextField
+            fullWidth
+            variant="outlined"
+            placeholder="Search customer..."
+            value={filter.search || ''}
+            onChange={(e) => handleFilterChange({ search: e.target.value })}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon color="action" />
+                </InputAdornment>
+              ),
+              sx: {
+                borderRadius: 2,
+                bgcolor: 'background.paper',
+                maxWidth: 400,
+              },
+            }}
+          />
 
         <Box>
           <IconButton>
@@ -377,43 +437,45 @@ const CustomerPage = () => {
         </Box>
       </Box>
 
-      <Paper sx={{ width: '100%', overflow: 'hidden' }}>
-        <TableContainer sx={{ maxHeight: 600 }}>
-          <Table stickyHeader aria-label="customer table">
+      <Paper sx={{ width: '100%', mb: 2, borderRadius: 3, overflow: 'hidden' }}>
+      <TableContainer>
+          <Table>
             <TableHead>
               <TableRow>
                 <TableCell padding="checkbox">
                   <Checkbox
                     color="primary"
-                    indeterminate={selected.length > 0 && selected.length < customers.length}
-                    checked={customers.length > 0 && selected.length === customers.length}
+                    indeterminate={selected.length > 0 && selected.length < filteredCustomers.length}
+                    checked={filteredCustomers.length > 0 && selected.length === filteredCustomers.length}
                     onChange={handleSelectAllClick}
                     inputProps={{ 'aria-label': 'select all customers' }}
                   />
                 </TableCell>
                 <TableCell>Name</TableCell>
-                <TableCell>Email</TableCell>
-                <TableCell>Phone</TableCell>
                 <TableCell>Status</TableCell>
-                <TableCell>Joined Date</TableCell>
-                <TableCell align="right">Actions</TableCell>
+                <TableCell>Platform</TableCell>
+                <TableCell>Phone</TableCell>
+                <TableCell>Email</TableCell>
+                <TableCell>Joined</TableCell>
+                <TableCell>Location</TableCell>
+                <TableCell align="right">Action</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
-              {loading && customers.length === 0 ? (
+              {loading && filteredCustomers.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} align="center" sx={{ py: 3 }}>
                     <CircularProgress />
                   </TableCell>
                 </TableRow>
-              ) : customers.length === 0 ? (
+              ) : filteredCustomers.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} align="center" sx={{ py: 3 }}>
                     <Typography color="textSecondary">No customers found</Typography>
                   </TableCell>
                 </TableRow>
               ) : (
-                customers.map((customer) => {
+                filteredCustomers.map((customer) => {
                   const isItemSelected = isSelected(customer.customerId);
                   return (
                     <TableRow
@@ -450,21 +512,34 @@ const CustomerPage = () => {
                           </Box>
                         </Box>
                       </TableCell>
-                      <TableCell>{customer.customerEmail}</TableCell>
-                      <TableCell>{customer.customerPhone1 || 'N/A'}</TableCell>
                       <TableCell>
                         <Chip
-                          label={customer.isActive ? 'Active' : 'Inactive'}
-                          color={customer.isActive ? 'success' : 'default'}
+                          label={customer.status === 'active' ? 'Active' : customer.status === 'inactive' ? 'Inactive' : 'Canceled'}
+                          color={customer.status === 'active' ? 'success' : customer.status === 'inactive' ? 'default' : 'error'}
                           size="small"
                           variant="outlined"
                         />
                       </TableCell>
                       <TableCell>
+                        <Box display="flex" gap={1}>
+                          {customer.customerFacebook && <FacebookIcon color="primary" />}
+                          {customer.customerInstagram && <InstagramIcon color="secondary" />}
+                          {customer.customerTikTok && <MusicNoteIcon color="action" />}
+                          {customer.customerLine && <MessageIcon color="success" />}
+                          {customer.customerX && <TwitterIcon color="info" />}
+                        </Box>
+                      </TableCell>
+                      <TableCell>{customer.customerPhone1 || 'N/A'}</TableCell>
+                      <TableCell>{customer.customerEmail}</TableCell>
+                      <TableCell>
                         {new Date(customer.createdAt).toLocaleDateString()}
                       </TableCell>
+                      <TableCell>N/A</TableCell>
                       <TableCell>
-                        <IconButton>
+                        <IconButton onClick={(e) => {
+                          e.stopPropagation();
+                          handleActionMenuOpen(e, customer);
+                        }}>
                           <MoreVertIcon />
                         </IconButton>
                       </TableCell>
@@ -492,23 +567,28 @@ const CustomerPage = () => {
 
       {/* Add Customer Menu */}
       <Menu
-        anchorEl={anchorEl}
-        open={Boolean(anchorEl)}
-        onClose={handleClose}
+        anchorEl={addMenuAnchorEl}
+        open={Boolean(addMenuAnchorEl)}
+        onClose={handleAddMenuClose}
+        transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+        anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
       >
-        <MenuItem onClick={handleClose}>
+        <MenuItem onClick={() => {
+          handleAddMenuClose();
+          handleOpenForm();
+        }}>
           <ListItemIcon>
             <PersonAddIcon fontSize="small" />
           </ListItemIcon>
           <ListItemText>Add Single Customer</ListItemText>
         </MenuItem>
-        <MenuItem onClick={handleClose}>
+        <MenuItem onClick={handleAddMenuClose}>
           <ListItemIcon>
             <GroupAddIcon fontSize="small" />
           </ListItemIcon>
           <ListItemText>Add Multiple Customers</ListItemText>
         </MenuItem>
-        <MenuItem onClick={handleClose}>
+        <MenuItem onClick={handleAddMenuClose}>
           <ListItemIcon>
             <FileUploadIcon fontSize="small" />
           </ListItemIcon>
@@ -517,30 +597,92 @@ const CustomerPage = () => {
       </Menu>
 
       {/* Filter Menu */}
+      {/* Filter Menu */}
       <Menu
         anchorEl={filterAnchorEl}
         open={Boolean(filterAnchorEl)}
-        onClose={handleClose}
+        onClose={() => setFilterAnchorEl(null)}
       >
-        <MenuItem onClick={handleClose}>
+        <MenuItem onClick={() => setFilterAnchorEl(null)}>
           <ListItemIcon>
             <FilterAltIcon fontSize="small" />
           </ListItemIcon>
           <ListItemText>Filter by Status</ListItemText>
         </MenuItem>
-        <MenuItem onClick={handleClose}>
+        <MenuItem onClick={() => setFilterAnchorEl(null)}>
           <ListItemIcon>
             <LabelIcon fontSize="small" />
           </ListItemIcon>
           <ListItemText>Filter by Tags</ListItemText>
         </MenuItem>
-        <MenuItem onClick={handleClose}>
+        <MenuItem onClick={() => setFilterAnchorEl(null)}>
           <ListItemIcon>
             <AccessTimeIcon fontSize="small" />
           </ListItemIcon>
           <ListItemText>Filter by Last Active</ListItemText>
         </MenuItem>
       </Menu>
+
+      {/* Action Menu */}
+      <Menu
+        anchorEl={actionMenuAnchorEl}
+        open={Boolean(actionMenuAnchorEl)}
+        onClose={handleActionMenuClose}
+        transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+        anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+        PaperProps={{
+          elevation: 1,
+          sx: {
+            borderRadius: 2,
+            minWidth: 200,
+            boxShadow: '0px 4px 20px rgba(0, 0, 0, 0.1)',
+          },
+        }}
+      >
+        <MenuItem onClick={handleActionMenuClose}>
+          <ListItemIcon>
+            <EmailIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText>Send Message</ListItemText>
+        </MenuItem>
+        <MenuItem onClick={handleActionMenuClose}>
+          <ListItemIcon>
+            <PersonAddIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText>Add to Group</ListItemText>
+        </MenuItem>
+        <Divider />
+        {selectedMember?.isActive ? (
+          <MenuItem onClick={handleActionMenuClose}>
+            <ListItemIcon>
+              <PersonRemoveIcon fontSize="small" color="warning" />
+            </ListItemIcon>
+            <ListItemText>Mark as Inactive</ListItemText>
+          </MenuItem>
+        ) : (
+          <MenuItem onClick={handleActionMenuClose}>
+            <ListItemIcon>
+              <CheckCircleIcon fontSize="small" color="success" />
+            </ListItemIcon>
+            <ListItemText>Mark as Active</ListItemText>
+          </MenuItem>
+        )}
+        <MenuItem onClick={handleActionMenuClose}>
+          <ListItemIcon>
+            <BlockIcon fontSize="small" color="error" />
+          </ListItemIcon>
+          <ListItemText>Ban User</ListItemText>
+        </MenuItem>
+        <Divider />
+        <MenuItem onClick={handleActionMenuClose}>
+          <ListItemIcon>
+            <FlagIcon fontSize="small" color="error" />
+          </ListItemIcon>
+          <ListItemText>Report</ListItemText>
+        </MenuItem>
+      </Menu>
+
+
     </Box>
   );
 };

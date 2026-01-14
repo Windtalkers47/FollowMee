@@ -16,16 +16,17 @@ export class CustomerController {
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 10;
       
-      const [customers, total] = await this.customerService.findAll(true);
+      // Get all customers with pagination
+      const [customers, total] = await this.customerService.findWithPagination(page, limit);
       
       return res.json({ 
         success: true, 
         data: customers,
         meta: { 
-          total: +total, 
-          page: +page, 
-          limit: +limit,
-          totalPages: Math.ceil(Number(total) / +limit)
+          total: total, 
+          page: page, 
+          limit: limit,
+          totalPages: Math.ceil(total / limit)
         }
       });
     } catch (error: unknown) {

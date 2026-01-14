@@ -39,6 +39,14 @@ export class Customer {
   @Column({ name: 'isActive', type: 'boolean', default: true })
   isActive: boolean = true;
 
+  @Column({
+    name: 'status',
+    type: 'enum',
+    enum: ['active', 'inactive', 'canceled'],
+    default: 'active'
+  })
+  status: 'active' | 'inactive' | 'canceled' = 'active';
+
   @CreateDateColumn({ name: 'createdAt' })
   createdAt!: Date;
 

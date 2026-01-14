@@ -40,6 +40,23 @@ export class CustomerRepository extends BaseRepository<Customer> {
   }
 
   /**
+   * Find customers with pagination
+   * @param page Page number (1-based)
+   * @param limit Number of items per page
+   * @returns [customers, totalCount]
+   */
+  async findWithPagination(page: number, limit: number): Promise<[Customer[], number]> {
+    const [customers, total] = await this.repository
+      .createQueryBuilder('customer')
+      .orderBy('customer.createdAt', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit)
+      .getManyAndCount();
+    
+    return [customers, total];
+  }
+
+  /**
    * Mark customer as inactive (soft delete)
    * @param id Customer ID
    * @returns true if successful, false otherwise

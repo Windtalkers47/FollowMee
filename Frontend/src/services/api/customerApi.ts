@@ -149,6 +149,21 @@ const apiRequest = async <T>(
   }
 };
 
+export interface StatusStat {
+  status: 'active' | 'inactive' | 'canceled';
+  count: number;
+}
+
+// Interface for status statistics response
+export interface StatusStatsResponse {
+  success: boolean;
+  data: {
+    statuses: StatusStat[];
+    totalStatus: number;
+  };
+  message?: string;
+}
+
 export const customerApi = {
   // Get all customers with pagination
   getCustomers: async (
@@ -205,6 +220,60 @@ export const customerApi = {
   // Delete customer (soft delete)
   deleteCustomer: async (customerId: string): Promise<ApiResponse<void>> => {
     return apiRequest<void>(`/customers/${customerId}`, 'DELETE');
+  },
+
+  getStatusStats: async (): Promise<StatusStatsResponse> => {
+    try {
+      const response = await fetch(`${apiConfig.baseURL}/customers/status-stats`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Application-Name': apiConfig.headers['X-Application-Name'],
+          ...(localStorage.getItem('token') && {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          })
+        },
+        credentials: 'include'
+      });
+
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to fetch status statistics');
+      }
+
+      if (!data?.data?.statuses || !Array.isArray(data.data.statuses)) {
+        throw new Error('Invalid response format from server');
+      }
+
+      const statuses = data.data.statuses.map((stat: any) => ({
+        status: (['active', 'inactive', 'canceled'].includes(stat.status) 
+          ? stat.status 
+          : 'inactive') as 'active' | 'inactive' | 'canceled',
+        count: typeof stat.count === 'number' ? stat.count : 0
+      }));
+      
+      return {
+        success: true,
+        data: {
+          statuses,
+          totalStatus: typeof data.data.totalStatus === 'number' 
+            ? data.data.totalStatus 
+            : statuses.reduce((sum: number, s: { count: number }) => sum + s.count, 0)
+        }
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('Error in getStatusStats:', error);
+      return {
+        success: false,
+        message: `Failed to fetch status statistics: ${errorMessage}`,
+        data: {
+          statuses: [],
+          totalStatus: 0
+        }
+      };
+    }
   },
 };
 

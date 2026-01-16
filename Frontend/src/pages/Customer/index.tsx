@@ -90,6 +90,7 @@ const CustomerPage = () => {
     pageSize = 10,
     total = 0,
     filter = { status: 'all', search: '' },
+    statusStats,
     handlePageChange = () => {},
     handlePageSizeChange = () => {},
     handleFilterChange = () => {},
@@ -97,6 +98,13 @@ const CustomerPage = () => {
     updateCustomer = async () => {},
     deleteCustomer = async () => {},
   } = useCustomers();
+
+  // Get count for a specific status
+  const getStatusCount = (status: 'active' | 'inactive' | 'canceled'): number => {
+    if (!statusStats?.statuses) return 0;
+    const statusData = statusStats.statuses.find(s => s.status === status);
+    return statusData?.count || 0;
+  };
 
   const emptyRows = page > 0 ? Math.max(0, (1 + page) * pageSize - customers.length) : 0;
 
@@ -107,6 +115,10 @@ const CustomerPage = () => {
     if (tabValue === 3) return customer.status === 'canceled';
     return true; // tabValue === 0 (All)
   });
+
+  // Calculate total count for the "All" tab
+  const totalCustomers = statusStats?.totalStatus || total || 0;
+
 
   const handlePageChangeEvent = (_: React.MouseEvent<HTMLButtonElement> | null, newPage: number) => {
     handlePageChange(newPage + 1);
@@ -340,20 +352,43 @@ const CustomerPage = () => {
         <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
           <Tabs
             value={tabValue}
-            onChange={handleTabChange}
-            aria-label="customer tabs"
+            onChange={(_, newValue) => {
+              setTabValue(newValue);
+              // Update the filter based on the selected tab
+              const statusMap = {
+                0: 'all',
+                1: 'active',
+                2: 'inactive',
+                3: 'canceled'
+              } as const;
+              
+              // Reset to first page when changing tabs
+              handlePageChange(1);
+              
+              // Update the filter
+              handleFilterChange({ 
+                status: statusMap[newValue as keyof typeof statusMap] as CustomerStatus | 'all',
+                // Preserve existing search filter
+                search: filter.search 
+              });
+            }}
             variant="scrollable"
             scrollButtons="auto"
+            aria-label="customer status tabs"
+            sx={{
+              minHeight: 44,
+              '& .MuiTab-root': { minWidth: 'auto', p: 1, mr: 1 },
+            }}
           >
             <Tab 
               label={
                 <Box display="flex" alignItems="center" gap={1}>
-                  <GroupIcon fontSize="small" />
+                  <GroupIcon fontSize="small" color="primary" />
                   <span>All</span>
                   <Chip 
-                    label={customers.length} 
-                    size="small" 
-                    color="primary" 
+                    label={totalCustomers}
+                    size="small"
+                    color="default"
                     sx={{ height: 20, fontSize: '0.675rem', fontWeight: 600 }}
                   />
                 </Box>
@@ -366,7 +401,7 @@ const CustomerPage = () => {
                   <CheckCircleIcon fontSize="small" color="success" />
                   <span>Active</span>
                   <Chip 
-                    label={customers.filter((m) => m.status === 'active').length} 
+                    label={getStatusCount('active')} 
                     size="small" 
                     color="success" 
                     sx={{ height: 20, fontSize: '0.675rem', fontWeight: 600 }}
@@ -378,10 +413,10 @@ const CustomerPage = () => {
             <Tab 
               label={
                 <Box display="flex" alignItems="center" gap={1}>
-                  <BlockIcon fontSize="small" color="warning" />
+                  <AccessTimeIcon fontSize="small" color="warning" />
                   <span>Inactive</span>
                   <Chip 
-                    label={customers.filter(m => m.status === 'inactive').length} 
+                    label={getStatusCount('inactive')} 
                     size="small" 
                     color="warning" 
                     sx={{ height: 20, fontSize: '0.675rem', fontWeight: 600 }}
@@ -390,21 +425,21 @@ const CustomerPage = () => {
               } 
               {...a11yProps(2)} 
             />
-                        <Tab 
-                          label={
-                            <Box display="flex" alignItems="center" gap={1}>
-                              <BlockIcon fontSize="small" color="error" />
-                              <span>Canceled</span>
-                              <Chip 
-                                label={customers.filter(m => m.status === 'canceled').length} 
-                                size="small" 
-                                color="error" 
-                                sx={{ height: 20, fontSize: '0.675rem', fontWeight: 600 }}
-                              />
-                            </Box>
-                          } 
-                          {...a11yProps(3)} 
-                        />
+            <Tab 
+              label={
+                <Box display="flex" alignItems="center" gap={1}>
+                  <BlockIcon fontSize="small" color="error" />
+                  <span>Canceled</span>
+                  <Chip 
+                    label={getStatusCount('canceled')} 
+                    size="small" 
+                    color="error" 
+                    sx={{ height: 20, fontSize: '0.675rem', fontWeight: 600 }}
+                  />
+                </Box>
+              } 
+              {...a11yProps(3)} 
+            />
           </Tabs>
         </Box>
       </Box>

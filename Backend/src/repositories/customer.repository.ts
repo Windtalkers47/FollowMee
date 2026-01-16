@@ -1,8 +1,13 @@
-import { FindOneOptions } from 'typeorm';
+import { FindOneOptions, getRepository } from 'typeorm';
 import { Customer } from '../entities/Customer';
 import { BaseRepository } from './base.repository';
+import { StatusCountsResponse } from '../types/status.types';
+import dataSource from '../config/database';
 
 export class CustomerRepository extends BaseRepository<Customer> {
+  get metadata() {
+    return dataSource.getMetadata(Customer);
+  }
   constructor() {
     super(Customer);
   }
@@ -64,5 +69,54 @@ export class CustomerRepository extends BaseRepository<Customer> {
   async deactivate(id: string): Promise<boolean> {
     const result = await this.update(id, { isActive: false } as any);
     return !!result;
+  }
+
+  /**
+   * Get count of customers by status
+   */
+  /**
+   * Get count of customers by status with total
+   * Optimized to use a single query for better performance
+   */
+  async getStatusCounts(): Promise<StatusCountsResponse> {
+    try {
+      if (!dataSource.isInitialized) {
+        await dataSource.initialize();
+      }
+      
+      // Get all status values from the enum
+      const statusColumn = this.metadata.findColumnWithPropertyName('status');
+      if (!statusColumn?.enum?.length) {
+        return { statuses: [], total: 0 };
+      }
+      
+      const statusValues = statusColumn.enum.map(String);
+      
+      // Get counts for all statuses in a single query
+      const statusCounts = await this.repository
+        .createQueryBuilder('customer')
+        .select('customer.status', 'status')
+        .addSelect('COUNT(customer.customerId)', 'count')
+        .where('customer.status IN (:...statuses)', { statuses: statusValues })
+        .groupBy('customer.status')
+        .getRawMany();
+
+      // Map status counts with zero for missing statuses
+      const statuses = statusValues.map(status => {
+        const found = statusCounts.find(sc => sc.status === status);
+        return {
+          status,
+          count: found ? parseInt(found.count, 10) : 0
+        };
+      });
+
+      // Calculate total in a single reduce operation
+      const total = statuses.reduce((sum, { count }) => sum + count, 0);
+
+      return { statuses, total };
+    } catch (error) {
+      console.error('Database error in getStatusCounts:', error);
+      throw new Error('Failed to fetch status counts');
+    }
   }
 }

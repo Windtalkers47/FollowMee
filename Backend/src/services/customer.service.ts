@@ -3,6 +3,7 @@ import { CreateCustomerDto } from '../dtos/create-customer.dto';
 import { UpdateCustomerDto } from '../dtos/update-customer.dto';
 import { CustomerRepository } from '../repositories/customer.repository';
 import { CustomerResponseDto } from '../dtos/customer-response.dto';
+import { StatusCountsResponse } from '../types/status.types';
 
 export class CustomerService {
   constructor(private customerRepository: CustomerRepository) {}
@@ -103,5 +104,13 @@ export class CustomerService {
 
     await this.customerRepository.deactivate(id);
     return { message: 'Customer deactivated successfully' };
+  }
+
+  /**
+   * Get customer counts by status with total
+   * @returns Object containing status counts and total
+   */
+  async getStatusCounts(): Promise<StatusCountsResponse> {
+    return this.customerRepository.getStatusCounts();
   }
 }

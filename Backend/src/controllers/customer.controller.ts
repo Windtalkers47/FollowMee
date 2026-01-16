@@ -210,4 +210,31 @@ export class CustomerController {
       });
     }
   }
+
+  /**
+   * Get customer status statistics
+   * @returns {
+   *   success: boolean,
+   *   data: {
+   *     statuses: Array<{ status: string; count: number }>,
+   *     totalStatus: number
+   *   }
+   */
+  async getCustomerStatusStats(_req: Request, res: Response) {
+    try {
+      const { statuses, total } = await this.customerService.getStatusCounts();
+      return res.json({
+        success: true,
+        data: { statuses, totalStatus: total }
+      });
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+      console.error('Error getting customer status stats:', errorMessage);
+      return res.status(500).json({ 
+        success: false, 
+        message: 'Failed to fetch customer status statistics',
+        error: process.env.NODE_ENV === 'development' ? errorMessage : undefined
+      });
+    }
+  }
 }

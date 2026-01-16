@@ -28,6 +28,12 @@ router.get('/', (req, res) => {
   return customerController.getCustomers(req, res);
 });
 
+// Get customer status statistics
+// Returns: { success: boolean, data: { statuses: { status: string, count: number }[], totalStatus: number } }
+router.get('/status-stats', (req, res) =>
+  customerController.getCustomerStatusStats(req, res)
+);
+
 router.get('/:id', (req, res) =>
   customerController.getCustomerById(req, res)
 );

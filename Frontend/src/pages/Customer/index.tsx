@@ -1,60 +1,51 @@
 import { useState } from 'react';
-import { Customer as CustomerType, CustomerStatus } from '../../types/customer.types';
-import {
-  Box,
-  Typography,
-  Paper,
-  Button,
-  IconButton,
-  TextField,
-  InputAdornment,
-  Avatar,
-  Chip,
-  Tabs,
-  Tab,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Divider,
-  TablePagination,
-  Checkbox,
-  Menu,
-  MenuItem,
-  ListItemIcon,
-  ListItemText,
-  CircularProgress,
-  Alert,
-  Snackbar,
+import { 
+  Box, 
+  Button, 
+  TextField, 
+  InputAdornment, 
+  IconButton, 
+  Paper, 
+  Table, 
+  TableBody, 
+  TableCell, 
+  TableContainer, 
+  TableHead, 
+  TableRow, 
+  TablePagination, 
+  Checkbox, 
+  Avatar, 
+  Chip, 
+  Tabs, 
+  Tab, 
+  Typography, 
+  CircularProgress, 
+  Alert, 
+  Snackbar 
 } from '@mui/material';
-
+import { Customer as CustomerType, CustomerStatus } from '../../types/customer.types';
 import {
   Search as SearchIcon,
   MoreVert as MoreVertIcon,
-  GroupAdd as GroupAddIcon,
-  FileUpload as FileUploadIcon,
-  CheckCircle as CheckCircleIcon,
-  Block as BlockIcon,
-  Refresh as RefreshIcon,
-  FilterAlt as FilterAltIcon,
-  PersonAdd as PersonAddIcon,
-  PersonRemove as PersonRemoveIcon,
-  AccessTime as AccessTimeIcon,
-  Label as LabelIcon,
-  Email as EmailIcon,
-  Flag as FlagIcon,
   Facebook as FacebookIcon,
   Instagram as InstagramIcon,
+  Twitter as TwitterIcon,
+  GroupAdd as GroupAddIcon,
+  Group as GroupIcon,
+  CheckCircle as CheckCircleIcon,
+  Block as BlockIcon,
+  AccessTime as AccessTimeIcon,
+  FileUpload as FileUploadIcon,
   MusicNote as MusicNoteIcon,
   Message as MessageIcon,
-  Twitter as TwitterIcon,
-  Group as GroupIcon,
+  Refresh as RefreshIcon,
 } from '@mui/icons-material';
 
 import { useCustomers } from '../../hooks/useCustomers';
-import CustomerForm from '../../components/customers/CustomerForm';
+import FilterMenu from '../../components/customers/FilterMenu';
+import AddCustomerMenu from '../../components/customers/AddCustomerMenu';
+import CustomerForm from '@/components/customers/CustomerForm';
+import ActionMenu from '@/components/ActionMenu';
 
 interface Customer extends CustomerType {
   // All properties are now inherited from CustomerType
@@ -96,7 +87,7 @@ const CustomerPage = () => {
     handleFilterChange = () => {},
     createCustomer = async () => {},
     updateCustomer = async () => {},
-    deleteCustomer = async () => {},
+    refetch = () => {},
   } = useCustomers();
 
   // Get count for a specific status
@@ -127,22 +118,6 @@ const CustomerPage = () => {
   const handleChangeRowsPerPage = (e: React.ChangeEvent<HTMLInputElement>) => {
     handlePageSizeChange(parseInt(e.target.value, 10));
     handlePageChange(1);
-  };
-
-  const handleTabChange = (_: React.SyntheticEvent, newValue: number) => {
-    setTabValue(newValue);
-    const statusMap: (CustomerStatus | 'all')[] = ['all', 'active', 'inactive', 'canceled'];
-    const selectedStatus = statusMap[newValue] || 'all';
-    
-    // Reset to first page when changing tabs
-    handlePageChange(1);
-    
-    // Update the filter based on the selected tab
-    handleFilterChange({ 
-      status: selectedStatus as CustomerStatus | 'all',
-      // Preserve existing search filter
-      search: filter.search 
-    });
   };
 
   const handleSelectAllClick = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -239,18 +214,7 @@ const CustomerPage = () => {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (window.confirm('Are you sure you want to delete this customer?')) {
-      try {
-        await deleteCustomer(id);
-        showSnackbar('Customer deleted successfully', 'success');
-        // The useCustomers hook will automatically refresh the customer list
-        // when the delete operation is successful through Redux state updates
-      } catch (error) {
-        showSnackbar('Error deleting customer', 'error');
-      }
-    }
-  };
+
 
   const showSnackbar = (message: string, severity: 'success' | 'error' | 'info') => {
     setSnackbar({ open: true, message, severity });
@@ -260,10 +224,7 @@ const CustomerPage = () => {
     setSnackbar({ ...snackbar, open: false });
   };
 
-  // const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, member: AudienceMember) => {
-  //   setAnchorEl(event.currentTarget);
-  //   setSelectedMember(member);
-  // };
+
 
 
 
@@ -466,7 +427,12 @@ const CustomerPage = () => {
           />
 
         <Box>
-          <IconButton>
+          <IconButton 
+            onClick={() => refetch()}
+            disabled={loading}
+            aria-label="Refresh data"
+            title="Refresh data"
+          >
             <RefreshIcon />
           </IconButton>
         </Box>
@@ -600,122 +566,60 @@ const CustomerPage = () => {
         />
       </Paper>
 
-      {/* Add Customer Menu */}
-      <Menu
+      <AddCustomerMenu
         anchorEl={addMenuAnchorEl}
-        open={Boolean(addMenuAnchorEl)}
         onClose={handleAddMenuClose}
-        transformOrigin={{ horizontal: 'right', vertical: 'top' }}
-        anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
-      >
-        <MenuItem onClick={() => {
-          handleAddMenuClose();
-          handleOpenForm();
-        }}>
-          <ListItemIcon>
-            <PersonAddIcon fontSize="small" />
-          </ListItemIcon>
-          <ListItemText>Add Single Customer</ListItemText>
-        </MenuItem>
-        <MenuItem onClick={handleAddMenuClose}>
-          <ListItemIcon>
-            <GroupAddIcon fontSize="small" />
-          </ListItemIcon>
-          <ListItemText>Add Multiple Customers</ListItemText>
-        </MenuItem>
-        <MenuItem onClick={handleAddMenuClose}>
-          <ListItemIcon>
-            <FileUploadIcon fontSize="small" />
-          </ListItemIcon>
-          <ListItemText>Import from CSV</ListItemText>
-        </MenuItem>
-      </Menu>
+        onAddSingleCustomer={handleOpenForm}
+      />
 
-      {/* Filter Menu */}
-      {/* Filter Menu */}
-      <Menu
+      <FilterMenu 
         anchorEl={filterAnchorEl}
-        open={Boolean(filterAnchorEl)}
         onClose={() => setFilterAnchorEl(null)}
-      >
-        <MenuItem onClick={() => setFilterAnchorEl(null)}>
-          <ListItemIcon>
-            <FilterAltIcon fontSize="small" />
-          </ListItemIcon>
-          <ListItemText>Filter by Status</ListItemText>
-        </MenuItem>
-        <MenuItem onClick={() => setFilterAnchorEl(null)}>
-          <ListItemIcon>
-            <LabelIcon fontSize="small" />
-          </ListItemIcon>
-          <ListItemText>Filter by Tags</ListItemText>
-        </MenuItem>
-        <MenuItem onClick={() => setFilterAnchorEl(null)}>
-          <ListItemIcon>
-            <AccessTimeIcon fontSize="small" />
-          </ListItemIcon>
-          <ListItemText>Filter by Last Active</ListItemText>
-        </MenuItem>
-      </Menu>
-
-      {/* Action Menu */}
-      <Menu
+      />
+      <ActionMenu
         anchorEl={actionMenuAnchorEl}
         open={Boolean(actionMenuAnchorEl)}
         onClose={handleActionMenuClose}
-        transformOrigin={{ horizontal: 'right', vertical: 'top' }}
-        anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
-        PaperProps={{
-          elevation: 1,
-          sx: {
-            borderRadius: 2,
-            minWidth: 200,
-            boxShadow: '0px 4px 20px rgba(0, 0, 0, 0.1)',
-          },
+        onAction={(action) => {
+          // Handle different actions here
+          switch (action) {
+            case 'sendMessage':
+              // Handle send message
+              console.log('Send message to:', selectedMember?.customerId);
+              break;
+            case 'addToGroup':
+              // Handle add to group
+              console.log('Add to group:', selectedMember?.customerId);
+              break;
+            case 'toggleStatus':
+              // Handle toggle status
+              if (selectedMember) {
+                const newStatus = selectedMember.isActive ? 'inactive' : 'active';
+                updateCustomer(selectedMember.customerId, { status: newStatus });
+                showSnackbar(
+                  `Customer marked as ${newStatus} successfully`,
+                  'success'
+                );
+              }
+              break;
+            case 'banUser':
+              // Handle ban user
+              if (selectedMember) {
+                updateCustomer(selectedMember.customerId, { status: 'canceled' });
+                showSnackbar('Customer has been banned', 'success');
+              }
+              break;
+            case 'report':
+              // Handle report
+              console.log('Report user:', selectedMember?.customerId);
+              showSnackbar('User has been reported', 'info');
+              break;
+            default:
+              break;
+          }
         }}
-      >
-        <MenuItem onClick={handleActionMenuClose}>
-          <ListItemIcon>
-            <EmailIcon fontSize="small" />
-          </ListItemIcon>
-          <ListItemText>Send Message</ListItemText>
-        </MenuItem>
-        <MenuItem onClick={handleActionMenuClose}>
-          <ListItemIcon>
-            <PersonAddIcon fontSize="small" />
-          </ListItemIcon>
-          <ListItemText>Add to Group</ListItemText>
-        </MenuItem>
-        <Divider />
-        {selectedMember?.isActive ? (
-          <MenuItem onClick={handleActionMenuClose}>
-            <ListItemIcon>
-              <PersonRemoveIcon fontSize="small" color="warning" />
-            </ListItemIcon>
-            <ListItemText>Mark as Inactive</ListItemText>
-          </MenuItem>
-        ) : (
-          <MenuItem onClick={handleActionMenuClose}>
-            <ListItemIcon>
-              <CheckCircleIcon fontSize="small" color="success" />
-            </ListItemIcon>
-            <ListItemText>Mark as Active</ListItemText>
-          </MenuItem>
-        )}
-        <MenuItem onClick={handleActionMenuClose}>
-          <ListItemIcon>
-            <BlockIcon fontSize="small" color="error" />
-          </ListItemIcon>
-          <ListItemText>Ban User</ListItemText>
-        </MenuItem>
-        <Divider />
-        <MenuItem onClick={handleActionMenuClose}>
-          <ListItemIcon>
-            <FlagIcon fontSize="small" color="error" />
-          </ListItemIcon>
-          <ListItemText>Report</ListItemText>
-        </MenuItem>
-      </Menu>
+        isActive={selectedMember?.isActive}
+      />
 
 
     </Box>

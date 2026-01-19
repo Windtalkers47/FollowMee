@@ -186,7 +186,29 @@ export const useCustomers = () => {
     fetchStatusStats();
   }, [fetchStatusStats]);
 
-
+  // Function to manually refetch all data
+  const refetch = useCallback(() => {
+    // Force refetch customers by changing the page (will trigger the useEffect)
+    if (page !== 1) {
+      handlePageChange(1);
+    } else {
+      // If already on page 1, manually trigger the fetch
+      const queryParams: any = {
+        page: 1,
+        limit: pageSize,
+        search: filter.search || undefined,
+      };
+      
+      if (filter.status !== 'all') {
+        queryParams.status = filter.status;
+      }
+      
+      dispatch(fetchCustomers(queryParams));
+    }
+    
+    // Also refetch status stats
+    fetchStatusStats();
+  }, [page, pageSize, filter.status, filter.search, handlePageChange, fetchStatusStats, dispatch]);
 
   return {
     customers: memoizedCustomers,
@@ -203,6 +225,7 @@ export const useCustomers = () => {
     createCustomer,
     updateCustomer,
     deleteCustomer,
+    refetch,
   };
 };
 

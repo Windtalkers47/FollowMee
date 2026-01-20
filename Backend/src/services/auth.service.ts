@@ -115,7 +115,7 @@ export class AuthService {
    * Set auth cookies (access token and refresh token)
    */
   setAuthCookies(res: Response, accessToken: string, refreshToken: string): void {
-    const accessTokenExpiresInMs = 15 * 60 * 1000; // 15 minutes
+    const accessTokenExpiresInMs = 24 * 60 * 60 * 1000; // 24 hours (1 day)
     const refreshTokenExpiresInMs = REFRESH_TOKEN_EXPIRES_IN_DAYS * 24 * 60 * 60 * 1000;
     
     // Access token (short-lived)

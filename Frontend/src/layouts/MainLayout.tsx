@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppDispatch } from '../store/store';
+import { ThemeToggle } from '../components/ThemeToggle';
 import { logout } from '../store/slices/authSlice';
+
 import {
   Box,
   Drawer,
@@ -21,8 +23,9 @@ import {
   Badge,
   Menu,
   MenuItem,
-  alpha
+  alpha,
 } from '@mui/material';
+
 import {
   Menu as MenuIcon,
   Dashboard as DashboardIcon,
@@ -36,10 +39,12 @@ import {
   ChevronLeft as ChevronLeftIcon,
   ChevronRight as ChevronRightIcon,
   Home as HomeIcon,
-  Group as GroupIcon
+  Group as GroupIcon,
 } from '@mui/icons-material';
 
 const drawerWidth = 240;
+const collapsedWidth = 72;
+const APP_BAR_HEIGHT = 64;
 
 interface MainLayoutProps {
   children?: React.ReactNode;
@@ -49,42 +54,20 @@ const MainLayout = ({ children }: MainLayoutProps) => {
   const theme = useTheme();
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
-  const [mobileOpen, setMobileOpen] = useState(false);
+
+  const [open, setOpen] = useState(true);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [notifications] = useState([1, 2, 3]);
 
-  const handleDrawerToggle = () => {
-    setMobileOpen(!mobileOpen);
-  };
-
-  const handleProfileMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
-    setAnchorEl(event.currentTarget);
-  };
-
-  const handleMenuClose = () => {
-    setAnchorEl(null);
-  };
+  const handleDrawerToggle = () => setOpen(prev => !prev);
+  const handleProfileMenuOpen = (e: React.MouseEvent<HTMLElement>) =>
+    setAnchorEl(e.currentTarget);
+  const handleMenuClose = () => setAnchorEl(null);
 
   const handleLogout = () => {
-    try {
-      // Clear auth state
-      dispatch(logout());
-      // Clear any stored tokens or user data
-      localStorage.removeItem('authToken');
-      // Clear all cookies
-      const cookies = document.cookie.split(';');
-      for (const cookie of cookies) {
-        const eqPos = cookie.indexOf('=');
-        const name = eqPos > -1 ? cookie.substr(0, eqPos).trim() : cookie.trim();
-        document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`;
-      }
-      // Redirect to login page
-      navigate('/login', { replace: true });
-    } catch (error) {
-      console.error('Error during logout:', error);
-      // Still navigate to login even if there was an error
-      navigate('/login', { replace: true });
-    }
+    dispatch(logout());
+    localStorage.removeItem('authToken');
+    navigate('/login', { replace: true });
   };
 
   const menuItems = [
@@ -96,227 +79,222 @@ const MainLayout = ({ children }: MainLayoutProps) => {
     { text: 'Customer', icon: <GroupIcon />, path: '/customer' },
   ];
 
-  const drawer = (
-    <div>
-      <Box sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-          <HomeIcon color="primary" sx={{ mr: 1 }} />
-          <Typography variant="h6" noWrap component="div" sx={{ fontWeight: 'bold' }}>
-            FollowMee
-          </Typography>
+  /* ================= Drawer Content ================= */
+  const drawerContent = (
+    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+      {/* Logo */}
+      <Box
+        sx={{
+          height: APP_BAR_HEIGHT,
+          px: 2,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: open ? 'space-between' : 'center',
+        }}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'center', flexGrow: 1 }}>
+          <Box
+            onClick={() => navigate('/')}
+            sx={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              cursor: 'pointer',
+              flexGrow: 1
+            }}
+          >
+            <HomeIcon color="primary" />
+            {open && (
+              <Typography ml={1} fontWeight="bold">
+                FollowMee
+              </Typography>
+            )}
+          </Box>
+          <IconButton 
+            size="small" 
+            onClick={handleDrawerToggle}
+            sx={{ ml: 1 }}
+          >
+            {open ? <ChevronLeftIcon /> : <ChevronRightIcon />}
+          </IconButton>
         </Box>
-        <IconButton onClick={handleDrawerToggle}>
-          {theme.direction === 'ltr' ? <ChevronLeftIcon /> : <ChevronRightIcon />}
-        </IconButton>
       </Box>
+
       <Divider />
-      <List>
-        {menuItems.map((item) => (
+
+      {/* Menu */}
+      <List sx={{ px: 1 }}>
+        {menuItems.map(item => (
           <ListItem key={item.text} disablePadding>
-            <ListItemButton onClick={() => navigate(item.path)}>
-              <ListItemIcon sx={{ minWidth: 40 }}>
+            <ListItemButton
+              onClick={() => navigate(item.path)}
+              sx={{
+                borderRadius: 1,
+                my: 0.5,
+                justifyContent: open ? 'flex-start' : 'center',
+              }}
+            >
+              <ListItemIcon
+                sx={{
+                  minWidth: 0,
+                  mr: open ? 1.5 : 0,
+                  justifyContent: 'center',
+                }}
+              >
                 {item.icon}
               </ListItemIcon>
-              <ListItemText primary={item.text} />
+
+              {open && <ListItemText primary={item.text} />}
             </ListItemButton>
           </ListItem>
         ))}
       </List>
+
+      <Box sx={{ flexGrow: 1 }} />
+
       <Divider />
-      <List sx={{ mt: 'auto' }}>
+
+      {/* Footer */}
+      <List sx={{ px: 1 }}>
         <ListItem disablePadding>
-          <ListItemButton>
-            <ListItemIcon sx={{ minWidth: 40 }}>
+          <ListItemButton
+            sx={{
+              borderRadius: 1,
+              justifyContent: open ? 'flex-start' : 'center',
+            }}
+          >
+            <ListItemIcon sx={{ minWidth: 0, mr: open ? 1.5 : 0 }}>
               <SettingsIcon />
             </ListItemIcon>
-            <ListItemText primary="Settings" />
+            {open && <ListItemText primary="Settings" />}
           </ListItemButton>
         </ListItem>
+
         <ListItem disablePadding>
-          <ListItemButton onClick={handleLogout}>
-            <ListItemIcon sx={{ minWidth: 40 }}>
+          <ListItemButton
+            onClick={handleLogout}
+            sx={{
+              borderRadius: 1,
+              justifyContent: open ? 'flex-start' : 'center',
+            }}
+          >
+            <ListItemIcon sx={{ minWidth: 0, mr: open ? 1.5 : 0 }}>
               <LogoutIcon />
             </ListItemIcon>
-            <ListItemText primary="Logout" />
+            {open && <ListItemText primary="Logout" />}
           </ListItemButton>
         </ListItem>
       </List>
-    </div>
+    </Box>
   );
 
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh' }}>
+    <Box sx={{ display: 'flex', height: '100vh' }}>
+      {/* ================= AppBar ================= */}
       <AppBar
         position="fixed"
-        sx={{
-          width: { sm: `calc(100% - ${drawerWidth}px)` },
-          ml: { sm: `${drawerWidth}px` },
-          backgroundColor: 'background.paper',
-          color: 'text.primary',
-          boxShadow: '0px 2px 4px -1px rgba(0,0,0,0.1)',
-        }}
         elevation={0}
+        sx={{
+          height: APP_BAR_HEIGHT,
+          bgcolor: 'background.paper',
+          color: 'text.primary',
+          borderBottom: '1px solid',
+          borderColor: 'divider',
+          ml: { sm: open ? drawerWidth : collapsedWidth },
+          width: {
+            sm: `calc(100% - ${open ? drawerWidth : collapsedWidth}px)`,
+          },
+          transition: theme.transitions.create(['margin', 'width']),
+        }}
       >
         <Toolbar>
           <IconButton
-            color="inherit"
-            aria-label="open drawer"
-            edge="start"
+            sx={{ display: { sm: 'none' } }}
             onClick={handleDrawerToggle}
-            sx={{ mr: 2, display: { sm: 'none' } }}
           >
             <MenuIcon />
           </IconButton>
+
           <Box sx={{ flexGrow: 1 }} />
-          <Box sx={{ display: 'flex', alignItems: 'center' }}>
-            <Tooltip title="Notifications">
-              <IconButton
-                size="large"
-                aria-label={`show ${notifications.length} new notifications`}
-                color="inherit"
-                sx={{ mr: 1 }}
-              >
-                <Badge badgeContent={notifications.length} color="error">
-                  <NotificationsIcon />
-                </Badge>
-              </IconButton>
-            </Tooltip>
-            <Box
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                cursor: 'pointer',
-                p: 1,
-                borderRadius: 1,
-                '&:hover': {
-                  backgroundColor: (theme) =>
-                    theme.palette.mode === 'light'
-                      ? alpha(theme.palette.grey[300], 0.5)
-                      : alpha(theme.palette.grey[800], 0.5),
-                },
-              }}
-              onClick={handleProfileMenuOpen}
-            >
-              <Avatar
-                sx={{
-                  width: 32,
-                  height: 32,
-                  mr: 1,
-                  bgcolor: 'primary.main',
-                }}
-              >
-                U
-              </Avatar>
-              <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                User Name
-              </Typography>
-            </Box>
+
+          <ThemeToggle />
+
+          <Tooltip title="Notifications">
+            <IconButton>
+              <Badge badgeContent={notifications.length} color="error">
+                <NotificationsIcon />
+              </Badge>
+            </IconButton>
+          </Tooltip>
+
+          <Box
+            onClick={handleProfileMenuOpen}
+            sx={{
+              ml: 2,
+              display: 'flex',
+              alignItems: 'center',
+              cursor: 'pointer',
+              px: 1,
+              py: 0.5,
+              borderRadius: 1,
+              '&:hover': {
+                bgcolor: alpha(theme.palette.grey[300], 0.5),
+              },
+            }}
+          >
+            <Avatar sx={{ width: 32, height: 32, mr: 1 }}>U</Avatar>
+            <Typography>User Name</Typography>
           </Box>
         </Toolbar>
       </AppBar>
-      <Box
-        component="nav"
-        sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }}
-        aria-label="mailbox folders"
+
+      {/* ================= Drawer ================= */}
+      <Drawer
+        variant="permanent"
+        sx={{
+          width: open ? drawerWidth : collapsedWidth,
+          flexShrink: 0,
+          '& .MuiDrawer-paper': {
+            width: open ? drawerWidth : collapsedWidth,
+            overflowX: 'hidden',
+            transition: theme.transitions.create('width'),
+          },
+        }}
       >
-        <Drawer
-          variant="temporary"
-          open={mobileOpen}
-          onClose={handleDrawerToggle}
-          ModalProps={{
-            keepMounted: true, // Better open performance on mobile.
-          }}
-          sx={{
-            display: { xs: 'block', sm: 'none' },
-            '& .MuiDrawer-paper': {
-              boxSizing: 'border-box',
-              width: drawerWidth,
-              borderRight: 'none',
-              backgroundImage: 'none',
-              boxShadow: '0 0 2rem 0 rgb(136 152 170 / 15%)',
-            },
-          }}
-        >
-          {drawer}
-        </Drawer>
-        <Drawer
-          variant="permanent"
-          sx={{
-            display: { xs: 'none', sm: 'block' },
-            '& .MuiDrawer-paper': {
-              boxSizing: 'border-box',
-              width: drawerWidth,
-              borderRight: 'none',
-              backgroundImage: 'none',
-              boxShadow: '0 0 2rem 0 rgb(136 152 170 / 15%)',
-            },
-          }}
-          open
-        >
-          {drawer}
-        </Drawer>
-      </Box>
+        {drawerContent}
+      </Drawer>
+
+      {/* ================= Main ================= */}
       <Box
         component="main"
         sx={{
           flexGrow: 1,
-          p: 3,
-          width: { sm: `calc(100% - ${drawerWidth}px)` },
-          backgroundColor: (theme) =>
-            theme.palette.mode === 'light'
-              ? alpha(theme.palette.grey[100], 0.5)
-              : theme.palette.background.default,
-          minHeight: '100vh',
-          pt: { xs: 8, sm: 8 },
+          mt: `${APP_BAR_HEIGHT}px`,
+          height: `calc(100vh - ${APP_BAR_HEIGHT}px)`,
+          overflowY: 'auto',
+          bgcolor: theme.palette.background.default,
+          transition: theme.transitions.create('background-color'),
         }}
       >
-        {children}
+        {/* CENTERED CONTENT */}
+        <Box
+          sx={{
+            maxWidth: 1200,
+            mx: 'auto',
+            px: { xs: 2, sm: 3, md: 4 },
+            py: 3,
+          }}
+        >
+          {children}
+        </Box>
       </Box>
-      <Menu
-        anchorEl={anchorEl}
-        open={Boolean(anchorEl)}
-        onClose={handleMenuClose}
-        onClick={handleMenuClose}
-        transformOrigin={{ horizontal: 'right', vertical: 'top' }}
-        anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
-        PaperProps={{
-          elevation: 0,
-          sx: {
-            overflow: 'visible',
-            filter: 'drop-shadow(0px 2px 8px rgba(0,0,0,0.1))',
-            mt: 1.5,
-            '& .MuiAvatar-root': {
-              width: 32,
-              height: 32,
-              ml: -0.5,
-              mr: 1,
-            },
-            '&:before': {
-              content: '""',
-              display: 'block',
-              position: 'absolute',
-              top: 0,
-              right: 14,
-              width: 10,
-              height: 10,
-              bgcolor: 'background.paper',
-              transform: 'translateY(-50%) rotate(45deg)',
-              zIndex: 0,
-            },
-          },
-        }}
-      >
-        <MenuItem onClick={handleMenuClose}>
-          <Avatar /> Profile
-        </MenuItem>
-        <MenuItem onClick={handleMenuClose}>
-          <Avatar /> My account
-        </MenuItem>
+
+      {/* ================= Profile Menu ================= */}
+      <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleMenuClose}>
+        <MenuItem>Profile</MenuItem>
+        <MenuItem>My account</MenuItem>
         <Divider />
         <MenuItem onClick={handleLogout}>
-          <ListItemIcon>
-            <LogoutIcon fontSize="small" />
-          </ListItemIcon>
+          <LogoutIcon fontSize="small" sx={{ mr: 1 }} />
           Logout
         </MenuItem>
       </Menu>

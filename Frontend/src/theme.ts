@@ -2,66 +2,77 @@ import { createTheme } from '@mui/material/styles';
 
 export const theme = createTheme({
   palette: {
+    mode: 'light', // Enable light mode by default
     primary: {
-      main: '#9c27b0', // Pastel purple
-      light: '#d05ce3',
-      dark: '#6a0080',
+      main: '#4a6cf7', // Blue
+      light: '#7f9bff',
+      dark: '#0041c3',
       contrastText: '#ffffff',
     },
     secondary: {
-      main: '#66bb6a', // Pastel green
-      light: '#98ee99',
-      dark: '#338a3e',
-      contrastText: '#000000',
+      main: '#a64dff', // Purple
+      light: '#dc7dff',
+      dark: '#7200ca',
+      contrastText: '#ffffff',
     },
     background: {
-      default: '#f5f5f5',
+      default: '#f5f7ff', // Light blue
       paper: '#ffffff',
     },
     text: {
-      primary: '#333333',
-      secondary: '#666666',
+      primary: '#1a1a1a',
+      secondary: '#4a4a4a',
     },
   },
   typography: {
-    fontFamily: '"Roboto", "Helvetica", "Arial", sans-serif',
+    fontFamily: [
+      '"SF Pro Display"',
+      '-apple-system',
+      'BlinkMacSystemFont',
+      '"Segoe UI"',
+      'Roboto',
+      '"Helvetica Neue"',
+      'Arial',
+      'sans-serif',
+    ].join(','),
+    // Thai font will be handled by the CSS :lang(th) selector
+    allVariants: {
+      fontVariationSettings: '"opsz" 24', // Better rendering for SF Pro
+    },
     h1: {
       fontSize: '2.5rem',
-      fontWeight: 500,
+      fontWeight: 600,
+      lineHeight: 1.2,
     },
     h2: {
       fontSize: '2rem',
-      fontWeight: 500,
+      fontWeight: 600,
+      lineHeight: 1.3,
     },
     h3: {
       fontSize: '1.75rem',
+      fontWeight: 600,
+      lineHeight: 1.4,
+    },
+    button: {
+      textTransform: 'none', // Prevent uppercase buttons
       fontWeight: 500,
     },
   },
   components: {
-    MuiButton: {
+    MuiCssBaseline: {
       styleOverrides: {
-        root: {
-          borderRadius: 8,
-          textTransform: 'none',
-          padding: '8px 16px',
-          boxShadow: 'none',
-          '&:hover': {
-            boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-          },
+        // This will be applied to the entire app
+        html: {
+          height: '100%',
         },
-      },
-    },
-    MuiCard: {
-      styleOverrides: {
-        root: {
-          borderRadius: 12,
-          boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
-          transition: 'transform 0.2s, box-shadow 0.2s',
-          '&:hover': {
-            transform: 'translateY(-2px)',
-            boxShadow: '0 6px 16px rgba(0,0,0,0.1)',
-          },
+        body: {
+          height: '100%',
+          backgroundColor: '#f5f7ff',
+        },
+        // Thai language support
+        ':lang(th)': {
+          fontFamily: '"Kanit", sans-serif',
         },
       },
     },

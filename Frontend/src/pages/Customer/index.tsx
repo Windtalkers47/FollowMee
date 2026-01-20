@@ -2,9 +2,6 @@ import { useState } from 'react';
 import { 
   Box, 
   Button, 
-  TextField, 
-  InputAdornment, 
-  IconButton, 
   Paper, 
   Table, 
   TableBody, 
@@ -21,11 +18,12 @@ import {
   Typography, 
   CircularProgress, 
   Alert, 
-  Snackbar 
+  Snackbar,
+  IconButton
 } from '@mui/material';
+import { FilterBar } from '@/components/FilterBar';
 import { Customer as CustomerType, CustomerStatus } from '../../types/customer.types';
-import {
-  Search as SearchIcon,
+import { 
   MoreVert as MoreVertIcon,
   Facebook as FacebookIcon,
   Instagram as InstagramIcon,
@@ -38,7 +36,6 @@ import {
   FileUpload as FileUploadIcon,
   MusicNote as MusicNoteIcon,
   Message as MessageIcon,
-  Refresh as RefreshIcon,
 } from '@mui/icons-material';
 
 import { useCustomers } from '../../hooks/useCustomers';
@@ -59,19 +56,6 @@ function a11yProps(index: number) {
 }
 
 const CustomerPage = () => {
-  const [tabValue, setTabValue] = useState(0);
-  const [selected, setSelected] = useState<string[]>([]);
-  const [actionMenuAnchorEl, setActionMenuAnchorEl] = useState<null | HTMLElement>(null);
-  const [addMenuAnchorEl, setAddMenuAnchorEl] = useState<null | HTMLElement>(null);
-  const [selectedMember, setSelectedMember] = useState<Customer | null>(null);
-  const [filterAnchorEl, setFilterAnchorEl] = useState<null | HTMLElement>(null);
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
-  const [snackbar, setSnackbar] = useState({ 
-    open: false, 
-    message: '', 
-    severity: 'success' as 'success' | 'error' | 'info' 
-  });
 
   const {
     customers = [],
@@ -89,6 +73,22 @@ const CustomerPage = () => {
     updateCustomer = async () => {},
     refetch = () => {},
   } = useCustomers();
+
+  // Local state for search input (only submit on search button or ENTER)
+  const [searchInput, setSearchInput] = useState(filter.search || '');
+  const [tabValue, setTabValue] = useState(0);
+  const [selected, setSelected] = useState<string[]>([]);
+  const [actionMenuAnchorEl, setActionMenuAnchorEl] = useState<null | HTMLElement>(null);
+  const [addMenuAnchorEl, setAddMenuAnchorEl] = useState<null | HTMLElement>(null);
+  const [selectedMember, setSelectedMember] = useState<Customer | null>(null);
+  const [filterAnchorEl, setFilterAnchorEl] = useState<null | HTMLElement>(null);
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
+  const [snackbar, setSnackbar] = useState({ 
+    open: false, 
+    message: '', 
+    severity: 'success' as 'success' | 'error' | 'info' 
+  });
 
   // Get count for a specific status
   const getStatusCount = (status: 'active' | 'inactive' | 'canceled'): number => {
@@ -405,38 +405,47 @@ const CustomerPage = () => {
         </Box>
       </Box>
 
-      <Box sx={{ p: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-      <TextField
-            fullWidth
-            variant="outlined"
-            placeholder="Search customer..."
-            value={filter.search || ''}
-            onChange={(e) => handleFilterChange({ search: e.target.value })}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon color="action" />
-                </InputAdornment>
-              ),
-              sx: {
-                borderRadius: 2,
-                bgcolor: 'background.paper',
-                maxWidth: 400,
-              },
-            }}
-          />
-
-        <Box>
-          <IconButton 
-            onClick={() => refetch()}
-            disabled={loading}
-            aria-label="Refresh data"
-            title="Refresh data"
-          >
-            <RefreshIcon />
-          </IconButton>
-        </Box>
-      </Box>
+      {/* Local state for search input */}
+      <FilterBar
+        searchValue={searchInput}
+        onSearchChange={(value) => {
+          setSearchInput(value);
+          if (value.trim() === '') {
+            handleFilterChange({ search: '' });
+            handlePageSizeChange(25);
+            handlePageChange(1);
+          }
+        }}
+        onSearch={(value) => {
+          if (!value || value.trim() === '') {
+            setSearchInput('');
+            handleFilterChange({ search: '' });
+            handlePageSizeChange(25);
+            handlePageChange(1);
+          } else {
+            handleFilterChange({ search: value });
+          }
+        }}
+        onClear={() => {
+          setSearchInput('');
+          handleFilterChange({ search: '' });
+          handlePageSizeChange(25);
+          handlePageChange(1);
+        }}
+        onRefresh={refetch}
+        searchPlaceholder="Search customers..."
+        loading={loading}
+        sx={{
+          px: 3,
+          py: 2,
+          borderBottom: (theme) => `1px solid ${theme.palette.divider}`,
+          bgcolor: 'background.paper',
+          position: 'sticky',
+          top: 64, // Adjust based on your header height
+          zIndex: (theme) => theme.zIndex.appBar - 1,
+          boxShadow: (theme) => theme.shadows[1]
+        }}
+      />
 
       <Paper sx={{ width: '100%', mb: 2, borderRadius: 3, overflow: 'hidden' }}>
       <TableContainer>

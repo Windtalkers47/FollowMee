@@ -32,7 +32,7 @@ export class CustomerRepository extends BaseRepository<Customer> {
   }
 
   /**
-   * Search customers by name or email
+   * Search customers across multiple fields
    * @param query Search query
    * @returns Array of matching customers
    */
@@ -40,7 +40,15 @@ export class CustomerRepository extends BaseRepository<Customer> {
     return this.repository
       .createQueryBuilder('customer')
       .where('customer.customerName LIKE :query', { query: `%${query}%` })
+      .orWhere('customer.customerLastName LIKE :query', { query: `%${query}%` })
       .orWhere('customer.customerEmail LIKE :query', { query: `%${query}%` })
+      .orWhere('customer.customerPhone1 LIKE :query', { query: `%${query}%` })
+      .orWhere('customer.customerPhone2 LIKE :query', { query: `%${query}%` })
+      .orWhere('customer.customerFacebook LIKE :query', { query: `%${query}%` })
+      .orWhere('customer.customerInstagram LIKE :query', { query: `%${query}%` })
+      .orWhere('customer.customerTikTok LIKE :query', { query: `%${query}%` })
+      .orWhere('customer.customerLine LIKE :query', { query: `%${query}%` })
+      .orWhere('customer.customerX LIKE :query', { query: `%${query}%` })
       .getMany();
   }
 

@@ -24,7 +24,7 @@ const initialState: CustomerState = {
   error: null,
   total: 0,
   page: 1,
-  pageSize: 10,
+  pageSize: 25,
   filter: {
     status: 'all',
     search: '',

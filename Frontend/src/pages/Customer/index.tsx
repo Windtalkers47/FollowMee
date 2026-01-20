@@ -21,6 +21,7 @@ import {
   Snackbar,
   IconButton
 } from '@mui/material';
+import { Link } from 'react-router-dom';
 import { FilterBar } from '@/components/FilterBar';
 import { Customer as CustomerType, CustomerStatus } from '../../types/customer.types';
 import { 
@@ -84,10 +85,14 @@ const CustomerPage = () => {
   const [filterAnchorEl, setFilterAnchorEl] = useState<null | HTMLElement>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
-  const [snackbar, setSnackbar] = useState({ 
-    open: false, 
-    message: '', 
-    severity: 'success' as 'success' | 'error' | 'info' 
+  const [snackbar, setSnackbar] = useState<{
+    open: boolean;
+    message: string | React.ReactNode;
+    severity: 'success' | 'error' | 'info';
+  }>({
+    open: false,
+    message: '',
+    severity: 'success'
   });
 
   // Get count for a specific status
@@ -205,8 +210,20 @@ const CustomerPage = () => {
           showSnackbar('No changes detected', 'info');
         }
       } else {
-        await createCustomer(formData);
-        showSnackbar('Customer created successfully', 'success');
+        const result = await createCustomer(formData);
+        if (result?.data?.customerId) {
+          showSnackbar(
+            <span>
+              Customer created successfully.{' '}
+              <Button color="inherit" size="small" component={Link} to={`/customer/${result.data.customerId}/profile`} style={{ textDecoration: 'underline' }}>
+                View Profile
+              </Button>
+            </span>,
+            'success'
+          );
+        } else {
+          showSnackbar('Customer created successfully', 'success');
+        }
       }
       handleCloseForm();
     } catch (error) {
@@ -214,19 +231,13 @@ const CustomerPage = () => {
     }
   };
 
-
-
-  const showSnackbar = (message: string, severity: 'success' | 'error' | 'info') => {
+const showSnackbar = (message: string | React.ReactNode, severity: 'success' | 'error' | 'info') => {
     setSnackbar({ open: true, message, severity });
   };
 
   const handleCloseSnackbar = () => {
     setSnackbar({ ...snackbar, open: false });
   };
-
-
-
-
 
   const isSelected = (id: string) => selected.includes(id);
 

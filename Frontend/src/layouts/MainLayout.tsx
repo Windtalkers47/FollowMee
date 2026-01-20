@@ -40,6 +40,7 @@ import {
   ChevronRight as ChevronRightIcon,
   Home as HomeIcon,
   Group as GroupIcon,
+  AccountCircle as AccountCircleIcon,
 } from '@mui/icons-material';
 
 const drawerWidth = 240;
@@ -77,6 +78,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
     { text: 'Schedule', icon: <ScheduleIcon />, path: '/schedule' },
     { text: 'Audience', icon: <PeopleIcon />, path: '/audience' },
     { text: 'Customer', icon: <GroupIcon />, path: '/customer' },
+    { text: 'Customer Profile', icon: <AccountCircleIcon />, path: '/customer-profile' },
   ];
 
   /* ================= Drawer Content ================= */

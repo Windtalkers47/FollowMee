@@ -1,32 +1,45 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { Box, Typography, Avatar, Button, CircularProgress, Paper, IconButton, Tooltip, TextField, InputAdornment } from '@mui/material';
-import { Facebook, Instagram, Twitter, MusicNote, Message, Search as SearchIcon, AccountCircle as AccountCircleIcon } from '@mui/icons-material';
+import {
+  Box,
+  Typography,
+  Avatar,
+  Button,
+  CircularProgress,
+  Paper,
+  IconButton,
+  Tooltip,
+} from '@mui/material';
+import {
+  Facebook,
+  Instagram,
+  Twitter,
+  MusicNote,
+  Message,
+  AccountCircle as AccountCircleIcon,
+} from '@mui/icons-material';
+import CustomerProfileSearch from '@/components/CustomerProfileSearch';
 import { motion } from 'framer-motion';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import { customerApi } from '@/services/api/customerApi';
 import { CustomerData } from '@/types/customer.types';
 
-// Fetch all customers with optional search
+/* ================= API ================= */
+
 async function fetchAllCustomers(search = ''): Promise<CustomerData[]> {
   const response = await customerApi.getCustomers(1, 100, search);
-  if (response.success && Array.isArray(response.data)) {
-    return response.data;
-  }
-  return [];
+  return response.success && Array.isArray(response.data) ? response.data : [];
 }
 
-// Fetch single customer by ID
 async function fetchCustomerById(customerId: string): Promise<CustomerData | null> {
   const response = await customerApi.getCustomerById(customerId);
-  if (response.success && response.data) {
-    return response.data;
-  }
-  return null;
+  return response.success && response.data ? response.data : null;
 }
 
+/* ================= Social ================= */
+
 const socialIcons = {
-  facebook: <Facebook color="primary" />, // MUI v7
+  facebook: <Facebook color="primary" />,
   instagram: <Instagram color="secondary" />,
   tiktok: <MusicNote color="action" />,
   line: <Message color="success" />,
@@ -41,33 +54,49 @@ const socialFields = [
   { key: 'customerX', icon: socialIcons.x, label: 'X' },
 ];
 
+/* ================= Component ================= */
+
 const CustomerProfilePage: React.FC = () => {
   const { customerId } = useParams<{ customerId?: string }>();
+  const navigate = useNavigate();
+
   const [customers, setCustomers] = useState<CustomerData[]>([]);
   const [customer, setCustomer] = useState<CustomerData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [copied, setCopied] = useState(false);
   const [search, setSearch] = useState('');
-  const [searching, setSearching] = useState(false);
-  const navigate = useNavigate();
+  const [copied, setCopied] = useState(false);
+
+  /* ================= Loaders ================= */
+
+  const loadCustomers = async (searchValue = '') => {
+    setLoading(true);
+    const data = await fetchAllCustomers(searchValue);
+    setCustomers(data);
+    setLoading(false);
+  };
+
+  const loadCustomerById = async (id: string) => {
+    setLoading(true);
+    const data = await fetchCustomerById(id);
+    setCustomer(data);
+    setLoading(false);
+  };
+
+  /* ================= Effects ================= */
 
   useEffect(() => {
-    if (!customerId) {
-      setLoading(true);
-      fetchAllCustomers(search).then(data => {
-        setCustomers(data);
-        setLoading(false);
-      });
+    if (customerId) {
+      loadCustomerById(customerId);
     } else {
-      setLoading(true);
-      fetchCustomerById(customerId).then(data => {
-        setCustomer(data);
-        setLoading(false);
-      });
+      loadCustomers();
     }
-  }, [customerId, search]);
+  }, [customerId]);
 
-  const profileUrl = customerId ? `${window.location.origin}/customer/${customerId}/profile` : '';
+  /* ================= Helpers ================= */
+
+  const profileUrl = customerId
+    ? `${window.location.origin}/customer/${customerId}/profile`
+    : '';
 
   const handleCopy = () => {
     if (!profileUrl) return;
@@ -76,19 +105,32 @@ const CustomerProfilePage: React.FC = () => {
     setTimeout(() => setCopied(false), 1500);
   };
 
+  /* ================= Loading UI ================= */
+
   if (loading) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
-        <CircularProgress />
+      <Box
+        minHeight="60vh"
+        display="flex"
+        justifyContent="center"
+        alignItems="center"
+      >
+        <CircularProgress size={48} />
       </Box>
     );
   }
 
-  // Show single customer profile
+  /* ================= Single Customer ================= */
+
   if (customerId) {
     if (!customer) {
-      return <Typography color="error">Customer not found.</Typography>;
+      return (
+        <Typography align="center" color="error" mt={4}>
+          Customer not found.
+        </Typography>
+      );
     }
+
     return (
       <Box display="flex" flexDirection="column" alignItems="center" mt={4}>
         <motion.div
@@ -97,78 +139,66 @@ const CustomerProfilePage: React.FC = () => {
           transition={{ duration: 0.6 }}
           style={{ width: '100%' }}
         >
-          <Paper elevation={3} sx={{ p: 4, borderRadius: 4, maxWidth: 400, mx: 'auto', width: '100%' }}>
+          <Paper sx={{ p: 4, borderRadius: 4, maxWidth: 400, mx: 'auto' }}>
             <Box display="flex" flexDirection="column" alignItems="center" gap={2}>
-              <Avatar src={customer.avatarUrl || undefined} sx={{ width: 80, height: 80, fontSize: 36 }}>
+              <Avatar sx={{ width: 80, height: 80, fontSize: 36 }}>
                 {customer.customerName?.charAt(0)?.toUpperCase()}
               </Avatar>
+
               <Typography variant="h5" fontWeight="bold">
                 {customer.customerName} {customer.customerLastName}
               </Typography>
-              <Typography color="text.secondary">
+
+              <Typography color="text.secondary" align="center">
                 {customer.description || 'No description provided.'}
               </Typography>
-              <Box display="flex" flexWrap="wrap" gap={1} mt={1}>
-                {socialFields.map(field =>
-                  customer[field.key] ? (
-                    <Button
-                      key={field.key}
-                      variant="contained"
-                      color="primary"
-                      startIcon={field.icon}
-                      href={customer[field.key]}
-                      target="_blank"
-                      sx={{ borderRadius: 2, textTransform: 'none', minWidth: 120 }}
-                    >
-                      {field.label}
-                    </Button>
-                  ) : null
+
+              <Box display="flex" flexWrap="wrap" gap={1}>
+                {socialFields.map(
+                  (field) =>
+                    customer[field.key] && (
+                      <Button
+                        key={field.key}
+                        startIcon={field.icon}
+                        variant="contained"
+                        href={customer[field.key]}
+                        target="_blank"
+                      >
+                        {field.label}
+                      </Button>
+                    )
                 )}
               </Box>
-              <Box mt={2} width="100%" display="flex" flexDirection="column" gap={1}>
-                <Button
-                  variant="outlined"
-                  href={customer.shopUrl}
-                  fullWidth
-                  sx={{ borderRadius: 2, textTransform: 'none' }}
-                >
+
+              <Box width="100%" mt={2} display="flex" flexDirection="column" gap={1}>
+                <Button variant="outlined" href={customer.shopUrl}>
                   🛍️ Shop
                 </Button>
-                <Button
-                  variant="outlined"
-                  href={customer.portfolioUrl}
-                  fullWidth
-                  sx={{ borderRadius: 2, textTransform: 'none' }}
-                >
+                <Button variant="outlined" href={customer.portfolioUrl}>
                   🗂️ Portfolio
                 </Button>
-                <Button
-                  variant="outlined"
-                  href={customer.contactUrl}
-                  fullWidth
-                  sx={{ borderRadius: 2, textTransform: 'none' }}
-                >
+                <Button variant="outlined" href={customer.contactUrl}>
                   ✉️ Contact
                 </Button>
               </Box>
-              <Box mt={3} width="100%" display="flex" flexDirection="column" alignItems="center">
-                <Typography variant="caption" color="text.secondary">
-                  Profile URL
-                </Typography>
+
+              <Box mt={3} textAlign="center">
+                <Typography variant="caption">Profile URL</Typography>
                 <Box display="flex" alignItems="center" gap={1}>
-                  <Typography variant="body2" sx={{ wordBreak: 'break-all' }}>{profileUrl}</Typography>
+                  <Typography variant="body2">{profileUrl}</Typography>
                   <Tooltip title={copied ? 'Copied!' : 'Copy'}>
                     <IconButton onClick={handleCopy} size="small">
-                      <ContentCopyIcon fontSize="small" color={copied ? 'success' : 'inherit'} />
+                      <ContentCopyIcon fontSize="small" />
                     </IconButton>
                   </Tooltip>
                 </Box>
               </Box>
             </Box>
           </Paper>
-          <Box mt={3} display="flex" justifyContent="center">
-            <Button component={Link} to="/customer-profile" variant="text" color="primary">
-              ← Back to All Customer Profiles
+
+          <Box mt={3} textAlign="center">
+            <Button component={Link} to="/customer-profile">
+              ← Back to All Customers
             </Button>
           </Box>
         </motion.div>
@@ -176,45 +206,56 @@ const CustomerProfilePage: React.FC = () => {
     );
   }
 
-  // Show all customers
+  /* ================= All Customers ================= */
+
   return (
-    <Box maxWidth={600} mx="auto" mt={4}>
-      <Paper elevation={3} sx={{ p: 4, borderRadius: 4 }}>
-        <Typography variant="h4" mb={2} fontWeight="bold" align="center">
+    <Box maxWidth={800} mx="auto" mt={4}>
+      <Paper sx={{ p: 3, borderRadius: 4 }}>
+        <Typography variant="h4" mb={3} align="center" fontWeight="bold">
           Customer Profiles
         </Typography>
-        <TextField
+
+        <CustomerProfileSearch
           value={search}
-          onChange={e => setSearch(e.target.value)}
-          placeholder="Search customers..."
-          fullWidth
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon />
-              </InputAdornment>
-            )
+          onChange={(v) => {
+            setSearch(v);
+            if (v === '') loadCustomers('');
           }}
-          sx={{ mb: 3 }}
+          onSearch={() => loadCustomers(search.trim())}
+          onClear={() => {
+            setSearch('');
+            loadCustomers('');
+          }}
+          onRefresh={() => loadCustomers(search)}
+          loading={loading}
         />
+
         {customers.length === 0 ? (
-          <Typography color="text.secondary" align="center">
+          <Typography align="center" color="text.secondary" mt={4}>
             No customers found.
           </Typography>
         ) : (
-          <Box display="flex" flexDirection="column" gap={2}>
-            {customers.map(cust => (
+          <Box mt={2} display="flex" flexDirection="column" gap={2}>
+            {customers.map((cust) => (
               <Paper
                 key={cust.customerId}
-                elevation={1}
-                sx={{ p: 2, display: 'flex', alignItems: 'center', cursor: 'pointer', transition: 'box-shadow 0.2s', '&:hover': { boxShadow: 6 } }}
-                onClick={() => navigate(`/customer-profile/${cust.customerId}`)}
+                sx={{
+                  p: 2,
+                  display: 'flex',
+                  alignItems: 'center',
+                  cursor: 'pointer',
+                  '&:hover': { boxShadow: 6 },
+                }}
+                onClick={() =>
+                  navigate(`/customer-profile/${cust.customerId}`)
+                }
               >
-                <Avatar src={cust.avatarUrl || undefined} sx={{ mr: 2 }}>
-                  {cust.customerName?.charAt(0)?.toUpperCase() || <AccountCircleIcon />}
+                <Avatar sx={{ mr: 2 }}>
+                  {cust.customerName?.charAt(0)?.toUpperCase() ||
+                    <AccountCircleIcon />}
                 </Avatar>
                 <Box>
-                  <Typography variant="subtitle1" fontWeight="bold">
+                  <Typography fontWeight="bold">
                     {cust.customerName} {cust.customerLastName}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">

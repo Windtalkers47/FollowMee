@@ -30,8 +30,19 @@ export abstract class BaseRepository<T extends ObjectLiteral> {
   }
 
   async update(id: number | string, data: DeepPartial<T>): Promise<T | null> {
-    await this.repository.update(id, data as any);
-    return this.findOne({ id } as any);
+    const metadata = this.repository.metadata;
+    const primaryColumn = metadata.primaryColumns[0];
+    const primaryKey = primaryColumn.propertyName;
+    
+    // First find the existing entity
+    const existing = await this.findOne({ [primaryKey]: id } as any);
+    if (!existing) return null;
+    
+    // Update the entity with new data
+    Object.assign(existing, data);
+    
+    // Save the entity which will trigger @UpdateDateColumn
+    return this.repository.save(existing);
   }
 
   async delete(id: number | string): Promise<boolean> {

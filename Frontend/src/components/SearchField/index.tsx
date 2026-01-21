@@ -1,4 +1,4 @@
-import React, { useState, useRef, KeyboardEvent } from 'react';
+import React, { useState, useRef, useEffect, KeyboardEvent } from 'react';
 import { InputAdornment, TextField, IconButton, TextFieldProps, Box, Button, Fade } from '@mui/material';
 import { Search as SearchIcon, Clear as ClearIcon } from '@mui/icons-material';
 
@@ -37,16 +37,42 @@ export const SearchField = ({
     onChange?.(e.target.value);
   };
 
+  // Keep track of whether we should focus after search
+  const shouldFocusAfterSearch = useRef(false);
+
+  // Handle focus after component updates
+  useEffect(() => {
+    if (shouldFocusAfterSearch.current && inputRef.current) {
+      inputRef.current.focus({ preventScroll: true });
+      inputRef.current.select();
+      shouldFocusAfterSearch.current = false;
+    }
+  });
+
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && onSearch) {
-      onSearch(inputValue.trim());
+      e.preventDefault();
+      e.stopPropagation();
+      const searchValue = inputValue.trim();
+      shouldFocusAfterSearch.current = true;
+      onSearch(searchValue);
     }
   };
 
-  const handleSearchClick = () => {
-    onSearch?.(inputValue.trim());
-    if (inputRef.current) inputRef.current.blur();
+  const handleSearchClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const searchValue = inputValue.trim();
+    shouldFocusAfterSearch.current = true;
+    onSearch?.(searchValue);
   };
+
+  // requestAnimationFrame(() => {
+  //   inputRef.current?.focus();
+  //   inputRef.current?.select();
+  // });
+  
+  
 
   const handleClear = () => {
     setInputValue('');

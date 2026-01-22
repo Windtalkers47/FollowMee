@@ -63,6 +63,11 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
   initialData = { isActive: true },
   isLoading = false,
 }) => {
+  const defaultValues = React.useMemo(() => ({
+    isActive: true,
+    ...initialData,
+  }), [initialData]);
+
   const {
     control,
     handleSubmit,
@@ -70,20 +75,20 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
     formState: { errors },
   } = useForm<CustomerFormData>({
     resolver: yupResolver(schema),
-    defaultValues: {
-      isActive: true,
-      ...initialData,
-    },
+    defaultValues,
   });
 
+  // Reset form when opening/closing or when initialData changes
   React.useEffect(() => {
     if (open) {
-      reset({
-        isActive: true,
-        ...initialData,
-      });
+      reset(defaultValues);
+    } else {
+      // Optionally reset form when closing
+      reset();
     }
-  }, [open, initialData, reset]);
+    // We only want to run this effect when open or defaultValues changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, JSON.stringify(defaultValues)]);
 
   const handleFormSubmit: SubmitHandler<CustomerFormData> = (data) => {
     onSubmit(data);
@@ -96,13 +101,15 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
           <Typography variant="h6">
             {initialData?.customerId ? 'Edit Customer' : 'Add New Customer'}
           </Typography>
-          <IconButton onClick={onClose} size="small">
+          <IconButton onClick={onClose} size="small" disabled={isLoading}>
             <CloseIcon />
           </IconButton>
         </Box>
       </DialogTitle>
 
-      <form onSubmit={handleSubmit(handleFormSubmit)} noValidate>
+      <form onSubmit={handleSubmit(handleFormSubmit, (errors) => {
+        console.error('Form validation errors:', errors);
+      })} noValidate>
         <DialogContent>
           <Grid container spacing={2}>
             <Grid size={{ xs: 12, md: 6 }}>

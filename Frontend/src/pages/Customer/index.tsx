@@ -191,43 +191,84 @@ const CustomerPage = () => {
 
   const handleFormSubmit = async (formData: any) => {
     try {
+      // Create a properly typed customer data object
+      const customerData: Omit<Customer, 'customerId' | 'fullName'> = {
+        customerName: formData.customerName || '',
+        customerLastName: formData.customerLastName || null,
+        customerEmail: formData.customerEmail || '',
+        customerPhone1: formData.customerPhone1 || null,
+        customerPhone2: formData.customerPhone2 || null,
+        customerFacebook: formData.customerFacebook || null,
+        customerInstagram: formData.customerInstagram || null,
+        customerTikTok: formData.customerTikTok || null,
+        customerLine: formData.customerLine || null,
+        customerX: formData.customerX || null,
+        status: formData.isActive ? 'active' : 'inactive',
+        isActive: formData.isActive || false,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        deletedAt: null
+      };
+
       if (editingCustomer) {
         // Create an update object that only includes changed fields
-        const updateData = { ...formData };
+        const updateData: Partial<Omit<Customer, 'customerId' | 'fullName'>> = {};
         
-        // Remove any fields that weren't actually changed
-        Object.keys(updateData).forEach(key => {
-          if (JSON.stringify(editingCustomer[key as keyof Customer]) === JSON.stringify(updateData[key])) {
-            delete updateData[key];
+        // Check which fields have changed
+        Object.entries(customerData).forEach(([key, value]) => {
+          const customerKey = key as keyof typeof customerData;
+          const currentValue = editingCustomer[customerKey as keyof Customer];
+          
+          // Only include changed fields that are not undefined
+          if (value !== undefined && JSON.stringify(currentValue) !== JSON.stringify(value)) {
+            // @ts-ignore - We know the types match
+            updateData[customerKey] = value;
           }
         });
         
         // Only proceed with the update if there are changes
         if (Object.keys(updateData).length > 0) {
-          await updateCustomer(editingCustomer.customerId, updateData);
-          showSnackbar('Customer updated successfully', 'success');
+          const result = await updateCustomer(editingCustomer.customerId, updateData);
+          if (result && !('error' in result)) {
+            showSnackbar('Customer updated successfully', 'success');
+            handleCloseForm();
+            return;
+          }
+          throw new Error('Failed to update customer');
         } else {
           showSnackbar('No changes detected', 'info');
+          return;
         }
       } else {
-        const result = await createCustomer(formData);
-        if (result?.data?.customerId) {
+        // For new customers
+        const result = await createCustomer(customerData);
+        if (result && 'data' in result && result.data) {
           showSnackbar(
             <span>
               Customer created successfully.{' '}
-              <Button color="inherit" size="small" component={Link} to={`/customer/${result.data.customerId}/profile`} style={{ textDecoration: 'underline' }}>
+              <Button 
+                color="inherit" 
+                size="small" 
+                component={Link} 
+                to={`/customer/${result.data.customerId}/profile`} 
+                style={{ textDecoration: 'underline' }}
+              >
                 View Profile
               </Button>
             </span>,
             'success'
           );
-        } else {
-          showSnackbar('Customer created successfully', 'success');
+          handleCloseForm();
+          return;
         }
+        throw new Error('Failed to create customer');
       }
-      handleCloseForm();
     } catch (error) {
-      showSnackbar('An error occurred. Please try again.', 'error');
+      console.error('Error saving customer:', error);
+      showSnackbar(
+        error instanceof Error ? error.message : 'Failed to save customer', 
+        'error'
+      );
     }
   };
 

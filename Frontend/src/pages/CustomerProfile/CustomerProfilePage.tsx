@@ -130,8 +130,14 @@ const CustomerProfilePage: React.FC = () => {
             </Typography>
 
             <Typography color="text.secondary" mt={0.5}>
-              {customer.description || 'No description provided'}
+              {customer.customerEmail || 'No description provided'}
             </Typography>
+
+            {customer.customerAddress && (
+              <Typography color="text.secondary" mt={1}>
+                {customer.customerAddress}
+              </Typography>
+            )}
 
             {/* Socials */}
             <Box mt={3} display="flex" justifyContent="center" gap={1.5}>
@@ -238,6 +244,104 @@ const CustomerProfilePage: React.FC = () => {
             <Typography variant="body2" color="text.secondary" noWrap>
               {c.customerEmail}
             </Typography>
+
+            <Box mt={2} display="flex" justifyContent="left" gap={1} flexWrap="wrap">
+              {c.customerFacebook && (
+                <Tooltip title="Facebook" arrow>
+                  <IconButton
+                    size="small"
+                    href={c.customerFacebook}
+                    target="_blank"
+                    onClick={(e) => e.stopPropagation()}
+                    sx={{
+                      bgcolor: '#1877F2',
+                      color: 'white',
+                      '&:hover': { bgcolor: '#166FE5' },
+                      width: 28,
+                      height: 28
+                    }}
+                  >
+                    <Facebook fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              )}
+              {c.customerInstagram && (
+                <Tooltip title="Instagram" arrow>
+                  <IconButton
+                    size="small"
+                    href={c.customerInstagram}
+                    target="_blank"
+                    onClick={(e) => e.stopPropagation()}
+                    sx={{
+                      background: 'radial-gradient(circle at 30% 107%, #fdf497 0%, #fdf497 5%, #fd5949 45%,#d6249f 60%,#285AEB 90%)',
+                      color: 'white',
+                      '&:hover': { opacity: 0.9 },
+                      width: 28,
+                      height: 28
+                    }}
+                  >
+                    <Instagram fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              )}
+              {c.customerTikTok && (
+                <Tooltip title="TikTok" arrow>
+                  <IconButton
+                    size="small"
+                    href={c.customerTikTok}
+                    target="_blank"
+                    onClick={(e) => e.stopPropagation()}
+                    sx={{
+                      bgcolor: '#000000',
+                      color: 'white',
+                      '&:hover': { bgcolor: '#333333' },
+                      width: 28,
+                      height: 28
+                    }}
+                  >
+                    <MusicNote fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              )}
+              {c.customerLine && (
+                <Tooltip title="Line" arrow>
+                  <IconButton
+                    size="small"
+                    href={`https://line.me/ti/p/${c.customerLine}`}
+                    target="_blank"
+                    onClick={(e) => e.stopPropagation()}
+                    sx={{
+                      bgcolor: '#06C755',
+                      color: 'white',
+                      '&:hover': { bgcolor: '#05a548' },
+                      width: 28,
+                      height: 28
+                    }}
+                  >
+                    <Message fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              )}
+              {c.customerX && (
+                <Tooltip title="X (Twitter)" arrow>
+                  <IconButton
+                    size="small"
+                    href={c.customerX}
+                    target="_blank"
+                    onClick={(e) => e.stopPropagation()}
+                    sx={{
+                      bgcolor: '#000000',
+                      color: 'white',
+                      '&:hover': { bgcolor: '#333333' },
+                      width: 28,
+                      height: 28
+                    }}
+                  >
+                    <Twitter fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              )}
+            </Box>
 
             <Box
               mt={2}

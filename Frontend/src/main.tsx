@@ -7,6 +7,7 @@ import './index.css';
 import App from './App';
 import { store } from './store/store';
 import { CustomThemeProvider } from './contexts/ThemeContext';
+import { NotificationProvider } from './contexts/Notification';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) throw new Error('Failed to find the root element');
@@ -15,9 +16,11 @@ createRoot(rootElement).render(
   <StrictMode>
     <Provider store={store}>
       <CustomThemeProvider>
-        <Router>
-          <App />
-        </Router>
+        <NotificationProvider>
+          <Router>
+            <App />
+          </Router>
+        </NotificationProvider>
       </CustomThemeProvider>
     </Provider>
   </StrictMode>

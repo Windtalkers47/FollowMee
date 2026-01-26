@@ -45,6 +45,7 @@ import FilterMenu from '../../components/customers/FilterMenu';
 import AddCustomerMenu from '../../components/customers/AddCustomerMenu';
 import CustomerForm from '@/components/customers/CustomerForm';
 import ActionMenu from '@/components/ActionMenu';
+import { useNotification } from '../../contexts/Notification';
 
 interface Customer extends CustomerType {
   // All properties are now inherited from CustomerType
@@ -87,6 +88,8 @@ const CustomerPage = () => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [formApiError, setFormApiError] = useState<ApiError | null>(null);
+  const { notify } = useNotification();
+  
   const [snackbar, setSnackbar] = useState<{
     open: boolean;
     message: string | React.ReactNode;
@@ -216,6 +219,7 @@ const CustomerPage = () => {
         customerTikTok: formData.customerTikTok || null,
         customerLine: formData.customerLine || null,
         customerX: formData.customerX || null,
+        customerAddress: formData.customerAddress || null,
         status: formData.isActive ? 'active' : 'inactive',
         isActive: formData.isActive || false,
         updatedAt: new Date().toISOString(),
@@ -231,7 +235,7 @@ const CustomerPage = () => {
         await createCustomer(payload);
       }
   
-      showSnackbar('Customer saved successfully', 'success');
+      notify('Customer saved successfully', 'success');
       setIsFormOpen(false);
       setEditingCustomer(null);
       refetch();
@@ -245,7 +249,7 @@ const CustomerPage = () => {
           message,
         });
       } else {
-        showSnackbar(message, 'error');
+        notify(message, 'error');
       }
   
       throw error;
@@ -298,7 +302,8 @@ const CustomerPage = () => {
           customerInstagram: editingCustomer.customerInstagram || undefined,
           customerTikTok: editingCustomer.customerTikTok || undefined,
           customerLine: editingCustomer.customerLine || undefined,
-          customerX: editingCustomer.customerX || undefined
+          customerX: editingCustomer.customerX || undefined,
+          customerAddress: editingCustomer.customerAddress || undefined,
         } : undefined}
         apiError={formApiError}
       />

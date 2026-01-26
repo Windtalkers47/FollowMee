@@ -8,7 +8,16 @@ import {
   Checkbox,
   FormControlLabel,
   Box,
+  IconButton,
+  InputAdornment,
+  Divider,
+  Alert,
 } from '@mui/material';
+import {
+  Visibility,
+  VisibilityOff,
+  LockOutlined,
+} from '@mui/icons-material';
 import { useDispatch, useSelector } from 'react-redux';
 import type { AppDispatch } from '../../store/store';
 import {
@@ -18,7 +27,7 @@ import {
   selectAuthLoading,
   selectIsAuthenticated,
 } from '../../store/slices/authSlice';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link as RouterLink } from 'react-router-dom';
 
 const MAX_ATTEMPTS = 5;
 
@@ -27,22 +36,22 @@ export default function LoginPage() {
   const navigate = useNavigate();
 
   const loading = useSelector(selectAuthLoading);
-  const error = useSelector(selectAuthError); // string | null
+  const error = useSelector(selectAuthError);
   const isAuthenticated = useSelector(selectIsAuthenticated);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
   const [attempts, setAttempts] = useState(0);
+  const [showPassword, setShowPassword] = useState(false);
 
-  // Clear error when user edits inputs
+  /* ================= Effects ================= */
   useEffect(() => {
     if (error) {
       dispatch(clearAuthError());
     }
   }, [email, password]);
 
-  // Redirect on success + reset attempts
   useEffect(() => {
     if (isAuthenticated) {
       setAttempts(0);
@@ -50,9 +59,9 @@ export default function LoginPage() {
     }
   }, [isAuthenticated]);
 
+  /* ================= Handlers ================= */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
     if (attempts >= MAX_ATTEMPTS) return;
 
     const result = await dispatch(
@@ -60,72 +69,166 @@ export default function LoginPage() {
     );
 
     if (loginUser.rejected.match(result)) {
-      setAttempts((prev) => prev + 1);
+      setAttempts(prev => prev + 1);
     }
   };
 
   const isLocked = attempts >= MAX_ATTEMPTS;
 
+  /* ================= UI ================= */
   return (
-    <Container component="main" maxWidth="xs">
-      <Paper sx={{ mt: 8, p: 4 }}>
-        <Typography variant="h5" textAlign="center">
-          Sign in
-        </Typography>
+    <Container
+      maxWidth="xs"
+      sx={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+      }}
+    >
+      <Paper
+        elevation={0}
+        sx={{
+          width: '100%',
+          p: 4,
+          borderRadius: 3,
+          border: '1px solid',
+          borderColor: 'divider',
+        }}
+      >
+        {/* ===== Brand ===== */}
+        <Box sx={{ textAlign: 'center', mb: 3 }}>
+          <Box
+            sx={{
+              width: 56,
+              height: 56,
+              borderRadius: '50%',
+              bgcolor: 'primary.main',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              mx: 'auto',
+              mb: 1.5,
+            }}
+          >
+            <LockOutlined sx={{ color: 'white' }} />
+          </Box>
 
-        {error && (
-          <Typography color="error" sx={{ mt: 2 }}>
-            {error.message}
+          <Typography variant="h5" fontWeight="bold">
+            Welcome back
           </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Sign in to continue to FollowMee
+          </Typography>
+        </Box>
+
+        {/* ===== Errors ===== */}
+        {error && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {error.message}
+          </Alert>
         )}
 
         {isLocked && (
-          <Typography color="error" sx={{ mt: 1 }}>
+          <Alert severity="warning" sx={{ mb: 2 }}>
             Too many failed attempts. Please try again later.
-          </Typography>
+          </Alert>
         )}
 
-        <Box component="form" onSubmit={handleSubmit} sx={{ mt: 2 }}>
+        {/* ===== Form ===== */}
+        <Box component="form" onSubmit={handleSubmit}>
           <TextField
             fullWidth
-            margin="normal"
             label="Email"
             type="email"
+            margin="normal"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={e => setEmail(e.target.value)}
             required
           />
 
           <TextField
             fullWidth
-            margin="normal"
             label="Password"
-            type="password"
+            margin="normal"
+            type={showPassword ? 'text' : 'password'}
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={e => setPassword(e.target.value)}
             required
+            InputProps={{
+              endAdornment: (
+                <InputAdornment position="end">
+                  <IconButton
+                    onClick={() => setShowPassword(prev => !prev)}
+                    edge="end"
+                  >
+                    {showPassword ? <VisibilityOff /> : <Visibility />}
+                  </IconButton>
+                </InputAdornment>
+              ),
+            }}
           />
 
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={rememberMe}
-                onChange={(e) => setRememberMe(e.target.checked)}
-              />
-            }
-            label="Remember me"
-          />
+          <Box
+            sx={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              mt: 1,
+            }}
+          >
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={rememberMe}
+                  onChange={e => setRememberMe(e.target.checked)}
+                />
+              }
+              label="Remember me"
+            />
+
+            <Typography
+              component={RouterLink}
+              to="/forgot-password"
+              variant="body2"
+              sx={{
+                textDecoration: 'none',
+                color: 'primary.main',
+                fontWeight: 500,
+              }}
+            >
+              Forgot password?
+            </Typography>
+          </Box>
 
           <Button
             type="submit"
             fullWidth
+            size="large"
             variant="contained"
-            sx={{ mt: 2 }}
+            sx={{ mt: 3, borderRadius: 2 }}
             disabled={loading || isLocked}
           >
-            {loading ? 'Signing in...' : 'Sign in'}
+            {loading ? 'Signing in…' : 'Sign in'}
           </Button>
         </Box>
+
+        {/* ===== Footer ===== */}
+        <Divider sx={{ my: 3 }} />
+
+        <Typography textAlign="center" variant="body2">
+          Don’t have an account?{' '}
+          <Typography
+            component={RouterLink}
+            to="/register"
+            sx={{
+              fontWeight: 600,
+              textDecoration: 'none',
+              color: 'primary.main',
+            }}
+          >
+            Sign up
+          </Typography>
+        </Typography>
       </Paper>
     </Container>
   );

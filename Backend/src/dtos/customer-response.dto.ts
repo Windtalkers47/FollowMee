@@ -35,6 +35,9 @@ export class CustomerResponseDto {
   customerX!: string | null;
 
   @Expose()
+  customerAddress!: string | null;
+
+  @Expose()
   isActive!: boolean;
 
   @Expose()

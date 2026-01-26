@@ -1,7 +1,6 @@
 import { IsEmail, IsNotEmpty, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
-import { User } from '../entities/User';
 
-export class CreateUserDto implements Omit<User, 'userId' | 'createdAt' | 'updatedAt' | 'hashPassword' | 'verifyPassword'> {
+export class CreateUserDto {
   // This computed property will be used to satisfy the fullName requirement
   get fullName(): string {
     return `${this.userName} ${this.userLastName}`.trim();
@@ -30,12 +29,12 @@ export class CreateUserDto implements Omit<User, 'userId' | 'createdAt' | 'updat
   @IsString()
   @IsOptional()
   @MaxLength(20)
-  userPhone1?: string;
-
+  userPhone1: string | null = null;
+  
   @IsString()
   @IsOptional()
   @MaxLength(20)
-  userPhone2?: string;
+  userPhone2: string | null = null;
 
   @IsOptional()
   isActive: boolean = true;

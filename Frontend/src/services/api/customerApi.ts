@@ -52,6 +52,7 @@ const fromApiFormat = (data: any): CustomerData => {
     customerTikTok: data.customerTikTok ?? null,
     customerLine: data.customerLine ?? null,
     customerX: data.customerX ?? null,
+    customerAddress: data.customerAddress ?? null,
     createdAt: data.createdAt,
     updatedAt: data.updatedAt,
     deletedAt: data.deletedAt ?? null,

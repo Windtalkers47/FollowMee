@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAppDispatch } from '../store/store';
 import { ThemeToggle } from '../components/ThemeToggle';
 import { logout } from '../store/slices/authSlice';
@@ -28,55 +28,52 @@ import {
 
 import {
   Menu as MenuIcon,
-  Dashboard as DashboardIcon,
-  Analytics as AnalyticsIcon,
-  PostAdd as PostAddIcon,
-  Schedule as ScheduleIcon,
-  People as PeopleIcon,
-  Settings as SettingsIcon,
-  Logout as LogoutIcon,
-  Notifications as NotificationsIcon,
-  ChevronLeft as ChevronLeftIcon,
-  ChevronRight as ChevronRightIcon,
-  Home as HomeIcon,
-  Group as GroupIcon,
-  AccountCircle as AccountCircleIcon,
+  Dashboard,
+  Analytics,
+  PostAdd,
+  Schedule,
+  People,
+  Settings,
+  Logout,
+  Notifications,
+  ChevronLeft,
+  ChevronRight,
+  Home,
+  Group,
+  AccountCircle,
 } from '@mui/icons-material';
 
-const drawerWidth = 240;
-const collapsedWidth = 72;
+const drawerWidth = 260;
+const collapsedWidth = 76;
 const APP_BAR_HEIGHT = 64;
 
 interface MainLayoutProps {
   children?: React.ReactNode;
 }
 
-// Move static menu items outside the component
 const menuItems = [
-  { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
-  { text: 'Analytics', icon: <AnalyticsIcon />, path: '/analytics' },
-  { text: 'Posts', icon: <PostAddIcon />, path: '/posts' },
-  { text: 'Schedule', icon: <ScheduleIcon />, path: '/schedule' },
-  { text: 'Audience', icon: <PeopleIcon />, path: '/audience' },
-  { text: 'Customer', icon: <GroupIcon />, path: '/customer' },
-  { text: 'Customer Profile', icon: <AccountCircleIcon />, path: '/customer-profile' },
+  { text: 'Dashboard', icon: <Dashboard />, path: '/dashboard' },
+  { text: 'Analytics', icon: <Analytics />, path: '/analytics' },
+  { text: 'Posts', icon: <PostAdd />, path: '/posts' },
+  { text: 'Schedule', icon: <Schedule />, path: '/schedule' },
+  { text: 'Audience', icon: <People />, path: '/audience' },
+  { text: 'Customer', icon: <Group />, path: '/customer' },
+  { text: 'Profiles', icon: <AccountCircle />, path: '/customer-profile' },
 ];
 
 const MainLayout = ({ children }: MainLayoutProps) => {
   const theme = useTheme();
   const navigate = useNavigate();
+  const location = useLocation();
   const dispatch = useAppDispatch();
 
   const [open, setOpen] = useState(true);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const [notifications] = useState([1, 2, 3]);
 
-  const handleDrawerToggle = useCallback(() => setOpen(prev => !prev), []);
-  
+  const handleDrawerToggle = useCallback(() => setOpen(p => !p), []);
   const handleProfileMenuOpen = useCallback((e: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(e.currentTarget);
   }, []);
-  
   const handleMenuClose = useCallback(() => setAnchorEl(null), []);
 
   const handleLogout = useCallback(() => {
@@ -85,9 +82,10 @@ const MainLayout = ({ children }: MainLayoutProps) => {
     navigate('/login', { replace: true });
   }, [dispatch, navigate]);
 
-  /* ================= Drawer Content ================= */
+  /* ================= Drawer ================= */
+
   const drawerContent = useMemo(() => (
-    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+    <Box display="flex" flexDirection="column" height="100%">
       {/* Logo */}
       <Box
         sx={{
@@ -98,78 +96,81 @@ const MainLayout = ({ children }: MainLayoutProps) => {
           justifyContent: open ? 'space-between' : 'center',
         }}
       >
-        <Box sx={{ display: 'flex', alignItems: 'center', flexGrow: 1 }}>
-          <Box
-            onClick={() => navigate('/')}
-            sx={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              cursor: 'pointer',
-              flexGrow: 1
-            }}
-          >
-            <HomeIcon color="primary" />
-            {open && (
-              <Typography ml={1} fontWeight="bold">
-                FollowMee
-              </Typography>
-            )}
-          </Box>
-          <IconButton 
-            size="small" 
-            onClick={handleDrawerToggle}
-            sx={{ ml: 1 }}
-          >
-            {open ? <ChevronLeftIcon /> : <ChevronRightIcon />}
-          </IconButton>
+        <Box
+          onClick={() => navigate('/')}
+          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+        >
+          <Home color="primary" />
+          {open && (
+            <Typography ml={1} fontWeight={700}>
+              FollowMee
+            </Typography>
+          )}
         </Box>
+
+        <IconButton size="small" onClick={handleDrawerToggle}>
+          {open ? <ChevronLeft /> : <ChevronRight />}
+        </IconButton>
       </Box>
 
       <Divider />
 
       {/* Menu */}
-      <List sx={{ px: 1 }}>
-        {menuItems.map(item => (
-          <ListItem key={item.text} disablePadding>
-            <ListItemButton
-              onClick={() => navigate(item.path)}
-              sx={{
-                borderRadius: 1,
-                my: 0.5,
-                justifyContent: open ? 'flex-start' : 'center',
-              }}
-            >
-              <ListItemIcon
+      <List sx={{ px: 1, pt: 1 }}>
+        {menuItems.map(item => {
+          const active = location.pathname.startsWith(item.path);
+
+          return (
+            <ListItem key={item.text} disablePadding>
+              <ListItemButton
+                onClick={() => navigate(item.path)}
                 sx={{
-                  minWidth: 0,
-                  mr: open ? 1.5 : 0,
-                  justifyContent: 'center',
+                  borderRadius: 2,
+                  my: 0.5,
+                  justifyContent: open ? 'flex-start' : 'center',
+                  bgcolor: active
+                    ? alpha(theme.palette.primary.main, 0.12)
+                    : 'transparent',
+                  '&:hover': {
+                    bgcolor: alpha(theme.palette.primary.main, 0.15),
+                  },
                 }}
               >
-                {item.icon}
-              </ListItemIcon>
+                <ListItemIcon
+                  sx={{
+                    minWidth: 0,
+                    mr: open ? 1.5 : 0,
+                    color: active ? 'primary.main' : 'text.secondary',
+                    justifyContent: 'center',
+                  }}
+                >
+                  {item.icon}
+                </ListItemIcon>
 
-              {open && <ListItemText primary={item.text} />}
-            </ListItemButton>
-          </ListItem>
-        ))}
+                {open && (
+                  <ListItemText
+                    primary={item.text}
+                    primaryTypographyProps={{
+                      fontWeight: active ? 600 : 500,
+                    }}
+                  />
+                )}
+              </ListItemButton>
+            </ListItem>
+          );
+        })}
       </List>
 
-      <Box sx={{ flexGrow: 1 }} />
+      <Box flexGrow={1} />
 
       <Divider />
 
-      {/* Footer */}
-      <List sx={{ px: 1 }}>
+      {/* Bottom */}
+      <List sx={{ px: 1, pb: 1 }}>
         <ListItem disablePadding>
-          <ListItemButton
-            sx={{
-              borderRadius: 1,
-              justifyContent: open ? 'flex-start' : 'center',
-            }}
-          >
+          <ListItemButton sx={{ borderRadius: 2 }}>
             <ListItemIcon sx={{ minWidth: 0, mr: open ? 1.5 : 0 }}>
-              <SettingsIcon />
+              <Settings />
             </ListItemIcon>
             {open && <ListItemText primary="Settings" />}
           </ListItemButton>
@@ -178,98 +179,95 @@ const MainLayout = ({ children }: MainLayoutProps) => {
         <ListItem disablePadding>
           <ListItemButton
             onClick={handleLogout}
-            sx={{
-              borderRadius: 1,
-              justifyContent: open ? 'flex-start' : 'center',
-            }}
+            sx={{ borderRadius: 2 }}
           >
             <ListItemIcon sx={{ minWidth: 0, mr: open ? 1.5 : 0 }}>
-              <LogoutIcon />
+              <Logout />
             </ListItemIcon>
             {open && <ListItemText primary="Logout" />}
           </ListItemButton>
         </ListItem>
       </List>
     </Box>
-  ), []);
+  ), [open, location.pathname]);
+
+  /* ================= Layout ================= */
 
   return (
-    <Box sx={{ display: 'flex', height: '100vh' }}>
-      {/* ================= AppBar ================= */}
+    <Box display="flex" height="100vh">
+      {/* AppBar */}
       <AppBar
         position="fixed"
         elevation={0}
         sx={{
           height: APP_BAR_HEIGHT,
-          bgcolor: 'background.paper',
-          color: 'text.primary',
+          bgcolor: alpha(theme.palette.background.paper, 0.9),
+          backdropFilter: 'blur(10px)',
           borderBottom: '1px solid',
           borderColor: 'divider',
           ml: { sm: open ? drawerWidth : collapsedWidth },
           width: {
             sm: `calc(100% - ${open ? drawerWidth : collapsedWidth}px)`,
           },
-          transition: theme.transitions.create(['margin', 'width']),
+          transition: theme.transitions.create(['width', 'margin']),
         }}
       >
         <Toolbar>
-          <IconButton
-            sx={{ display: { sm: 'none' } }}
-            onClick={handleDrawerToggle}
-          >
+          <IconButton sx={{ display: { sm: 'none' } }} onClick={handleDrawerToggle}>
             <MenuIcon />
           </IconButton>
 
-          <Box sx={{ flexGrow: 1 }} />
+          <Box flexGrow={1} />
 
           <ThemeToggle />
 
           <Tooltip title="Notifications">
-            <IconButton>
-              <Badge badgeContent={notifications.length} color="error">
-                <NotificationsIcon />
+            <IconButton sx={{ ml: 1 }}>
+              <Badge badgeContent={3} color="error">
+                <Notifications />
               </Badge>
             </IconButton>
           </Tooltip>
 
+          {/* Profile */}
           <Box
             onClick={handleProfileMenuOpen}
             sx={{
               ml: 2,
               display: 'flex',
               alignItems: 'center',
+              gap: 1,
+              px: 1.5,
+              py: 0.75,
+              borderRadius: 2,
               cursor: 'pointer',
-              px: 1,
-              py: 0.5,
-              borderRadius: 1,
               '&:hover': {
-                bgcolor: alpha(theme.palette.grey[300], 0.5),
+                bgcolor: alpha(theme.palette.primary.main, 0.08),
               },
             }}
           >
-            <Avatar sx={{ width: 32, height: 32, mr: 1 }}>U</Avatar>
-            <Typography>User Name</Typography>
+            <Avatar sx={{ width: 32, height: 32 }}>U</Avatar>
+            <Typography fontWeight={600}>User Name</Typography>
           </Box>
         </Toolbar>
       </AppBar>
 
-      {/* ================= Drawer ================= */}
+      {/* Drawer */}
       <Drawer
         variant="permanent"
         sx={{
           width: open ? drawerWidth : collapsedWidth,
-          flexShrink: 0,
           '& .MuiDrawer-paper': {
             width: open ? drawerWidth : collapsedWidth,
-            overflowX: 'hidden',
             transition: theme.transitions.create('width'),
+            overflowX: 'hidden',
           },
         }}
       >
         {drawerContent}
       </Drawer>
 
-      {/* ================= Main ================= */}
+      {/* Main */}
       <Box
         component="main"
         sx={{
@@ -278,10 +276,8 @@ const MainLayout = ({ children }: MainLayoutProps) => {
           height: `calc(100vh - ${APP_BAR_HEIGHT}px)`,
           overflowY: 'auto',
           bgcolor: theme.palette.background.default,
-          transition: theme.transitions.create('background-color'),
         }}
       >
-        {/* CENTERED CONTENT */}
         <Box
           sx={{
             maxWidth: 1200,
@@ -294,13 +290,13 @@ const MainLayout = ({ children }: MainLayoutProps) => {
         </Box>
       </Box>
 
-      {/* ================= Profile Menu ================= */}
+      {/* Profile Menu */}
       <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleMenuClose}>
         <MenuItem>Profile</MenuItem>
-        <MenuItem>My account</MenuItem>
+        <MenuItem>Account</MenuItem>
         <Divider />
         <MenuItem onClick={handleLogout}>
-          <LogoutIcon fontSize="small" sx={{ mr: 1 }} />
+          <Logout fontSize="small" sx={{ mr: 1 }} />
           Logout
         </MenuItem>
       </Menu>

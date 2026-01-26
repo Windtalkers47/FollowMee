@@ -11,6 +11,7 @@ interface CustomerData {
   customerTikTok?: { value: string };
   customerLine?: { value: string };
   customerX?: { value: string };
+  customerAddress?: { value: string };
   isActive?: boolean;
 }
 
@@ -29,6 +30,7 @@ const transformCustomerData = (data: any): any => {
     customerTikTok: data.customerTikTok ? { value: data.customerTikTok } : undefined,
     customerLine: data.customerLine ? { value: data.customerLine } : undefined,
     customerX: data.customerX ? { value: data.customerX } : undefined,
+    customerAddress: data.customerAddress ? { value: data.customerAddress } : undefined,
     isActive: data.isActive !== undefined ? data.isActive : true,
   };
 };

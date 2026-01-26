@@ -51,6 +51,11 @@ export class CreateCustomerDto {
   @MaxLength(100, { message: 'X (Twitter) username must be at most 100 characters' })
   customerX?: string;
 
+  @IsString()
+  @IsOptional()
+  @MaxLength(255, { message: 'Address must be at most 255 characters' })
+  customerAddress?: string;
+
   @IsBoolean()
   @IsOptional()
   isActive: boolean = true;

@@ -14,6 +14,7 @@ export interface CustomerData {
   customerTikTok: string | null;
   customerLine: string | null;
   customerX: string | null;
+  customerAddress: string | null;
   isActive: boolean;
   status: CustomerStatus;
   createdAt: string;

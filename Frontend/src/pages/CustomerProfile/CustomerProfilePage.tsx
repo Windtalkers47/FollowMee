@@ -140,7 +140,7 @@ const CustomerProfilePage: React.FC = () => {
             )}
 
             {/* Socials */}
-            <Box mt={3} display="flex" justifyContent="center" gap={1.5}>
+            {/* <Box mt={3} display="flex" justifyContent="center" gap={1.5}>
               {socials.map(
                 (s) =>
                   customer[s.key] && (
@@ -156,6 +156,104 @@ const CustomerProfilePage: React.FC = () => {
                       {s.icon}
                     </IconButton>
                   )
+              )}
+            </Box> */}
+
+            <Box mt={3} display="flex" justifyContent="center" gap={1.5} flexWrap="wrap">
+              {customer.customerFacebook && (
+                <Tooltip title="Facebook" arrow>
+                  <IconButton
+                    size="small"
+                    href={customer.customerFacebook}
+                    target="_blank"
+                    onClick={(e) => e.stopPropagation()}
+                    sx={{
+                      bgcolor: '#1877F2',
+                      color: 'white',
+                      '&:hover': { bgcolor: '#166FE5' },
+                      width: 28,
+                      height: 28
+                    }}
+                  >
+                    <Facebook fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              )}
+              {customer.customerInstagram && (
+                <Tooltip title="Instagram" arrow>
+                  <IconButton
+                    size="small"
+                    href={customer.customerInstagram}
+                    target="_blank"
+                    onClick={(e) => e.stopPropagation()}
+                    sx={{
+                      background: 'radial-gradient(circle at 30% 107%, #fdf497 0%, #fdf497 5%, #fd5949 45%,#d6249f 60%,#285AEB 90%)',
+                      color: 'white',
+                      '&:hover': { opacity: 0.9 },
+                      width: 28,
+                      height: 28
+                    }}
+                  >
+                    <Instagram fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              )}
+              {customer.customerTikTok && (
+                <Tooltip title="TikTok" arrow>
+                  <IconButton
+                    size="small"
+                    href={customer.customerTikTok}
+                    target="_blank"
+                    onClick={(e) => e.stopPropagation()}
+                    sx={{
+                      bgcolor: '#000000',
+                      color: 'white',
+                      '&:hover': { bgcolor: '#333333' },
+                      width: 28,
+                      height: 28
+                    }}
+                  >
+                    <MusicNote fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              )}
+              {customer.customerLine && (
+                <Tooltip title="Line" arrow>
+                  <IconButton
+                    size="small"
+                    href={`https://line.me/ti/p/${customer.customerLine}`}
+                    target="_blank"
+                    onClick={(e) => e.stopPropagation()}
+                    sx={{
+                      bgcolor: '#06C755',
+                      color: 'white',
+                      '&:hover': { bgcolor: '#05a548' },
+                      width: 28,
+                      height: 28
+                    }}
+                  >
+                    <Message fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              )}
+              {customer.customerX && (
+                <Tooltip title="X (Twitter)" arrow>
+                  <IconButton
+                    size="small"
+                    href={customer.customerX}
+                    target="_blank"
+                    onClick={(e) => e.stopPropagation()}
+                    sx={{
+                      bgcolor: '#000000',
+                      color: 'white',
+                      '&:hover': { bgcolor: '#333333' },
+                      width: 28,
+                      height: 28
+                    }}
+                  >
+                    <Twitter fontSize="small" />
+                  </IconButton>
+                </Tooltip>
               )}
             </Box>
 

@@ -146,10 +146,23 @@ export const customerApi = {
     };
   },
 
-  // Get by id
-  async getCustomerById(customerId: string): Promise<CustomerData> {
-    const result = await apiRequest<{ data: any }>(`/customers/${customerId}`, 'GET');
-    return fromApiFormat(result.data);
+  // Get by id (requires authentication)
+  getCustomerById: async (customerId: string): Promise<CustomerData> => {
+    const response = await apiRequest<{ data: any }>(`/customers/${customerId}`, 'GET');
+    return fromApiFormat(response.data);
+  },
+
+  // Get public customer profile (no authentication required)
+  getPublicCustomerProfile: async (customerId: string): Promise<CustomerData> => {
+    const response = await fetch(`${apiConfig.baseURL}/customers/public/${customerId}`);
+    
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.message || 'Failed to fetch customer profile');
+    }
+    
+    const { data } = await response.json();
+    return fromApiFormat(data);
   },
 
   // Create

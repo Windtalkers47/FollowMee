@@ -9,6 +9,42 @@ export class CustomerController {
   constructor(private readonly customerService: CustomerService) {}
 
   /**
+   * Get public customer profile by ID (no authentication required)
+   */
+  async getPublicCustomerProfile(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      if (!id) {
+        return res.status(400).json({
+          success: false,
+          message: 'Customer ID is required',
+        });
+      }
+
+      const customer = await this.customerService.getPublicProfile(id);
+      if (!customer) {
+        return res.status(404).json({
+          success: false,
+          message: 'Customer not found',
+        });
+      }
+
+      return res.json({
+        success: true,
+        data: customer,
+      });
+    } catch (error) {
+      console.error('Error getting public customer profile:', error);
+      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to fetch customer profile',
+        error: errorMessage,
+      });
+    }
+  }
+
+  /**
    * Get all customers (paginated)
    */
   async getCustomers(req: Request, res: Response) {

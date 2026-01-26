@@ -31,10 +31,14 @@ async function fetchAllCustomers(search = ''): Promise<CustomerData[]> {
   return response?.data || [];
 }
 
-async function fetchCustomerById(customerId: string): Promise<CustomerData | null> {
+async function fetchCustomerById(customerId: string, isPublic = false): Promise<CustomerData | null> {
   try {
+    if (isPublic) {
+      return await customerApi.getPublicCustomerProfile(customerId);
+    }
     return await customerApi.getCustomerById(customerId);
-  } catch {
+  } catch (error) {
+    console.error('Error fetching customer:', error);
     return null;
   }
 }
@@ -60,21 +64,57 @@ const CustomerProfilePage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [copied, setCopied] = useState(false);
+  const [isPublic, setIsPublic] = useState(false);
 
   const loadCustomers = useCallback(async (q = '') => {
     setLoading(true);
-    setCustomers(await fetchAllCustomers(q));
-    setLoading(false);
-  }, []);
+    try {
+      const data = await fetchAllCustomers(q);
+      setCustomers(data);
+      // If we have a customerId in the URL but no customer data yet, try to load it
+      if (customerId && !customer) {
+        const customerData = await fetchCustomerById(customerId, true);
+        if (customerData) {
+          setCustomer(customerData);
+          setIsPublic(true);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading customers:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [customerId, customer]);
 
-  const loadCustomerById = useCallback(async (id: string) => {
+  const loadCustomerById = useCallback(async (id: string, isPublicAccess = false) => {
     setLoading(true);
-    setCustomer(await fetchCustomerById(id));
-    setLoading(false);
+    try {
+      const customerData = await fetchCustomerById(id, isPublicAccess);
+      if (customerData) {
+        setCustomer(customerData);
+        setIsPublic(isPublicAccess);
+      } else if (!isPublicAccess) {
+        // If customer not found with auth, try public endpoint as fallback
+        const publicCustomerData = await fetchCustomerById(id, true);
+        if (publicCustomerData) {
+          setCustomer(publicCustomerData);
+          setIsPublic(true);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading customer:', error);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
-    customerId ? loadCustomerById(customerId) : loadCustomers('');
+    if (customerId) {
+      // First try to load with authentication
+      loadCustomerById(customerId, false);
+    } else {
+      loadCustomers('');
+    }
   }, [customerId]);
 
   const profileUrl = `${window.location.origin}/customer-profile/${customerId}`;

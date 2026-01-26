@@ -24,6 +24,53 @@ export class CustomerService {
     return new CustomerResponseDto(customer);
   }
 
+  /**
+   * Get public customer profile by ID (no authentication required)
+   * Only returns non-sensitive customer information
+   */
+  async getPublicProfile(id: string): Promise<Partial<CustomerResponseDto> | null> {
+    const customer = await this.customerRepository.findById(id, {
+      select: [
+        'customerId',
+        'customerName',
+        'customerLastName',
+        'customerEmail',
+        'customerPhone1',
+        'customerPhone2',
+        'customerFacebook',
+        'customerInstagram',
+        'customerTikTok',
+        'customerLine',
+        'customerX',
+        'customerAddress',
+        'createdAt',
+        'updatedAt',
+      ],
+    });
+
+    if (!customer) {
+      return null;
+    }
+
+    // Return a subset of customer data that's safe for public viewing
+    return {
+      customerId: customer.customerId,
+      customerName: customer.customerName,
+      customerLastName: customer.customerLastName,
+      customerEmail: customer.customerEmail,
+      customerPhone1: customer.customerPhone1,
+      customerPhone2: customer.customerPhone2,
+      customerFacebook: customer.customerFacebook,
+      customerInstagram: customer.customerInstagram,
+      customerTikTok: customer.customerTikTok,
+      customerLine: customer.customerLine,
+      customerX: customer.customerX,
+      customerAddress: customer.customerAddress,
+      createdAt: customer.createdAt,
+      updatedAt: customer.updatedAt,
+    };
+  }
+
   async search(query: string): Promise<CustomerResponseDto[]> {
     const customers = await this.customerRepository.search(query);
     return customers.map(c => new CustomerResponseDto(c));

@@ -12,7 +12,10 @@ const customerRepository = new CustomerRepository();
 const customerService = new CustomerService(customerRepository);
 const customerController = new CustomerController(customerService);
 
-// Apply authentication middleware
+// Public routes
+router.get('/public/:id', (req, res) => customerController.getPublicCustomerProfile(req, res));
+
+// Protected routes (require authentication)
 router.use(isAuthenticated);
 
 router.get('/', (req, res) => {

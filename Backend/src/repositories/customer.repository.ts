@@ -26,11 +26,13 @@ export class CustomerRepository extends BaseRepository<Customer> {
   /**
    * Find customer by ID
    * @param id Customer's ID
+   * @param options Optional query options including select fields
    * @returns Customer if found, null otherwise
    */
-  async findById(id: string): Promise<Customer | null> {
-    return this.repository.findOne({ 
-      where: { customerId: id } 
+  async findById(id: string, options: FindOneOptions<Customer> = {}): Promise<Customer | null> {
+    return this.repository.findOne({
+      where: { customerId: id },
+      ...options,
     } as FindOneOptions<Customer>);
   }
 

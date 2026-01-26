@@ -24,6 +24,17 @@ export class CustomerRepository extends BaseRepository<Customer> {
   }
 
   /**
+   * Find customer by ID
+   * @param id Customer's ID
+   * @returns Customer if found, null otherwise
+   */
+  async findById(id: string): Promise<Customer | null> {
+    return this.repository.findOne({ 
+      where: { customerId: id } 
+    } as FindOneOptions<Customer>);
+  }
+
+  /**
    * Find active customers
    * @returns Array of active customers
    */
@@ -58,10 +69,25 @@ export class CustomerRepository extends BaseRepository<Customer> {
    * @param limit Number of items per page
    * @returns [customers, totalCount]
    */
-  async findWithPagination(page: number, limit: number): Promise<[Customer[], number]> {
-    const [customers, total] = await this.repository
+  async findWithPagination(
+    page: number, 
+    limit: number, 
+    status?: 'active' | 'inactive' | 'canceled'
+  ): Promise<[Customer[], number]> {
+    const query = this.repository
       .createQueryBuilder('customer')
-      .orderBy('customer.createdAt', 'DESC')
+      .orderBy('customer.createdAt', 'DESC');
+
+    if (status === 'active') {
+      query.andWhere('customer.isActive = :isActive', { isActive: true });
+    } else if (status) {
+      query.andWhere('customer.status = :status', { status });
+    } else {
+      // Default to active customers if no status is specified
+      query.andWhere('customer.isActive = :isActive', { isActive: true });
+    }
+
+    const [customers, total] = await query
       .skip((page - 1) * limit)
       .take(limit)
       .getManyAndCount();

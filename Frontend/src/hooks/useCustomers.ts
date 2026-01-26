@@ -1,214 +1,182 @@
 import { useEffect, useCallback, useMemo, useState } from 'react';
 import { useAppDispatch, useAppSelector } from '../store/store';
-import { 
-  fetchCustomers, 
-  setPage, 
-  setPageSize, 
+import {
+  fetchCustomers,
+  setPage,
+  setPageSize,
   setFilter,
   createCustomer as createCustomerAction,
   updateCustomer as updateCustomerAction,
-  deleteCustomer as deleteCustomerAction
+  deleteCustomer as deleteCustomerAction,
 } from '../store/slices/customerSlice';
 import { Customer, CustomerStatus } from '../types/customer.types';
-import { customerApi } from '../services/api/customerApi';
+import {
+  customerApi,
+  StatusStat,
+} from '../services/api/customerApi';
+
+type StatusStatsState = {
+  statuses: StatusStat[];
+  totalStatus: number;
+};
 
 export const useCustomers = () => {
   const dispatch = useAppDispatch();
-  const { 
-    items: customers, 
-    status, 
-    error, 
-    page, 
-    pageSize, 
-    total, 
-    filter 
+
+  const {
+    items: customers,
+    status,
+    error,
+    page,
+    pageSize,
+    total,
+    filter,
   } = useAppSelector((state) => state.customer);
-  
-  const [statusStats, setStatusStats] = useState<{
-    statuses: Array<{ status: 'active' | 'inactive' | 'canceled'; count: number }>;
-    totalStatus: number;
-  } | null>(null);
 
-  // Load customers when component mounts or when page/pageSize/filter changes
+  const [statusStats, setStatusStats] = useState<StatusStatsState>({
+    statuses: [
+      { status: 'active', count: 0 },
+      { status: 'inactive', count: 0 },
+      { status: 'canceled', count: 0 },
+    ],
+    totalStatus: 0,
+  });
+
+  // ===============================
+  // Load customers
+  // ===============================
   useEffect(() => {
-    const loadCustomers = async () => {
-      try {
-        const queryParams: {
-          page?: number;
-          limit?: number;
-          search?: string;
-          status?: CustomerStatus;
-        } = {
-          page,
-          limit: pageSize,
-          search: filter.search || undefined,
-        };
-
-        // Only add status if it's not 'all'
-        if (filter.status !== 'all') {
-          queryParams.status = filter.status;
-        }
-
-        await dispatch(fetchCustomers(queryParams));
-      } catch (error) {
-        console.error('Failed to load customers:', error);
-      }
+    const params: {
+      page: number;
+      limit: number;
+      search?: string;
+      status?: CustomerStatus;
+    } = {
+      page,
+      limit: pageSize,
+      search: filter.search || undefined,
     };
-    
-    loadCustomers();
+
+    if (filter.status !== 'all') {
+      params.status = filter.status;
+    }
+
+    dispatch(fetchCustomers(params));
   }, [dispatch, page, pageSize, filter.status, filter.search]);
 
-  const handlePageChange = useCallback((newPage: number) => {
-    dispatch(setPage(newPage));
-  }, [dispatch]);
+  // ===============================
+  // Pagination & filters
+  // ===============================
+  const handlePageChange = useCallback(
+    (newPage: number) => dispatch(setPage(newPage)),
+    [dispatch]
+  );
 
-  const handlePageSizeChange = useCallback((newPageSize: number) => {
-    dispatch(setPageSize(newPageSize));
-  }, [dispatch]);
+  const handlePageSizeChange = useCallback(
+    (newSize: number) => dispatch(setPageSize(newSize)),
+    [dispatch]
+  );
 
-  const handleFilterChange = useCallback((newFilter: { status?: CustomerStatus | 'all'; search?: string }) => {
-    dispatch(setFilter(newFilter));
-  }, [dispatch]);
+  const handleFilterChange = useCallback(
+    (newFilter: { status?: CustomerStatus | 'all'; search?: string }) =>
+      dispatch(setFilter(newFilter)),
+    [dispatch]
+  );
 
-  const createCustomer = useCallback(async (customerData: Omit<Customer, 'customerId' | 'fullName'>) => {
-    try {
-      const result = await dispatch(createCustomerAction(customerData)).unwrap();
-      return { 
-        success: true, 
-        data: result 
-      };
-    } catch (error: any) {
-      return { 
-        success: false, 
-        error: error.message || 'Failed to create customer' 
-      };
-    }
-  }, [dispatch]);
+  // ===============================
+  // CRUD
+  // ===============================
+  const createCustomer = useCallback(
+    async (data: Omit<Customer, 'customerId' | 'fullName'>) => {
+      try {
+        const result = await dispatch(createCustomerAction(data)).unwrap();
+        return { success: true, data: result };
+      } catch (err: any) {
+        return { success: false, message: err.message || 'Create failed' };
+      }
+    },
+    [dispatch]
+  );
 
-  const updateCustomer = useCallback(async (id: string, customerData: Partial<Omit<Customer, 'customerId' | 'fullName'>>) => {
-    try {
-      const result = await dispatch(updateCustomerAction({ 
-        id, 
-        data: customerData 
-      })).unwrap();
-      
-      return { 
-        success: true, 
-        data: result 
-      };
-    } catch (error: any) {
-      return { 
-        success: false, 
-        error: error.message || 'Failed to update customer' 
-      };
-    }
-  }, [dispatch]);
+  const updateCustomer = useCallback(
+    async (
+      id: string,
+      data: Partial<Omit<Customer, 'customerId' | 'fullName'>>
+    ) => {
+      try {
+        const result = await dispatch(
+          updateCustomerAction({ id, data })
+        ).unwrap();
+        return { success: true, data: result };
+      } catch (err: any) {
+        return { success: false, message: err.message || 'Update failed' };
+      }
+    },
+    [dispatch]
+  );
 
-  const deleteCustomer = useCallback(async (id: string) => {
-    try {
-      await dispatch(deleteCustomerAction(id)).unwrap();
-      return { success: true };
-    } catch (error: any) {
-      return { 
-        success: false, 
-        error: error.message || 'Failed to delete customer' 
-      };
-    }
-  }, [dispatch]);
+  const deleteCustomer = useCallback(
+    async (id: string) => {
+      try {
+        await dispatch(deleteCustomerAction(id)).unwrap();
+        return { success: true };
+      } catch (err: any) {
+        return { success: false, message: err.message || 'Delete failed' };
+      }
+    },
+    [dispatch]
+  );
 
-  // Memoize the customers data to prevent unnecessary re-renders
-  const memoizedCustomers = useMemo(() => customers, [customers]);
-
-  // Fetch status statistics
+  // ===============================
+  // Status stats
+  // ===============================
   const fetchStatusStats = useCallback(async () => {
     try {
-      const response = await customerApi.getStatusStats();
-      
-      if (response.success && response.data) {
-        const statuses: Array<{ status: 'active' | 'inactive' | 'canceled'; count: number }> = 
-          Array.isArray(response.data.statuses) ? response.data.statuses : [];
-          
-        const totalStatus = typeof response.data.totalStatus === 'number'
-          ? response.data.totalStatus
-          : statuses.reduce((sum: number, stat: { count: number }) => sum + (stat.count || 0), 0);
-          
-        const defaultStatuses = [
-          { status: 'active' as const, count: 0 },
-          { status: 'inactive' as const, count: 0 },
-          { status: 'canceled' as const, count: 0 }
-        ];
-        
-        const mergedStatuses = defaultStatuses.map(defaultStat => {
-          const found = statuses.find((s: { status: string }) => s.status === defaultStat.status);
-          return found || defaultStat;
-        });
-        
-        const stats = {
-          statuses: mergedStatuses,
-          totalStatus
-        };
-        
-        setStatusStats(stats);
-        return { success: true, data: stats };
-      } else {
-        console.error('Failed to fetch status stats:', response.message);
-        // Return default values on failure
-        const defaultStats = {
-          statuses: [
-            { status: 'active' as const, count: 0 },
-            { status: 'inactive' as const, count: 0 },
-            { status: 'canceled' as const, count: 0 },
-          ],
-          totalStatus: 0
-        };
-        setStatusStats(defaultStats);
-        return { success: false, message: response?.message || 'Failed to fetch status stats', data: defaultStats };
-      }
+      const data = await customerApi.getStatusStats();
+  
+      const defaults: StatusStat[] = [
+        { status: 'active', count: 0 },
+        { status: 'inactive', count: 0 },
+        { status: 'canceled', count: 0 },
+      ];
+  
+      const merged = defaults.map((d) => {
+        const found = data.statuses.find((s) => s.status === d.status);
+        return found ?? d;
+      });
+  
+      setStatusStats({
+        statuses: merged,
+        totalStatus: data.totalStatus,
+      });
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      console.error('Error in fetchStatusStats:', error);
-      // Return default values on error
-      const defaultStats = {
-        statuses: [
-          { status: 'active' as const, count: 0 },
-          { status: 'inactive' as const, count: 0 },
-          { status: 'canceled' as const, count: 0 },
-        ],
-        totalStatus: 0
-      };
-      setStatusStats(defaultStats);
-      return { success: false, message: errorMessage, data: defaultStats };
+      console.error('Failed to fetch status stats', error);
     }
   }, []);
 
-  // Load status stats on mount
   useEffect(() => {
     fetchStatusStats();
   }, [fetchStatusStats]);
 
-  // Function to manually refetch all data
+  // ===============================
+  // Refetch
+  // ===============================
   const refetch = useCallback(() => {
-    // Force refetch customers by changing the page (will trigger the useEffect)
-    if (page !== 1) {
-      handlePageChange(1);
-    } else {
-      // If already on page 1, manually trigger the fetch
-      const queryParams: any = {
+    dispatch(
+      fetchCustomers({
         page: 1,
         limit: pageSize,
         search: filter.search || undefined,
-      };
-      
-      if (filter.status !== 'all') {
-        queryParams.status = filter.status;
-      }
-      
-      dispatch(fetchCustomers(queryParams));
-    }
-    
-    // Also refetch status stats
+        status: filter.status !== 'all' ? filter.status : undefined,
+      })
+    );
     fetchStatusStats();
-  }, [page, pageSize, filter.status, filter.search, handlePageChange, fetchStatusStats, dispatch]);
+  }, [dispatch, pageSize, filter.search, filter.status, fetchStatusStats]);
+
+  // ===============================
+  // Memoized customers
+  // ===============================
+  const memoizedCustomers = useMemo(() => customers, [customers]);
 
   return {
     customers: memoizedCustomers,

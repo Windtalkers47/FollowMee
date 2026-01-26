@@ -1,24 +1,14 @@
 import { apiConfig } from '../../api/config';
 import { CustomerData, CustomerStatus } from '../../types/customer.types';
 
-// API Response type
-interface ApiResponse<T> {
-  success: boolean;
-  data?: T;
-  message?: string;
-  meta?: {
-    total: number;
-    page: number;
-    limit: number;
-    totalPages: number;
-  };
-}
+/* ============================
+   Helpers
+============================ */
 
-// Transform customer data to match backend format
+// Convert frontend → backend
 const toApiFormat = (data: Partial<CustomerData>): any => {
   const result: any = { ...data };
-  
-  // Convert empty strings to null for optional fields
+
   const optionalFields: (keyof CustomerData)[] = [
     'customerLastName',
     'customerPhone1',
@@ -27,253 +17,173 @@ const toApiFormat = (data: Partial<CustomerData>): any => {
     'customerInstagram',
     'customerTikTok',
     'customerLine',
-    'customerX'
+    'customerX',
   ];
 
-  optionalFields.forEach(field => {
+  optionalFields.forEach((field) => {
     if (field in result && result[field] === '') {
       result[field] = null;
     }
   });
 
-  // Remove isActive as we're now using status
-  if ('isActive' in result) {
-    delete result.isActive;
-  }
+  delete result.isActive;
 
   return result;
 };
 
-// Transform API response to frontend format
+// Convert backend → frontend
 const fromApiFormat = (data: any): CustomerData => {
-  if (!data) return data;
-  
-  // Determine status from data, default to 'active' if not provided
-  const status: CustomerStatus = ['active', 'inactive', 'canceled'].includes(data.status) 
-    ? data.status as CustomerStatus 
-    : 'active';
-  
-  // For backward compatibility, set isActive based on status
-  const isActive = status === 'active';
-  
+  const status: CustomerStatus =
+    data?.status === 'active' || data?.status === 'inactive' || data?.status === 'canceled'
+      ? data.status
+      : 'active';
+
   return {
-    customerId: data.customerId || '',
-    customerName: data.customerName || '',
-    customerLastName: data.customerLastName || null,
-    customerEmail: data.customerEmail || '',
+    customerId: data.customerId,
+    customerName: data.customerName ?? '',
+    customerLastName: data.customerLastName ?? null,
+    customerEmail: data.customerEmail ?? '',
     status,
-    customerPhone1: data.customerPhone1 || null,
-    customerPhone2: data.customerPhone2 || null,
-    customerFacebook: data.customerFacebook || null,
-    customerInstagram: data.customerInstagram || null,
-    customerTikTok: data.customerTikTok || null,
-    customerLine: data.customerLine || null,
-    customerX: data.customerX || null,
-    isActive,
-    createdAt: data.createdAt || new Date().toISOString(),
-    updatedAt: data.updatedAt || new Date().toISOString(),
-    deletedAt: data.deletedAt || null,
+    isActive: status === 'active',
+    customerPhone1: data.customerPhone1 ?? null,
+    customerPhone2: data.customerPhone2 ?? null,
+    customerFacebook: data.customerFacebook ?? null,
+    customerInstagram: data.customerInstagram ?? null,
+    customerTikTok: data.customerTikTok ?? null,
+    customerLine: data.customerLine ?? null,
+    customerX: data.customerX ?? null,
+    createdAt: data.createdAt,
+    updatedAt: data.updatedAt,
+    deletedAt: data.deletedAt ?? null,
   };
 };
 
-// Helper to handle API requests
+// Central request (THROWS ON ERROR)
 const apiRequest = async <T>(
-  endpoint: string, 
-  method: string, 
+  endpoint: string,
+  method: string,
   data?: any
-): Promise<ApiResponse<T>> => {
+): Promise<T> => {
+  const response = await fetch(`${apiConfig.baseURL}${endpoint}`, {
+    method,
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Application-Name': apiConfig.headers['X-Application-Name'],
+      ...(localStorage.getItem('token') && {
+        Authorization: `Bearer ${localStorage.getItem('token')}`,
+      }),
+    },
+    credentials: 'include',
+    body: data ? JSON.stringify(toApiFormat(data)) : undefined,
+  });
+
+  let json: any = null;
   try {
-    const response = await fetch(`${apiConfig.baseURL}${endpoint}`, {
-      method,
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Application-Name': apiConfig.headers['X-Application-Name'],
-        ...(localStorage.getItem('token') && {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        })
-      },
-      credentials: 'include',
-      body: data ? JSON.stringify(toApiFormat(data)) : undefined,
-    });
-
-    // Handle 204 No Content responses
-    if (response.status === 204) {
-      return { success: true } as ApiResponse<T>;
-    }
-
-    const result = await response.json().catch(() => ({
-      success: false,
-      message: 'Failed to parse JSON response'
-    }));
-
-    // If the response is not ok, throw an error
-    if (!response.ok) {
-      throw new Error(
-        result.message || 
-        `Request failed with status ${response.status}: ${response.statusText}`
-      );
-    }
-    
-    // If the response is already in our expected format, return it
-    if (result && typeof result === 'object' && 'success' in result) {
-      // Transform data if it exists
-      if ('data' in result) {
-        if (Array.isArray(result.data)) {
-          return {
-            ...result,
-            data: result.data.map((item: any) => fromApiFormat(item))
-          } as ApiResponse<T>;
-        } else if (result.data && typeof result.data === 'object') {
-          return {
-            ...result,
-            data: fromApiFormat(result.data)
-          } as ApiResponse<T>;
-        }
-      }
-      return result as ApiResponse<T>;
-    }
-    
-    // If the response is just the data, wrap it in our standard response format
-    return {
-      success: true,
-      data: Array.isArray(result) 
-        ? result.map((item: any) => fromApiFormat(item))
-        : fromApiFormat(result)
-    } as ApiResponse<T>;
-  } catch (error) {
-    console.error('API request failed:', error);
-    return {
-      success: false,
-      message: error instanceof Error ? error.message : 'An unknown error occurred'
-    };
+    json = await response.json();
+  } catch {
+    /* no-op */
   }
+
+  if (!response.ok) {
+    throw new Error(json?.message || response.statusText);
+  }
+
+  return json as T;
 };
+
+/* ============================
+   Types
+============================ */
+
+export interface PaginatedCustomers {
+  data: CustomerData[];
+  meta: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
+}
 
 export interface StatusStat {
   status: 'active' | 'inactive' | 'canceled';
   count: number;
 }
 
-// Interface for status statistics response
-export interface StatusStatsResponse {
-  success: boolean;
-  data: {
-    statuses: StatusStat[];
-    totalStatus: number;
-  };
-  message?: string;
+export interface StatusStats {
+  statuses: StatusStat[];
+  totalStatus: number;
 }
 
+/* ============================
+   API
+============================ */
+
 export const customerApi = {
-  // Get all customers with pagination
-  getCustomers: async (
-    page: number = 1, 
-    limit: number = 10, 
+  // List customers
+  async getCustomers(
+    page = 1,
+    limit = 10,
     search?: string,
     status?: CustomerStatus
-  ): Promise<ApiResponse<CustomerData[]>> => {
+  ): Promise<PaginatedCustomers> {
     const params = new URLSearchParams({
-      page: page.toString(),
-      limit: limit.toString(),
+      page: String(page),
+      limit: String(limit),
       ...(search && { search }),
-      ...(status && { status })
+      ...(status && { status }),
     });
-    
-    const response = await apiRequest<CustomerData | CustomerData[]>(`/customers?${params}`, 'GET');
-    
-    // Handle case where data is a single customer object instead of an array
-    if (response.data && !Array.isArray(response.data)) {
-      return {
-        ...response,
-        data: [response.data as CustomerData],
-        meta: {
-          total: 1,
-          page: page,
-          limit: limit,
-          totalPages: 1,
-          ...response.meta
-        }
-      } as ApiResponse<CustomerData[]>;
-    }
-    
-    return response as ApiResponse<CustomerData[]>;
+
+    const result = await apiRequest<{
+      data: any[];
+      meta: PaginatedCustomers['meta'];
+    }>(`/customers?${params}`, 'GET');
+
+    return {
+      data: result.data.map(fromApiFormat),
+      meta: result.meta,
+    };
   },
 
-  // Get single customer by ID
-  getCustomerById: async (customerId: string): Promise<ApiResponse<CustomerData>> => {
-    return apiRequest<CustomerData>(`/customers/${customerId}`, 'GET');
+  // Get by id
+  async getCustomerById(customerId: string): Promise<CustomerData> {
+    const result = await apiRequest<{ data: any }>(`/customers/${customerId}`, 'GET');
+    return fromApiFormat(result.data);
   },
 
-  // Create new customer
-  createCustomer: async (customerData: Omit<CustomerData, 'customerId'>): Promise<ApiResponse<CustomerData>> => {
-    return apiRequest<CustomerData>('/customers', 'POST', customerData);
+  // Create
+  async createCustomer(
+    customerData: Omit<CustomerData, 'customerId'>
+  ): Promise<CustomerData> {
+    const result = await apiRequest<{ data: any }>('/customers', 'POST', customerData);
+    return fromApiFormat(result.data);
   },
 
-  // Update customer
-  updateCustomer: async (
-    customerId: string, 
+  // Update
+  async updateCustomer(
+    customerId: string,
     customerData: Partial<Omit<CustomerData, 'customerId'>>
-  ): Promise<ApiResponse<CustomerData>> => {
-    return apiRequest<CustomerData>(`/customers/${customerId}`, 'PUT', customerData);
+  ): Promise<CustomerData> {
+    const result = await apiRequest<{ data: any }>(
+      `/customers/${customerId}`,
+      'PUT',
+      customerData
+    );
+    return fromApiFormat(result.data);
   },
 
-  // Delete customer (soft delete)
-  deleteCustomer: async (customerId: string): Promise<ApiResponse<void>> => {
-    return apiRequest<void>(`/customers/${customerId}`, 'DELETE');
+  // Delete
+  async deleteCustomer(customerId: string): Promise<void> {
+    await apiRequest<void>(`/customers/${customerId}`, 'DELETE');
   },
 
-  getStatusStats: async (): Promise<StatusStatsResponse> => {
-    try {
-      const response = await fetch(`${apiConfig.baseURL}/customers/status-stats`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Application-Name': apiConfig.headers['X-Application-Name'],
-          ...(localStorage.getItem('token') && {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          })
-        },
-        credentials: 'include'
-      });
-
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.message || 'Failed to fetch status statistics');
-      }
-
-      if (!data?.data?.statuses || !Array.isArray(data.data.statuses)) {
-        throw new Error('Invalid response format from server');
-      }
-
-      const statuses = data.data.statuses.map((stat: any) => ({
-        status: (['active', 'inactive', 'canceled'].includes(stat.status) 
-          ? stat.status 
-          : 'inactive') as 'active' | 'inactive' | 'canceled',
-        count: typeof stat.count === 'number' ? stat.count : 0
-      }));
-      
-      return {
-        success: true,
-        data: {
-          statuses,
-          totalStatus: typeof data.data.totalStatus === 'number' 
-            ? data.data.totalStatus 
-            : statuses.reduce((sum: number, s: { count: number }) => sum + s.count, 0)
-        }
-      };
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      console.error('Error in getStatusStats:', error);
-      return {
-        success: false,
-        message: `Failed to fetch status statistics: ${errorMessage}`,
-        data: {
-          statuses: [],
-          totalStatus: 0
-        }
-      };
-    }
+  // Status stats
+  async getStatusStats(): Promise<StatusStats> {
+    const result = await apiRequest<{ data: StatusStats }>(
+      '/customers/status-stats',
+      'GET'
+    );
+    return result.data;
   },
 };
 

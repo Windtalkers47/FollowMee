@@ -15,9 +15,14 @@ export class CustomerController {
     try {
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 10;
+      const status = req.query.status as 'active' | 'inactive' | 'canceled' | undefined;
       
-      // Get all customers with pagination
-      const [customers, total] = await this.customerService.findWithPagination(page, limit);
+      // Get customers with pagination and status filter
+      const [customers, total] = await this.customerService.findWithPagination(
+        page, 
+        limit,
+        status
+      );
       
       return res.json({ 
         success: true, 

@@ -15,10 +15,11 @@ import {
   DialogActions,
   IconButton,
   Typography,
+  CircularProgress,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 
-type CustomerFormData = {
+export type CustomerFormData = {
   customerId?: string;
   customerName: string;
   customerLastName?: string;
@@ -31,6 +32,11 @@ type CustomerFormData = {
   customerLine?: string;
   customerX?: string;
   isActive: boolean;
+};
+
+export type ApiError = {
+  field: keyof CustomerFormData;
+  message: string;
 };
 
 const schema: yup.ObjectSchema<CustomerFormData> = yup.object().shape({
@@ -51,17 +57,18 @@ const schema: yup.ObjectSchema<CustomerFormData> = yup.object().shape({
 interface CustomerFormProps {
   open: boolean;
   onClose: () => void;
-  onSubmit: (data: CustomerFormData) => void;
+  onSubmit: (data: CustomerFormData) => Promise<void>;
   initialData?: Partial<CustomerFormData>;
-  isLoading?: boolean;
+  apiError?: ApiError | null;
 }
+
 
 const CustomerForm: React.FC<CustomerFormProps> = ({
   open,
   onClose,
   onSubmit,
   initialData = { isActive: true },
-  isLoading = false,
+  apiError = null,
 }) => {
   const defaultValues = React.useMemo(() => ({
     isActive: true,
@@ -72,11 +79,34 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
     control,
     handleSubmit,
     reset,
-    formState: { errors },
+    setError,
+    setFocus,
+    clearErrors,
+    formState: { errors, isSubmitting },
   } = useForm<CustomerFormData>({
     resolver: yupResolver(schema),
     defaultValues,
   });
+
+  // Handle API errors
+  React.useEffect(() => {
+    if (apiError) {
+      setError(apiError.field, {
+        type: 'manual',
+        message: apiError.message,
+      });
+      
+      // Focus the field with error after a small delay to ensure the form is rendered
+      const timer = setTimeout(() => {
+        setFocus(apiError.field);
+      }, 100);
+      
+      return () => clearTimeout(timer);
+    } else {
+      // Clear any existing API errors when the form is opened with new data
+      clearErrors();
+    }
+  }, [apiError, setError, setFocus, clearErrors]);
 
   // Reset form when opening/closing or when initialData changes
   React.useEffect(() => {
@@ -90,9 +120,11 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, JSON.stringify(defaultValues)]);
 
-  const handleFormSubmit: SubmitHandler<CustomerFormData> = (data) => {
-    onSubmit(data);
+  const handleFormSubmit: SubmitHandler<CustomerFormData> = async (data) => {
+    await onSubmit(data);
   };
+  
+  
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
@@ -101,7 +133,7 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
           <Typography variant="h6">
             {initialData?.customerId ? 'Edit Customer' : 'Add New Customer'}
           </Typography>
-          <IconButton onClick={onClose} size="small" disabled={isLoading}>
+          <IconButton onClick={onClose} size="small">
             <CloseIcon />
           </IconButton>
         </Box>
@@ -252,12 +284,18 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
         </DialogContent>
 
         <DialogActions>
-          <Button onClick={onClose} disabled={isLoading}>
+          <Button onClick={onClose}>
             Cancel
           </Button>
-          <Button type="submit" variant="contained" disabled={isLoading}>
-            {isLoading ? 'Saving...' : 'Save Customer'}
+          <Button
+            type="submit"
+            variant="contained"
+            fullWidth
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? <CircularProgress size={20} /> : 'Save'}
           </Button>
+
         </DialogActions>
       </form>
     </Dialog>

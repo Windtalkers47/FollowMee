@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -9,6 +9,7 @@ import {
   Paper,
   IconButton,
   Tooltip,
+  Divider,
 } from '@mui/material';
 import {
   Facebook,
@@ -16,43 +17,37 @@ import {
   Twitter,
   MusicNote,
   Message,
-  AccountCircle as AccountCircleIcon,
+  ContentCopy,
 } from '@mui/icons-material';
 import CustomerProfileSearch from '@/components/CustomerProfileSearch';
 import { motion } from 'framer-motion';
-import ContentCopyIcon from '@mui/icons-material/ContentCopy';
-import { customerApi } from '@/services/api/customerApi';
+import customerApi from '@/services/api/customerApi';
 import { CustomerData } from '@/types/customer.types';
 
 /* ================= API ================= */
 
 async function fetchAllCustomers(search = ''): Promise<CustomerData[]> {
-  const response = await customerApi.getCustomers(1, 100, search);
-  return response.success && Array.isArray(response.data) ? response.data : [];
+  const response = await customerApi.getCustomers(1, 100, search, 'active');
+  return response?.data || [];
 }
 
 async function fetchCustomerById(customerId: string): Promise<CustomerData | null> {
-  const response = await customerApi.getCustomerById(customerId);
-  return response.success && response.data ? response.data : null;
+  try {
+    return await customerApi.getCustomerById(customerId);
+  } catch {
+    return null;
+  }
 }
 
 /* ================= Social ================= */
 
-const socialIcons = {
-  facebook: <Facebook color="primary" />,
-  instagram: <Instagram color="secondary" />,
-  tiktok: <MusicNote color="action" />,
-  line: <Message color="success" />,
-  x: <Twitter color="info" />,
-};
-
-const socialFields = [
-  { key: 'customerFacebook', icon: socialIcons.facebook, label: 'Facebook' },
-  { key: 'customerInstagram', icon: socialIcons.instagram, label: 'Instagram' },
-  { key: 'customerTikTok', icon: socialIcons.tiktok, label: 'TikTok' },
-  { key: 'customerLine', icon: socialIcons.line, label: 'Line' },
-  { key: 'customerX', icon: socialIcons.x, label: 'X' },
-];
+const socials = [
+  { key: 'customerFacebook', icon: <Facebook />, label: 'Facebook' },
+  { key: 'customerInstagram', icon: <Instagram />, label: 'Instagram' },
+  { key: 'customerTikTok', icon: <MusicNote />, label: 'TikTok' },
+  { key: 'customerLine', icon: <Message />, label: 'Line' },
+  { key: 'customerX', icon: <Twitter />, label: 'X' },
+] as const;
 
 /* ================= Component ================= */
 
@@ -66,207 +61,200 @@ const CustomerProfilePage: React.FC = () => {
   const [search, setSearch] = useState('');
   const [copied, setCopied] = useState(false);
 
-  /* ================= Loaders ================= */
-
-  const loadCustomers = async (searchValue = '') => {
+  const loadCustomers = useCallback(async (q = '') => {
     setLoading(true);
-    const data = await fetchAllCustomers(searchValue);
-    setCustomers(data);
+    setCustomers(await fetchAllCustomers(q));
     setLoading(false);
-  };
+  }, []);
 
-  const loadCustomerById = async (id: string) => {
+  const loadCustomerById = useCallback(async (id: string) => {
     setLoading(true);
-    const data = await fetchCustomerById(id);
-    setCustomer(data);
+    setCustomer(await fetchCustomerById(id));
     setLoading(false);
-  };
-
-  /* ================= Effects ================= */
+  }, []);
 
   useEffect(() => {
-    if (customerId) {
-      loadCustomerById(customerId);
-    } else {
-      loadCustomers();
-    }
+    customerId ? loadCustomerById(customerId) : loadCustomers('');
   }, [customerId]);
 
-  /* ================= Helpers ================= */
+  const profileUrl = `${window.location.origin}/customer-profile/${customerId}`;
 
-  const profileUrl = customerId
-    ? `${window.location.origin}/customer/${customerId}/profile`
-    : '';
-
-  const handleCopy = () => {
-    if (!profileUrl) return;
+  const copyUrl = () => {
     navigator.clipboard.writeText(profileUrl);
     setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
+    setTimeout(() => setCopied(false), 1200);
   };
 
-  /* ================= Loading UI ================= */
+  /* ================= Loading ================= */
 
   if (loading) {
     return (
-      <Box
-        minHeight="60vh"
-        display="flex"
-        justifyContent="center"
-        alignItems="center"
-      >
-        <CircularProgress size={48} />
+      <Box minHeight="60vh" display="flex" alignItems="center" justifyContent="center">
+        <CircularProgress />
       </Box>
     );
   }
 
-  /* ================= Single Customer ================= */
+  /* ================= SINGLE PROFILE ================= */
 
-  if (customerId) {
-    if (!customer) {
-      return (
-        <Typography align="center" color="error" mt={4}>
-          Customer not found.
-        </Typography>
-      );
-    }
-
+  if (customerId && customer) {
     return (
-      <Box display="flex" flexDirection="column" alignItems="center" mt={4}>
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          style={{ width: '100%' }}
-        >
-          <Paper sx={{ p: 4, borderRadius: 4, maxWidth: 400, mx: 'auto' }}>
-            <Box display="flex" flexDirection="column" alignItems="center" gap={2}>
-              <Avatar sx={{ width: 80, height: 80, fontSize: 36 }}>
-                {customer.customerName?.charAt(0)?.toUpperCase()}
-              </Avatar>
+      <Box maxWidth={900} mx="auto" mt={4}>
+        <Paper sx={{ borderRadius: 4, overflow: 'hidden' }}>
+          {/* Header */}
+          <Box
+            sx={{
+              height: 160,
+              background: 'linear-gradient(135deg, #4f46e5, #6366f1)',
+            }}
+          />
 
-              <Typography variant="h5" fontWeight="bold">
-                {customer.customerName} {customer.customerLastName}
-              </Typography>
+          {/* Profile */}
+          <Box px={4} pb={4} textAlign="center">
+            <Avatar
+              sx={{
+                width: 96,
+                height: 96,
+                fontSize: 40,
+                mx: 'auto',
+                mt: -6,
+                border: '4px solid white',
+                bgcolor: 'primary.main',
+              }}
+            >
+              {customer.customerName?.charAt(0)}
+            </Avatar>
 
-              <Typography color="text.secondary" align="center">
-                {customer.description || 'No description provided.'}
-              </Typography>
+            <Typography variant="h5" fontWeight={700} mt={2}>
+              {customer.customerName} {customer.customerLastName}
+            </Typography>
 
-              <Box display="flex" flexWrap="wrap" gap={1}>
-                {socialFields.map(
-                  (field) =>
-                    customer[field.key] && (
-                      <Button
-                        key={field.key}
-                        startIcon={field.icon}
-                        variant="contained"
-                        href={customer[field.key]}
-                        target="_blank"
-                      >
-                        {field.label}
-                      </Button>
-                    )
-                )}
-              </Box>
+            <Typography color="text.secondary" mt={0.5}>
+              {customer.description || 'No description provided'}
+            </Typography>
 
-              <Box width="100%" mt={2} display="flex" flexDirection="column" gap={1}>
-                <Button variant="outlined" href={customer.shopUrl}>
-                  🛍️ Shop
-                </Button>
-                <Button variant="outlined" href={customer.portfolioUrl}>
-                  🗂️ Portfolio
-                </Button>
-                <Button variant="outlined" href={customer.contactUrl}>
-                  ✉️ Contact
-                </Button>
-              </Box>
-
-              <Box mt={3} textAlign="center">
-                <Typography variant="caption">Profile URL</Typography>
-                <Box display="flex" alignItems="center" gap={1}>
-                  <Typography variant="body2">{profileUrl}</Typography>
-                  <Tooltip title={copied ? 'Copied!' : 'Copy'}>
-                    <IconButton onClick={handleCopy} size="small">
-                      <ContentCopyIcon fontSize="small" />
+            {/* Socials */}
+            <Box mt={3} display="flex" justifyContent="center" gap={1.5}>
+              {socials.map(
+                (s) =>
+                  customer[s.key] && (
+                    <IconButton
+                      key={s.key}
+                      href={customer[s.key] as string}
+                      target="_blank"
+                      sx={{
+                        bgcolor: 'grey.100',
+                        '&:hover': { bgcolor: 'primary.light', color: 'white' },
+                      }}
+                    >
+                      {s.icon}
                     </IconButton>
-                  </Tooltip>
-                </Box>
-              </Box>
+                  )
+              )}
             </Box>
-          </Paper>
 
-          <Box mt={3} textAlign="center">
-            <Button component={Link} to="/customer-profile">
-              ← Back to All Customers
-            </Button>
+            <Divider sx={{ my: 3 }} />
+
+            {/* Profile URL */}
+            <Box
+              sx={{
+                bgcolor: 'grey.100',
+                p: 2,
+                borderRadius: 2,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}
+            >
+              <Typography variant="body2" noWrap>
+                {profileUrl}
+              </Typography>
+              <Tooltip title={copied ? 'Copied!' : 'Copy'}>
+                <IconButton onClick={copyUrl}>
+                  <ContentCopy fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            </Box>
           </Box>
-        </motion.div>
+        </Paper>
+
+        <Box textAlign="center" mt={3}>
+          <Button component={Link} to="/customer-profile">
+            ← Back to customers
+          </Button>
+        </Box>
       </Box>
     );
   }
 
-  /* ================= All Customers ================= */
+  /* ================= LIST ================= */
 
   return (
-    <Box maxWidth={800} mx="auto" mt={4}>
-      <Paper sx={{ p: 3, borderRadius: 4 }}>
-        <Typography variant="h4" mb={3} align="center" fontWeight="bold">
-          Customer Profiles
-        </Typography>
+    <Box maxWidth={1100} mx="auto" mt={4}>
+      <Typography variant="h4" fontWeight={700} mb={3}>
+        Customer Profiles
+      </Typography>
 
-        <CustomerProfileSearch
-          value={search}
-          onChange={(v) => {
-            setSearch(v);
-            if (v === '') loadCustomers('');
-          }}
-          onSearch={() => loadCustomers(search.trim())}
-          onClear={() => {
-            setSearch('');
-            loadCustomers('');
-          }}
-          onRefresh={() => loadCustomers(search)}
-          loading={loading}
-        />
+      <CustomerProfileSearch
+        value={search}
+        onChange={setSearch}
+        onSearch={() => loadCustomers(search)}
+        onClear={() => {
+          setSearch('');
+          loadCustomers('');
+        }}
+        onRefresh={() => loadCustomers(search)}
+        loading={loading}
+      />
 
-        {customers.length === 0 ? (
-          <Typography align="center" color="text.secondary" mt={4}>
-            No customers found.
-          </Typography>
-        ) : (
-          <Box mt={2} display="flex" flexDirection="column" gap={2}>
-            {customers.map((cust) => (
-              <Paper
-                key={cust.customerId}
-                sx={{
-                  p: 2,
-                  display: 'flex',
-                  alignItems: 'center',
-                  cursor: 'pointer',
-                  '&:hover': { boxShadow: 6 },
-                }}
-                onClick={() =>
-                  navigate(`/customer-profile/${cust.customerId}`)
-                }
-              >
-                <Avatar sx={{ mr: 2 }}>
-                  {cust.customerName?.charAt(0)?.toUpperCase() ||
-                    <AccountCircleIcon />}
-                </Avatar>
-                <Box>
-                  <Typography fontWeight="bold">
-                    {cust.customerName} {cust.customerLastName}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {cust.customerEmail}
-                  </Typography>
-                </Box>
-              </Paper>
-            ))}
-          </Box>
-        )}
-      </Paper>
+      <Box
+        mt={4}
+        display="grid"
+        gridTemplateColumns={{ xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(3, 1fr)' }}
+        gap={3}
+      >
+        {customers.map((c) => (
+          <Paper
+            key={c.customerId}
+            sx={{
+              p: 3,
+              cursor: 'pointer',
+              transition: '0.2s',
+              '&:hover': {
+                transform: 'translateY(-6px)',
+                boxShadow: 6,
+              },
+            }}
+            onClick={() => navigate(`/customer-profile/${c.customerId}`)}
+          >
+            <Avatar sx={{ bgcolor: 'primary.main', mb: 2 }}>
+              {c.customerName?.charAt(0)}
+            </Avatar>
+
+            <Typography fontWeight={600}>
+              {c.customerName} {c.customerLastName}
+            </Typography>
+
+            <Typography variant="body2" color="text.secondary" noWrap>
+              {c.customerEmail}
+            </Typography>
+
+            <Box
+              mt={2}
+              display="inline-block"
+              px={1.5}
+              py={0.5}
+              borderRadius={1}
+              bgcolor="success.light"
+              color="success.dark"
+              fontSize={12}
+              fontWeight={600}
+            >
+              Active
+            </Box>
+          </Paper>
+        ))}
+      </Box>
     </Box>
   );
 };

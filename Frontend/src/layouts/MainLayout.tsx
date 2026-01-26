@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppDispatch } from '../store/store';
 import { ThemeToggle } from '../components/ThemeToggle';
@@ -51,6 +51,17 @@ interface MainLayoutProps {
   children?: React.ReactNode;
 }
 
+// Move static menu items outside the component
+const menuItems = [
+  { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
+  { text: 'Analytics', icon: <AnalyticsIcon />, path: '/analytics' },
+  { text: 'Posts', icon: <PostAddIcon />, path: '/posts' },
+  { text: 'Schedule', icon: <ScheduleIcon />, path: '/schedule' },
+  { text: 'Audience', icon: <PeopleIcon />, path: '/audience' },
+  { text: 'Customer', icon: <GroupIcon />, path: '/customer' },
+  { text: 'Customer Profile', icon: <AccountCircleIcon />, path: '/customer-profile' },
+];
+
 const MainLayout = ({ children }: MainLayoutProps) => {
   const theme = useTheme();
   const navigate = useNavigate();
@@ -60,29 +71,22 @@ const MainLayout = ({ children }: MainLayoutProps) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [notifications] = useState([1, 2, 3]);
 
-  const handleDrawerToggle = () => setOpen(prev => !prev);
-  const handleProfileMenuOpen = (e: React.MouseEvent<HTMLElement>) =>
+  const handleDrawerToggle = useCallback(() => setOpen(prev => !prev), []);
+  
+  const handleProfileMenuOpen = useCallback((e: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(e.currentTarget);
-  const handleMenuClose = () => setAnchorEl(null);
+  }, []);
+  
+  const handleMenuClose = useCallback(() => setAnchorEl(null), []);
 
-  const handleLogout = () => {
+  const handleLogout = useCallback(() => {
     dispatch(logout());
     localStorage.removeItem('authToken');
     navigate('/login', { replace: true });
-  };
-
-  const menuItems = [
-    { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
-    { text: 'Analytics', icon: <AnalyticsIcon />, path: '/analytics' },
-    { text: 'Posts', icon: <PostAddIcon />, path: '/posts' },
-    { text: 'Schedule', icon: <ScheduleIcon />, path: '/schedule' },
-    { text: 'Audience', icon: <PeopleIcon />, path: '/audience' },
-    { text: 'Customer', icon: <GroupIcon />, path: '/customer' },
-    { text: 'Customer Profile', icon: <AccountCircleIcon />, path: '/customer-profile' },
-  ];
+  }, [dispatch, navigate]);
 
   /* ================= Drawer Content ================= */
-  const drawerContent = (
+  const drawerContent = useMemo(() => (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       {/* Logo */}
       <Box
@@ -187,7 +191,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
         </ListItem>
       </List>
     </Box>
-  );
+  ), []);
 
   return (
     <Box sx={{ display: 'flex', height: '100vh' }}>

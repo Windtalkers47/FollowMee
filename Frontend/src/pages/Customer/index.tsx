@@ -24,6 +24,7 @@ import {
 import { Link } from 'react-router-dom';
 import { FilterBar } from '@/components/FilterBar';
 import { Customer as CustomerType, CustomerStatus } from '../../types/customer.types';
+import { CustomerFormData, ApiError } from '@/components/customers/CustomerForm';
 import { 
   MoreVert as MoreVertIcon,
   Facebook as FacebookIcon,
@@ -85,6 +86,7 @@ const CustomerPage = () => {
   const [filterAnchorEl, setFilterAnchorEl] = useState<null | HTMLElement>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
+  const [formApiError, setFormApiError] = useState<ApiError | null>(null);
   const [snackbar, setSnackbar] = useState<{
     open: boolean;
     message: string | React.ReactNode;
@@ -92,8 +94,16 @@ const CustomerPage = () => {
   }>({
     open: false,
     message: '',
-    severity: 'success'
+    severity: 'info',
   });
+
+  const showSnackbar = (message: string | React.ReactNode, severity: 'success' | 'error' | 'info') => {
+    setSnackbar({ open: true, message, severity });
+  };
+
+  const handleCloseSnackbar = () => {
+    setSnackbar(prev => ({ ...prev, open: false }));
+  };
 
   // Get count for a specific status
   const getStatusCount = (status: 'active' | 'inactive' | 'canceled'): number => {
@@ -180,6 +190,7 @@ const CustomerPage = () => {
   };
 
   const handleOpenForm = (customer: Customer | null = null) => {
+    setFormApiError(null);
     setEditingCustomer(customer);
     setIsFormOpen(true);
   };
@@ -187,12 +198,14 @@ const CustomerPage = () => {
   const handleCloseForm = () => {
     setIsFormOpen(false);
     setEditingCustomer(null);
+    setFormApiError(null);
   };
 
-  const handleFormSubmit = async (formData: any) => {
+  const handleFormSubmit = async (formData: CustomerFormData) => {
+    setFormApiError(null);
+  
     try {
-      // Create a properly typed customer data object
-      const customerData: Omit<Customer, 'customerId' | 'fullName'> = {
+      const payload: Omit<Customer, 'customerId' | 'fullName'> = {
         customerName: formData.customerName || '',
         customerLastName: formData.customerLastName || null,
         customerEmail: formData.customerEmail || '',
@@ -205,80 +218,40 @@ const CustomerPage = () => {
         customerX: formData.customerX || null,
         status: formData.isActive ? 'active' : 'inactive',
         isActive: formData.isActive || false,
-        createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-        deletedAt: null
+        deletedAt: null,
+        ...(editingCustomer
+          ? { createdAt: editingCustomer.createdAt }
+          : { createdAt: new Date().toISOString() }),
       };
-
+  
       if (editingCustomer) {
-        // Create an update object that only includes changed fields
-        const updateData: Partial<Omit<Customer, 'customerId' | 'fullName'>> = {};
-        
-        // Check which fields have changed
-        Object.entries(customerData).forEach(([key, value]) => {
-          const customerKey = key as keyof typeof customerData;
-          const currentValue = editingCustomer[customerKey as keyof Customer];
-          
-          // Only include changed fields that are not undefined
-          if (value !== undefined && JSON.stringify(currentValue) !== JSON.stringify(value)) {
-            // @ts-ignore - We know the types match
-            updateData[customerKey] = value;
-          }
-        });
-        
-        // Only proceed with the update if there are changes
-        if (Object.keys(updateData).length > 0) {
-          const result = await updateCustomer(editingCustomer.customerId, updateData);
-          if (result && !('error' in result)) {
-            showSnackbar('Customer updated successfully', 'success');
-            handleCloseForm();
-            return;
-          }
-          throw new Error('Failed to update customer');
-        } else {
-          showSnackbar('No changes detected', 'info');
-          return;
-        }
+        await updateCustomer(editingCustomer.customerId, payload);
       } else {
-        // For new customers
-        const result = await createCustomer(customerData);
-        if (result && 'data' in result && result.data) {
-          showSnackbar(
-            <span>
-              Customer created successfully.{' '}
-              <Button 
-                color="inherit" 
-                size="small" 
-                component={Link} 
-                to={`/customer/${result.data.customerId}/profile`} 
-                style={{ textDecoration: 'underline' }}
-              >
-                View Profile
-              </Button>
-            </span>,
-            'success'
-          );
-          handleCloseForm();
-          return;
-        }
-        throw new Error('Failed to create customer');
+        await createCustomer(payload);
       }
-    } catch (error) {
-      console.error('Error saving customer:', error);
-      showSnackbar(
-        error instanceof Error ? error.message : 'Failed to save customer', 
-        'error'
-      );
+  
+      showSnackbar('Customer saved successfully', 'success');
+      setIsFormOpen(false);
+      setEditingCustomer(null);
+      refetch();
+  
+    } catch (error: any) {
+      const message = error?.message || 'Something went wrong';
+  
+      if (message.toLowerCase().includes('email')) {
+        setFormApiError({
+          field: 'customerEmail',
+          message,
+        });
+      } else {
+        showSnackbar(message, 'error');
+      }
+  
+      throw error;
     }
   };
-
-const showSnackbar = (message: string | React.ReactNode, severity: 'success' | 'error' | 'info') => {
-    setSnackbar({ open: true, message, severity });
-  };
-
-  const handleCloseSnackbar = () => {
-    setSnackbar({ ...snackbar, open: false });
-  };
+  
 
   const isSelected = (id: string) => selected.includes(id);
 
@@ -317,6 +290,7 @@ const showSnackbar = (message: string | React.ReactNode, severity: 'success' | '
         onSubmit={handleFormSubmit}
         initialData={editingCustomer ? {
           ...editingCustomer,
+          isActive: editingCustomer.status === 'active',
           customerLastName: editingCustomer.customerLastName || undefined,
           customerPhone1: editingCustomer.customerPhone1 || undefined,
           customerPhone2: editingCustomer.customerPhone2 || undefined,
@@ -326,7 +300,7 @@ const showSnackbar = (message: string | React.ReactNode, severity: 'success' | '
           customerLine: editingCustomer.customerLine || undefined,
           customerX: editingCustomer.customerX || undefined
         } : undefined}
-        isLoading={loading}
+        apiError={formApiError}
       />
 
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>

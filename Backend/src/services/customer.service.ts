@@ -17,7 +17,7 @@ export class CustomerService {
   }
 
   async findOne(id: string): Promise<CustomerResponseDto> {
-    const customer = await this.customerRepository.findOne({ customerId: id });
+    const customer = await this.customerRepository.findById(id);
     if (!customer) {
       throw new Error(`Customer with ID ${id} not found`);
     }
@@ -37,9 +37,10 @@ export class CustomerService {
    */
   async findWithPagination(
     page: number = 1,
-    limit: number = 10
+    limit: number = 10,
+    status?: 'active' | 'inactive' | 'canceled'
   ): Promise<[CustomerResponseDto[], number]> {
-    const [customers, total] = await this.customerRepository.findWithPagination(page, limit);
+    const [customers, total] = await this.customerRepository.findWithPagination(page, limit, status);
     const customerDtos = customers.map(c => new CustomerResponseDto(c));
     return [customerDtos, total];
   }

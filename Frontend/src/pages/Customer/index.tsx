@@ -566,80 +566,50 @@ const CustomerPage = () => {
           </StyledCard>
         </Box>
 
-      {/* Search and Filter Bar */}
-      <Card sx={{ mb: 3, borderRadius: 3, overflow: 'hidden', boxShadow: '0 2px 10px rgba(0,0,0,0.04)' }}>
-        <Box p={2} display="flex" flexDirection={{ xs: 'column', sm: 'row' }} gap={2} alignItems={{ sm: 'center' }}>
-          <TextField
-            fullWidth
-            variant="outlined"
-            placeholder="Search customers..."
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && handleFilterChange({ search: searchInput })}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon color="action" />
-                </InputAdornment>
-              ),
-              sx: {
-                borderRadius: 3,
-                bgcolor: theme.palette.background.paper,
-                '& .MuiOutlinedInput-notchedOutline': {
-                  borderColor: 'transparent',
-                },
-                '&:hover .MuiOutlinedInput-notchedOutline': {
-                  borderColor: theme.palette.divider,
-                },
-                '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                  borderColor: theme.palette.primary.main,
-                  borderWidth: 1,
-                },
-              },
-            }}
-          />
-          
-          <Box display="flex" gap={1}>
-            <Button
-              variant="outlined"
-              startIcon={<FilterListIcon />}
-              onClick={handleFilterClick}
-              sx={{
-                borderRadius: 3,
-                textTransform: 'none',
-                px: 3,
-                borderWidth: 2,
-                '&:hover': {
-                  borderWidth: 2,
-                },
-              }}
-            >
-              Filters
-            </Button>
-            
-            <Button
-              variant="outlined"
-              onClick={refetch}
-              disabled={loading}
-              sx={{
-                minWidth: 40,
-                width: 40,
-                height: 40,
-                borderRadius: '50%',
-                p: 0,
-                borderWidth: 2,
-                '&:hover': {
-                  borderWidth: 2,
-                },
-              }}
-            >
-              <RefreshIcon fontSize="small" />
-            </Button>
-          </Box>
-        </Box>
+      {/* Local state for search input */}
+      <FilterBar
+        searchValue={searchInput}
+        onSearchChange={(value) => {
+          setSearchInput(value);
+          if (value.trim() === '') {
+            handleFilterChange({ search: '' });
+            handlePageSizeChange(25);
+            handlePageChange(1);
+          }
+        }}
+        onSearch={(value) => {
+          if (!value || value.trim() === '') {
+            setSearchInput('');
+            handleFilterChange({ search: '' });
+            handlePageSizeChange(25);
+            handlePageChange(1);
+          } else {
+            handleFilterChange({ search: value });
+          }
+        }}
+        onClear={() => {
+          setSearchInput('');
+          handleFilterChange({ search: '' });
+          handlePageSizeChange(25);
+          handlePageChange(1);
+        }}
+        onRefresh={refetch}
+        searchPlaceholder="Search customers..."
+        loading={loading}
+        sx={{
+          px: 3,
+          py: 2,
+          borderBottom: (theme) => `1px solid ${theme.palette.divider}`,
+          bgcolor: 'background.paper',
+          position: 'sticky',
+          top: 64, // Adjust based on your header height
+          zIndex: (theme) => theme.zIndex.appBar - 1,
+          boxShadow: (theme) => theme.shadows[1]
+        }}
+      />
 
-        {/* Tabs */}
-        <Box sx={{ borderBottom: 1, borderColor: 'divider', px: 2 }}>
+              {/* Tabs */}
+              <Box sx={{ borderBottom: 1, borderColor: 'divider', px: 2 }}>
           <Tabs
             value={tabValue}
             onChange={(_, newValue) => {
@@ -782,49 +752,6 @@ const CustomerPage = () => {
             />
           </Tabs>
         </Box>
-      </Card>
-
-      {/* Local state for search input */}
-      <FilterBar
-        searchValue={searchInput}
-        onSearchChange={(value) => {
-          setSearchInput(value);
-          if (value.trim() === '') {
-            handleFilterChange({ search: '' });
-            handlePageSizeChange(25);
-            handlePageChange(1);
-          }
-        }}
-        onSearch={(value) => {
-          if (!value || value.trim() === '') {
-            setSearchInput('');
-            handleFilterChange({ search: '' });
-            handlePageSizeChange(25);
-            handlePageChange(1);
-          } else {
-            handleFilterChange({ search: value });
-          }
-        }}
-        onClear={() => {
-          setSearchInput('');
-          handleFilterChange({ search: '' });
-          handlePageSizeChange(25);
-          handlePageChange(1);
-        }}
-        onRefresh={refetch}
-        searchPlaceholder="Search customers..."
-        loading={loading}
-        sx={{
-          px: 3,
-          py: 2,
-          borderBottom: (theme) => `1px solid ${theme.palette.divider}`,
-          bgcolor: 'background.paper',
-          position: 'sticky',
-          top: 64, // Adjust based on your header height
-          zIndex: (theme) => theme.zIndex.appBar - 1,
-          boxShadow: (theme) => theme.shadows[1]
-        }}
-      />
 
       {/* Customer List */}
       <Card sx={{ borderRadius: 3, overflow: 'hidden', boxShadow: '0 2px 10px rgba(0,0,0,0.04)' }}>

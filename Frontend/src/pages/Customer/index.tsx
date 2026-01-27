@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { 
   Box, 
   Button, 
-  Paper, 
+  Paper,
+  Tooltip,
   Table, 
   TableBody, 
   TableCell, 
@@ -562,13 +563,109 @@ const CustomerPage = () => {
                         />
                       </TableCell>
                       <TableCell>
-                        <Box display="flex" gap={1}>
-                          {customer.customerFacebook && <FacebookIcon color="primary" />}
-                          {customer.customerInstagram && <InstagramIcon color="secondary" />}
-                          {customer.customerTikTok && <MusicNoteIcon color="action" />}
-                          {customer.customerLine && <MessageIcon color="success" />}
-                          {customer.customerX && <TwitterIcon color="info" />}
+                        <Box 
+                          display="flex" 
+                          gap={1} 
+                          minHeight={40}
+                          alignItems="center"
+                        >
+                          {customer.customerFacebook && (
+                            <Tooltip title="Facebook" arrow>
+                              <IconButton
+                                size="small"
+                                href={customer.customerFacebook}
+                                target="_blank"
+                                onClick={(e) => e.stopPropagation()}
+                                sx={{
+                                  bgcolor: '#1877F2',
+                                  color: 'white',
+                                  '&:hover': { bgcolor: '#166FE5' },
+                                  width: 28,
+                                  height: 28
+                                }}
+                              >
+                                <FacebookIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          )}
+                          {customer.customerInstagram && (
+                            <Tooltip title="Instagram" arrow>
+                              <IconButton
+                                size="small"
+                                href={customer.customerInstagram}
+                                target="_blank"
+                                onClick={(e) => e.stopPropagation()}
+                                sx={{
+                                  background: 'radial-gradient(circle at 30% 107%, #fdf497 0%, #fdf497 5%, #fd5949 45%,#d6249f 60%,#285AEB 90%)',
+                                  color: 'white',
+                                  '&:hover': { opacity: 0.9 },
+                                  width: 28,
+                                  height: 28
+                                }}
+                              >
+                                <InstagramIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          )}
+                          {customer.customerTikTok && (
+                            <Tooltip title="TikTok" arrow>
+                              <IconButton
+                                size="small"
+                                href={customer.customerTikTok}
+                                target="_blank"
+                                onClick={(e) => e.stopPropagation()}
+                                sx={{
+                                  bgcolor: '#000000',
+                                  color: 'white',
+                                  '&:hover': { bgcolor: '#333333' },
+                                  width: 28,
+                                  height: 28
+                                }}
+                              >
+                                <MusicNoteIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          )}
+                          {customer.customerLine && (
+                            <Tooltip title="Line" arrow>
+                              <IconButton
+                                size="small"
+                                href={`https://line.me/ti/p/${customer.customerLine}`}
+                                target="_blank"
+                                onClick={(e) => e.stopPropagation()}
+                                sx={{
+                                  bgcolor: '#06C755',
+                                  color: 'white',
+                                  '&:hover': { bgcolor: '#05a548' },
+                                  width: 28,
+                                  height: 28
+                                }}
+                              >
+                                <MessageIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          )}
+                          {customer.customerX && (
+                            <Tooltip title="X (Twitter)" arrow>
+                              <IconButton
+                                size="small"
+                                href={customer.customerX}
+                                target="_blank"
+                                onClick={(e) => e.stopPropagation()}
+                                sx={{
+                                  bgcolor: '#000000',
+                                  color: 'white',
+                                  '&:hover': { bgcolor: '#333333' },
+                                  width: 28,
+                                  height: 28
+                                }}
+                              >
+                                <TwitterIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          )}
                         </Box>
+
                       </TableCell>
                       <TableCell>{customer.customerPhone1 || 'N/A'}</TableCell>
                       <TableCell>{customer.customerEmail}</TableCell>

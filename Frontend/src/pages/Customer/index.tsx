@@ -20,8 +20,16 @@ import {
   CircularProgress, 
   Alert, 
   Snackbar,
-  IconButton
+  IconButton,
+  Card,
+  CardContent,
+  Badge,
+  useTheme,
+  alpha,
+  InputAdornment,
+  TextField
 } from '@mui/material';
+import { styled } from '@mui/material/styles';
 import { Link } from 'react-router-dom';
 import { FilterBar } from '@/components/FilterBar';
 import { Customer as CustomerType, CustomerStatus } from '../../types/customer.types';
@@ -39,6 +47,16 @@ import {
   FileUpload as FileUploadIcon,
   MusicNote as MusicNoteIcon,
   Message as MessageIcon,
+  Search as SearchIcon,
+  FilterList as FilterListIcon,
+  Refresh as RefreshIcon,
+  PersonAdd as PersonAddIcon,
+  Email as EmailIcon,
+  Phone as PhoneIcon,
+  LocationOn as LocationIcon,
+  CalendarToday as CalendarIcon,
+  MoreHoriz as MoreHorizIcon,
+  CheckCircle as VerifiedIcon
 } from '@mui/icons-material';
 
 import { useCustomers } from '../../hooks/useCustomers';
@@ -59,7 +77,58 @@ function a11yProps(index: number) {
   };
 }
 
+// Styled components
+const StyledCard = styled(Card)(({ theme }) => ({
+  borderRadius: 12,
+  boxShadow: '0 4px 20px 0 rgba(0,0,0,0.05)',
+  transition: 'transform 0.3s, box-shadow 0.3s',
+  '&:hover': {
+    boxShadow: '0 8px 30px 0 rgba(0,0,0,0.1)',
+    transform: 'translateY(-2px)'
+  }
+}));
+
+const StatusBadge = styled('span', {
+  shouldForwardProp: (prop) => prop !== 'status',
+})<{ status: 'active' | 'inactive' | 'canceled' }>(({ theme, status }) => ({
+  width: 10,
+  height: 10,
+  borderRadius: '50%',
+  backgroundColor: 
+    status === 'active' ? theme.palette.success.main :
+    status === 'inactive' ? theme.palette.warning.main :
+    theme.palette.error.main,
+  marginRight: 8,
+  display: 'inline-block'
+}));
+
+// Engagement meter component with proper TypeScript types
+// Engagement meter component with proper TypeScript types
+const EngagementMeter = styled('div')<{ value: number }>(({ theme, value }) => ({
+  height: 4,
+  borderRadius: 2,
+  background: `linear-gradient(90deg, ${theme.palette.primary.main} ${value}%, ${theme.palette.action.disabledBackground} ${value}%)`,
+  width: '100%',
+  marginTop: 4
+}));
+
+/**
+ * Calculates an engagement score based on customer's social media presence
+ * @param customer - The customer object
+ * @returns A score between 0 and 100
+ */
+const getEngagementScore = (customer: Customer): number => {
+  let score = 0;
+  if (customer.customerFacebook) score += 25;
+  if (customer.customerInstagram) score += 25;
+  if (customer.customerTikTok) score += 20;
+  if (customer.customerLine) score += 15;
+  if (customer.customerX) score += 15;
+  return Math.min(100, score);
+};
+
 const CustomerPage = () => {
+  const theme = useTheme();
 
   const {
     customers = [],
@@ -117,6 +186,8 @@ const CustomerPage = () => {
   };
 
   const emptyRows = page > 0 ? Math.max(0, (1 + page) * pageSize - customers.length) : 0;
+  
+
 
   // Filter customers based on tab value
   const filteredCustomers = customers.filter(customer => {
@@ -277,7 +348,12 @@ const CustomerPage = () => {
   }
 
   return (
-    <Box sx={{ width: '100%' }}>
+    <Box sx={{ 
+      width: '100%',
+      background: theme.palette.mode === 'light' ? '#f8fafc' : theme.palette.background.default,
+      minHeight: '100vh',
+      p: 3
+    }}>
       <Snackbar
         open={snackbar.open}
         autoHideDuration={6000}
@@ -309,45 +385,265 @@ const CustomerPage = () => {
         apiError={formApiError}
       />
 
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Box>
-          <Typography variant="h4" component="h1" gutterBottom fontWeight="bold">
-            Customers
-          </Typography>
-          <Typography variant="body1" color="text.secondary">
-            Manage and engage with your customers
-          </Typography>
+      <Box sx={{ maxWidth: 1400, mx: 'auto' }}>
+        {/* Header Section */}
+        <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={4} flexWrap="wrap" gap={2}>
+          <Box>
+            <Typography variant="h3" component="h1" fontWeight="bold" gutterBottom>
+              Customer Hub
+            </Typography>
+            <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 600 }}>
+              Connect, engage and build relationships with your customers across all platforms
+            </Typography>
+          </Box>
+
+          <Box display="flex" gap={2} flexWrap="wrap">
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={<PersonAddIcon />}
+              onClick={() => handleOpenForm()}
+              sx={{
+                borderRadius: 2,
+                textTransform: 'none',
+                px: 3,
+                py: 1.5,
+                fontWeight: 600,
+                boxShadow: '0 4px 14px rgba(0, 0, 0, 0.1)',
+                '&:hover': {
+                  boxShadow: '0 6px 20px rgba(0, 0, 0, 0.15)',
+                  transform: 'translateY(-1px)'
+                },
+                transition: 'all 0.3s ease'
+              }}
+            >
+              Add New Customer
+            </Button>
+
+            <Button
+              variant="outlined"
+              startIcon={<RefreshIcon />}
+              onClick={refetch}
+              disabled={loading}
+              sx={{
+                borderRadius: 2,
+                textTransform: 'none',
+                px: 3,
+                py: 1.5,
+                fontWeight: 500,
+                borderWidth: 2,
+                '&:hover': {
+                  borderWidth: 2
+                }
+              }}
+            >
+              Refresh
+            </Button>
+          </Box>
         </Box>
 
-        <Box display="flex" gap={2}>
-          <Button
-            variant="contained"
-            color="primary"
-            startIcon={<GroupAddIcon />}
-            sx={{ borderRadius: 2, textTransform: 'none', mr: 1 }}
-            onClick={(e) => setAddMenuAnchorEl(e.currentTarget)}
-          >
-            Add Customer
-          </Button>
+        {/* Stats Cards */}
+        <Box display="grid" gridTemplateColumns={{ xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' }} gap={3} mb={4}>
+          <StyledCard>
+            <CardContent>
+              <Box display="flex" justifyContent="space-between" alignItems="center">
+                <Box>
+                  <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                    Total Customers
+                  </Typography>
+                  <Typography variant="h4" fontWeight="bold">
+                    {totalCustomers}
+                  </Typography>
+                  <Typography variant="caption" color="success.main" sx={{ display: 'flex', alignItems: 'center' }}>
+                    <CheckCircleIcon color="success" fontSize="small" sx={{ mr: 0.5 }} />
+                    {statusStats?.statuses?.find(s => s.status === 'active')?.count || 0} active
+                  </Typography>
+                </Box>
+                <Box sx={{
+                  width: 56,
+                  height: 56,
+                  borderRadius: '50%',
+                  bgcolor: 'primary.light',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'primary.contrastText'
+                }}>
+                  <GroupIcon fontSize="large" />
+                </Box>
+              </Box>
+            </CardContent>
+          </StyledCard>
 
-          <Button
+          <StyledCard>
+            <CardContent>
+              <Box display="flex" justifyContent="space-between" alignItems="center">
+                <Box>
+                  <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                    Active Now
+                  </Typography>
+                  <Typography variant="h4" fontWeight="bold">
+                    {statusStats?.statuses?.find(s => s.status === 'active')?.count || 0}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {Math.round(((statusStats?.statuses?.find(s => s.status === 'active')?.count || 0) / totalCustomers * 100) || 0)}% of total
+                  </Typography>
+                </Box>
+                <Box sx={{
+                  width: 56,
+                  height: 56,
+                  borderRadius: '50%',
+                  bgcolor: 'success.light',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'success.contrastText'
+                }}>
+                  <CheckCircleIcon fontSize="large" />
+                </Box>
+              </Box>
+            </CardContent>
+          </StyledCard>
+
+          <StyledCard>
+            <CardContent>
+              <Box display="flex" justifyContent="space-between" alignItems="center">
+                <Box>
+                  <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                    Inactive
+                  </Typography>
+                  <Typography variant="h4" fontWeight="bold">
+                    {statusStats?.statuses?.find(s => s.status === 'inactive')?.count || 0}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Needs attention
+                  </Typography>
+                </Box>
+                <Box sx={{
+                  width: 56,
+                  height: 56,
+                  borderRadius: '50%',
+                  bgcolor: 'warning.light',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'warning.contrastText'
+                }}>
+                  <AccessTimeIcon fontSize="large" />
+                </Box>
+              </Box>
+            </CardContent>
+          </StyledCard>
+
+          <StyledCard>
+            <CardContent>
+              <Box display="flex" justifyContent="space-between" alignItems="center">
+                <Box>
+                  <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                    Canceled
+                  </Typography>
+                  <Typography variant="h4" fontWeight="bold">
+                    {statusStats?.statuses?.find(s => s.status === 'canceled')?.count || 0}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Not active anymore
+                  </Typography>
+                </Box>
+                <Box sx={{
+                  width: 56,
+                  height: 56,
+                  borderRadius: '50%',
+                  bgcolor: 'error.light',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'error.contrastText'
+                }}>
+                  <BlockIcon fontSize="large" />
+                </Box>
+              </Box>
+            </CardContent>
+          </StyledCard>
+        </Box>
+
+      {/* Search and Filter Bar */}
+      <Card sx={{ mb: 3, borderRadius: 3, overflow: 'hidden', boxShadow: '0 2px 10px rgba(0,0,0,0.04)' }}>
+        <Box p={2} display="flex" flexDirection={{ xs: 'column', sm: 'row' }} gap={2} alignItems={{ sm: 'center' }}>
+          <TextField
+            fullWidth
             variant="outlined"
-            startIcon={<FileUploadIcon />}
-            sx={{ borderRadius: 2, textTransform: 'none' }}
-            disabled
-          >
-            Import
-          </Button>
+            placeholder="Search customers..."
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            onKeyPress={(e) => e.key === 'Enter' && handleFilterChange({ search: searchInput })}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon color="action" />
+                </InputAdornment>
+              ),
+              sx: {
+                borderRadius: 3,
+                bgcolor: theme.palette.background.paper,
+                '& .MuiOutlinedInput-notchedOutline': {
+                  borderColor: 'transparent',
+                },
+                '&:hover .MuiOutlinedInput-notchedOutline': {
+                  borderColor: theme.palette.divider,
+                },
+                '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                  borderColor: theme.palette.primary.main,
+                  borderWidth: 1,
+                },
+              },
+            }}
+          />
+          
+          <Box display="flex" gap={1}>
+            <Button
+              variant="outlined"
+              startIcon={<FilterListIcon />}
+              onClick={handleFilterClick}
+              sx={{
+                borderRadius: 3,
+                textTransform: 'none',
+                px: 3,
+                borderWidth: 2,
+                '&:hover': {
+                  borderWidth: 2,
+                },
+              }}
+            >
+              Filters
+            </Button>
+            
+            <Button
+              variant="outlined"
+              onClick={refetch}
+              disabled={loading}
+              sx={{
+                minWidth: 40,
+                width: 40,
+                height: 40,
+                borderRadius: '50%',
+                p: 0,
+                borderWidth: 2,
+                '&:hover': {
+                  borderWidth: 2,
+                },
+              }}
+            >
+              <RefreshIcon fontSize="small" />
+            </Button>
+          </Box>
         </Box>
-      </Box>
 
-      <Box sx={{ width: '100%', mb: 3 }}>
-        <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+        {/* Tabs */}
+        <Box sx={{ borderBottom: 1, borderColor: 'divider', px: 2 }}>
           <Tabs
             value={tabValue}
             onChange={(_, newValue) => {
               setTabValue(newValue);
-              // Update the filter based on the selected tab
               const statusMap = {
                 0: 'all',
                 1: 'active',
@@ -355,13 +651,9 @@ const CustomerPage = () => {
                 3: 'canceled'
               } as const;
               
-              // Reset to first page when changing tabs
               handlePageChange(1);
-              
-              // Update the filter
               handleFilterChange({ 
                 status: statusMap[newValue as keyof typeof statusMap] as CustomerStatus | 'all',
-                // Preserve existing search filter
                 search: filter.search 
               });
             }}
@@ -369,73 +661,128 @@ const CustomerPage = () => {
             scrollButtons="auto"
             aria-label="customer status tabs"
             sx={{
-              minHeight: 44,
-              '& .MuiTab-root': { minWidth: 'auto', p: 1, mr: 1 },
+              '& .MuiTabs-indicator': {
+                height: 3,
+                borderRadius: '3px 3px 0 0',
+              },
+              '& .MuiTab-root': {
+                minHeight: 52,
+                minWidth: 'auto',
+                px: 2,
+                mx: 0.5,
+                '&.Mui-selected': {
+                  color: theme.palette.primary.main,
+                  fontWeight: 600,
+                },
+              },
             }}
           >
             <Tab 
+              icon={<GroupIcon />}
+              iconPosition="start"
               label={
                 <Box display="flex" alignItems="center" gap={1}>
-                  <GroupIcon fontSize="small" color="primary" />
                   <span>All</span>
                   <Chip 
                     label={totalCustomers}
                     size="small"
-                    color="default"
-                    sx={{ height: 20, fontSize: '0.675rem', fontWeight: 600 }}
+                    sx={{
+                      height: 20,
+                      fontSize: '0.7rem',
+                      fontWeight: 600,
+                      bgcolor: tabValue === 0 ? 'primary.50' : 'action.selected',
+                      color: tabValue === 0 ? 'primary.main' : 'text.secondary',
+                    }}
                   />
                 </Box>
-              } 
-              {...a11yProps(0)} 
+              }
+              {...a11yProps(0)}
+              sx={{
+                textTransform: 'none',
+                minHeight: 48,
+              }}
             />
             <Tab 
+              icon={<CheckCircleIcon color={tabValue === 1 ? 'success' : 'inherit'} />}
+              iconPosition="start"
               label={
                 <Box display="flex" alignItems="center" gap={1}>
-                  <CheckCircleIcon fontSize="small" color="success" />
                   <span>Active</span>
                   <Chip 
-                    label={getStatusCount('active')} 
-                    size="small" 
-                    color="success" 
-                    sx={{ height: 20, fontSize: '0.675rem', fontWeight: 600 }}
+                    label={getStatusCount('active')}
+                    size="small"
+                    sx={{
+                      height: 20,
+                      fontSize: '0.7rem',
+                      fontWeight: 600,
+                      bgcolor: tabValue === 1 ? 'success.50' : 'action.selected',
+                      color: tabValue === 1 ? 'success.main' : 'text.secondary',
+                    }}
                   />
                 </Box>
-              } 
-              {...a11yProps(1)} 
+              }
+              {...a11yProps(1)}
+              sx={{
+                textTransform: 'none',
+                minHeight: 48,
+                color: tabValue === 1 ? 'success.main' : 'inherit',
+              }}
             />
             <Tab 
+              icon={<AccessTimeIcon color={tabValue === 2 ? 'warning' : 'inherit'} />}
+              iconPosition="start"
               label={
                 <Box display="flex" alignItems="center" gap={1}>
-                  <AccessTimeIcon fontSize="small" color="warning" />
                   <span>Inactive</span>
                   <Chip 
-                    label={getStatusCount('inactive')} 
-                    size="small" 
-                    color="warning" 
-                    sx={{ height: 20, fontSize: '0.675rem', fontWeight: 600 }}
+                    label={getStatusCount('inactive')}
+                    size="small"
+                    sx={{
+                      height: 20,
+                      fontSize: '0.7rem',
+                      fontWeight: 600,
+                      bgcolor: tabValue === 2 ? 'warning.50' : 'action.selected',
+                      color: tabValue === 2 ? 'warning.dark' : 'text.secondary',
+                    }}
                   />
                 </Box>
-              } 
-              {...a11yProps(2)} 
+              }
+              {...a11yProps(2)}
+              sx={{
+                textTransform: 'none',
+                minHeight: 48,
+                color: tabValue === 2 ? 'warning.dark' : 'inherit',
+              }}
             />
             <Tab 
+              icon={<BlockIcon color={tabValue === 3 ? 'error' : 'inherit'} />}
+              iconPosition="start"
               label={
                 <Box display="flex" alignItems="center" gap={1}>
-                  <BlockIcon fontSize="small" color="error" />
                   <span>Canceled</span>
                   <Chip 
-                    label={getStatusCount('canceled')} 
-                    size="small" 
-                    color="error" 
-                    sx={{ height: 20, fontSize: '0.675rem', fontWeight: 600 }}
+                    label={getStatusCount('canceled')}
+                    size="small"
+                    sx={{
+                      height: 20,
+                      fontSize: '0.7rem',
+                      fontWeight: 600,
+                      bgcolor: tabValue === 3 ? 'error.50' : 'action.selected',
+                      color: tabValue === 3 ? 'error.main' : 'text.secondary',
+                    }}
                   />
                 </Box>
-              } 
-              {...a11yProps(3)} 
+              }
+              {...a11yProps(3)}
+              sx={{
+                textTransform: 'none',
+                minHeight: 48,
+                color: tabValue === 3 ? 'error.main' : 'inherit',
+              }}
             />
           </Tabs>
         </Box>
-      </Box>
+      </Card>
 
       {/* Local state for search input */}
       <FilterBar
@@ -479,55 +826,89 @@ const CustomerPage = () => {
         }}
       />
 
-      <Paper sx={{ width: '100%', mb: 2, borderRadius: 3, overflow: 'hidden' }}>
-      <TableContainer>
-          <Table>
+      {/* Customer List */}
+      <Card sx={{ borderRadius: 3, overflow: 'hidden', boxShadow: '0 2px 10px rgba(0,0,0,0.04)' }}>
+        <TableContainer>
+          <Table sx={{ minWidth: 1050 }}>
             <TableHead>
               <TableRow>
-                <TableCell padding="checkbox">
+                <TableCell padding="checkbox" sx={{ pl: 3 }}>
                   <Checkbox
                     color="primary"
                     indeterminate={selected.length > 0 && selected.length < filteredCustomers.length}
                     checked={filteredCustomers.length > 0 && selected.length === filteredCustomers.length}
                     onChange={handleSelectAllClick}
                     inputProps={{ 'aria-label': 'select all customers' }}
+                    sx={{
+                      '&.Mui-checked': {
+                        color: theme.palette.primary.main,
+                      },
+                    }}
                   />
                 </TableCell>
-                <TableCell>Name</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell>Platform</TableCell>
-                <TableCell>Phone</TableCell>
-                <TableCell>Email</TableCell>
-                <TableCell>Joined</TableCell>
-                <TableCell>Location</TableCell>
-                <TableCell align="right">Action</TableCell>
+                <TableCell sx={{ fontWeight: 600, color: 'text.secondary' }}>CUSTOMER</TableCell>
+                <TableCell sx={{ fontWeight: 600, color: 'text.secondary' }}>STATUS</TableCell>
+                <TableCell sx={{ fontWeight: 600, color: 'text.secondary' }}>ENGAGEMENT</TableCell>
+                <TableCell sx={{ fontWeight: 600, color: 'text.secondary' }}>CONTACT</TableCell>
+                <TableCell sx={{ fontWeight: 600, color: 'text.secondary' }}>JOINED</TableCell>
+                <TableCell align="right" sx={{ pr: 3, fontWeight: 600, color: 'text.secondary' }}>ACTIONS</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {loading && filteredCustomers.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} align="center" sx={{ py: 3 }}>
+                  <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
                     <CircularProgress />
+                    <Typography variant="body2" color="text.secondary" mt={1}>
+                      Loading customers...
+                    </Typography>
                   </TableCell>
                 </TableRow>
               ) : filteredCustomers.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} align="center" sx={{ py: 3 }}>
-                    <Typography color="textSecondary">No customers found</Typography>
+                  <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
+                    <Box sx={{ maxWidth: 360, mx: 'auto', textAlign: 'center' }}>
+                      <GroupIcon sx={{ fontSize: 64, color: 'text.disabled', mb: 2, opacity: 0.5 }} />
+                      <Typography variant="h6" gutterBottom>
+                        No customers found
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary" mb={3}>
+                        {searchInput ? 'Try adjusting your search or filter criteria' : 'Get started by adding your first customer'}
+                      </Typography>
+                      <Button
+                        variant="contained"
+                        color="primary"
+                        startIcon={<PersonAddIcon />}
+                        onClick={() => handleOpenForm()}
+                        sx={{ borderRadius: 2, textTransform: 'none' }}
+                      >
+                        Add Your First Customer
+                      </Button>
+                    </Box>
                   </TableCell>
                 </TableRow>
               ) : (
                 filteredCustomers.map((customer) => {
                   const isItemSelected = isSelected(customer.customerId);
+                  const engagementScore = getEngagementScore(customer);
+                  
                   return (
                     <TableRow
                       hover
                       key={customer.customerId}
                       selected={isItemSelected}
                       onClick={(event) => handleClick(event, customer.customerId)}
-                      sx={{ cursor: 'pointer' }}
+                      sx={{
+                        cursor: 'pointer',
+                        '&:hover': {
+                          '& .customer-actions': {
+                            opacity: 1,
+                            visibility: 'visible',
+                          },
+                        },
+                      }}
                     >
-                      <TableCell padding="checkbox" onClick={(e) => e.stopPropagation()}>
+                      <TableCell padding="checkbox" onClick={(e) => e.stopPropagation()} sx={{ pl: 3 }}>
                         <Checkbox
                           color="primary"
                           checked={isItemSelected}
@@ -535,32 +916,126 @@ const CustomerPage = () => {
                             event.stopPropagation();
                             handleClick(event, customer.customerId);
                           }}
+                          sx={{
+                            '&.Mui-checked': {
+                              color: theme.palette.primary.main,
+                            },
+                          }}
                         />
                       </TableCell>
                       <TableCell>
                         <Box display="flex" alignItems="center" gap={2}>
-                          <Avatar>
-                            {customer.customerName.charAt(0).toUpperCase()}
-                            {customer.customerLastName?.charAt(0).toUpperCase() || ''}
-                          </Avatar>
+                          <Badge
+                            overlap="circular"
+                            anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                            badgeContent={
+                              <Box
+                                sx={{
+                                  width: 12,
+                                  height: 12,
+                                  borderRadius: '50%',
+                                  bgcolor: 
+                                    customer.status === 'active' ? 'success.main' :
+                                    customer.status === 'inactive' ? 'warning.main' : 'error.main',
+                                  border: `2px solid ${theme.palette.background.paper}`,
+                                }}
+                              />
+                            }
+                          >
+                            <Avatar
+                              sx={{
+                                width: 40,
+                                height: 40,
+                                bgcolor: 'primary.light',
+                                color: 'primary.contrastText',
+                                fontWeight: 600,
+                                fontSize: '1rem',
+                              }}
+                            >
+                              {customer.customerName.charAt(0).toUpperCase()}
+                              {customer.customerLastName?.charAt(0).toUpperCase() || ''}
+                            </Avatar>
+                          </Badge>
                           <Box>
-                            <Typography variant="subtitle2">
-                              {customer.fullName ||
-                                `${customer.customerName} ${customer.customerLastName || ''}`.trim()}
-                            </Typography>
-                            <Typography variant="caption" color="text.secondary">
-                              {customer.customerEmail}
-                            </Typography>
+                            <Box display="flex" alignItems="center" gap={1}>
+                              <Typography variant="subtitle2" fontWeight={500}>
+                                {customer.fullName ||
+                                  `${customer.customerName} ${customer.customerLastName || ''}`.trim()}
+                              </Typography>
+                              {customer.status === 'active' && (
+                                <Tooltip title="Verified" arrow>
+                                  <VerifiedIcon 
+                                    color="primary" 
+                                    fontSize="small" 
+                                    sx={{ 
+                                      color: 'success.main',
+                                      fontSize: 16,
+                                    }} 
+                                  />
+                                </Tooltip>
+                              )}
+                            </Box>
+                            <Box display="flex" alignItems="center" gap={0.5} mt={0.5}>
+                              <EmailIcon 
+                                color="action" 
+                                fontSize="small" 
+                                sx={{ 
+                                  fontSize: 14,
+                                  opacity: 0.7,
+                                }} 
+                              />
+                              <Typography variant="caption" color="text.secondary" noWrap sx={{ maxWidth: 180 }}>
+                                {customer.customerEmail}
+                              </Typography>
+                            </Box>
                           </Box>
                         </Box>
                       </TableCell>
                       <TableCell>
-                        <Chip
-                          label={customer.status === 'active' ? 'Active' : customer.status === 'inactive' ? 'Inactive' : 'Canceled'}
-                          color={customer.status === 'active' ? 'success' : customer.status === 'inactive' ? 'default' : 'error'}
-                          size="small"
-                          variant="outlined"
-                        />
+                        <Box display="flex" alignItems="center">
+                          <StatusBadge status={customer.status as 'active' | 'inactive' | 'canceled'} />
+                          <Typography 
+                            variant="body2" 
+                            sx={{
+                              fontWeight: 500,
+                              color: 
+                                customer.status === 'active' ? 'success.main' :
+                                customer.status === 'inactive' ? 'warning.dark' : 'error.main',
+                              textTransform: 'capitalize',
+                            }}
+                          >
+                            {customer.status}
+                          </Typography>
+                        </Box>
+                      </TableCell>
+                      <TableCell>
+                        <Box sx={{ width: 100 }}>
+                          <Box display="flex" alignItems="center" justifyContent="space-between">
+                            <Typography variant="body2" color="text.secondary" fontSize="0.75rem">
+                              Engagement
+                            </Typography>
+                            <Typography 
+                              variant="body2" 
+                              fontWeight={600}
+                              color={
+                                engagementScore > 70 ? 'success.main' :
+                                engagementScore > 40 ? 'warning.main' : 'error.main'
+                              }
+                            >
+                              {engagementScore}%
+                            </Typography>
+                          </Box>
+                          <EngagementMeter 
+                            value={engagementScore}
+                            sx={{
+                              background: engagementScore > 70 
+                                ? `linear-gradient(90deg, ${theme.palette.success.main} ${engagementScore}%, ${theme.palette.action.disabledBackground} ${engagementScore}%)`
+                                : engagementScore > 40
+                                  ? `linear-gradient(90deg, ${theme.palette.warning.main} ${engagementScore}%, ${theme.palette.action.disabledBackground} ${engagementScore}%)`
+                                  : `linear-gradient(90deg, ${theme.palette.error.main} ${engagementScore}%, ${theme.palette.action.disabledBackground} ${engagementScore}%)`
+                            }}
+                          />
+                        </Box>
                       </TableCell>
                       <TableCell>
                         <Box 
@@ -667,19 +1142,80 @@ const CustomerPage = () => {
                         </Box>
 
                       </TableCell>
-                      <TableCell>{customer.customerPhone1 || 'N/A'}</TableCell>
-                      <TableCell>{customer.customerEmail}</TableCell>
                       <TableCell>
-                        {new Date(customer.createdAt).toLocaleDateString()}
+                        <Box display="flex" alignItems="center" gap={1}>
+                          {customer.customerPhone1 ? (
+                            <>
+                              <PhoneIcon 
+                                color="action" 
+                                fontSize="small" 
+                                sx={{ 
+                                  fontSize: 14,
+                                  opacity: 0.7,
+                                }} 
+                              />
+                              <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
+                                {customer.customerPhone1}
+                              </Typography>
+                            </>
+                          ) : (
+                            <Typography variant="body2" color="text.disabled">
+                              -
+                            </Typography>
+                          )}
+                        </Box>
                       </TableCell>
-                      <TableCell>N/A</TableCell>
                       <TableCell>
-                        <IconButton onClick={(e) => {
-                          e.stopPropagation();
-                          handleActionMenuOpen(e, customer);
-                        }}>
-                          <MoreVertIcon />
-                        </IconButton>
+                        <Box display="flex" alignItems="center" gap={1}>
+                          <CalendarIcon 
+                            color="action" 
+                            fontSize="small" 
+                            sx={{ 
+                              fontSize: 14,
+                              opacity: 0.7,
+                            }} 
+                          />
+                          <Typography variant="body2">
+                            {new Date(customer.createdAt).toLocaleDateString('en-US', {
+                              year: 'numeric',
+                              month: 'short',
+                              day: 'numeric'
+                            })}
+                          </Typography>
+                        </Box>
+                      </TableCell>
+                      <TableCell align="right" sx={{ pr: 3 }}>
+                        <Box 
+                          className="customer-actions"
+                          sx={{
+                            display: 'flex',
+                            justifyContent: 'flex-end',
+                            opacity: 0,
+                            visibility: 'hidden',
+                            transition: 'all 0.2s ease',
+                            '&:hover': {
+                              opacity: '1 !important',
+                              visibility: 'visible !important',
+                            },
+                          }}
+                        >
+                          <Tooltip title="More actions">
+                            <IconButton 
+                              size="small"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleActionMenuOpen(e, customer);
+                              }}
+                              sx={{
+                                '&:hover': {
+                                  bgcolor: 'action.hover',
+                                },
+                              }}
+                            >
+                              <MoreHorizIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        </Box>
                       </TableCell>
                     </TableRow>
                   );
@@ -701,7 +1237,7 @@ const CustomerPage = () => {
           onPageChange={handlePageChangeEvent}
           onRowsPerPageChange={handleChangeRowsPerPage}
         />
-      </Paper>
+      </Card>
 
       <AddCustomerMenu
         anchorEl={addMenuAnchorEl}
@@ -759,8 +1295,11 @@ const CustomerPage = () => {
       />
 
 
+      </Box>
     </Box>
   );
 };
+
+
 
 export default CustomerPage;

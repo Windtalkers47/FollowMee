@@ -52,13 +52,13 @@ interface MainLayoutProps {
 }
 
 const menuItems = [
-  { text: 'Dashboard', icon: <Dashboard />, path: '/dashboard' },
-  { text: 'Analytics', icon: <Analytics />, path: '/analytics' },
-  { text: 'Posts', icon: <PostAdd />, path: '/posts' },
-  { text: 'Schedule', icon: <Schedule />, path: '/schedule' },
-  { text: 'Audience', icon: <People />, path: '/audience' },
-  { text: 'Customer', icon: <Group />, path: '/customer' },
-  { text: 'Profiles', icon: <AccountCircle />, path: '/customer-profile' },
+  { text: 'Dashboard', icon: <Dashboard />, path: '/dashboard', exact: true },
+  { text: 'Analytics', icon: <Analytics />, path: '/analytics', exact: true },
+  { text: 'Posts', icon: <PostAdd />, path: '/posts', exact: true },
+  { text: 'Schedule', icon: <Schedule />, path: '/schedule', exact: true },
+  { text: 'Audience', icon: <People />, path: '/audience', exact: true },
+  { text: 'Customer', icon: <Group />, path: '/customer', exact: true },
+  { text: 'Profiles', icon: <AccountCircle />, path: '/customer-profile', exact: false },
 ];
 
 const MainLayout = ({ children }: MainLayoutProps) => {
@@ -118,7 +118,9 @@ const MainLayout = ({ children }: MainLayoutProps) => {
       {/* Menu */}
       <List sx={{ px: 1, pt: 1 }}>
         {menuItems.map(item => {
-          const active = location.pathname.startsWith(item.path);
+          const active = item.exact 
+            ? location.pathname === item.path
+            : location.pathname.startsWith(item.path);
 
           return (
             <ListItem key={item.text} disablePadding>
@@ -128,11 +130,15 @@ const MainLayout = ({ children }: MainLayoutProps) => {
                   borderRadius: 2,
                   my: 0.5,
                   justifyContent: open ? 'flex-start' : 'center',
-                  bgcolor: active
-                    ? alpha(theme.palette.primary.main, 0.12)
-                    : 'transparent',
-                  '&:hover': {
-                    bgcolor: alpha(theme.palette.primary.main, 0.15),
+                  '&.Mui-selected': {
+                    bgcolor: 'primary.light',
+                    color: 'primary.main',
+                    '&:hover': {
+                      bgcolor: 'primary.light',
+                    },
+                    '& .MuiListItemIcon-root': {
+                      color: 'primary.main',
+                    },
                   },
                 }}
               >

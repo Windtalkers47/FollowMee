@@ -334,7 +334,7 @@ const CustomerProfilePage: React.FC = () => {
   /* ================= LIST ================= */
 
   return (
-    <Box maxWidth={1100} mx="auto" mt={4}>
+    <Box maxWidth={1100} mx="auto" py={3}>
       <Typography variant="h4" fontWeight={700} mb={3}>
         Customer Profiles
       </Typography>
@@ -362,6 +362,9 @@ const CustomerProfilePage: React.FC = () => {
             key={c.customerId}
             sx={{
               p: 3,
+              height: '100%',
+              display: 'flex', // ปุ่ม Active เปิดเพื่อให้มันยืดเต็มการ์ด
+              flexDirection: 'column',
               cursor: 'pointer',
               transition: '0.2s',
               '&:hover': {
@@ -383,7 +386,16 @@ const CustomerProfilePage: React.FC = () => {
               {c.customerEmail}
             </Typography>
 
-            <Box mt={2} display="flex" justifyContent="left" gap={1} flexWrap="wrap">
+            <Box 
+              mt="auto" 
+              pt={2}
+              minHeight={40}
+              display="flex" 
+              justifyContent="left" 
+              gap={1} 
+              flexWrap="wrap"
+              alignItems="flex-end"
+            >
               {c.customerFacebook && (
                 <Tooltip title="Facebook" arrow>
                   <IconButton

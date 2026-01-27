@@ -201,15 +201,24 @@ const MainLayout = ({ children }: MainLayoutProps) => {
         elevation={0}
         sx={{
           height: APP_BAR_HEIGHT,
-          bgcolor: alpha(theme.palette.background.paper, 0.9),
+          bgcolor: theme.palette.mode === 'light' 
+            ? '#ffffff' 
+            : theme.palette.background.paper,
           backdropFilter: 'blur(10px)',
           borderBottom: '1px solid',
-          borderColor: 'divider',
+          borderColor: theme.palette.mode === 'light' 
+            ? 'rgba(0, 0, 0, 0.08)' 
+            : 'rgba(255, 255, 255, 0.08)',
           ml: { sm: open ? drawerWidth : collapsedWidth },
           width: {
             sm: `calc(100% - ${open ? drawerWidth : collapsedWidth}px)`,
           },
-          transition: theme.transitions.create(['width', 'margin']),
+          transition: theme.transitions.create(['width', 'margin', 'background-color', 'border-color'], {
+            duration: theme.transitions.duration.shorter,
+          }),
+          boxShadow: theme.palette.mode === 'light'
+            ? '0 1px 3px rgba(0, 0, 0, 0.1)'
+            : '0 1px 3px rgba(0, 0, 0, 0.3)',
         }}
       >
         <Toolbar>
@@ -222,8 +231,28 @@ const MainLayout = ({ children }: MainLayoutProps) => {
           <ThemeToggle />
 
           <Tooltip title="Notifications">
-            <IconButton sx={{ ml: 1 }}>
-              <Badge badgeContent={3} color="error">
+            <IconButton 
+              sx={{ 
+                ml: 2,
+                bgcolor: 'transparent',
+                color: theme.palette.text.primary,
+                border: `1px solid ${theme.palette.divider}`,
+                '&:hover': {
+                  bgcolor: theme.palette.action.hover,
+                },
+                transition: 'all 0.2s ease-in-out',
+              }}
+            >
+              <Badge 
+                badgeContent={3} 
+                color="error" 
+                overlap="circular"
+                sx={{
+                  '& .MuiBadge-badge': {
+                    border: `2px solid ${theme.palette.background.paper}`,
+                  },
+                }}
+              >
                 <Notifications />
               </Badge>
             </IconButton>
@@ -236,18 +265,53 @@ const MainLayout = ({ children }: MainLayoutProps) => {
               ml: 2,
               display: 'flex',
               alignItems: 'center',
-              gap: 1,
+              gap: 1.5,
               px: 1.5,
               py: 0.75,
               borderRadius: 2,
               cursor: 'pointer',
+              bgcolor: 'transparent',
+              border: `1px solid ${theme.palette.divider}`,
+              transition: 'all 0.2s ease-in-out',
               '&:hover': {
-                bgcolor: alpha(theme.palette.primary.main, 0.08),
+                bgcolor: theme.palette.action.hover,
               },
             }}
           >
-            <Avatar sx={{ width: 32, height: 32 }}>U</Avatar>
-            <Typography fontWeight={600}>User Name</Typography>
+            <Avatar 
+              sx={{ 
+                width: 32, 
+                height: 32,
+                bgcolor: theme.palette.primary.main,
+                color: theme.palette.primary.contrastText,
+                border: `2px solid ${theme.palette.mode === 'light' ? '#fff' : theme.palette.background.paper}`,
+                boxShadow: theme.shadows[1],
+              }}
+            >
+              U
+            </Avatar>
+            <Box>
+              <Typography 
+                variant="subtitle2" 
+                fontWeight={600} 
+                lineHeight={1.2}
+                color="text.primary"
+              >
+                User Name
+              </Typography>
+              <Typography 
+                variant="caption" 
+                color="text.secondary"
+                sx={{ 
+                  display: 'block', 
+                  lineHeight: 1.2,
+                  fontSize: '0.7rem',
+                  opacity: 0.8
+                }}
+              >
+                @username
+              </Typography>
+            </Box>
           </Box>
         </Toolbar>
       </AppBar>

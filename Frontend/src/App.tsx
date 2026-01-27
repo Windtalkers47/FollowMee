@@ -125,11 +125,11 @@ const App = () => {
             <Route path="/schedule" element={<SchedulePage />} />
             <Route path="/audience" element={<AudiencePage />} />
             <Route path="/customer" element={<CustomerPage />} />
+            <Route path="/customer-profile" element={<CustomerProfilePage />} />
             <Route path="/customer/:customerId/profile" element={<CustomerProfilePage />} />
           </Route>
 
           {/* Public profile routes */}
-          <Route path="/customer-profile" element={<CustomerProfilePage />} />
           <Route path="/customer-profile/:customerId" element={<CustomerProfilePage />} />
 
           {/* 404 */}

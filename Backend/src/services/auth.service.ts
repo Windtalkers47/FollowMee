@@ -9,8 +9,8 @@ import auditService from './audit.service';
 
 // Configuration
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '15m'; // Shorter-lived access token
-const REFRESH_TOKEN_EXPIRES_IN_DAYS = parseInt(process.env.REFRESH_TOKEN_EXPIRES_IN_DAYS || '7', 10);
+const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '24h';
+const REFRESH_TOKEN_EXPIRES_IN_DAYS = 1; // 1 day
 const NODE_ENV = process.env.NODE_ENV || 'development';
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOCKOUT_MINUTES = 15;
@@ -115,8 +115,9 @@ export class AuthService {
    * Set auth cookies (access token and refresh token)
    */
   setAuthCookies(res: Response, accessToken: string, refreshToken: string): void {
-    const accessTokenExpiresInMs = 24 * 60 * 60 * 1000; // 24 hours (1 day)
-    const refreshTokenExpiresInMs = REFRESH_TOKEN_EXPIRES_IN_DAYS * 24 * 60 * 60 * 1000;
+    const oneDayInMs = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+    const accessTokenExpiresInMs = oneDayInMs;
+    const refreshTokenExpiresInMs = oneDayInMs;
     
     // Access token (short-lived)
     res.cookie('access_token', accessToken, {

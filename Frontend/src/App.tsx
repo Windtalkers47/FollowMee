@@ -10,6 +10,9 @@ import { NotificationProvider } from './contexts/Notification';
 // Lazy load pages
 const LandingPage = React.lazy(() => import('./pages/Landing'));
 const LoginPage = React.lazy(() => import('./pages/Login'));
+const RegisterPage = React.lazy(() => import('./pages/Register'));
+const ForgotPasswordPage = React.lazy(() => import('./pages/ForgotPassword'));
+const ResetPasswordPage = React.lazy(() => import('./pages/ResetPassword'));
 const DashboardPage = React.lazy(() => import('./pages/Dashboard'));
 const AnalyticsPage = React.lazy(() => import('./pages/Analytics'));
 const PostsPage = React.lazy(() => import('./pages/Posts'));
@@ -104,8 +107,7 @@ const App = () => {
       <Suspense fallback={<LoadingSpinner />}>
         <Routes location={location}>
           {/* Public */}
-          <Route path="/" element={<LandingPage />} />
-
+          <Route index element={<LandingPage />} />
           <Route
             path="/login"
             element={
@@ -115,6 +117,32 @@ const App = () => {
                 <LoginPage />
               )
             }
+          />
+          <Route
+            path="/register"
+            element={
+              isAuthenticated ? (
+                <Navigate to="/dashboard" replace />
+              ) : (
+                <RegisterPage />
+              )
+            }
+          />
+          <Route
+            path="/forgot-password"
+            element={
+              isAuthenticated ? (
+                <Navigate to="/dashboard" replace />
+              ) : (
+                <ForgotPasswordPage />
+              )
+            }
+          />
+          
+          {/* Reset password route should be accessible without authentication */}
+          <Route 
+            path="/reset-password" 
+            element={<ResetPasswordPage />}
           />
 
           {/* Protected */}

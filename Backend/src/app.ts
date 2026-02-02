@@ -23,7 +23,7 @@ class App {
 
   constructor() {
     this.app = express();
-    this.port = parseInt(process.env.PORT || '3000');
+    this.port = parseInt(process.env.PORT || '5000');
     this.database = dataSource;
   }
 
@@ -68,7 +68,22 @@ class App {
   private initializeMiddlewares(): void {
     // Enable CORS with credentials
     this.app.use(cors({
-      origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+      origin: function(origin, callback) {
+        // Allow requests with no origin (like mobile apps or curl requests)
+        if (!origin) return callback(null, true);
+        
+        const allowedOrigins = [
+          'http://localhost:3000',
+          'http://localhost:5173',
+          process.env.FRONTEND_URL || ''
+        ].filter(Boolean) as string[];
+
+        if (allowedOrigins.includes(origin) || allowedOrigins.some(allowed => origin?.startsWith(allowed))) {
+          callback(null, true);
+        } else {
+          callback(new Error('Not allowed by CORS'));
+        }
+      },
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
       allowedHeaders: ['Content-Type', 'Authorization', 'x-application-name'],

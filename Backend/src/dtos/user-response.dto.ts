@@ -14,10 +14,10 @@ export class UserResponseDto {
   userEmail!: string;
 
   @Expose()
-  userPhone1?: string;
+  userPhone1: string | null = null;
 
   @Expose()
-  userPhone2?: string;
+  userPhone2: string | null = null;
 
   @Expose()
   isActive!: boolean;
@@ -34,6 +34,10 @@ export class UserResponseDto {
   }
 
   constructor(partial: Partial<UserResponseDto>) {
-    Object.assign(this, partial);
+    Object.assign(this, {
+      ...partial,
+      userPhone1: partial.userPhone1 ?? null,
+      userPhone2: partial.userPhone2 ?? null
+    });
   }
 }

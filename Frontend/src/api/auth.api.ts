@@ -4,10 +4,18 @@ import type { LoginResponse, ApiResponse } from '../types/api.types';
 // --------------------
 // Types
 // --------------------
-interface LoginCredentials {
+export interface RegisterCredentials {
+  email: string;
+  userName: string;
+  userLastName: string;
+  userPassword: string;
+  userPhone1?: string;
+}
+
+export interface LoginCredentials {
   email: string;
   password: string;
-  rememberMe?: boolean;
+  rememberMe: boolean;  // Made required to match authSlice type
 }
 
 
@@ -25,6 +33,25 @@ interface ForgotPasswordResponse {
 // API
 // --------------------
 const authApi = {
+  /**
+   * Login with email & password
+   */
+  /**
+   * Register a new user
+   */
+  register: async (credentials: RegisterCredentials): Promise<ApiResponse<{ success: boolean }>> => {
+    const response = await fetch(`${apiConfig.baseURL}/auth/register`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...apiConfig.headers,
+      },
+      body: JSON.stringify(credentials),
+    });
+
+    return handleResponse<{ success: boolean }>(response);
+  },
+
   /**
    * Login with email & password
    */

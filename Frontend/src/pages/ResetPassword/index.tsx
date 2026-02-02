@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { authApi } from '../../api/auth.api';
 import {
   Container,
   Box,
@@ -9,8 +8,11 @@ import {
   TextField,
   Button,
   Alert,
-  CircularProgress
+  CircularProgress,
+  InputAdornment,
+  IconButton
 } from '@mui/material';
+import { Visibility, VisibilityOff } from '@mui/icons-material';
 
 const ResetPassword = () => {
   const [searchParams] = useSearchParams();
@@ -20,7 +22,16 @@ const ResetPassword = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [isSuccess, setIsSuccess] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const token = searchParams.get('token');
+
+  const handleClickShowPassword = () => setShowPassword((show) => !show);
+  const handleClickShowConfirmPassword = () => setShowConfirmPassword((show) => !show);
+  
+  const handleMouseDownPassword = (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+  };
 
   useEffect(() => {
     if (!token) {
@@ -28,34 +39,55 @@ const ResetPassword = () => {
     }
   }, [token, navigate]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setError('');
 
-    if (password !== confirmPassword) {
-      setError('Passwords do not match');
-      return;
+  if (password !== confirmPassword) {
+    setError('Passwords do not match');
+    return;
+  }
+
+  if (password.length < 8) {
+    setError('Password must be at least 8 characters long');
+    return;
+  }
+
+  try {
+    setIsLoading(true);
+    
+    const urlToken = searchParams.get('token');
+    if (!urlToken) {
+      throw new Error('Invalid or missing reset token');
     }
 
-    if (password.length < 8) {
-      setError('Password must be at least 8 characters long');
-      return;
-    }
-
-    try {
-      setIsLoading(true);
-      await authApi.resetPassword({
-        token: token!,
+    // Make a POST request to the reset password endpoint
+    const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/auth/reset-password`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        token: urlToken,  // Use the token from URL
         newPassword: password
-      });
-      setIsSuccess(true);
-      setTimeout(() => navigate('/login'), 3000);
-    } catch (error: any) {
-      setError(error.message || 'Failed to reset password');
-    } finally {
-      setIsLoading(false);
+      })
+    });
+
+    const responseData = await response.json();
+
+    if (!response.ok) {
+      throw new Error(responseData.message || 'Failed to reset password');
     }
-  };
+
+    setIsSuccess(true);
+    setTimeout(() => navigate('/login'), 3000);
+  } catch (error: any) {
+    console.error('Reset password error:', error);
+    setError(error.message || 'Failed to reset password. Please try again.');
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   if (!token) {
     return null;
@@ -111,11 +143,25 @@ const ResetPassword = () => {
               fullWidth
               name="password"
               label="New Password"
-              type="password"
+              type={showPassword ? 'text' : 'password'}
               id="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               disabled={isLoading}
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      aria-label="toggle password visibility"
+                      onClick={handleClickShowPassword}
+                      onMouseDown={handleMouseDownPassword}
+                      edge="end"
+                    >
+                      {showPassword ? <VisibilityOff /> : <Visibility />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
             />
             <TextField
               margin="normal"
@@ -123,11 +169,25 @@ const ResetPassword = () => {
               fullWidth
               name="confirmPassword"
               label="Confirm New Password"
-              type="password"
+              type={showConfirmPassword ? 'text' : 'password'}
               id="confirmPassword"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               disabled={isLoading}
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      aria-label="toggle confirm password visibility"
+                      onClick={handleClickShowConfirmPassword}
+                      onMouseDown={handleMouseDownPassword}
+                      edge="end"
+                    >
+                      {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
             />
             <Button
               type="submit"

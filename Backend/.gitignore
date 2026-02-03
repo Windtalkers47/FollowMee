@@ -84,3 +84,11 @@ yarn-error.log*
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# Database migrations
+/migrations/*.js
+!/migrations/*.ts
+/migrations/**/*.js
+!/migrations/**/*.ts
+/migration
+/migrations/*.d.ts

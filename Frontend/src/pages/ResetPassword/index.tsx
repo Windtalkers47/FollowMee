@@ -14,6 +14,31 @@ import {
 } from '@mui/material';
 import { Visibility, VisibilityOff } from '@mui/icons-material';
 
+// Hide browser's built-in password reveal button
+const styles = `
+  input[type="password"]::-webkit-credentials-auto-fill-button,
+  input[type="password"]::-webkit-credentials-auto-fill-button:hover,
+  input[type="password"]::-webkit-credentials-auto-fill-button:active,
+  input[type="password"]::-webkit-credentials-auto-fill-button:focus,
+  input[type="password"]::-ms-reveal,
+  input[type="password"]::-ms-clear {
+    display: none !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+    width: 0 !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    position: absolute !important;
+    right: -9999px !important;
+  }
+`;
+
+// Add styles to the document head
+const styleElement = document.createElement('style');
+styleElement.textContent = styles;
+document.head.appendChild(styleElement);
+
 const ResetPassword = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -146,6 +171,7 @@ const handleSubmit = async (e: React.FormEvent) => {
               type={showPassword ? 'text' : 'password'}
               id="password"
               value={password}
+              autoComplete="new-password"
               onChange={(e) => setPassword(e.target.value)}
               disabled={isLoading}
               InputProps={{
@@ -172,6 +198,7 @@ const handleSubmit = async (e: React.FormEvent) => {
               type={showConfirmPassword ? 'text' : 'password'}
               id="confirmPassword"
               value={confirmPassword}
+              autoComplete="confirm-password"
               onChange={(e) => setConfirmPassword(e.target.value)}
               disabled={isLoading}
               InputProps={{

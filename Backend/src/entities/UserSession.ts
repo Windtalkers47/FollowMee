@@ -28,7 +28,7 @@ export class UserSession {
   @Column('timestamp', { nullable: true })
   revokedAt!: Date | null;
 
-  @Column('timestamp')
+  @Column('datetime', { default: () => 'CURRENT_TIMESTAMP' })
   expiresAt!: Date;
 
   @CreateDateColumn({ type: 'timestamp' })

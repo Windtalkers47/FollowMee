@@ -347,31 +347,35 @@ class AuthController {
         where: { userEmail: email } 
       });
 
-      if (user) {
-        // Generate reset token (in a real app, you would send this via email)
-        const resetToken = jwt.sign(
-          { 
-            userId: user.userId, 
-            email: user.userEmail,
-            type: 'password_reset'
-          },
-          this.JWT_SECRET + (user.userPassword || ''), // Invalidate when password changes
-          { expiresIn: '1h' }
-        );
-
-        // Save the reset token to the user record
-        user.resetToken = resetToken;
-        user.resetTokenExpires = new Date(Date.now() + 3600000); // 1 hour from now
-        await this.userRepository.save(user);
-
-        // Send password reset email
-        await emailService.sendPasswordResetEmail(email, resetToken);
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: 'No account found with this email address'
+        });
       }
 
-      // Always return success to prevent email enumeration
+      // Generate reset token
+      const resetToken = jwt.sign(
+        { 
+          userId: user.userId, 
+          email: user.userEmail,
+          type: 'password_reset'
+        },
+        this.JWT_SECRET + (user.userPassword || ''), // Invalidate when password changes
+        { expiresIn: '1h' }
+      );
+
+      // Save the reset token to the user record
+      user.resetToken = resetToken;
+      user.resetTokenExpires = new Date(Date.now() + 3600000); // 1 hour from now
+      await this.userRepository.save(user);
+
+      // Send password reset email
+      await emailService.sendPasswordResetEmail(email, resetToken);
+
       return res.status(200).json({
         success: true,
-        message: 'If an account with that email exists, a password reset link has been sent'
+        message: 'Password reset link has been sent to your email'
       });
     } catch (error: any) {
       console.error('Request password reset error:', error);

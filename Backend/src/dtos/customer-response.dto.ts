@@ -38,6 +38,9 @@ export class CustomerResponseDto {
   customerAddress!: string | null;
 
   @Expose()
+  customerImageUrl!: string | null;
+
+  @Expose()
   isActive!: boolean;
 
   @Expose()

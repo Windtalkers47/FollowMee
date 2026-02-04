@@ -4,6 +4,7 @@ import { CustomerController } from '../controllers/customer.controller';
 import { body } from 'express-validator';
 import { CustomerService } from '../services/customer.service';
 import { CustomerRepository } from '../repositories/customer.repository';
+import { upload } from '../services/file-upload.service';
 
 const router = Router();
 
@@ -52,6 +53,21 @@ router.post(
 
 router.put('/:id', (req, res) =>
   customerController.updateCustomer(req, res)
+);
+
+// Upload customer profile image
+router.post(
+  '/:customerId/upload-image',
+  isAuthenticated,
+  upload.single('image'),
+  (req, res) => customerController.uploadCustomerImage(req, res)
+);
+
+// Delete customer profile image
+router.delete(
+  '/:customerId/image',
+  isAuthenticated,
+  (req, res) => customerController.deleteCustomerImage(req, res)
 );
 
 router.delete('/:id', (req, res) =>

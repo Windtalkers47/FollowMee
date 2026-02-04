@@ -56,6 +56,11 @@ export class CreateCustomerDto {
   @MaxLength(255, { message: 'Address must be at most 255 characters' })
   customerAddress?: string;
 
+  @IsString()
+  @IsOptional()
+  @MaxLength(512, { message: 'Image URL must be at most 512 characters' })
+  customerImageUrl?: string;
+
   @IsBoolean()
   @IsOptional()
   isActive: boolean = true;

@@ -302,19 +302,50 @@ const CustomerProfilePage: React.FC = () => {
             {/* Profile URL */}
             <Box
               sx={{
-                bgcolor: 'grey.100',
-                p: 2,
+                bgcolor: 'background.paper',
+                border: '1px solid',
+                borderColor: 'divider',
+                p: 1.5,
                 borderRadius: 2,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
+                gap: 1,
+                transition: 'all 0.2s ease',
+                '&:hover': {
+                  borderColor: 'primary.main',
+                  boxShadow: '0 0 0 1px',
+                },
               }}
             >
-              <Typography variant="body2" noWrap>
+              <Typography 
+                variant="body2" 
+                noWrap 
+                sx={{
+                  fontFamily: 'monospace',
+                  color: 'text.primary',
+                  p: 1,
+                  borderRadius: 1,
+                  bgcolor: 'action.hover',
+                  flex: 1,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                }}
+              >
                 {profileUrl}
               </Typography>
-              <Tooltip title={copied ? 'Copied!' : 'Copy'}>
-                <IconButton onClick={copyUrl}>
+              <Tooltip title={copied ? 'Copied!' : 'Copy URL'} arrow>
+                <IconButton 
+                  onClick={copyUrl}
+                  size="small"
+                  sx={{
+                    color: 'text.secondary',
+                    '&:hover': {
+                      color: 'primary.main',
+                      bgcolor: 'action.hover',
+                    },
+                  }}
+                >
                   <ContentCopy fontSize="small" />
                 </IconButton>
               </Tooltip>

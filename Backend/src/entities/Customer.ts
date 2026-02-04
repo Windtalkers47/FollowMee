@@ -39,6 +39,9 @@ export class Customer {
   @Column({ name: 'customerAddress', type: 'varchar', length: 255, nullable: true })
   customerAddress?: string;
 
+  @Column({ name: 'customerImageUrl', type: 'varchar', length: 512, nullable: true })
+  customerImageUrl?: string;
+
   @Column({ name: 'isActive', type: 'boolean', default: true })
   isActive: boolean = true;
 

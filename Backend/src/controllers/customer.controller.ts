@@ -4,6 +4,8 @@ import { CreateCustomerDto } from '../dtos/create-customer.dto';
 import { UpdateCustomerDto } from '../dtos/update-customer.dto';
 import { validate } from 'class-validator';
 import { plainToInstance } from 'class-transformer';
+import { validateImageFile } from '../services/file-upload.service';
+import { uploadToCloudinary, deleteFromCloudinary } from '../config/cloudinary.config';
 
 export class CustomerController {
   constructor(private readonly customerService: CustomerService) {}
@@ -225,6 +227,121 @@ export class CustomerController {
   /**
    * Delete (deactivate) a customer
    */
+  /**
+   * Upload customer profile image
+   */
+  async uploadCustomerImage(req: Request, res: Response) {
+    try {
+      const { customerId } = req.params;
+      const file = req.file as Express.Multer.File | undefined;
+
+      if (!file) {
+        return res.status(400).json({
+          success: false,
+          message: 'No file uploaded',
+        });
+      }
+
+      // Validate the uploaded file
+      const validation = validateImageFile(file);
+      if (!validation.isValid) {
+        return res.status(400).json({
+          success: false,
+          message: validation.error,
+        });
+      }
+
+      // Find the customer
+      const customer = await this.customerService.findOne(customerId);
+      if (!customer) {
+        return res.status(404).json({
+          success: false,
+          message: 'Customer not found',
+        });
+      }
+
+      // Upload to Cloudinary
+      const imageUrl = await uploadToCloudinary(file, `customers/${customerId}`);
+
+      // Delete old image if exists
+      if (customer.customerImageUrl) {
+        try {
+          await deleteFromCloudinary(customer.customerImageUrl);
+        } catch (error) {
+          console.error('Error deleting old image from Cloudinary:', error);
+          // Continue even if deletion fails
+        }
+      }
+
+      // Update customer with new image URL
+      const updatedCustomer = await this.customerService.update(customerId, {
+        customerImageUrl: imageUrl,
+      } as UpdateCustomerDto);
+
+      return res.json({
+        success: true,
+        data: {
+          imageUrl,
+          customer: updatedCustomer,
+        },
+        message: 'Profile image uploaded successfully',
+      });
+    } catch (error: unknown) {
+      console.error('Error uploading customer image to Cloudinary:', error);
+      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to upload profile image',
+        error: process.env.NODE_ENV === 'development' ? errorMessage : undefined,
+      });
+    }
+  }
+
+  /**
+   * Delete customer profile image
+   */
+  async deleteCustomerImage(req: Request, res: Response) {
+    try {
+      const { customerId } = req.params;
+
+      // Find the customer
+      const customer = await this.customerService.findOne(customerId);
+      if (!customer || !customer.customerImageUrl) {
+        return res.status(404).json({
+          success: false,
+          message: 'Customer or profile image not found',
+        });
+      }
+
+      // Delete the image from Cloudinary
+      try {
+        await deleteFromCloudinary(customer.customerImageUrl);
+      } catch (error) {
+        console.error('Error deleting image from Cloudinary:', error);
+        // Continue even if deletion fails to ensure the database is updated
+      }
+
+      // Update customer to remove the image URL
+      const updatedCustomer = await this.customerService.update(customerId, {
+        customerImageUrl: undefined,
+      } as UpdateCustomerDto);
+
+      return res.json({
+        success: true,
+        data: updatedCustomer,
+        message: 'Profile image deleted successfully',
+      });
+    } catch (error: unknown) {
+      console.error('Error deleting customer image:', error);
+      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to delete profile image',
+        error: process.env.NODE_ENV === 'development' ? errorMessage : undefined,
+      });
+    }
+  }
+
   async deleteCustomer(req: Request, res: Response) {
     try {
       const { id } = req.params;

@@ -1,5 +1,6 @@
 import { apiConfig } from '../../api/config';
 import { CustomerData, CustomerStatus } from '../../types/customer.types';
+import { getAccessToken } from '../../utils/auth';
 
 /* ============================
    Helpers
@@ -63,19 +64,29 @@ const fromApiFormat = (data: any): CustomerData => {
 const apiRequest = async <T>(
   endpoint: string,
   method: string,
-  data?: any
+  data?: any,
+  isFormData: boolean = false
 ): Promise<T> => {
+  const headers: HeadersInit = {
+    'X-Application-Name': apiConfig.headers['X-Application-Name'],
+  };
+
+  // Only set Content-Type for non-FormData requests
+  if (!isFormData) {
+    headers['Content-Type'] = 'application/json';
+  }
+
+  // Add auth token if available
+  const token = getAccessToken();
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
   const response = await fetch(`${apiConfig.baseURL}${endpoint}`, {
     method,
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Application-Name': apiConfig.headers['X-Application-Name'],
-      ...(localStorage.getItem('token') && {
-        Authorization: `Bearer ${localStorage.getItem('token')}`,
-      }),
-    },
+    headers,
     credentials: 'include',
-    body: data ? JSON.stringify(toApiFormat(data)) : undefined,
+    body: isFormData ? data : (data ? JSON.stringify(toApiFormat(data)) : undefined),
   });
 
   let json: any = null;
@@ -188,16 +199,30 @@ export const customerApi = {
 
   // Delete
   async deleteCustomer(customerId: string): Promise<void> {
-    await apiRequest<void>(`/customers/${customerId}`, 'DELETE');
+    return apiRequest<void>(`/customers/${customerId}`, 'DELETE');
   },
 
   // Status stats
-  async getStatusStats(): Promise<StatusStats> {
-    const result = await apiRequest<{ data: StatusStats }>(
-      '/customers/status-stats',
-      'GET'
+  getStatusStats(): Promise<StatusStats> {
+    return apiRequest<StatusStats>('/customers/status-stats', 'GET');
+  },
+
+  // Upload customer image
+  async uploadCustomerImage(customerId: string, file: File): Promise<{ imageUrl: string }> {
+    const formData = new FormData();
+    formData.append('image', file);
+    
+    return apiRequest<{ imageUrl: string }>(
+      `/customers/${customerId}/upload-image`,
+      'POST',
+      formData,
+      true // isFormData flag
     );
-    return result.data;
+  },
+
+  // Delete customer image
+  deleteCustomerImage(customerId: string): Promise<void> {
+    return apiRequest<void>(`/customers/${customerId}/delete-image`, 'DELETE');
   },
 };
 

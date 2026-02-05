@@ -42,7 +42,7 @@ import {
 } from 'chart.js';
 
 import { useAppDispatch, useAppSelector } from '../../store/store';
-import { logout } from '../../features/auth/authSlice';
+import { logout } from '../../store/slices/authSlice';
 
 
 // Register ChartJS components

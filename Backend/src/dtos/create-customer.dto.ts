@@ -1,4 +1,4 @@
-import { IsEmail, IsBoolean, IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsEmail, IsBoolean, IsNotEmpty, IsOptional, IsString, MaxLength, IsBase64 } from 'class-validator';
 
 export class CreateCustomerDto {
   @IsString()
@@ -64,4 +64,9 @@ export class CreateCustomerDto {
   @IsBoolean()
   @IsOptional()
   isActive: boolean = true;
+
+  @IsString()
+  @IsOptional()
+  @IsBase64()
+  base64Image?: string;
 }

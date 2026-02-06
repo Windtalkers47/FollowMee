@@ -5,7 +5,7 @@ import { UpdateCustomerDto } from '../dtos/update-customer.dto';
 import { validate } from 'class-validator';
 import { plainToInstance } from 'class-transformer';
 import { validateImageFile } from '../services/file-upload.service';
-import { uploadToCloudinary, deleteFromCloudinary } from '../config/cloudinary.config';
+import { uploadToCloudinary, deleteFromCloudinary, uploadBase64Image } from '../config/cloudinary.config';
 
 export class CustomerController {
   constructor(private readonly customerService: CustomerService) {}
@@ -153,7 +153,10 @@ export class CustomerController {
    */
   async createCustomer(req: Request, res: Response) {
     try {
-      const createCustomerDto = plainToInstance(CreateCustomerDto, req.body);
+      // Extract base64Image from the request body and remove it to prevent validation issues
+      const { base64Image, ...customerData } = req.body;
+      
+      const createCustomerDto = plainToInstance(CreateCustomerDto, customerData);
       const errors = await validate(createCustomerDto);
       
       if (errors.length > 0) {
@@ -164,12 +167,27 @@ export class CustomerController {
         });
       }
       
-      const customer = await this.customerService.create(createCustomerDto);
+      // Create the customer first
+      let customer = await this.customerService.create(createCustomerDto);
+      
+      // If there's a base64 image, upload it and update the customer
+      if (base64Image) {
+        try {
+          const imageUrl = await uploadBase64Image(base64Image);
+          customer = await this.customerService.update(customer.customerId, { 
+            customerImageUrl: imageUrl 
+          });
+        } catch (error) {
+          console.error('Error uploading customer image:', error);
+          // Don't fail the entire request if image upload fails
+          // The customer is already created, we can continue without the image
+        }
+      }
       
       return res.status(201).json({ 
         success: true, 
         data: customer,
-        message: 'Customer created successfully' 
+        message: 'Customer created successfully' + (base64Image ? ' with image' : '')
       });
     } catch (error: unknown) {
       console.error('Error creating customer:', error);

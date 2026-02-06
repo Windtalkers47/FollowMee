@@ -35,6 +35,40 @@ export const uploadToCloudinary = async (
   }
 };
 
+/**
+ * Upload a base64 image to Cloudinary
+ */
+export const uploadBase64Image = async (
+  base64: string, 
+  folder: string = 'followmee/customers'
+): Promise<string> => {
+  try {
+    // Check if the base64 string has the data URI prefix
+    const dataUriRegex = /^data:image\/([a-zA-Z+]+);base64,([\s\S]+)$/;
+    const matches = base64.match(dataUriRegex);
+    
+    if (!matches) {
+      throw new Error('Invalid base64 image data');
+    }
+    
+    const result = await cloudinary.uploader.upload(base64, {
+      folder,
+      resource_type: 'auto',
+      format: 'webp', // Convert to WebP for better compression
+      quality: 'auto',
+      fetch_format: 'auto',
+    });
+
+    return result.secure_url;
+  } catch (error) {
+    console.error('Error uploading base64 image to Cloudinary:', error);
+    throw new Error('Failed to upload image to Cloudinary');
+  }
+};
+
+/**
+ * Delete an image from Cloudinary by its URL
+ */
 export const deleteFromCloudinary = async (imageUrl: string): Promise<boolean> => {
   try {
     // Extract public ID from URL

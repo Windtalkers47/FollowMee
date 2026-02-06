@@ -7,7 +7,7 @@ import { getAccessToken } from '../../utils/auth';
 ============================ */
 
 // Convert frontend → backend
-const toApiFormat = (data: Partial<CustomerData>): any => {
+const toApiFormat = (data: any): any => {
   const result: any = { ...data };
 
   const optionalFields: (keyof CustomerData)[] = [
@@ -27,7 +27,13 @@ const toApiFormat = (data: Partial<CustomerData>): any => {
     }
   });
 
+  // Preserve base64Image if it exists
+  if ('base64Image' in data) {
+    result.base64Image = data.base64Image;
+  }
+
   delete result.isActive;
+  delete result.customerImageFile; // Remove the File object before sending
 
   return result;
 };
@@ -178,9 +184,17 @@ export const customerApi = {
 
   // Create
   async createCustomer(
-    customerData: Omit<CustomerData, 'customerId'>
+    customerData: Omit<CustomerData, 'customerId'> & { base64Image?: string }
   ): Promise<CustomerData> {
-    const result = await apiRequest<{ data: any }>('/customers', 'POST', customerData);
+    // Create a copy of customerData to avoid mutating the original
+    const requestData = { ...customerData };
+    
+    // If there's a base64Image, include it in the request
+    if (customerData.base64Image) {
+      requestData.base64Image = customerData.base64Image;
+    }
+    
+    const result = await apiRequest<{ data: any }>('/customers', 'POST', requestData);
     return fromApiFormat(result.data);
   },
 

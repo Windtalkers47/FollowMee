@@ -276,11 +276,11 @@ const CustomerPage = () => {
     setFormApiError(null);
   };
 
-  const handleFormSubmit = async (formData: CustomerFormData) => {
+  const handleFormSubmit = async (formData: CustomerFormData & { base64Image?: string }) => {
     setFormApiError(null);
   
     try {
-      const payload: Omit<Customer, 'customerId' | 'fullName'> = {
+      const payload: Omit<Customer, 'customerId' | 'fullName'> & { base64Image?: string } = {
         customerName: formData.customerName || '',
         customerLastName: formData.customerLastName || null,
         customerEmail: formData.customerEmail || '',
@@ -296,6 +296,7 @@ const CustomerPage = () => {
         isActive: formData.isActive || false,
         updatedAt: new Date().toISOString(),
         deletedAt: null,
+        ...(formData.base64Image ? { base64Image: formData.base64Image } : {}),
         ...(editingCustomer
           ? { createdAt: editingCustomer.createdAt }
           : { createdAt: new Date().toISOString() }),

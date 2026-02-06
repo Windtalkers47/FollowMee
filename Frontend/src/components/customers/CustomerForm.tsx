@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
@@ -188,7 +188,59 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
   );
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [imageKey, setImageKey] = useState(0);
+  const [isProcessingImage, setIsProcessingImage] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Image compression function
+  const compressImage = useCallback(async (file: File, maxWidth: number, maxHeight: number, quality: number = 0.7): Promise<Blob> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+
+          // Calculate new dimensions
+          if (width > height) {
+            if (width > maxWidth) {
+              height *= maxWidth / width;
+              width = maxWidth;
+            }
+          } else {
+            if (height > maxHeight) {
+              width *= maxHeight / height;
+              height = maxHeight;
+            }
+          }
+
+          // Set canvas dimensions
+          canvas.width = width;
+          canvas.height = height;
+
+          // Draw and compress
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, width, height);
+          canvas.toBlob(
+            (blob) => {
+              if (blob) {
+                resolve(blob);
+              } else {
+                reject(new Error('Failed to compress image'));
+              }
+            },
+            'image/jpeg',
+            quality
+          );
+        };
+        img.onerror = () => reject(new Error('Failed to load image'));
+        img.src = event.target?.result as string;
+      };
+      reader.onerror = () => reject(new Error('Failed to read file'));
+      reader.readAsDataURL(file);
+    });
+  }, []);
 
   // Clean up object URLs when component unmounts
   useEffect(() => {
@@ -206,46 +258,57 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
     }
   };
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) {
-      console.log('No file selected');
-      return;
-    }
+    setUploadError(null);
+    
+    if (!file) return;
 
     // Validate file type
     if (!file.type.startsWith('image/')) {
-      console.error('File must be an image');
+      setUploadError('Please upload a valid image file (JPG, PNG, GIF)');
       return;
     }
 
-    // Validate file size (5MB max)
-    if (file.size > 5 * 1024 * 1024) {
-      console.error('File size must be less than 5MB');
+    // Check file size (5MB max)
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    if (file.size > maxSize) {
+      setUploadError('Image size must be less than 5MB');
       return;
     }
 
-    console.log('Selected file type:', file.type);
-    console.log('File size:', file.size, 'bytes');
+    try {
+      setIsProcessingImage(true);
+      
+      // Compress the image
+      const compressedBlob = await compressImage(file, 800, 800, 0.7);
+      const compressedFile = new File([compressedBlob], file.name, {
+        type: 'image/jpeg',
+        lastModified: Date.now(),
+      });
 
-    // Create object URL for preview
-    const previewUrl = URL.createObjectURL(file);
-    console.log('Created preview URL:', previewUrl);
+      // Create preview
+      const previewUrl = URL.createObjectURL(compressedFile);
+      
+      // Clean up previous preview if it exists
+      if (imagePreview) URL.revokeObjectURL(imagePreview);
+      
+      setImagePreview(previewUrl);
+      setSelectedFile(compressedFile);
+      setImageKey(prev => prev + 1);
 
-    // Clean up previous preview if it exists
-    if (imagePreview) {
-      URL.revokeObjectURL(imagePreview);
-    }
-
-    // Update state
-    setImagePreview(previewUrl);
-    setSelectedFile(file);
-    setImageKey((prev) => prev + 1); // Force re-render
-
-    // Update form values
-    if (setValue) {
-      setValue('customerImageFile', file, { shouldValidate: true });
-      setValue('customerImageUrl', previewUrl, { shouldValidate: true });
+      // Update form values
+      if (setValue) {
+        setValue('customerImageFile', compressedFile, { shouldValidate: true });
+        setValue('customerImageUrl', previewUrl, { shouldValidate: true });
+      }
+    } catch (error) {
+      console.error('Error processing image:', error);
+      setUploadError('Failed to process the image. Please try another one.');
+    } finally {
+      setIsProcessingImage(false);
     }
   };
 
@@ -267,33 +330,68 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
     }
   };
 
+  // Helper function to convert file to base64
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = (error) => reject(error);
+    });
+  };
+
   // Handle form submission with proper type safety
   const onSubmitForm = async (formData: FormValues) => {
     try {
-      // Create a new object with only the fields that have values
-      const submitData: CustomerFormData = {
+      // Create a new object with all form values
+      const submitData: any = {
         customerName: formData.customerName,
         customerEmail: formData.customerEmail,
         isActive: formData.isActive ?? true,
-        customerImageUrl: formData.customerImageUrl ?? null,
       };
 
-      // Add optional fields only if they have values
-      if (formData.customerId) submitData.customerId = formData.customerId;
-      if (formData.customerLastName) submitData.customerLastName = formData.customerLastName;
-      if (formData.customerPhone1) submitData.customerPhone1 = formData.customerPhone1;
-      if (formData.customerPhone2) submitData.customerPhone2 = formData.customerPhone2;
-      if (formData.customerFacebook) submitData.customerFacebook = formData.customerFacebook;
-      if (formData.customerInstagram) submitData.customerInstagram = formData.customerInstagram;
-      if (formData.customerTikTok) submitData.customerTikTok = formData.customerTikTok;
-      if (formData.customerLine) submitData.customerLine = formData.customerLine;
-      if (formData.customerX) submitData.customerX = formData.customerX;
-      if (formData.customerAddress) submitData.customerAddress = formData.customerAddress;
+      // Add optional fields
+      const optionalFields = [
+        'customerId', 'customerLastName', 'customerPhone1', 'customerPhone2',
+        'customerFacebook', 'customerInstagram', 'customerTikTok', 
+        'customerLine', 'customerX', 'customerAddress'
+      ];
+      
+      optionalFields.forEach(field => {
+        if (formData[field as keyof FormValues]) {
+          submitData[field] = formData[field as keyof FormValues];
+        }
+      });
+
+      // Handle image upload
+      if (selectedFile) {
+        try {
+          setIsProcessingImage(true);
+          // Convert to base64
+          const base64Image = await fileToBase64(selectedFile);
+          submitData.base64Image = base64Image;
+          console.log('Compressed image prepared for upload');
+        } catch (error) {
+          console.error('Error processing image:', error);
+          setUploadError('Failed to process the image. Please try again.');
+          return;
+        } finally {
+          setIsProcessingImage(false);
+        }
+      } else if (formData.customerImageUrl && !formData.customerImageUrl.startsWith('blob:')) {
+        submitData.customerImageUrl = formData.customerImageUrl;
+      }
+
+      console.log('Submitting form data:', {
+        ...submitData,
+        base64Image: submitData.base64Image ? 'base64 string exists' : 'no base64 image'
+      });
 
       await onSubmit(submitData);
     } catch (error) {
       console.error('Error submitting form:', error);
-      // You might want to show an error message to the user here
+      setUploadError('Failed to submit the form. Please try again.');
+      throw error; // Re-throw to allow parent component to handle the error
     }
   };
   const defaultValues = React.useMemo<FormValues>(
@@ -356,35 +454,8 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
   }, [open, initialData?.customerId]);
   
 
-  const handleFormSubmit = async (formValues: FormValues) => {
-    try {
-      // Convert FormValues to CustomerFormData
-      const formData: CustomerFormData = {
-        customerId: formValues.customerId,
-        customerName: formValues.customerName,
-        customerLastName: formValues.customerLastName,
-        customerEmail: formValues.customerEmail,
-        customerPhone1: formValues.customerPhone1,
-        customerPhone2: formValues.customerPhone2,
-        customerFacebook: formValues.customerFacebook,
-        customerInstagram: formValues.customerInstagram,
-        customerTikTok: formValues.customerTikTok,
-        customerLine: formValues.customerLine,
-        customerX: formValues.customerX,
-        customerAddress: formValues.customerAddress,
-        customerImageUrl: formValues.customerImageUrl,
-        isActive: formValues.isActive,
-      };
-      
-      await onSubmit({
-        ...formData,
-        customerImageFile: selectedFile, // upload separately
-      });
-      
-    } catch (error) {
-      console.error('Error submitting form:', error);
-    }
-  };
+  // Alias for onSubmitForm to maintain compatibility
+  const handleFormSubmit = onSubmitForm;
 
   const handleClose = () => {
     handleCloseProp();
@@ -393,7 +464,7 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
   /* ================= UI ================= */
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
-      <form onSubmit={handleSubmit((data) => handleFormSubmit(data))} noValidate>
+      <form onSubmit={handleSubmit(onSubmitForm)} noValidate>
         <DialogTitle>
           <Box display="flex" justifyContent="space-between" alignItems="center">
             <Typography variant="h6">
@@ -432,11 +503,9 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
                     objectFit: 'cover',
                     display: 'block'
                   }}
-                  onLoad={(e) => {
-                    console.log('Image loaded successfully');
-                  }}
                   onError={(e) => {
-                    console.error('Failed to load image:', e);
+                    setUploadError('Failed to load the selected image. Please try another file.');
+                    handleRemoveImage();
                   }}
                 />
                 <div style={{
@@ -511,9 +580,16 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
               )}
             </Box>
 
-            <Typography variant="caption" color="text.secondary">
-              JPG, GIF or PNG. Max size of 5MB
-            </Typography>
+            <Box sx={{ textAlign: 'center', width: '100%' }}>
+              <Typography variant="caption" color="text.secondary" display="block">
+                JPG, GIF or PNG. Max size of 5MB
+              </Typography>
+              {uploadError && (
+                <Typography variant="caption" color="error" display="block" sx={{ mt: 1 }}>
+                  {uploadError}
+                </Typography>
+              )}
+            </Box>
           </Stack>
 
           </Section>

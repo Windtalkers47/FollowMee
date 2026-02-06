@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
@@ -120,8 +120,20 @@ const ImagePreview = styled('div')(({ theme }) => ({
   position: 'relative',
   margin: '0 auto',
   overflow: 'hidden',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
   '&:hover .image-actions': {
     opacity: 1,
+  },
+  '& .preview-image': {
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    display: 'block',
   },
 }));
 
@@ -171,60 +183,88 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
   initialData = { isActive: true },
   apiError,
 }) => {
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(
     initialData?.customerImageUrl || null
   );
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [imageKey, setImageKey] = useState(0);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Clean up object URLs when component unmounts
+  useEffect(() => {
+    return () => {
+      if (imagePreview && imagePreview.startsWith('blob:')) {
+        URL.revokeObjectURL(imagePreview);
+      }
+    };
+  }, [imagePreview]);
 
   const triggerFileSelect = () => {
     if (fileInputRef.current) {
-      fileInputRef.current.value = '';
+      fileInputRef.current.value = ''; // Reset input to allow selecting the same file again
       fileInputRef.current.click();
     }
   };
 
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-
-  // Reset form when initialData changes
-  React.useEffect(() => {
-    if (open) {
-      setImagePreview(initialData?.customerImageUrl || null);
-    }
-  }, [open, initialData]);
-
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
-  
+    if (!file) {
+      console.log('No file selected');
+      return;
+    }
+
     // Validate file type
     if (!file.type.startsWith('image/')) {
       console.error('File must be an image');
       return;
     }
-    
+
     // Validate file size (5MB max)
     if (file.size > 5 * 1024 * 1024) {
       console.error('File size must be less than 5MB');
       return;
     }
-  
+
+    console.log('Selected file type:', file.type);
+    console.log('File size:', file.size, 'bytes');
+
+    // Create object URL for preview
     const previewUrl = URL.createObjectURL(file);
+    console.log('Created preview URL:', previewUrl);
+
+    // Clean up previous preview if it exists
+    if (imagePreview) {
+      URL.revokeObjectURL(imagePreview);
+    }
+
+    // Update state
     setImagePreview(previewUrl);
     setSelectedFile(file);
-    setValue('customerImageFile', file, { shouldValidate: true });
+    setImageKey((prev) => prev + 1); // Force re-render
+
+    // Update form values
+    if (setValue) {
+      setValue('customerImageFile', file, { shouldValidate: true });
+      setValue('customerImageUrl', previewUrl, { shouldValidate: true });
+    }
   };
-  
 
   const handleRemoveImage = () => {
+    if (imagePreview) {
+      URL.revokeObjectURL(imagePreview);
+    }
     setImagePreview(null);
     setSelectedFile(null);
-    
+    setImageKey((prev) => prev + 1);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
-    
-    setValue('customerImageUrl', null, { shouldValidate: true });
-    setValue('customerImageFile', null, { shouldValidate: true });
+
+    // Use the setValue from useForm to update the form state
+    if (setValue) {
+      setValue('customerImageUrl', null, { shouldValidate: true });
+      setValue('customerImageFile', null, { shouldValidate: true });
+    }
   };
 
   // Handle form submission with proper type safety
@@ -370,7 +410,19 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
 
           <Stack spacing={2} alignItems="center">
             <ImagePreview>
-              {imagePreview ? (
+            {imagePreview ? (
+              <div key={imageKey} style={{
+                position: 'relative',
+                width: '120px',
+                height: '120px',
+                borderRadius: '50%',
+                overflow: 'hidden',
+                backgroundColor: '#f5f5f5',
+                border: '2px solid #ddd',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
                 <img
                   src={imagePreview}
                   alt="Customer preview"
@@ -378,18 +430,36 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
                     width: '100%',
                     height: '100%',
                     objectFit: 'cover',
+                    display: 'block'
+                  }}
+                  onLoad={(e) => {
+                    console.log('Image loaded successfully');
+                  }}
+                  onError={(e) => {
+                    console.error('Failed to load image:', e);
                   }}
                 />
-              ) : (
-                <Box
-                  display="flex"
-                  alignItems="center"
-                  justifyContent="center"
-                  height="100%"
-                >
-                  <PersonIcon sx={{ fontSize: 48, color: 'text.disabled' }} />
-                </Box>
-              )}
+                <div style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  borderRadius: '50%',
+                  boxShadow: 'inset 0 0 0 2px rgba(0,0,0,0.1)'
+                }} />
+              </div>
+            ) : (
+              <Box
+                display="flex"
+                alignItems="center"
+                justifyContent="center"
+                height="100%"
+                width="100%"
+              >
+                <PersonIcon sx={{ fontSize: 48, color: 'text.disabled' }} />
+              </Box>
+            )}
 
               {imagePreview && (
                 <ImageActions className="image-actions">

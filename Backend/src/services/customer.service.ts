@@ -132,10 +132,17 @@ export class CustomerService {
       }
     }
 
-    // Update customer with new data
-    Object.assign(customer, updateData);
-    
-    const updated = await this.customerRepository.update(id, customer);
+    // Exclude read-only properties and undefined values
+    const updatePayload = Object.entries(updateData).reduce((acc, [key, value]) => {
+      // Skip read-only properties and undefined values
+      if (value !== undefined && key !== 'fullName') {
+        acc[key] = value;
+      }
+      return acc;
+    }, {} as Record<string, any>);
+
+    // Update customer with the filtered data
+    const updated = await this.customerRepository.update(id, updatePayload);
 
     if (!updated) {
       throw new Error('Failed to update customer');

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { 
   Box, 
   Button, 
@@ -131,20 +131,22 @@ const CustomerPage = () => {
   const theme = useTheme();
 
   const {
-    customers = [],
-    loading = false,
-    error = null,
-    page = 0,
-    pageSize = 10,
-    total = 0,
-    filter = { status: 'all', search: '' },
+    customers,
+    loading,
+    error,
+    page,
+    pageSize,
+    total,
     statusStats,
-    handlePageChange = () => {},
-    handlePageSizeChange = () => {},
-    handleFilterChange = () => {},
-    createCustomer = async () => {},
-    updateCustomer = async () => {},
-    refetch = () => {},
+    filter,
+    handlePageChange,
+    handlePageSizeChange,
+    handleFilterChange,
+    createCustomer,
+    updateCustomer,
+    deleteCustomer,
+    refetch,
+    getStatusCount,
   } = useCustomers();
 
   // Local state for search input (only submit on search button or ENTER)
@@ -178,16 +180,7 @@ const CustomerPage = () => {
     setSnackbar(prev => ({ ...prev, open: false }));
   };
 
-  // Get count for a specific status
-  const getStatusCount = (status: 'active' | 'inactive' | 'canceled'): number => {
-    if (!statusStats?.statuses) return 0;
-    const statusData = statusStats.statuses.find(s => s.status === status);
-    return statusData?.count || 0;
-  };
-
   const emptyRows = page > 0 ? Math.max(0, (1 + page) * pageSize - customers.length) : 0;
-  
-
 
   // Filter customers based on tab value
   const filteredCustomers = customers.filter(customer => {
@@ -197,8 +190,8 @@ const CustomerPage = () => {
     return true; // tabValue === 0 (All)
   });
 
-  // Calculate total count for the "All" tab
-  const totalCustomers = statusStats?.totalStatus || total || 0;
+  // Calculate total count for the "All" tab using the hook's getStatusCount
+  const totalCustomers = getStatusCount('active') + getStatusCount('inactive') + getStatusCount('canceled');
 
 
   const handlePageChangeEvent = (_: React.MouseEvent<HTMLButtonElement> | null, newPage: number) => {
@@ -278,7 +271,7 @@ const CustomerPage = () => {
 
   const handleFormSubmit = async (formData: CustomerFormData & { base64Image?: string }) => {
     setFormApiError(null);
-  
+    
     try {
       const payload: Omit<Customer, 'customerId' | 'fullName'> & { base64Image?: string } = {
         customerName: formData.customerName || '',
@@ -302,10 +295,24 @@ const CustomerPage = () => {
           : { createdAt: new Date().toISOString() }),
       };
   
+      let result;
       if (editingCustomer) {
-        await updateCustomer(editingCustomer.customerId, payload);
+        result = await updateCustomer(editingCustomer.customerId, payload);
       } else {
-        await createCustomer(payload);
+        result = await createCustomer(payload);
+      }
+  
+      // Check if the result indicates a failure
+      if (result && !result.success) {
+        if (result.message?.toLowerCase().includes('email')) {
+          setFormApiError({
+            field: 'customerEmail',
+            message: result.message,
+          });
+        } else {
+          notify(result.message || 'An error occurred', 'error');
+        }
+        return;
       }
   
       notify('Customer saved successfully', 'success');
@@ -314,18 +321,17 @@ const CustomerPage = () => {
       refetch();
   
     } catch (error: any) {
-      const message = error?.message || 'Something went wrong';
-  
+      console.error('Error saving customer:', error);
+      const message = error?.response?.data?.message || error?.message || 'Failed to save customer';
+      
       if (message.toLowerCase().includes('email')) {
         setFormApiError({
           field: 'customerEmail',
-          message,
+          message: message,
         });
       } else {
         notify(message, 'error');
       }
-  
-      throw error;
     }
   };
   
@@ -457,7 +463,7 @@ const CustomerPage = () => {
                   </Typography>
                   <Typography variant="caption" color="success.main" sx={{ display: 'flex', alignItems: 'center' }}>
                     <CheckCircleIcon color="success" fontSize="small" sx={{ mr: 0.5 }} />
-                    {statusStats?.statuses?.find(s => s.status === 'active')?.count || 0} active
+                    {getStatusCount('active')} active
                   </Typography>
                 </Box>
                 <Box sx={{
@@ -484,10 +490,10 @@ const CustomerPage = () => {
                     Active Now
                   </Typography>
                   <Typography variant="h4" fontWeight="bold">
-                    {statusStats?.statuses?.find(s => s.status === 'active')?.count || 0}
+                    {getStatusCount('active')}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
-                    {Math.round(((statusStats?.statuses?.find(s => s.status === 'active')?.count || 0) / totalCustomers * 100) || 0)}% of total
+                    {totalCustomers > 0 ? Math.round((getStatusCount('active') / totalCustomers) * 100) : 0}% of total
                   </Typography>
                 </Box>
                 <Box sx={{
@@ -514,7 +520,7 @@ const CustomerPage = () => {
                     Inactive
                   </Typography>
                   <Typography variant="h4" fontWeight="bold">
-                    {statusStats?.statuses?.find(s => s.status === 'inactive')?.count || 0}
+                    {getStatusCount('inactive')}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
                     Needs attention
@@ -544,7 +550,7 @@ const CustomerPage = () => {
                     Canceled
                   </Typography>
                   <Typography variant="h4" fontWeight="bold">
-                    {statusStats?.statuses?.find(s => s.status === 'canceled')?.count || 0}
+                    {getStatusCount('canceled')}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
                     Not active anymore
@@ -655,7 +661,7 @@ const CustomerPage = () => {
                 <Box display="flex" alignItems="center" gap={1}>
                   <span>All</span>
                   <Chip 
-                    label={totalCustomers}
+                    label={getStatusCount('active') + getStatusCount('inactive') + getStatusCount('canceled')}
                     size="small"
                     sx={{
                       height: 20,

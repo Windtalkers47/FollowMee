@@ -630,16 +630,23 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
                 <Controller
                   name="customerEmail"
                   control={control}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      label="Email"
-                      fullWidth
-                      required
-                      error={!!errors.customerEmail}
-                      helperText={errors.customerEmail?.message}
-                    />
-                  )}
+                  render={({ field, fieldState: { error } }) => {
+                    // Use the API error if it exists, otherwise use the validation error
+                    const emailError = apiError?.field === 'customerEmail' 
+                      ? apiError.message 
+                      : error?.message;
+                    
+                    return (
+                      <TextField
+                        {...field}
+                        label="Email"
+                        fullWidth
+                        required
+                        error={!!error || apiError?.field === 'customerEmail'}
+                        helperText={emailError}
+                      />
+                    );
+                  }}
                 />
               </Grid>
             </Grid>

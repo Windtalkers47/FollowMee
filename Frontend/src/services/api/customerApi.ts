@@ -217,8 +217,12 @@ export const customerApi = {
   },
 
   // Status stats
-  getStatusStats(): Promise<StatusStats> {
-    return apiRequest<StatusStats>('/customers/status-stats', 'GET');
+  async getStatusStats(): Promise<StatusStats> {
+    const response = await apiRequest<{ success: boolean; data: StatusStats }>('/customers/status-stats', 'GET');
+    if (!response.success) {
+      throw new Error('Failed to fetch status stats');
+    }
+    return response.data;
   },
 
   // Upload customer image

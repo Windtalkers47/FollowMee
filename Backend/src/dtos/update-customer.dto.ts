@@ -58,7 +58,6 @@ export class UpdateCustomerDto {
 
   @IsString()
   @IsOptional()
-  @MaxLength(512, { message: 'Image URL must be at most 512 characters' })
   customerImageUrl?: string;
 
   @IsBoolean()

@@ -6,6 +6,16 @@ import customerApi from '../../services/api/customerApi';
    State
 ============================ */
 
+export interface StatusStat {
+  status: 'active' | 'inactive' | 'canceled';
+  count: number;
+}
+
+export interface StatusStats {
+  statuses: StatusStat[];
+  totalStatus: number;
+}
+
 interface CustomerState {
   items: Customer[];
   currentItem: Customer | null;
@@ -14,6 +24,7 @@ interface CustomerState {
   total: number;
   page: number;
   pageSize: number;
+  statusStats: StatusStats | null;
   filter: {
     status: CustomerStatus | 'all';
     search: string;
@@ -28,6 +39,7 @@ const initialState: CustomerState = {
   total: 0,
   page: 1,
   pageSize: 25,
+  statusStats: null,
   filter: {
     status: 'all',
     search: '',
@@ -63,9 +75,26 @@ interface FetchCustomersParams {
   status?: CustomerStatus;
 }
 
+export const fetchStatusStats = createAsyncThunk<StatusStats, void, { rejectValue: string }>(
+  'customers/fetchStatusStats',
+  async (_, { rejectWithValue }) => {
+    try {
+      console.log('Fetching status stats from API...');
+      const statusStats = await customerApi.getStatusStats();
+      console.log('Status stats from API:', statusStats);
+      return statusStats;
+    } catch (err: any) {
+      console.error('Error fetching status stats:', err);
+      return rejectWithValue(err.message || 'Failed to fetch status stats');
+    }
+  }
+);
+
 export const fetchCustomers = createAsyncThunk(
   'customers/fetchCustomers',
-  async (params: FetchCustomersParams = {}, { getState, rejectWithValue }) => {
+  async (params: FetchCustomersParams = {}, { getState, dispatch, rejectWithValue }) => {
+    // Fetch status stats when fetching customers
+    dispatch(fetchStatusStats());
     try {
       const { customer } = getState() as { customer: CustomerState };
 
@@ -169,21 +198,21 @@ const customerSlice = createSlice({
       state,
       action: PayloadAction<{ status?: CustomerStatus | 'all'; search?: string }>
     ) {
-      if (action.payload.status !== undefined) {
-        state.filter.status = action.payload.status;
-      }
-      if (action.payload.search !== undefined) {
-        state.filter.search = action.payload.search;
-      }
+      state.filter = {
+        ...state.filter,
+        ...action.payload,
+      };
       state.page = 1;
     },
     resetCustomerState: () => initialState,
+    setStatusStats(state, action: PayloadAction<StatusStats>) {
+      state.statusStats = action.payload;
+    },
   },
   extraReducers: (builder) => {
     builder
       .addCase(fetchCustomers.pending, (state) => {
         state.status = 'loading';
-        state.error = null;
       })
       .addCase(fetchCustomers.fulfilled, (state, action) => {
         state.status = 'succeeded';
@@ -196,12 +225,25 @@ const customerSlice = createSlice({
         state.status = 'failed';
         state.error = action.payload as string;
       })
-
+      .addCase(fetchStatusStats.fulfilled, (state, action) => {
+        console.log('Updating statusStats in Redux:', action.payload);
+        state.statusStats = action.payload;
+      })
+      .addCase(fetchStatusStats.rejected, (state, action) => {
+        console.error('Failed to fetch status stats:', action.payload);
+        state.statusStats = {
+          statuses: [
+            { status: 'active', count: 0 },
+            { status: 'inactive', count: 0 },
+            { status: 'canceled', count: 0 },
+          ],
+          totalStatus: 0,
+        };
+      })
       .addCase(fetchCustomerById.fulfilled, (state, action) => {
         state.status = 'succeeded';
         state.currentItem = action.payload;
       })
-
       .addCase(createCustomer.fulfilled, (state, action) => {
         state.items.unshift(action.payload);
         state.total += 1;

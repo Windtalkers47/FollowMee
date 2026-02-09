@@ -5,104 +5,129 @@ import {
   ListItemIcon,
   ListItemText,
   Divider,
+  Typography,
+  Box,
 } from '@mui/material';
 import {
-  Email as EmailIcon,
-  PersonAdd as PersonAddIcon,
-  PersonRemove as PersonRemoveIcon,
-  CheckCircle as CheckCircleIcon,
-  Block as BlockIcon,
+  Edit as EditIcon,
+  CheckCircle as ActiveIcon,
+  PauseCircle as InactiveIcon,
+  Cancel as CancelIcon,
   Flag as FlagIcon,
+  Person as PersonIcon,
+  Message as MessageIcon,
+  GroupAdd as GroupAddIcon,
 } from '@mui/icons-material';
+
+type CustomerStatus = 'active' | 'inactive' | 'canceled';
 
 interface ActionMenuProps {
   anchorEl: HTMLElement | null;
   open: boolean;
   onClose?: () => void;
   onAction?: (action: string) => void;
-  isActive?: boolean;
-  menuItems?: Array<{
-    label: string;
-    icon: React.ReactNode;
-    action: string;
-    color?: string;
-    dividerBefore?: boolean;
-    dividerAfter?: boolean;
-    condition?: (isActive: boolean) => boolean;
-  }>;
+  status?: CustomerStatus;
+  menuItems?: MenuItemType[];
 }
 
 type MenuItemType = {
   label: string;
   icon: React.ReactNode;
   action: string;
-  color?: string;
+  color?: 'primary' | 'secondary' | 'error' | 'warning' | 'info' | 'success';
   dividerBefore?: boolean;
-  dividerAfter?: boolean;
-  condition?: (isActive: boolean) => boolean;
+  condition?: (status: CustomerStatus) => boolean;
 };
 
-const defaultMenuItems: MenuItemType[] = [
-  {
-    label: 'Send Message',
-    icon: <EmailIcon fontSize="small" />,
-    action: 'sendMessage',
-    dividerAfter: false
-  },
-  {
-    label: 'Add to Group',
-    icon: <PersonAddIcon fontSize="small" />,
-    action: 'addToGroup',
-    dividerAfter: false
-  },
-  {
-    label: 'Mark as Inactive',
-    icon: <PersonRemoveIcon fontSize="small" color="warning" />,
-    action: 'toggleStatus',
-    condition: (isActive: boolean) => isActive === true,
-    dividerAfter: false
-  },
-  {
-    label: 'Mark as Active',
-    icon: <CheckCircleIcon fontSize="small" color="success" />,
-    action: 'toggleStatus',
-    condition: (isActive: boolean) => isActive === false,
-    dividerAfter: false
-  },
-  {
-    label: 'Ban User',
-    icon: <BlockIcon fontSize="small" color="error" />,
-    action: 'banUser',
-    dividerAfter: false,
-    dividerBefore: true,
-  },
-  {
-    label: 'Report',
-    icon: <FlagIcon fontSize="small" color="error" />,
-    action: 'report',
-    dividerBefore: true,
-  },
-];
+const getStatusMenuItems = (status?: CustomerStatus): MenuItemType[] => {
+  const baseItems: MenuItemType[] = [
+    {
+      label: 'Update Customer',
+      icon: <EditIcon fontSize="small" />,
+      action: 'update',
+      color: 'primary',
+    },
+    // {
+    //   label: 'Send Message',
+    //   icon: <MessageIcon fontSize="small" />,
+    //   action: 'sendMessage',
+    //   color: 'primary',
+    // },
+    // {
+    //   label: 'Add to Group',
+    //   icon: <GroupAddIcon fontSize="small" />,
+    //   action: 'addToGroup',
+    //   color: 'primary',
+    // },
+  ];
+
+  const statusItems: MenuItemType[] = [
+    {
+      label: 'Mark as Active',
+      icon: <ActiveIcon fontSize="small" color="success" />,
+      action: 'setActive',
+      color: 'success',
+      condition: (currentStatus) => currentStatus !== 'active',
+    },
+    {
+      label: 'Mark as Inactive',
+      icon: <InactiveIcon fontSize="small" color="warning" />,
+      action: 'setInactive',
+      color: 'warning',
+      condition: (currentStatus) => currentStatus !== 'inactive',
+    },
+    {
+      label: 'Mark as Canceled',
+      icon: <CancelIcon fontSize="small" color="error" />,
+      action: 'setCanceled',
+      color: 'error',
+      condition: (currentStatus) => currentStatus !== 'canceled',
+    },
+  ];
+
+  const otherItems: MenuItemType[] = [
+    {
+      label: 'Report',
+      icon: <FlagIcon fontSize="small" color="warning" />,
+      action: 'report',
+      color: 'warning',
+      dividerBefore: true,
+    },
+  ];
+
+  return [
+    ...baseItems,
+    ...statusItems.filter(item => !item.condition || item.condition(status || 'active')),
+    ...otherItems,
+  ];
+};
 
 const ActionMenu: React.FC<ActionMenuProps> = ({
   anchorEl,
   open,
   onClose,
   onAction,
-  isActive = true,
-  menuItems = defaultMenuItems,
+  status = 'active',
+  menuItems,
 }) => {
+  const menuItemsToShow = menuItems || getStatusMenuItems(status);
+
   const handleMenuClick = (action: string) => {
     onAction?.(action);
     onClose?.();
   };
 
-  const filteredMenuItems = menuItems.filter(item => {
-    if (item.condition && typeof item.condition === 'function') {
-      return item.condition(isActive);
+  const getItemColor = (color?: string) => {
+    switch (color) {
+      case 'primary': return 'primary.main';
+      case 'secondary': return 'secondary.main';
+      case 'error': return 'error.main';
+      case 'warning': return 'warning.main';
+      case 'info': return 'info.main';
+      case 'success': return 'success.main';
+      default: return 'text.primary';
     }
-    return true;
-  });
+  };
 
   return (
     <Menu
@@ -112,34 +137,59 @@ const ActionMenu: React.FC<ActionMenuProps> = ({
       transformOrigin={{ horizontal: 'right', vertical: 'top' }}
       anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
       PaperProps={{
-        elevation: 1,
+        elevation: 4,
         sx: {
           borderRadius: 2,
-          minWidth: 200,
-          boxShadow: '0px 4px 20px rgba(0, 0, 0, 0.1)',
+          minWidth: 220,
+          py: 0.5,
+          boxShadow: '0px 4px 24px rgba(0, 0, 0, 0.12)',
+          '& .MuiMenuItem-root': {
+            padding: '8px 16px',
+            borderRadius: 1,
+            mx: 1,
+            my: 0.5,
+            '&:hover': {
+              backgroundColor: 'action.hover',
+            },
+          },
         },
       }}
     >
-      {filteredMenuItems.flatMap((item, index) => {
+      {menuItemsToShow.flatMap((item, index) => {
         const elements = [];
         
         if (item.dividerBefore) {
-          elements.push(<Divider key={`${item.action}-before`} />);
+          elements.push(
+            <Divider 
+              key={`${item.action}-divider`} 
+              sx={{ my: 0.5 }} 
+            />
+          );
         }
         
         elements.push(
           <MenuItem 
             key={item.action} 
             onClick={() => handleMenuClick(item.action)}
+            sx={{
+              color: getItemColor(item.color),
+              '&:hover': {
+                backgroundColor: `${getItemColor(item.color)}08`,
+              },
+            }}
           >
-            <ListItemIcon>{item.icon}</ListItemIcon>
-            <ListItemText>{item.label}</ListItemText>
+            <ListItemIcon sx={{ minWidth: 36, color: 'inherit' }}>
+              {item.icon}
+            </ListItemIcon>
+            <ListItemText 
+              primary={
+                <Typography variant="body2" fontWeight={500}>
+                  {item.label}
+                </Typography>
+              } 
+            />
           </MenuItem>
         );
-        
-        if (item.dividerAfter) {
-          elements.push(<Divider key={`${item.action}-after`} />);
-        }
         
         return elements;
       })}

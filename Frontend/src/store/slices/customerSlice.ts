@@ -79,12 +79,9 @@ export const fetchStatusStats = createAsyncThunk<StatusStats, void, { rejectValu
   'customers/fetchStatusStats',
   async (_, { rejectWithValue }) => {
     try {
-      console.log('Fetching status stats from API...');
       const statusStats = await customerApi.getStatusStats();
-      console.log('Status stats from API:', statusStats);
       return statusStats;
     } catch (err: any) {
-      console.error('Error fetching status stats:', err);
       return rejectWithValue(err.message || 'Failed to fetch status stats');
     }
   }
@@ -93,7 +90,6 @@ export const fetchStatusStats = createAsyncThunk<StatusStats, void, { rejectValu
 export const fetchCustomers = createAsyncThunk(
   'customers/fetchCustomers',
   async (params: FetchCustomersParams = {}, { getState, dispatch, rejectWithValue }) => {
-    // Fetch status stats when fetching customers
     dispatch(fetchStatusStats());
     try {
       const { customer } = getState() as { customer: CustomerState };
@@ -226,11 +222,9 @@ const customerSlice = createSlice({
         state.error = action.payload as string;
       })
       .addCase(fetchStatusStats.fulfilled, (state, action) => {
-        console.log('Updating statusStats in Redux:', action.payload);
         state.statusStats = action.payload;
       })
       .addCase(fetchStatusStats.rejected, (state, action) => {
-        console.error('Failed to fetch status stats:', action.payload);
         state.statusStats = {
           statuses: [
             { status: 'active', count: 0 },

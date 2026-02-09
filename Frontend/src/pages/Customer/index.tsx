@@ -1187,45 +1187,57 @@ const CustomerPage = () => {
         anchorEl={actionMenuAnchorEl}
         open={Boolean(actionMenuAnchorEl)}
         onClose={handleActionMenuClose}
-        onAction={(action) => {
-          // Handle different actions here
-          switch (action) {
-            case 'sendMessage':
-              // Handle send message
-              console.log('Send message to:', selectedMember?.customerId);
-              break;
-            case 'addToGroup':
-              // Handle add to group
-              console.log('Add to group:', selectedMember?.customerId);
-              break;
-            case 'toggleStatus':
-              // Handle toggle status
-              if (selectedMember) {
-                const newStatus = selectedMember.isActive ? 'inactive' : 'active';
-                updateCustomer(selectedMember.customerId, { status: newStatus });
-                showSnackbar(
-                  `Customer marked as ${newStatus} successfully`,
-                  'success'
-                );
+        status={selectedMember?.status as 'active' | 'inactive' | 'canceled' | undefined}
+        onAction={async (action) => {
+          if (!selectedMember) return;
+          
+          try {
+            switch (action) {
+              case 'update':
+                handleOpenForm(selectedMember);
+                break;
+                
+              case 'setActive':
+              case 'setInactive':
+              case 'setCanceled': {
+                const status = action.replace('set', '').toLowerCase() as CustomerStatus;
+                // Create a clean update object with only the fields we want to update
+                const updateData = {
+                  customerName: selectedMember.customerName,
+                  customerLastName: selectedMember.customerLastName,
+                  customerEmail: selectedMember.customerEmail,
+                  customerPhone1: selectedMember.customerPhone1,
+                  customerPhone2: selectedMember.customerPhone2,
+                  customerFacebook: selectedMember.customerFacebook,
+                  customerInstagram: selectedMember.customerInstagram,
+                  customerTikTok: selectedMember.customerTikTok,
+                  customerLine: selectedMember.customerLine,
+                  customerX: selectedMember.customerX,
+                  customerAddress: selectedMember.customerAddress,
+                  status,
+                  isActive: status === 'active'
+                };
+                
+                await updateCustomer(selectedMember.customerId, updateData);
+                showSnackbar(`Customer marked as ${status}`, 'success');
+                refetch(); // Refresh the list to show updated status
+                break;
               }
-              break;
-            case 'banUser':
-              // Handle ban user
-              if (selectedMember) {
-                updateCustomer(selectedMember.customerId, { status: 'canceled' });
-                showSnackbar('Customer has been banned', 'success');
-              }
-              break;
-            case 'report':
-              // Handle report
-              console.log('Report user:', selectedMember?.customerId);
-              showSnackbar('User has been reported', 'info');
-              break;
-            default:
-              break;
+                
+              case 'report':
+                showSnackbar('Report submitted', 'info');
+                break;
+                
+              default:
+                console.log('Action not handled:', action);
+            }
+          } catch (error) {
+            console.error('Error handling action:', error);
+            showSnackbar('Failed to update customer status', 'error');
+          } finally {
+            handleActionMenuClose();
           }
         }}
-        isActive={selectedMember?.isActive}
       />
 
 

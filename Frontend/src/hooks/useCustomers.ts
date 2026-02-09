@@ -142,12 +142,6 @@ export const useCustomers = () => {
   
   // Debug log to check the status stats
   useEffect(() => {
-    console.log('=== Status Stats Debug ===');
-    console.log('Raw statusStats from Redux:', statusStats);
-    console.log('Active count:', getStatusCount('active'));
-    console.log('Inactive count:', getStatusCount('inactive'));
-    console.log('Canceled count:', getStatusCount('canceled'));
-    console.log('=========================');
   }, [statusStats, getStatusCount]);
 
   // Refetch data when page or pageSize changes

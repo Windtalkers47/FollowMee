@@ -7,6 +7,7 @@ import cookieParser from 'cookie-parser';
 import dataSource from './config/database';
 import dotenv from 'dotenv';
 import { logger } from './utils/logger';
+import { processObjectDates } from './utils/date.utils';
 
 // Import routes
 import authRoutes from './routes/auth.routes';
@@ -90,9 +91,6 @@ class App {
       exposedHeaders: ['set-cookie']
     }));
 
-    // Set security HTTP headers
-    this.app.use(helmet());
-
     // Parse JSON request body
     this.app.use(express.json());
 
@@ -106,6 +104,24 @@ class App {
     if (process.env.NODE_ENV === 'development') {
       this.app.use(morgan('dev'));
     }
+
+    // Apply response interceptor to format dates
+    this.app.use((req, res, next) => {
+      const originalJson = res.json.bind(res);
+      res.json = function (data: any) {
+        // Only process if data exists and is an object
+        if (data && typeof data === 'object') {
+          // If it's an object with data property (common pattern in your responses)
+          if ('data' in data) {
+            data.data = processObjectDates(data.data);
+          } else {
+            data = processObjectDates(data);
+          }
+        }
+        return originalJson(data);
+      };
+      next();
+    });
   }
 
   private initializeRoutes(): void {

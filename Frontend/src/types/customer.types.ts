@@ -17,6 +17,7 @@ export interface CustomerData {
   customerAddress: string | null;
   isActive: boolean;
   status: CustomerStatus;
+  customerImageUrl?: string | null;
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;

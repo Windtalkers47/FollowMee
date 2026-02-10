@@ -877,17 +877,24 @@ const CustomerPage = () => {
                             }
                           >
                             <Avatar
+                              src={customer.customerImageUrl || undefined}
+                              alt={customer.fullName || customer.customerName}
                               sx={{
                                 width: 40,
                                 height: 40,
                                 bgcolor: 'primary.light',
                                 color: 'primary.contrastText',
-                                fontWeight: 600,
-                                fontSize: '1rem',
+                                '& .MuiAvatar-img': {
+                                  objectFit: 'cover'
+                                }
                               }}
                             >
-                              {customer.customerName.charAt(0).toUpperCase()}
-                              {customer.customerLastName?.charAt(0).toUpperCase() || ''}
+                              {!customer.customerImageUrl && (
+                                <>
+                                  {customer.customerName.charAt(0).toUpperCase()}
+                                  {customer.customerLastName?.charAt(0).toUpperCase() || ''}
+                                </>
+                              )}
                             </Avatar>
                           </Badge>
                           <Box>

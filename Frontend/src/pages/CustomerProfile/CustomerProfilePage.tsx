@@ -152,6 +152,8 @@ const CustomerProfilePage: React.FC = () => {
           {/* Profile */}
           <Box px={4} pb={4} textAlign="center">
             <Avatar
+              src={customer.customerImageUrl || undefined}
+              alt={customer.customerName}
               sx={{
                 width: 96,
                 height: 96,
@@ -159,10 +161,19 @@ const CustomerProfilePage: React.FC = () => {
                 mx: 'auto',
                 mt: -6,
                 border: '4px solid white',
-                bgcolor: 'primary.main',
+                bgcolor: 'primary.light',
+                color: 'primary.contrastText',
+                '& .MuiAvatar-img': {
+                  objectFit: 'cover'
+                }
               }}
             >
-              {customer.customerName?.charAt(0)}
+              {!customer.customerImageUrl && (
+                <>
+                  {customer.customerName?.charAt(0).toUpperCase()}
+                  {customer.customerLastName?.charAt(0).toUpperCase() || ''}
+                </>
+              )}
             </Avatar>
 
             <Typography variant="h5" fontWeight={700} mt={2}>
@@ -405,8 +416,19 @@ const CustomerProfilePage: React.FC = () => {
             }}
             onClick={() => navigate(`/customer-profile/${c.customerId}`)}
           >
-            <Avatar sx={{ bgcolor: 'primary.main', mb: 2 }}>
-              {c.customerName?.charAt(0)}
+            <Avatar 
+              src={c.customerImageUrl || undefined}
+              alt={c.customerName}
+              sx={{ 
+                bgcolor: 'primary.light',
+                color: 'primary.contrastText',
+                mb: 2,
+                '& .MuiAvatar-img': {
+                  objectFit: 'cover'
+                }
+              }}
+            >
+              {!c.customerImageUrl && c.customerName?.charAt(0).toUpperCase()}
             </Avatar>
 
             <Typography fontWeight={600}>

@@ -60,6 +60,7 @@ const fromApiFormat = (data: any): CustomerData => {
     customerLine: data.customerLine ?? null,
     customerX: data.customerX ?? null,
     customerAddress: data.customerAddress ?? null,
+    customerImageUrl: data.customerImageUrl ?? null,
     createdAt: data.createdAt,
     updatedAt: data.updatedAt,
     deletedAt: data.deletedAt ?? null,

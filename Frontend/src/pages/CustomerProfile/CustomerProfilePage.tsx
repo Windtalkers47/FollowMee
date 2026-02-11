@@ -1,26 +1,40 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
   Box,
   Typography,
   Avatar,
-  Button,
-  CircularProgress,
   Paper,
   IconButton,
-  Tooltip,
+  Button,
   Divider,
+  Tooltip,
+  useTheme,
+  Menu,
+  MenuItem,
+  ListItemIcon,
+  ListItemText,
+  Snackbar,
+  Alert,
+  CircularProgress,
 } from '@mui/material';
 import {
+  Edit as EditIcon,
+  ContentCopy,
   Facebook,
   Instagram,
-  Twitter,
   MusicNote,
   Message,
-  ContentCopy,
+  Twitter,
+  MoreVert,
+  Share,
+  Download,
+  CameraAlt,
+  Share as ShareIcon,
 } from '@mui/icons-material';
+import { toPng } from 'html-to-image';
 import CustomerProfileSearch from '@/components/CustomerProfileSearch';
-import { motion } from 'framer-motion';
+
 import customerApi from '@/services/api/customerApi';
 import { CustomerData } from '@/types/customer.types';
 
@@ -64,7 +78,10 @@ const CustomerProfilePage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [copied, setCopied] = useState(false);
-  const [isPublic, setIsPublic] = useState(false);
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [profileUrl, setProfileUrl] = useState('');
+  const profileRef = useRef<HTMLDivElement>(null);
 
   const loadCustomers = useCallback(async (q = '') => {
     setLoading(true);
@@ -76,7 +93,7 @@ const CustomerProfilePage: React.FC = () => {
         const customerData = await fetchCustomerById(customerId, true);
         if (customerData) {
           setCustomer(customerData);
-          setIsPublic(true);
+          setProfileUrl(`${window.location.origin}/customer-profile/${customerId}`);
         }
       }
     } catch (error) {
@@ -92,13 +109,13 @@ const CustomerProfilePage: React.FC = () => {
       const customerData = await fetchCustomerById(id, isPublicAccess);
       if (customerData) {
         setCustomer(customerData);
-        setIsPublic(isPublicAccess);
+        setProfileUrl(`${window.location.origin}/customer-profile/${id}`);
       } else if (!isPublicAccess) {
         // If customer not found with auth, try public endpoint as fallback
         const publicCustomerData = await fetchCustomerById(id, true);
         if (publicCustomerData) {
           setCustomer(publicCustomerData);
-          setIsPublic(true);
+          setProfileUrl(`${window.location.origin}/customer-profile/${id}`);
         }
       }
     } catch (error) {
@@ -117,12 +134,71 @@ const CustomerProfilePage: React.FC = () => {
     }
   }, [customerId]);
 
-  const profileUrl = `${window.location.origin}/customer-profile/${customerId}`;
-
   const copyUrl = () => {
     navigator.clipboard.writeText(profileUrl);
+    setSnackbar({ open: true, message: 'Link copied to clipboard!', severity: 'success' });
     setCopied(true);
-    setTimeout(() => setCopied(false), 1200);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleMenuClose = () => {
+    setAnchorEl(null);
+  };
+
+  const downloadImage = async () => {
+    if (!profileRef.current) return;
+    
+    try {
+      const dataUrl = await toPng(profileRef.current, {
+        backgroundColor: '#ffffff',
+        quality: 1,
+        pixelRatio: 2, // For higher resolution
+      });
+      
+      const link = document.createElement('a');
+      link.download = `FollowMee-${customer?.customerName || 'customer'}.png`;
+      link.href = dataUrl;
+      link.click();
+      
+      setSnackbar({ open: true, message: 'Image downloaded!', severity: 'success' });
+    } catch (error) {
+      console.error('Error downloading image:', error);
+      setSnackbar({ 
+        open: true, 
+        message: error instanceof Error ? error.message : 'Failed to download image', 
+        severity: 'error' 
+      });
+    }
+    
+    handleMenuClose();
+  };
+
+  const shareProfile = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `${customer?.customerName}'s Profile`,
+          text: `Check out ${customer?.customerName}'s profile on FollowMee`,
+          url: profileUrl,
+        });
+      } catch (err: unknown) {
+        const error = err as Error;
+        if (error.name !== 'AbortError') {
+          setSnackbar({ 
+            open: true, 
+            message: 'Error sharing profile', 
+            severity: 'error' 
+          });
+        }
+      }
+    } else {
+      copyUrl();
+    }
+    handleMenuClose();
   };
 
   /* ================= Loading ================= */
@@ -138,19 +214,107 @@ const CustomerProfilePage: React.FC = () => {
   /* ================= SINGLE PROFILE ================= */
 
   if (customerId && customer) {
+    const hasSocialMedia = customer.customerFacebook || customer.customerInstagram || 
+                         customer.customerTikTok || customer.customerLine || customer.customerX;
     return (
-      <Box maxWidth={900} mx="auto" mt={4}>
-        <Paper sx={{ borderRadius: 4, overflow: 'hidden' }}>
+      <Box maxWidth={900} mx="auto" mt={4} ref={profileRef}>
+        {/* Share Menu */}
+        <Box display="flex" justifyContent="flex-end" mb={2}>
+          <Button
+            variant="contained"
+            color="primary"
+            startIcon={<ShareIcon />}
+            onClick={handleMenuOpen}
+            size="small"
+            sx={{ borderRadius: 2 }}
+          >
+            Share
+          </Button>
+          <Menu
+            anchorEl={anchorEl}
+            open={Boolean(anchorEl)}
+            onClose={handleMenuClose}
+            anchorOrigin={{
+              vertical: 'bottom',
+              horizontal: 'right',
+            }}
+            transformOrigin={{
+              vertical: 'top',
+              horizontal: 'right',
+            }}
+          >
+            <MenuItem onClick={shareProfile}>
+              <ListItemIcon>
+                <Share fontSize="small" />
+              </ListItemIcon>
+              <ListItemText>Share Profile</ListItemText>
+            </MenuItem>
+            <MenuItem onClick={downloadImage}>
+              <ListItemIcon>
+                <Download fontSize="small" />
+              </ListItemIcon>
+              <ListItemText>Download as Image</ListItemText>
+            </MenuItem>
+            <MenuItem onClick={copyUrl}>
+              <ListItemIcon>
+                <ContentCopy fontSize="small" />
+              </ListItemIcon>
+              <ListItemText>Copy Profile Link</ListItemText>
+            </MenuItem>
+          </Menu>
+        </Box>
+        <Paper sx={{ 
+          borderRadius: 4, 
+          overflow: 'hidden',
+          position: 'relative',
+          '&:hover .edit-button': {
+            opacity: 1,
+          },
+          boxShadow: 3,
+        }}>
           {/* Header */}
           <Box
             sx={{
-              height: 160,
+              height: 200,
               background: 'linear-gradient(135deg, #4f46e5, #6366f1)',
+              position: 'relative',
+              overflow: 'hidden',
+              '&::after': {
+                content: '""',
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                background: 'linear-gradient(45deg, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.2) 100%)',
+              },
             }}
-          />
+          >
+            <Box 
+              className="edit-button"
+              sx={{
+                position: 'absolute',
+                top: 16,
+                right: 16,
+                bgcolor: 'rgba(255,255,255,0.9)',
+                p: 1,
+                borderRadius: '50%',
+                boxShadow: 2,
+                cursor: 'pointer',
+                opacity: 0,
+                transition: 'all 0.3s ease',
+                zIndex: 1,
+                '&:hover': {
+                  transform: 'scale(1.1)',
+                },
+              }}
+            >
+              <EditIcon color="primary" />
+            </Box>
+          </Box>
 
           {/* Profile */}
-          <Box px={4} pb={4} textAlign="center">
+          <Box px={{ xs: 2, sm: 4 }} pb={4} textAlign="center">
             <Avatar
               src={customer.customerImageUrl || undefined}
               alt={customer.customerName}
@@ -176,13 +340,28 @@ const CustomerProfilePage: React.FC = () => {
               )}
             </Avatar>
 
-            <Typography variant="h5" fontWeight={700} mt={2}>
-              {customer.customerName} {customer.customerLastName}
-            </Typography>
+            <Box display="flex" alignItems="center" justifyContent="center" gap={1} mt={2}>
+              <Typography variant="h5" fontWeight={700}>
+                {customer.customerName} {customer.customerLastName}
+              </Typography>
+              <Tooltip title="Verified" arrow>
+                <Box sx={{ color: 'primary.main', display: 'inline-flex' }}>
+                  <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                </Box>
+              </Tooltip>
+            </Box>
 
             <Typography color="text.secondary" mt={0.5}>
-              {customer.customerEmail || 'No description provided'}
+              {customer.customerEmail}
             </Typography>
+            
+            {customer.customerPhone1 && (
+              <Typography color="text.secondary" mt={0.5}>
+                {customer.customerPhone1}
+              </Typography>
+            )}
 
             {customer.customerAddress && (
               <Typography color="text.secondary" mt={1}>
@@ -210,7 +389,7 @@ const CustomerProfilePage: React.FC = () => {
               )}
             </Box> */}
 
-            <Box mt={3} display="flex" justifyContent="center" gap={1.5} flexWrap="wrap">
+            <Box mt={hasSocialMedia ? 0 : 3} display="flex" justifyContent="center" gap={1.5} flexWrap="wrap">
               {customer.customerFacebook && (
                 <Tooltip title="Facebook" arrow>
                   <IconButton
@@ -308,7 +487,7 @@ const CustomerProfilePage: React.FC = () => {
               )}
             </Box>
 
-            <Divider sx={{ my: 3 }} />
+            {hasSocialMedia && <Divider sx={{ my: 3 }} />}
 
             {/* Profile URL */}
             <Box
@@ -364,11 +543,40 @@ const CustomerProfilePage: React.FC = () => {
           </Box>
         </Paper>
 
-        <Box textAlign="center" mt={3}>
-          <Button component={Link} to="/customer-profile">
-            ← Back to customers
+        <Box textAlign="center" mt={3} display="flex" justifyContent="center" gap={2}>
+          <Button 
+            variant="outlined" 
+            component={Link} 
+            to="/customer-profile"
+            startIcon={<span>←</span>}
+            sx={{ borderRadius: 3, px: 3, py: 1 }}
+          >
+            Back to customers
+          </Button>
+          <Button 
+            variant="contained" 
+            startIcon={<CameraAlt />}
+            onClick={downloadImage}
+            sx={{ borderRadius: 3, px: 3, py: 1 }}
+          >
+            Save as Image
           </Button>
         </Box>
+
+        <Snackbar 
+          open={snackbar.open} 
+          autoHideDuration={3000} 
+          onClose={() => setSnackbar({...snackbar, open: false})}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        >
+          <Alert 
+            onClose={() => setSnackbar({...snackbar, open: false})} 
+            severity={snackbar.severity as any}
+            sx={{ width: '100%' }}
+          >
+            {snackbar.message}
+          </Alert>
+        </Snackbar>
       </Box>
     );
   }

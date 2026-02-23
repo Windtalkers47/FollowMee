@@ -92,10 +92,10 @@ class App {
     }));
 
     // Parse JSON request body
-    this.app.use(express.json());
+    this.app.use(express.json({ limit: '10mb' })); //  JSON parsing limit to 10MB
 
     // Parse urlencoded request body
-    this.app.use(express.urlencoded({ extended: true }));
+    this.app.use(express.urlencoded({ extended: true, limit: '10mb' })); // URL encoded parsing limit to 10MB
 
     // Parse cookies
     this.app.use(cookieParser());

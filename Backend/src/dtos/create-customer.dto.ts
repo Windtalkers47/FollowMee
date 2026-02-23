@@ -1,4 +1,4 @@
-import { IsEmail, IsBoolean, IsNotEmpty, IsOptional, IsString, MaxLength, IsBase64 } from 'class-validator';
+import { IsEmail, IsBoolean, IsNotEmpty, IsOptional, IsString, MaxLength, IsBase64, IsEnum } from 'class-validator';
 
 export class CreateCustomerDto {
   @IsString()
@@ -60,9 +60,9 @@ export class CreateCustomerDto {
   @IsOptional()
   customerImageUrl?: string;
 
-  @IsBoolean()
+  @IsEnum(['active', 'inactive', 'canceled'], { message: 'Status must be active, inactive, or canceled' })
   @IsOptional()
-  isActive: boolean = true;
+  status?: 'active' | 'inactive' | 'canceled' = 'active';
 
   @IsString()
   @IsOptional()

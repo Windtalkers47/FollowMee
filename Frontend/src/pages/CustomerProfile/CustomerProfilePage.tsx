@@ -154,9 +154,8 @@ const CustomerProfilePage: React.FC = () => {
     
     try {
       const dataUrl = await toPng(profileRef.current, {
-        backgroundColor: '#ffffff',
+        pixelRatio: 2,
         quality: 1,
-        pixelRatio: 2, // For higher resolution
       });
       
       const link = document.createElement('a');
@@ -219,8 +218,7 @@ const CustomerProfilePage: React.FC = () => {
     
     // Instagram Story dimensions: 1080x1350 (9:16 aspect ratio)
     const storyStyle = {
-      width: '100%',
-      maxWidth: '540px', // Half size for better display on desktop, but will be full size in image
+      width: '540px',
       height: '675px', // 9:16 aspect ratio (540:960)
       mx: 'auto',
       position: 'relative',
@@ -243,7 +241,11 @@ const CustomerProfilePage: React.FC = () => {
               top: 0,
               left: 0,
               right: 0,
-              height: '40%', // ปรับขนาดสีของการ์ด Profile
+              // height: '40%', // ปรับขนาดสีของการ์ด Profile
+              width: '540px',
+              height: '960px',
+              borderRadius: 4,
+              overflow: 'hidden',
               background: 'linear-gradient(135deg, #6366f1, #8b5cf6, #d946ef)',
               zIndex: 0,
               '&::after': {
@@ -331,7 +333,6 @@ const CustomerProfilePage: React.FC = () => {
                   mx: 'auto',
                   border: '4px solid white',
                   bgcolor: 'rgba(255,255,255,0.1)',
-                  backdropFilter: 'blur(10px)',
                   '& .MuiAvatar-img': {
                     objectFit: 'cover'
                   }
@@ -582,378 +583,6 @@ const CustomerProfilePage: React.FC = () => {
       </Box>
     );
   }
-
-
-
-  //  /* ================= SINGLE PROFILE ================= */
-
-  //  if (customerId && customer) {
-  //   const hasSocialMedia = customer.customerFacebook || customer.customerInstagram || 
-  //                        customer.customerTikTok || customer.customerLine || customer.customerX;
-  //   return (
-  //     <Box maxWidth={900} mx="auto" mt={4} ref={profileRef}>
-  //       {/* Share Menu */}
-  //       <Box display="flex" justifyContent="flex-end" mb={2}>
-  //         <Button
-  //           variant="contained"
-  //           color="primary"
-  //           startIcon={<ShareIcon />}
-  //           onClick={handleMenuOpen}
-  //           size="small"
-  //           sx={{ borderRadius: 2 }}
-  //         >
-  //           Share
-  //         </Button>
-  //         <Menu
-  //           anchorEl={anchorEl}
-  //           open={Boolean(anchorEl)}
-  //           onClose={handleMenuClose}
-  //           anchorOrigin={{
-  //             vertical: 'bottom',
-  //             horizontal: 'right',
-  //           }}
-  //           transformOrigin={{
-  //             vertical: 'top',
-  //             horizontal: 'right',
-  //           }}
-  //         >
-  //           <MenuItem onClick={shareProfile}>
-  //             <ListItemIcon>
-  //               <Share fontSize="small" />
-  //             </ListItemIcon>
-  //             <ListItemText>Share Profile</ListItemText>
-  //           </MenuItem>
-  //           <MenuItem onClick={downloadImage}>
-  //             <ListItemIcon>
-  //               <Download fontSize="small" />
-  //             </ListItemIcon>
-  //             <ListItemText>Download as Image</ListItemText>
-  //           </MenuItem>
-  //           <MenuItem onClick={copyUrl}>
-  //             <ListItemIcon>
-  //               <ContentCopy fontSize="small" />
-  //             </ListItemIcon>
-  //             <ListItemText>Copy Profile Link</ListItemText>
-  //           </MenuItem>
-  //         </Menu>
-  //       </Box>
-  //       <Paper sx={{ 
-  //         borderRadius: 4, 
-  //         overflow: 'hidden',
-  //         position: 'relative',
-  //         '&:hover .edit-button': {
-  //           opacity: 1,
-  //         },
-  //         boxShadow: 3,
-  //       }}>
-  //         {/* Header */}
-  //         <Box
-  //           sx={{
-  //             height: 200,
-  //             background: 'linear-gradient(135deg, #4f46e5, #6366f1)',
-  //             position: 'relative',
-  //             overflow: 'hidden',
-  //             '&::after': {
-  //               content: '""',
-  //               position: 'absolute',
-  //               top: 0,
-  //               left: 0,
-  //               right: 0,
-  //               bottom: 0,
-  //               background: 'linear-gradient(45deg, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.2) 100%)',
-  //             },
-  //           }}
-  //         >
-  //           <Box 
-  //             className="edit-button"
-  //             sx={{
-  //               position: 'absolute',
-  //               top: 16,
-  //               right: 16,
-  //               bgcolor: 'rgba(255,255,255,0.9)',
-  //               p: 1,
-  //               borderRadius: '50%',
-  //               boxShadow: 2,
-  //               cursor: 'pointer',
-  //               opacity: 0,
-  //               transition: 'all 0.3s ease',
-  //               zIndex: 1,
-  //               '&:hover': {
-  //                 transform: 'scale(1.1)',
-  //               },
-  //             }}
-  //           >
-  //             <EditIcon color="primary" />
-  //           </Box>
-  //         </Box>
-
-  //         {/* Profile */}
-  //         <Box px={{ xs: 2, sm: 4 }} pb={4} textAlign="center">
-  //           <Avatar
-  //             src={customer.customerImageUrl || undefined}
-  //             alt={customer.customerName}
-  //             sx={{
-  //               width: 96,
-  //               height: 96,
-  //               fontSize: 40,
-  //               mx: 'auto',
-  //               mt: -6,
-  //               border: '4px solid white',
-  //               bgcolor: 'primary.light',
-  //               color: 'primary.contrastText',
-  //               '& .MuiAvatar-img': {
-  //                 objectFit: 'cover'
-  //               }
-  //             }}
-  //           >
-  //             {!customer.customerImageUrl && (
-  //               <>
-  //                 {customer.customerName?.charAt(0).toUpperCase()}
-  //                 {customer.customerLastName?.charAt(0).toUpperCase() || ''}
-  //               </>
-  //             )}
-  //           </Avatar>
-
-  //           <Box display="flex" alignItems="center" justifyContent="center" gap={1} mt={2}>
-  //             <Typography variant="h5" fontWeight={700}>
-  //               {customer.customerName} {customer.customerLastName}
-  //             </Typography>
-  //             <Tooltip title="Verified" arrow>
-  //               <Box sx={{ color: 'primary.main', display: 'inline-flex' }}>
-  //                 <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
-  //                   <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-  //                 </svg>
-  //               </Box>
-  //             </Tooltip>
-  //           </Box>
-
-  //           <Typography color="text.secondary" mt={0.5}>
-  //             {customer.customerEmail}
-  //           </Typography>
-            
-  //           {customer.customerPhone1 && (
-  //             <Typography color="text.secondary" mt={0.5}>
-  //               {customer.customerPhone1}
-  //             </Typography>
-  //           )}
-
-  //           {customer.customerAddress && (
-  //             <Typography color="text.secondary" mt={1}>
-  //               {customer.customerAddress}
-  //             </Typography>
-  //           )}
-
-  //           {/* Socials */}
-  //           {/* <Box mt={3} display="flex" justifyContent="center" gap={1.5}>
-  //             {socials.map(
-  //               (s) =>
-  //                 customer[s.key] && (
-  //                   <IconButton
-  //                     key={s.key}
-  //                     href={customer[s.key] as string}
-  //                     target="_blank"
-  //                     sx={{
-  //                       bgcolor: 'grey.100',
-  //                       '&:hover': { bgcolor: 'primary.light', color: 'white' },
-  //                     }}
-  //                   >
-  //                     {s.icon}
-  //                   </IconButton>
-  //                 )
-  //             )}
-  //           </Box> */}
-
-  //           <Box mt={hasSocialMedia ? 0 : 3} display="flex" justifyContent="center" gap={1.5} flexWrap="wrap">
-  //             {customer.customerFacebook && (
-  //               <Tooltip title="Facebook" arrow>
-  //                 <IconButton
-  //                   size="small"
-  //                   href={customer.customerFacebook}
-  //                   target="_blank"
-  //                   onClick={(e) => e.stopPropagation()}
-  //                   sx={{
-  //                     bgcolor: '#1877F2',
-  //                     color: 'white',
-  //                     '&:hover': { bgcolor: '#166FE5' },
-  //                     width: 28,
-  //                     height: 28
-  //                   }}
-  //                 >
-  //                   <Facebook fontSize="small" />
-  //                 </IconButton>
-  //               </Tooltip>
-  //             )}
-  //             {customer.customerInstagram && (
-  //               <Tooltip title="Instagram" arrow>
-  //                 <IconButton
-  //                   size="small"
-  //                   href={customer.customerInstagram}
-  //                   target="_blank"
-  //                   onClick={(e) => e.stopPropagation()}
-  //                   sx={{
-  //                     background: 'radial-gradient(circle at 30% 107%, #fdf497 0%, #fdf497 5%, #fd5949 45%,#d6249f 60%,#285AEB 90%)',
-  //                     color: 'white',
-  //                     '&:hover': { opacity: 0.9 },
-  //                     width: 28,
-  //                     height: 28
-  //                   }}
-  //                 >
-  //                   <Instagram fontSize="small" />
-  //                 </IconButton>
-  //               </Tooltip>
-  //             )}
-  //             {customer.customerTikTok && (
-  //               <Tooltip title="TikTok" arrow>
-  //                 <IconButton
-  //                   size="small"
-  //                   href={customer.customerTikTok}
-  //                   target="_blank"
-  //                   onClick={(e) => e.stopPropagation()}
-  //                   sx={{
-  //                     bgcolor: '#000000',
-  //                     color: 'white',
-  //                     '&:hover': { bgcolor: '#333333' },
-  //                     width: 28,
-  //                     height: 28
-  //                   }}
-  //                 >
-  //                   <MusicNote fontSize="small" />
-  //                 </IconButton>
-  //               </Tooltip>
-  //             )}
-  //             {customer.customerLine && (
-  //               <Tooltip title="Line" arrow>
-  //                 <IconButton
-  //                   size="small"
-  //                   href={`https://line.me/ti/p/${customer.customerLine}`}
-  //                   target="_blank"
-  //                   onClick={(e) => e.stopPropagation()}
-  //                   sx={{
-  //                     bgcolor: '#06C755',
-  //                     color: 'white',
-  //                     '&:hover': { bgcolor: '#05a548' },
-  //                     width: 28,
-  //                     height: 28
-  //                   }}
-  //                 >
-  //                   <Message fontSize="small" />
-  //                 </IconButton>
-  //               </Tooltip>
-  //             )}
-  //             {customer.customerX && (
-  //               <Tooltip title="X (Twitter)" arrow>
-  //                 <IconButton
-  //                   size="small"
-  //                   href={customer.customerX}
-  //                   target="_blank"
-  //                   onClick={(e) => e.stopPropagation()}
-  //                   sx={{
-  //                     bgcolor: '#000000',
-  //                     color: 'white',
-  //                     '&:hover': { bgcolor: '#333333' },
-  //                     width: 28,
-  //                     height: 28
-  //                   }}
-  //                 >
-  //                   <Twitter fontSize="small" />
-  //                 </IconButton>
-  //               </Tooltip>
-  //             )}
-  //           </Box>
-
-  //           {hasSocialMedia && <Divider sx={{ my: 3 }} />}
-
-  //           {/* Profile URL */}
-  //           <Box
-  //             sx={{
-  //               bgcolor: 'background.paper',
-  //               border: '1px solid',
-  //               borderColor: 'divider',
-  //               p: 1.5,
-  //               borderRadius: 2,
-  //               display: 'flex',
-  //               alignItems: 'center',
-  //               justifyContent: 'space-between',
-  //               gap: 1,
-  //               transition: 'all 0.2s ease',
-  //               '&:hover': {
-  //                 borderColor: 'primary.main',
-  //                 boxShadow: '0 0 0 1px',
-  //               },
-  //             }}
-  //           >
-  //             <Typography 
-  //               variant="body2" 
-  //               noWrap 
-  //               sx={{
-  //                 fontFamily: 'monospace',
-  //                 color: 'text.primary',
-  //                 p: 1,
-  //                 borderRadius: 1,
-  //                 bgcolor: 'action.hover',
-  //                 flex: 1,
-  //                 overflow: 'hidden',
-  //                 textOverflow: 'ellipsis',
-  //               }}
-  //             >
-  //               {profileUrl}
-  //             </Typography>
-  //             <Tooltip title={copied ? 'Copied!' : 'Copy URL'} arrow>
-  //               <IconButton 
-  //                 onClick={copyUrl}
-  //                 size="small"
-  //                 sx={{
-  //                   color: 'text.secondary',
-  //                   '&:hover': {
-  //                     color: 'primary.main',
-  //                     bgcolor: 'action.hover',
-  //                   },
-  //                 }}
-  //               >
-  //                 <ContentCopy fontSize="small" />
-  //               </IconButton>
-  //             </Tooltip>
-  //           </Box>
-  //         </Box>
-  //       </Paper>
-
-  //       <Box textAlign="center" mt={3} display="flex" justifyContent="center" gap={2}>
-  //         <Button 
-  //           variant="outlined" 
-  //           component={Link} 
-  //           to="/customer-profile"
-  //           startIcon={<span>←</span>}
-  //           sx={{ borderRadius: 3, px: 3, py: 1 }}
-  //         >
-  //           Back to customers
-  //         </Button>
-  //         <Button 
-  //           variant="contained" 
-  //           startIcon={<CameraAlt />}
-  //           onClick={downloadImage}
-  //           sx={{ borderRadius: 3, px: 3, py: 1 }}
-  //         >
-  //           Save as Image
-  //         </Button>
-  //       </Box>
-
-  //       <Snackbar 
-  //         open={snackbar.open} 
-  //         autoHideDuration={3000} 
-  //         onClose={() => setSnackbar({...snackbar, open: false})}
-  //         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-  //       >
-  //         <Alert 
-  //           onClose={() => setSnackbar({...snackbar, open: false})} 
-  //           severity={snackbar.severity as any}
-  //           sx={{ width: '100%' }}
-  //         >
-  //           {snackbar.message}
-  //         </Alert>
-  //       </Snackbar>
-  //     </Box>
-  //   );
-  // }
 
   /* ================= LIST ================= */
 

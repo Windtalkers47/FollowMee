@@ -1,6 +1,7 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, BeforeInsert, BeforeUpdate } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, BeforeInsert, BeforeUpdate, OneToMany } from 'typeorm';
 import { IsEmail, IsNotEmpty, IsOptional } from 'class-validator';
 import * as bcrypt from 'bcrypt';
+import { UserRole } from './UserRole';
 
 @Entity('users')
 export class User {
@@ -60,6 +61,10 @@ export class User {
 
   @Column('datetime', { nullable: true })
   lastLogin!: Date | null;
+
+  // Relations
+  @OneToMany(() => UserRole, userRole => userRole.user)
+  userRoles!: UserRole[];
 
   // -------------------------
   // Hooks

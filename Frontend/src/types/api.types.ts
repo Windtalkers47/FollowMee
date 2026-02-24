@@ -13,7 +13,8 @@ export interface LoginResponse {
     userId: number;
     userName: string;
     userEmail: string;
-    userRole?: string;
+    roles: string[];
+    fullName?: string;
   };
   accessToken: string;
   refreshToken: string;

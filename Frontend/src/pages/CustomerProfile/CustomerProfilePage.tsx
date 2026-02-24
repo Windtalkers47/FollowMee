@@ -246,7 +246,33 @@ const CustomerProfilePage: React.FC = () => {
               height: '960px',
               borderRadius: 4,
               overflow: 'hidden',
-              background: 'linear-gradient(135deg, #6366f1, #8b5cf6, #d946ef)',
+              // background: 'linear-gradient(135deg, #6366f1, #8b5cf6, #d946ef)',
+              // background: 'linear-gradient(135deg, #ff512f, #dd2476)',
+            //   background: `
+            //   radial-gradient(circle at 50% 30%, rgba(255,255,255,0.3), transparent 60%),
+            //   linear-gradient(135deg, #ff6b6b, #ffa726, #ffd54f)
+            // `,
+
+            // background: 'linear-gradient(160deg, #3b0a0a, #7f1d1d)',
+          //   background: `
+          //   radial-gradient(circle at 50% 25%, rgba(255,255,255,0.08), transparent 60%),
+          //   linear-gradient(160deg, #3b0a0a, #7f1d1d)
+          // `,
+
+          // background: '#0f172a',
+
+          // background: 'linear-gradient(145deg, #1e293b, #334155)',
+
+              background: 'linear-gradient(160deg, #fbc2eb, #fcd5ce)',
+
+              // background: 'linear-gradient(160deg, #dbeafe, #e0f2fe)',
+
+              // background: 'linear-gradient(160deg, #d1fae5, #ecfdf5)',
+
+              // background: '#f8fafc',
+
+              // background: 'linear-gradient(160deg, #e0f2fe, #f0f9ff)',
+
               zIndex: 0,
               '&::after': {
                 content: '""',
@@ -269,7 +295,9 @@ const CustomerProfilePage: React.FC = () => {
               display: 'flex',
               flexDirection: 'column',
               p: 3,
-              color: 'black',
+              // color: 'Black',
+              // color: '#1f2937',
+              color: '#1e293b',
               textAlign: 'center',
             }}
           >
@@ -322,17 +350,34 @@ const CustomerProfilePage: React.FC = () => {
               </Menu>
             </Box>
             {/* Profile Picture */}
-            <Box sx={{ mt: 4, mb: 3 }}>
+            <Box sx={{ mt: 6, mb: 4, position: 'relative' }}>
+              {/* Radial Light Background */}
+              <Box
+                sx={{
+                  position: 'absolute',
+                  top: '50%',
+                  left: '50%',
+                  transform: 'translate(-50%, -50%)',
+                  width: 280,
+                  height: 280,
+                  background: 'radial-gradient(circle at center, rgba(255,255,255,0.25), transparent 70%)',
+                  borderRadius: '50%',
+                  zIndex: 0,
+                }}
+              />
               <Avatar
                 src={customer.customerImageUrl || undefined}
                 alt={customer.customerName}
                 sx={{
-                  width: 160,
-                  height: 160,
-                  fontSize: 60,
+                  width: 200,
+                  height: 200,
+                  fontSize: 80,
                   mx: 'auto',
-                  border: '4px solid white',
+                  border: '6px solid rgba(255,255,255,0.8)',
+                  boxShadow: '0 8px 24px rgba(0,0,0,0.25)',
                   bgcolor: 'rgba(255,255,255,0.1)',
+                  position: 'relative',
+                  zIndex: 1,
                   '& .MuiAvatar-img': {
                     objectFit: 'cover'
                   }
@@ -348,34 +393,22 @@ const CustomerProfilePage: React.FC = () => {
             </Box>
 
             {/* Name and Title */}
-            <Box sx={{ mb: 3 }}>
-              <Typography variant="h4" fontWeight={800} sx={{ mb: 0.5 }}>
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="h3" fontWeight={900} letterSpacing={1} sx={{ mb: 1, color: '#1f2937' }}>
                 {customer.customerName} {customer.customerLastName}
               </Typography>
-              <Typography variant="subtitle1" sx={{ opacity: 0.9, mb: 2 }}>
-                {customer.customerEmail}
-              </Typography>
-              
-              {customer.customerPhone1 && (
-                <Typography variant="body1" sx={{ mb: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
-                  <span>📱</span> {customer.customerPhone1}
-                </Typography>
-              )}
-
-              {customer.customerAddress && (
-                <Typography variant="body2" sx={{ opacity: 0.9, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
-                  <span>📍</span> {customer.customerAddress}
-                </Typography>
-              )}
+              {/* <Typography variant="subtitle1" sx={{ opacity: 0.7 }}>
+                Follow me
+              </Typography> */}
             </Box>
 
             {/* Social Icons */}
             <Box sx={{ 
               display: 'flex', 
               justifyContent: 'center', 
-              gap: 2,
+              gap: 3,
               mt: 'auto',
-              mb: 3,
+              mb: 4,
               }}>
                 {customer.customerFacebook && (
                   <Tooltip title="Facebook" arrow>
@@ -386,13 +419,14 @@ const CustomerProfilePage: React.FC = () => {
                       sx={{
                         bgcolor: '#1877F2',
                         color: 'white',
+                        boxShadow: '0 8px 20px rgba(0,0,0,0.25)',
                         '&:hover': { 
                           bgcolor: '#166FE5',
                           transform: 'translateY(-2px)',
                         },
                         transition: 'all 0.3s ease',
-                        width: 48,
-                        height: 48
+                        width: 56,
+                        height: 56
                       }}
                     >
                       <Facebook />
@@ -408,13 +442,14 @@ const CustomerProfilePage: React.FC = () => {
                       sx={{
                         background: 'radial-gradient(circle at 30% 107%, #fdf497 0%, #fdf497 5%, #fd5949 45%,#d6249f 60%,#285AEB 90%)',
                         color: 'white',
+                        boxShadow: '0 8px 20px rgba(0,0,0,0.25)',
                         '&:hover': { 
                           opacity: 0.9,
                           transform: 'translateY(-2px)',
                         },
                         transition: 'all 0.3s ease',
-                        width: 48,
-                        height: 48
+                        width: 56,
+                        height: 56
                       }}
                     >
                       <Instagram />
@@ -430,13 +465,14 @@ const CustomerProfilePage: React.FC = () => {
                       sx={{
                         bgcolor: '#000000',
                         color: 'white',
+                        boxShadow: '0 8px 20px rgba(0,0,0,0.25)',
                         '&:hover': { 
                           bgcolor: '#333333',
                           transform: 'translateY(-2px)',
                         },
                         transition: 'all 0.3s ease',
-                        width: 48,
-                        height: 48
+                        width: 56,
+                        height: 56
                       }}
                     >
                       <MusicNote />
@@ -452,13 +488,14 @@ const CustomerProfilePage: React.FC = () => {
                       sx={{
                         bgcolor: '#06C755',
                         color: 'white',
+                        boxShadow: '0 8px 20px rgba(0,0,0,0.25)',
                         '&:hover': { 
                           bgcolor: '#05a548',
                           transform: 'translateY(-2px)',
                         },
                         transition: 'all 0.3s ease',
-                        width: 48,
-                        height: 48
+                        width: 56,
+                        height: 56
                       }}
                     >
                       <Message />
@@ -474,13 +511,14 @@ const CustomerProfilePage: React.FC = () => {
                       sx={{
                         bgcolor: '#000000',
                         color: 'white',
+                        boxShadow: '0 8px 20px rgba(0,0,0,0.25)',
                         '&:hover': { 
                           bgcolor: '#333333',
                           transform: 'translateY(-2px)',
                         },
                         transition: 'all 0.3s ease',
-                        width: 48,
-                        height: 48
+                        width: 56,
+                        height: 56
                       }}
                     >
                       <Twitter />
@@ -490,31 +528,8 @@ const CustomerProfilePage: React.FC = () => {
               </Box>
 
               {/* Branding */}
-              <Box sx={{ mt: 'auto', textAlign: 'center', opacity: 0.7 }}>
-                <Typography variant="caption" sx={{ display: 'block', mb: 1 }}>
-                  Scan to save contact
-                </Typography>
-                <Box sx={{ 
-                  display: 'inline-block',
-                  p: 1,
-                  bgcolor: 'white',
-                  borderRadius: 1,
-                  boxShadow: 1
-                }}>
-                  {/* Replace with your QR code component or image */}
-                  <Box sx={{ 
-                    width: 80, 
-                    height: 80, 
-                    bgcolor: 'grey.200',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: 'grey.500'
-                  }}>
-                    QR Code
-                  </Box>
-                </Box>
-                <Typography variant="caption" sx={{ display: 'block', mt: 1, fontWeight: 600 }}>
+              <Box sx={{ mt: 'auto', textAlign: 'center', opacity: 0.6 }}>
+                <Typography variant="caption" sx={{ display: 'block', fontWeight: 600, letterSpacing: 1 }}>
                   FollowMee
                 </Typography>
               </Box>

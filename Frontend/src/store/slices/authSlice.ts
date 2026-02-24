@@ -1,6 +1,6 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import authApi from '../../api/auth.api';
-import type { LoginResponse } from '../../types/api.types';
+import type { LoginResponse, ApiResponse } from '../../types/api.types';
 import type { RootState } from '../store';
 
 /* =====================
@@ -16,7 +16,8 @@ export interface AuthUser {
   userId: number;
   userName: string;
   userEmail: string;
-  userRole?: string;
+  roles: string[];
+  fullName?: string;
 }
 
 export interface AuthError {
@@ -49,7 +50,7 @@ const initialState: AuthState = {
    Thunk
 ===================== */
 export const loginUser = createAsyncThunk<
-  LoginResponse,
+  ApiResponse<LoginResponse['user']>,
   LoginCredentials,
   { rejectValue: AuthError }
 >('auth/login', async (credentials, { rejectWithValue }) => {
@@ -75,7 +76,13 @@ const authSlice = createSlice({
   reducers: {
     /* Restore session (app load only) */
     restoreSession: (state, action: PayloadAction<LoginResponse>) => {
-      state.user = action.payload.user;
+      state.user = {
+        userId: action.payload.user.userId,
+        userName: action.payload.user.userName,
+        userEmail: action.payload.user.userEmail,
+        roles: action.payload.user?.roles,
+        fullName: action.payload.user.fullName,
+      };
       state.isAuthenticated = true;
       state.checkingSession = false;
       state.lastActivity = new Date().toISOString();
@@ -125,7 +132,13 @@ const authSlice = createSlice({
       })
 
       .addCase(loginUser.fulfilled, (state, action) => {
-        state.user = action.payload.user;
+        state.user = {
+          userId: action.payload.data!.userId,
+          userName: action.payload.data!.userName,
+          userEmail: action.payload.data!.userEmail,
+          roles: action.payload.data!.roles || [],
+          fullName: action.payload.data!.fullName,
+        };
         state.isAuthenticated = true;
         state.loading = false;
         state.checkingSession = false;

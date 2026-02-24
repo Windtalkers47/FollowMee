@@ -13,7 +13,7 @@ declare global {
       user?: {
         userId: number;
         email: string;
-        role: string;
+        roles: string[];
       };
     }
   }
@@ -48,7 +48,7 @@ export const isAuthenticated = async (req: Request, res: Response, next: NextFun
       req.user = {
         userId: decoded.userId,
         email: decoded.email,
-        role: decoded.role || 'user'
+        roles: decoded.roles || []
       };
       return next();
     }
@@ -75,19 +75,22 @@ export const isAuthenticated = async (req: Request, res: Response, next: NextFun
       const userRepository = AppDataSource.getRepository(User);
       const user = await userRepository.findOne({ 
         where: { userId: session.userId },
-        select: ['userId', 'userEmail', 'role', 'isActive']
+        select: ['userId', 'userEmail', 'isActive'],
+        relations: ['userRoles', 'userRoles.role']
       });
 
       if (!user || !user.isActive) {
         throw new Error('User not found or account is inactive');
       }
 
+      const roles = user.userRoles.map(ur => ur.role.roleName);
+
       // Generate new access token
       const newAccessToken = jwt.sign(
         { 
           userId: user.userId, 
           email: user.userEmail, 
-          role: user.role || 'user' 
+          roles
         },
         JWT_SECRET,
         { expiresIn: '24h' }
@@ -110,7 +113,7 @@ export const isAuthenticated = async (req: Request, res: Response, next: NextFun
       req.user = {
         userId: user.userId,
         email: user.userEmail,
-        role: user.role || 'user'
+        roles
       };
 
       return next();

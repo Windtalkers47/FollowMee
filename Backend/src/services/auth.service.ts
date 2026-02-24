@@ -20,8 +20,7 @@ const LOGIN_ATTEMPT_WINDOW_MINUTES = 15;
 export interface TokenPayload {
   userId: number;
   email: string;
-  role: string;
-  sessionId?: string;
+  roles: string[];
 }
 
 export class AuthService {
@@ -164,7 +163,8 @@ export class AuthService {
         'updatedAt',
         'userPhone1',
         'userPhone2'
-      ]
+      ],
+      relations: ['userRoles', 'userRoles.role']
     });
     
     if (!user) {
@@ -180,17 +180,19 @@ export class AuthService {
       throw new Error('Invalid email or password');
     }
 
+    const roles = user.userRoles.map(ur => ur.role.roleName);
+
     const token = this.generateAccessToken({
       userId: user.userId,
       email: user.userEmail,
-      role: user.role || 'user'
+      roles
     });
     const refreshToken = await this.generateRefreshToken(user.userId, req);
     this.setAuthCookies(res, token, refreshToken);
 
     // Don't return password in the response
     const { userPassword, ...userWithoutPassword } = user;
-    return userWithoutPassword;
+    return { user: userWithoutPassword, roles };
   }
 
   /**
@@ -228,9 +230,9 @@ export class AuthService {
   /**
    * Verify JWT token
    */
-  verifyToken(token: string): { userId: number; email: string; role: string } {
+  verifyToken(token: string): { userId: number; email: string; roles: string[] } {
     try {
-      return jwt.verify(token, JWT_SECRET) as { userId: number; email: string; role: string };
+      return jwt.verify(token, JWT_SECRET) as { userId: number; email: string; roles: string[] };
     } catch (error) {
       throw new Error('Invalid or expired token');
     }

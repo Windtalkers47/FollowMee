@@ -20,6 +20,7 @@ const SchedulePage = React.lazy(() => import('./pages/Schedule'));
 const AudiencePage = React.lazy(() => import('./pages/Audience'));
 const CustomerPage = React.lazy(() => import('./pages/Customer'));
 const CustomerProfilePage = React.lazy(() => import('./pages/CustomerProfile/CustomerProfilePage'));
+const UsersPage = React.lazy(() => import('./pages/UsersManagement'));
 
 const LoadingSpinner = () => (
   <Box
@@ -153,6 +154,7 @@ const App = () => {
             <Route path="/schedule" element={<SchedulePage />} />
             <Route path="/audience" element={<AudiencePage />} />
             <Route path="/customer" element={<CustomerPage />} />
+            <Route path="/users" element={<UsersPage />} />
             <Route path="/customer-profile" element={<CustomerProfilePage />} />
             <Route path="/customer/:customerId/profile" element={<CustomerProfilePage />} />
           </Route>

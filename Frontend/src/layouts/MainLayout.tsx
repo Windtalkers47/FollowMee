@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useAppDispatch } from '../store/store';
+import { useAppDispatch, useAppSelector } from '../store/store';
 import { ThemeToggle } from '../components/ThemeToggle';
 import { logout } from '../store/slices/authSlice';
 
@@ -41,6 +41,7 @@ import {
   Home,
   Group,
   AccountCircle,
+  PeopleAlt,
 } from '@mui/icons-material';
 
 const drawerWidth = 260;
@@ -58,6 +59,7 @@ const menuItems = [
   { text: 'Schedule', icon: <Schedule />, path: '/schedule', exact: true },
   { text: 'Audience', icon: <People />, path: '/audience', exact: true },
   { text: 'Customer', icon: <Group />, path: '/customer', exact: true },
+  { text: 'User Management', icon: <PeopleAlt />, path: '/users', exact: true },
   { text: 'Profiles', icon: <AccountCircle />, path: '/customer-profile', exact: false },
 ];
 
@@ -66,6 +68,19 @@ const MainLayout = ({ children }: MainLayoutProps) => {
   const navigate = useNavigate();
   const location = useLocation();
   const dispatch = useAppDispatch();
+
+  // Get current user to check role
+  const currentUser = useAppSelector((state) => state.auth.user);
+  const isSuperAdmin = currentUser?.roles?.includes('SUPER_ADMIN') || false;
+
+  // Filter menu items based on user role
+  const filteredMenuItems = menuItems.filter((item) => {
+    // Hide User Management for non-super-admin users
+    if (item.path === '/users' && !isSuperAdmin) {
+      return false;
+    }
+    return true;
+  });
 
   const [open, setOpen] = useState(true);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
@@ -117,7 +132,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
 
       {/* Menu */}
       <List sx={{ px: 1, pt: 1 }}>
-        {menuItems.map(item => {
+        {filteredMenuItems.map(item => {
           const active = item.exact 
             ? location.pathname === item.path
             : location.pathname.startsWith(item.path);

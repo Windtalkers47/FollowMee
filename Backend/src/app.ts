@@ -12,6 +12,7 @@ import { processObjectDates } from './utils/date.utils';
 // Import routes
 import authRoutes from './routes/auth.routes';
 import customerRoutes from './routes/customer.routes';
+import userManagementRoutes from './routes/user-management.routes';
 
 // Load environment variables
 dotenv.config();
@@ -135,9 +136,9 @@ class App {
     
     // Customer routes
     this.app.use('/api/customers', customerRoutes);
-    
-    // Protected API routes (example)
-    // this.app.use('/api/users', authenticateToken, userRoutes);
+
+    // User management routes
+    this.app.use('/api/user-management', userManagementRoutes);
 
     // 404 handler
     this.app.use((req: Request, res: Response) => {

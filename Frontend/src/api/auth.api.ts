@@ -55,7 +55,7 @@ const authApi = {
   /**
    * Login with email & password
    */
-  login: async (credentials: LoginCredentials): Promise<LoginResponse> => {
+  login: async (credentials: LoginCredentials): Promise<ApiResponse<LoginResponse['user']>> => {
     const response = await fetch(`${apiConfig.baseURL}/auth/login`, {
       method: 'POST',
       headers: {
@@ -66,7 +66,7 @@ const authApi = {
       body: JSON.stringify(credentials),
     });
 
-    return handleResponse<LoginResponse>(response);
+    return handleResponse<ApiResponse<LoginResponse['user']>>(response);
   },
 
   /**

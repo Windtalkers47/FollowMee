@@ -5,6 +5,10 @@ import { User } from '../entities/User';
 import { UserSession } from '../entities/UserSession';
 import { AuditLog } from '../entities/AuditLog';
 import { Customer } from '../entities/Customer';
+import { Role } from '../entities/Role';
+import { Permission } from '../entities/Permission';
+import { RolePermission } from '../entities/RolePermission';
+import { UserRole } from '../entities/UserRole';
 
 dotenv.config();
 
@@ -28,6 +32,10 @@ const dataSourceOptions: DataSourceOptions = {
     UserSession,
     AuditLog,
     Customer,
+    Role,
+    Permission,
+    RolePermission,
+    UserRole,
     // Other entities will be loaded automatically by the glob pattern
     path.join(__dirname, '../entities/**/*.entity{.ts,.js}')
   ],

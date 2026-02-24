@@ -152,13 +152,18 @@ class AuthController {
       // Use auth service to handle login (includes token generation and cookie setting)
       const result = await this.authService.login(email, password, req, res);
       
-      // Don't send back the password
-      const { userPassword, ...userWithoutPassword } = user;
+      const { user: userData, roles } = result;
 
       // Return success response with user data
       return res.status(200).json({
         success: true,
-        data: userWithoutPassword,
+        data: {
+          userId: userData.userId,
+          userName: userData.userName,
+          userEmail: userData.userEmail,
+          roles,
+          fullName: `${userData.userName} ${userData.userLastName}`.trim()
+        },
         message: 'Login successful'
       });
     } catch (error: any) {
@@ -249,7 +254,8 @@ class AuthController {
       // Get fresh user data from database
       const user = await this.userRepository.findOne({
         where: { userId: req.user.userId },
-        select: ['userId', 'userEmail', 'userName', 'userLastName', 'userPhone1', 'isActive']
+        select: ['userId', 'userEmail', 'userName', 'userLastName', 'userPhone1', 'isActive'],
+        relations: ['userRoles', 'userRoles.role']
       });
       
       if (!user) {
@@ -259,9 +265,20 @@ class AuthController {
         });
       }
 
+      const roles = user.userRoles.map(ur => ur.role.roleName);
+
       return res.status(200).json({
         success: true,
-        data: user
+        data: {
+          userId: user.userId,
+          userEmail: user.userEmail,
+          userName: user.userName,
+          userLastName: user.userLastName,
+          userPhone1: user.userPhone1,
+          isActive: user.isActive,
+          roles,
+          fullName: `${user.userName} ${user.userLastName}`.trim()
+        }
       });
     } catch (error: any) {
       console.error('Get current user error:', error);

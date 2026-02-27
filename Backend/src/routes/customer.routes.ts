@@ -5,9 +5,6 @@ import { body } from 'express-validator';
 import { CustomerService } from '../services/customer.service';
 import { CustomerRepository } from '../repositories/customer.repository';
 import { upload } from '../services/file-upload.service';
-import { ProfileCustomerController } from '../controllers/profile-customer.controller';
-import { ProfileCustomerService } from '../services/profile-customer.service';
-import { ProfileCustomerRepository } from '../repositories/profile-customer.repository';
 
 const router = Router();
 
@@ -15,11 +12,6 @@ const router = Router();
 const customerRepository = new CustomerRepository();
 const customerService = new CustomerService(customerRepository);
 const customerController = new CustomerController(customerService);
-
-// Profile customer dependencies (always returns active customers)
-const profileCustomerRepository = new ProfileCustomerRepository();
-const profileCustomerService = new ProfileCustomerService(profileCustomerRepository);
-const profileCustomerController = new ProfileCustomerController(profileCustomerService);
 
 // Public routes
 router.get('/public/:id', (req, res) => customerController.getPublicCustomerProfile(req, res));
@@ -45,20 +37,6 @@ router.get('/', (req, res) => {
 router.get('/status-stats', (req, res) =>
   customerController.getCustomerStatusStats(req, res)
 );
-
-// Profile customers routes (always returns active customers)
-router.get('/profile', (req, res) => {
-  const { search } = req.query;
-
-  if (search) {
-    return profileCustomerController.searchProfileCustomers(req, res);
-  }
-
-  req.query.page = req.query.page || '1';
-  req.query.limit = req.query.limit || '100';
-
-  return profileCustomerController.getProfileCustomers(req, res);
-});
 
 router.get('/:id', (req, res) =>
   customerController.getCustomerById(req, res)

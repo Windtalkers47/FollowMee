@@ -12,6 +12,7 @@ import { processObjectDates } from './utils/date.utils';
 // Import routes
 import authRoutes from './routes/auth.routes';
 import customerRoutes from './routes/customer.routes';
+import customerProfileRoutes from './routes/customer-profile.routes';
 import userManagementRoutes from './routes/user-management.routes';
 
 // Load environment variables
@@ -134,6 +135,9 @@ class App {
     // API routes
     this.app.use('/api/auth', authRoutes);
     
+    // Customer profile routes (more specific, must come before general customer routes)
+    this.app.use('/api/customers/profile', customerProfileRoutes);
+
     // Customer routes
     this.app.use('/api/customers', customerRoutes);
 

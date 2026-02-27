@@ -1,157 +1,145 @@
-import { 
-  Body, 
-  Controller, 
-  Delete, 
-  Get, 
-  Param, 
-  ParseIntPipe, 
-  Post, 
-  Put, 
-  UseGuards, 
-  UsePipes, 
-  ValidationPipe,
-  HttpStatus,
-  HttpCode,
-  Res,
-  Req
-} from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
-import { Response, Request } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import { UserService } from '../services/user.service';
 import { CreateUserDto } from '../dtos/create-user.dto';
 import { UpdateUserDto } from '../dtos/update-user.dto';
 import { UserResponseDto } from '../dtos/user-response.dto';
 
-@Controller('api/users')
-@UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
 export class UserController {
   constructor(private readonly userService: UserService) {}
 
   /**
-   * Get all users (Admin only)
+   * Get all users
    */
-  @Get()
-  @UseGuards(AuthGuard('jwt'))
-  @HttpCode(HttpStatus.OK)
-  async findAll() {
-    const users = await this.userService.getAllUsers();
-    return { 
-      success: true, 
-      data: users 
-    };
+  async getAllUsers(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const users = await this.userService.getAllUsers();
+      res.status(200).json({ success: true, data: users });
+    } catch (error) {
+      next(error);
+    }
   }
 
   /**
    * Get current authenticated user's profile
    */
-  @Get('me')
-  @UseGuards(AuthGuard('jwt'))
-  @HttpCode(HttpStatus.OK)
-  async getProfile(@Req() req: Request) {
-    const userId = (req.user as any).userId;
-    const user = await this.userService.getUserById(userId);
-    return { 
-      success: true, 
-      data: user 
-    };
+  async getProfile(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const userId = req.user?.userId;
+      if (!userId) {
+        res.status(401).json({ message: 'User not authenticated' });
+        return;
+      }
+      const user = await this.userService.getUserById(userId);
+      res.status(200).json({ success: true, data: user });
+    } catch (error) {
+      next(error);
+    }
   }
 
   /**
-   * Get a single user by ID (Admin only)
+   * Get a single user by ID
    */
-  @Get(':id')
-  @UseGuards(AuthGuard('jwt'))
-  @HttpCode(HttpStatus.OK)
-  async findOne(@Param('id', ParseIntPipe) id: number) {
-    const user = await this.userService.getUserById(id);
-    return { 
-      success: true, 
-      data: user 
-    };
+  async getUserById(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { userId } = req.params;
+      const user = await this.userService.getUserById(Number(userId));
+      res.status(200).json({ success: true, data: user });
+    } catch (error) {
+      next(error);
+    }
   }
 
   /**
-   * Create a new user (Admin only)
+   * Create a new user
    */
-  @Post()
-  @UseGuards(AuthGuard('jwt'))
-  @HttpCode(HttpStatus.CREATED)
-  async create(@Body() createUserDto: CreateUserDto) {
-    const user = await this.userService.createUser(createUserDto);
-    return { 
-      success: true, 
-      data: user,
-      message: 'User created successfully' 
-    };
+  async createUser(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const userData: CreateUserDto = req.body;
+      const user = await this.userService.createUser(userData);
+      res.status(201).json({ 
+        success: true, 
+        data: user,
+        message: 'User created successfully' 
+      });
+    } catch (error) {
+      next(error);
+    }
   }
 
   /**
    * Update user profile (for both admin and self-update)
    */
-  @Put('me')
-  @UseGuards(AuthGuard('jwt'))
-  @HttpCode(HttpStatus.OK)
-  async updateProfile(
-    @Req() req: Request,
-    @Body() updateUserDto: UpdateUserDto
-  ) {
-    const userId = (req.user as any).userId;
-    const user = await this.userService.updateUser(userId, updateUserDto);
-    return { 
-      success: true, 
-      data: user,
-      message: 'Profile updated successfully' 
-    };
+  async updateProfile(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const userId = req.user?.userId;
+      if (!userId) {
+        res.status(401).json({ message: 'User not authenticated' });
+        return;
+      }
+      const userData: UpdateUserDto = req.body;
+      const user = await this.userService.updateUser(userId, userData);
+      res.status(200).json({ 
+        success: true, 
+        data: user,
+        message: 'Profile updated successfully' 
+      });
+    } catch (error) {
+      next(error);
+    }
   }
 
   /**
    * Update any user (Admin only)
    */
-  @Put(':id')
-  @UseGuards(AuthGuard('jwt'))
-  @HttpCode(HttpStatus.OK)
-  async update(
-    @Param('id', ParseIntPipe) id: number,
-    @Body() updateUserDto: UpdateUserDto
-  ) {
-    const user = await this.userService.updateUser(id, updateUserDto);
-    return { 
-      success: true, 
-      data: user,
-      message: 'User updated successfully' 
-    };
+  async updateUser(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { userId } = req.params;
+      const userData: UpdateUserDto = req.body;
+      const user = await this.userService.updateUser(Number(userId), userData);
+      res.status(200).json({ 
+        success: true, 
+        data: user,
+        message: 'User updated successfully' 
+      });
+    } catch (error) {
+      next(error);
+    }
   }
 
   /**
-   * Delete a user (Admin only)
+   * Delete a user
    */
-  @Delete(':id')
-  @UseGuards(AuthGuard('jwt'))
-  @HttpCode(HttpStatus.OK)
-  async remove(@Param('id', ParseIntPipe) id: number) {
-    await this.userService.deleteUser(id);
-    return { 
-      success: true, 
-      message: 'User deactivated successfully' 
-    };
+  async deleteUser(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { userId } = req.params;
+      await this.userService.deleteUser(Number(userId));
+      res.status(200).json({ 
+        success: true, 
+        message: 'User deleted successfully' 
+      });
+    } catch (error) {
+      next(error);
+    }
   }
 
   /**
    * Change current user's password
    */
-  @Post('change-password')
-  @UseGuards(AuthGuard('jwt'))
-  @HttpCode(HttpStatus.OK)
-  async changePassword(
-    @Req() req: Request,
-    @Body('currentPassword') currentPassword: string,
-    @Body('newPassword') newPassword: string
-  ) {
-    const userId = (req.user as any).userId;
-    await this.userService.changePassword(userId, currentPassword, newPassword);
-    return { 
-      success: true, 
-      message: 'Password changed successfully' 
-    };
+  async changePassword(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const userId = req.user?.userId;
+      if (!userId) {
+        res.status(401).json({ message: 'User not authenticated' });
+        return;
+      }
+      const { currentPassword, newPassword } = req.body;
+      await this.userService.changePassword(userId, currentPassword, newPassword);
+      res.status(200).json({ 
+        success: true, 
+        message: 'Password changed successfully' 
+      });
+    } catch (error) {
+      next(error);
+    }
   }
 }

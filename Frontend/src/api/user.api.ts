@@ -1,76 +1,57 @@
-import { apiConfig, handleResponse } from './config';
+import axios from 'axios';
+import { API_BASE_URL } from './config';
 
-interface UserData {
+export interface User {
+  userId: number;
   userName: string;
   userLastName: string;
   userEmail: string;
-  userPassword: string;
   userPhone1?: string;
   userPhone2?: string;
-  isActive?: boolean;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  fullName?: string;
 }
 
 export const userApi = {
   // Get all users
-  getUsers: async () => {
-    const response = await fetch(`${apiConfig.baseURL}/users`, {
-      method: 'GET',
-      headers: {
-        ...apiConfig.headers,
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
-      },
+  getUsers: async (): Promise<User[]> => {
+    const response = await axios.get(`${API_BASE_URL}/users`, {
+      withCredentials: true,
     });
-    return handleResponse(response);
+    return response.data.data;
   },
 
   // Get single user by ID
-  getUserById: async (userId: number) => {
-    const response = await fetch(`${apiConfig.baseURL}/users/${userId}`, {
-      method: 'GET',
-      headers: {
-        ...apiConfig.headers,
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
-      },
+  getUserById: async (userId: number): Promise<User> => {
+    const response = await axios.get(`${API_BASE_URL}/users/${userId}`, {
+      withCredentials: true,
     });
-    return handleResponse(response);
+    return response.data.data;
   },
 
   // Create new user
-  createUser: async (userData: UserData) => {
-    const response = await fetch(`${apiConfig.baseURL}/users`, {
-      method: 'POST',
-      headers: {
-        ...apiConfig.headers,
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
-      },
-      body: JSON.stringify(userData),
+  createUser: async (userData: Omit<User, 'userId' | 'createdAt' | 'updatedAt'>): Promise<User> => {
+    const response = await axios.post(`${API_BASE_URL}/users`, userData, {
+      withCredentials: true,
     });
-    return handleResponse(response);
+    return response.data.data;
   },
 
   // Update user
-  updateUser: async (userId: number, userData: Partial<UserData>) => {
-    const response = await fetch(`${apiConfig.baseURL}/users/${userId}`, {
-      method: 'PUT',
-      headers: {
-        ...apiConfig.headers,
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
-      },
-      body: JSON.stringify(userData),
+  updateUser: async (userId: number, userData: Partial<User>): Promise<User> => {
+    const response = await axios.put(`${API_BASE_URL}/users/${userId}`, userData, {
+      withCredentials: true,
     });
-    return handleResponse(response);
+    return response.data.data;
   },
 
   // Delete user
-  deleteUser: async (userId: number) => {
-    const response = await fetch(`${apiConfig.baseURL}/users/${userId}`, {
-      method: 'DELETE',
-      headers: {
-        ...apiConfig.headers,
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
-      },
+  deleteUser: async (userId: number): Promise<void> => {
+    await axios.delete(`${API_BASE_URL}/users/${userId}`, {
+      withCredentials: true,
     });
-    return handleResponse(response);
   },
 };
 

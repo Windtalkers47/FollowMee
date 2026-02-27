@@ -2,6 +2,9 @@ import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateCol
 import { IsEmail, IsNotEmpty, IsOptional } from 'class-validator';
 import * as bcrypt from 'bcrypt';
 import { UserRole } from './UserRole';
+import { Task } from './Task';
+import { TaskLike } from './TaskLike';
+import { TaskComment } from './TaskComment';
 
 @Entity('users')
 export class User {
@@ -65,6 +68,18 @@ export class User {
   // Relations
   @OneToMany(() => UserRole, userRole => userRole.user)
   userRoles!: UserRole[];
+
+  @OneToMany(() => Task, task => task.assignedToUser)
+  assignedTasks!: Task[];
+
+  @OneToMany(() => Task, task => task.createdByUser)
+  createdTasks!: Task[];
+
+  @OneToMany(() => TaskLike, taskLike => taskLike.user)
+  taskLikes!: TaskLike[];
+
+  @OneToMany(() => TaskComment, taskComment => taskComment.user)
+  taskComments!: TaskComment[];
 
   // -------------------------
   // Hooks

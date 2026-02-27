@@ -1,60 +1,50 @@
-import { useState } from 'react';
-import type { ReactNode } from 'react';
-import { format } from 'date-fns';
+import { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
-  Paper,
   Button,
-  IconButton,
   TextField,
   InputAdornment,
-  Avatar,
   Chip,
-  Divider,
   Tabs,
   Tab,
-  useTheme,
   Grid,
-  Menu,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  FormControl,
+  InputLabel,
+  Select,
   MenuItem,
-  ListItemIcon,
-  ListItemText,
+  CircularProgress,
+  Alert,
+  Fab,
 } from '@mui/material';
 import {
   Search as SearchIcon,
   FilterList as FilterListIcon,
   Add as AddIcon,
-  MoreVert as MoreVertIcon,
-  Edit as EditIcon,
-  Delete as DeleteIcon,
-  Publish as PublishIcon,
-  CalendarToday as CalendarIcon,
-  Schedule as ScheduleIcon,
-  MoreTime as MoreTimeIcon,
-  CheckCircle as CheckCircleIcon,
-  Error as ErrorIcon,
-  Facebook as FacebookIcon,
-  Twitter as TwitterIcon,
-  Instagram as InstagramIcon,
-  LinkedIn as LinkedInIcon,
+  Refresh as RefreshIcon,
 } from '@mui/icons-material';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { format } from 'date-fns';
+import { useAppSelector } from '../../store/store';
+import { taskApi, Task, CreateTaskData, UpdateTaskData } from '../../api/task.api';
+import { userApi, User } from '../../api/user.api';
+import TaskCard from '../../components/TaskCard';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 
 /* ================== Types ================== */
 type TabPanelProps = {
-  children: ReactNode;
+  children: React.ReactNode;
   index: number;
   value: number;
 };
 
-interface ScheduledPost {
-  id: number;
-  platform: string;
-  content: string;
-  date: Date;
-  status: 'scheduled' | 'published' | 'error';
-  platforms: string[];
-}
+type TaskStatus = 'draft' | 'upcoming' | 'past' | 'done';
 
 /* ================== TabPanel ================== */
 const TabPanel = ({ children, value, index }: TabPanelProps) => (
@@ -63,148 +53,379 @@ const TabPanel = ({ children, value, index }: TabPanelProps) => (
   </div>
 );
 
-const a11yProps = (index: number) => ({
-  id: `schedule-tab-${index}`,
-  'aria-controls': `schedule-tabpanel-${index}`,
-});
+/* ================== Task Form Dialog ================== */
+interface TaskFormDialogProps {
+  open: boolean;
+  onClose: () => void;
+  task?: Task;
+  onSubmit: (data: CreateTaskData | UpdateTaskData) => Promise<void>;
+  users: User[];
+  usersLoading: boolean;
+}
+
+const TaskFormDialog: React.FC<TaskFormDialogProps> = ({ open, onClose, task, onSubmit, users, usersLoading }) => {
+  const [formData, setFormData] = useState<CreateTaskData>({
+    title: '',
+    description: '',
+    assignedTo: undefined,
+    dueDate: undefined,
+    imageUrl: '',
+    status: 'draft',
+  });
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (task) {
+      setFormData({
+        title: task.title,
+        description: task.description || '',
+        assignedTo: task.assignedTo,
+        dueDate: task.dueDate ? new Date(task.dueDate) : undefined,
+        imageUrl: task.imageUrl || '',
+        status: task.status,
+      });
+    } else {
+      setFormData({
+        title: '',
+        description: '',
+        assignedTo: undefined,
+        dueDate: undefined,
+        imageUrl: '',
+        status: 'draft',
+      });
+    }
+  }, [task]);
+
+  const handleSubmit = async () => {
+    if (!formData.title.trim()) return;
+
+    setLoading(true);
+    try {
+      const submitData = task ? formData : {
+        ...formData,
+        dueDate: formData.dueDate instanceof Date ? formData.dueDate.toISOString() : formData.dueDate
+      };
+      await onSubmit(submitData);
+      onClose();
+    } catch (error) {
+      console.error('Error saving task:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+      <DialogTitle>{task ? 'Edit Task' : 'Create New Task'}</DialogTitle>
+      <DialogContent>
+        <Box sx={{ pt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <TextField
+            label="Title"
+            value={formData.title}
+            onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+            required
+            fullWidth
+          />
+
+          <TextField
+            label="Description"
+            value={formData.description}
+            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+            multiline
+            rows={3}
+            fullWidth
+          />
+
+          <FormControl fullWidth>
+            <InputLabel>Assign To</InputLabel>
+            <Select
+              value={formData.assignedTo || ''}
+              onChange={(e) => setFormData({ ...formData, assignedTo: e.target.value ? Number(e.target.value) : undefined })}
+              label="Assign To"
+              disabled={usersLoading}
+            >
+              <MenuItem value="">Unassigned</MenuItem>
+              {users.map((user) => (
+                <MenuItem key={user.userId} value={user.userId}>
+                  {user.userName} {user.userLastName}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          <LocalizationProvider dateAdapter={AdapterDateFns}>
+            <DatePicker
+              label="Due Date"
+              value={formData.dueDate ? new Date(formData.dueDate) : null}
+              onChange={(date) => setFormData({ ...formData, dueDate: date || undefined })}
+              slotProps={{ textField: { fullWidth: true } }}
+            />
+          </LocalizationProvider>
+
+          <TextField
+            label="Image URL"
+            value={formData.imageUrl}
+            onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
+            fullWidth
+          />
+
+          {!task && (
+            <FormControl fullWidth>
+              <InputLabel>Status</InputLabel>
+              <Select
+                value={formData.status}
+                onChange={(e) => setFormData({ ...formData, status: e.target.value as TaskStatus })}
+                label="Status"
+              >
+                <MenuItem value="draft">Draft</MenuItem>
+                <MenuItem value="upcoming">Upcoming</MenuItem>
+              </Select>
+            </FormControl>
+          )}
+        </Box>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose}>Cancel</Button>
+        <Button
+          onClick={handleSubmit}
+          variant="contained"
+          disabled={loading || !formData.title.trim()}
+        >
+          {loading ? <CircularProgress size={20} /> : (task ? 'Update' : 'Create')}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+};
 
 /* ================== Page ================== */
 const SchedulePage = () => {
-  const theme = useTheme();
-  const [value, setValue] = useState(0);
+  const [activeTab, setActiveTab] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
-  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const [selectedPost, setSelectedPost] = useState<number | null>(null);
+  const [statusFilter, setStatusFilter] = useState<TaskStatus | 'all'>('all');
+  const [taskDialogOpen, setTaskDialogOpen] = useState(false);
+  const [editingTask, setEditingTask] = useState<Task | undefined>();
 
-  const handleMenuOpen = (e: React.MouseEvent<HTMLElement>, id: number) => {
-    setAnchorEl(e.currentTarget);
-    setSelectedPost(id);
+  const { user } = useAppSelector((state) => state.auth);
+  const queryClient = useQueryClient();
+
+  // Fetch tasks
+  const { data: tasksResponse, isLoading, error, refetch } = useQuery({
+    queryKey: ['tasks', { search: searchQuery, status: statusFilter }],
+    queryFn: () => taskApi.getTasks({
+      search: searchQuery || undefined,
+      status: statusFilter !== 'all' ? statusFilter : undefined,
+    }),
+  });
+
+  // Fetch users for assignment dropdown
+  const { data: users = [], isLoading: usersLoading } = useQuery({
+    queryKey: ['users'],
+    queryFn: userApi.getUsers,
+  });
+
+  // Mutations
+  const createTaskMutation = useMutation({
+    mutationFn: (data: CreateTaskData) => taskApi.createTask(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+    },
+  });
+
+  const updateTaskMutation = useMutation({
+    mutationFn: ({ taskId, data }: { taskId: string; data: UpdateTaskData }) =>
+      taskApi.updateTask(taskId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+    },
+  });
+
+  const deleteTaskMutation = useMutation({
+    mutationFn: taskApi.deleteTask,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+    },
+  });
+
+  const handleCreateTask = async (data: CreateTaskData | UpdateTaskData) => {
+    await createTaskMutation.mutateAsync(data as CreateTaskData);
   };
 
-  const handleMenuClose = () => {
-    setAnchorEl(null);
-    setSelectedPost(null);
+  const handleUpdateTask = async (data: CreateTaskData | UpdateTaskData) => {
+    if (editingTask) {
+      await updateTaskMutation.mutateAsync({ taskId: editingTask.taskId, data: data as UpdateTaskData });
+    }
   };
 
-  /* ================== Mock Data ================== */
-  const scheduledPosts: ScheduledPost[] = [
-    {
-      id: 1,
-      platform: 'Instagram',
-      content: 'Check out our latest product launch! #NewProduct',
-      date: new Date(Date.now() + 86400000 * 2),
-      status: 'scheduled',
-      platforms: ['instagram', 'facebook'],
-    },
+  const handleDeleteTask = async (taskId: string) => {
+    await deleteTaskMutation.mutateAsync(taskId);
+  };
+
+  const handleStatusUpdate = async (taskId: string, status: TaskStatus) => {
+    await updateTaskMutation.mutateAsync({ taskId, data: { status } });
+  };
+
+  const filteredTasks = tasksResponse?.tasks || [];
+
+  const groupedTasks = {
+    all: filteredTasks,
+    draft: filteredTasks.filter(task => task.status === 'draft'),
+    upcoming: filteredTasks.filter(task => task.status === 'upcoming'),
+    past: filteredTasks.filter(task => task.status === 'past'),
+    done: filteredTasks.filter(task => task.status === 'done'),
+  };
+
+  const tabs = [
+    { label: 'All Tasks', key: 'all' as const },
+    { label: 'Drafts', key: 'draft' as const },
+    { label: 'Upcoming', key: 'upcoming' as const },
+    { label: 'Past Due', key: 'past' as const },
+    { label: 'Done', key: 'done' as const },
   ];
 
-  const pastPosts: ScheduledPost[] = [
-    {
-      id: 2,
-      platform: 'Twitter',
-      content: 'Server issue resolved',
-      date: new Date(Date.now() - 86400000),
-      status: 'published',
-      platforms: ['twitter'],
-    },
-  ];
-
-  const getPlatformIcon = (p: string) =>
-    ({
-      facebook: <FacebookIcon fontSize="small" />,
-      twitter: <TwitterIcon fontSize="small" />,
-      instagram: <InstagramIcon fontSize="small" />,
-      linkedin: <LinkedInIcon fontSize="small" />,
-    }[p]);
-
-  const getRelativeTime = (d: Date) =>
-    format(d, 'MMM d, yyyy h:mm a');
-
-  /* ================== Render ================== */
   return (
     <Box sx={{ width: '100%' }}>
       {/* Header */}
-      <Box display="flex" justifyContent="space-between" mb={3}>
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
         <Typography variant="h4" fontWeight="bold">
-          Schedule
+          Task Management
         </Typography>
-        <Button startIcon={<AddIcon />} variant="contained">
-          Schedule Post
+        <Button
+          startIcon={<AddIcon />}
+          variant="contained"
+          onClick={() => setTaskDialogOpen(true)}
+        >
+          Create Task
         </Button>
       </Box>
 
-      {/* Search + Tabs */}
-      <Box sx={{ width: '100%', mb: 3 }}>
-        <Tabs value={value} onChange={(_, v) => setValue(v)}>
-          <Tab label="Upcoming" {...a11yProps(0)} />
-          <Tab label="Past" {...a11yProps(1)} />
-        </Tabs>
-
-        <Box sx={{ my: 3 }}>
-          <TextField
-            fullWidth
-            placeholder="Search..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon />
-                </InputAdornment>
-              ),
-              endAdornment: (
-                <InputAdornment position="end">
-                  <IconButton>
-                    <FilterListIcon />
-                  </IconButton>
-                </InputAdornment>
-              ),
-            }}
-          />
-        </Box>
+      {/* Search and Filters */}
+      <Box sx={{ mb: 3 }}>
+        <Grid container spacing={2}>
+          <Grid size={{ xs: 12, md: 6 }}>
+            <TextField
+              fullWidth
+              placeholder="Search tasks..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon />
+                  </InputAdornment>
+                ),
+              }}
+            />
+          </Grid>
+          <Grid size={{ xs: 12, md: 3 }}>
+            <FormControl fullWidth>
+              <InputLabel>Status Filter</InputLabel>
+              <Select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value as TaskStatus | 'all')}
+                label="Status Filter"
+              >
+                <MenuItem value="all">All Status</MenuItem>
+                <MenuItem value="draft">Draft</MenuItem>
+                <MenuItem value="upcoming">Upcoming</MenuItem>
+                <MenuItem value="past">Past Due</MenuItem>
+                <MenuItem value="done">Done</MenuItem>
+              </Select>
+            </FormControl>
+          </Grid>
+          <Grid size={{ xs: 12, md: 3 }}>
+            <Button
+              fullWidth
+              startIcon={<RefreshIcon />}
+              onClick={() => refetch()}
+              disabled={isLoading}
+            >
+              Refresh
+            </Button>
+          </Grid>
+        </Grid>
       </Box>
 
-      {/* Upcoming */}
-      <TabPanel value={value} index={0}>
-        <Grid container spacing={3}>
-          {scheduledPosts.map((p) => (
-            <Grid key={p.id} size={12}>
-              <Paper sx={{ p: 3 }}>
-                <Typography>{p.content}</Typography>
-              </Paper>
-            </Grid>
+      {/* Status Tabs */}
+      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+        <Tabs value={activeTab} onChange={(_, newValue) => setActiveTab(newValue)}>
+          {tabs.map((tab, index) => (
+            <Tab
+              key={tab.key}
+              label={`${tab.label} (${groupedTasks[tab.key].length})`}
+              {...{ id: `task-tab-${index}`, 'aria-controls': `task-tabpanel-${index}` }}
+            />
           ))}
-        </Grid>
-      </TabPanel>
+        </Tabs>
+      </Box>
 
-      {/* Past */}
-      <TabPanel value={value} index={1}>
-        <Grid container spacing={3}>
-          {pastPosts.map((p) => (
-            <Grid key={p.id} size={12}>
-              <Paper sx={{ p: 3 }}>
-                <Typography>{p.content}</Typography>
-              </Paper>
+      {/* Error Display */}
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          Failed to load tasks. Please try again.
+        </Alert>
+      )}
+
+      {/* Task Lists */}
+      {tabs.map((tab, index) => (
+        <TabPanel key={tab.key} value={activeTab} index={index}>
+          {isLoading ? (
+            <Box display="flex" justifyContent="center" p={4}>
+              <CircularProgress />
+            </Box>
+          ) : (
+            <Grid container spacing={2}>
+              {groupedTasks[tab.key].length === 0 ? (
+                <Grid size={{ xs: 12 }}>
+                  <Box textAlign="center" py={4}>
+                    <Typography variant="h6" color="text.secondary">
+                      No {tab.label.toLowerCase()} found
+                    </Typography>
+                  </Box>
+                </Grid>
+              ) : (
+                groupedTasks[tab.key].map((task) => (
+                  <Grid size={{ xs: 12, md: 6, lg: 4 }} key={task.taskId}>
+                    <TaskCard
+                      task={task}
+                      currentUserId={user?.userId || 0}
+                      onEdit={(task) => {
+                        setEditingTask(task);
+                        setTaskDialogOpen(true);
+                      }}
+                      onDelete={handleDeleteTask}
+                      onStatusUpdate={handleStatusUpdate}
+                      showActions={true}
+                    />
+                  </Grid>
+                ))
+              )}
             </Grid>
-          ))}
-        </Grid>
-      </TabPanel>
+          )}
+        </TabPanel>
+      ))}
 
-      {/* Menu */}
-      <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleMenuClose}>
-        <MenuItem>
-          <ListItemIcon>
-            <EditIcon fontSize="small" />
-          </ListItemIcon>
-          <ListItemText>Edit</ListItemText>
-        </MenuItem>
-        <MenuItem sx={{ color: 'error.main' }}>
-          <ListItemIcon sx={{ color: 'error.main' }}>
-            <DeleteIcon fontSize="small" />
-          </ListItemIcon>
-          <ListItemText>Delete</ListItemText>
-        </MenuItem>
-      </Menu>
+      {/* Task Form Dialog */}
+      <TaskFormDialog
+        open={taskDialogOpen}
+        onClose={() => {
+          setTaskDialogOpen(false);
+          setEditingTask(undefined);
+        }}
+        task={editingTask}
+        onSubmit={editingTask ? handleUpdateTask : handleCreateTask}
+        users={users}
+        usersLoading={usersLoading}
+      />
+
+      {/* Floating Action Button for Mobile */}
+      <Fab
+        color="primary"
+        sx={{ position: 'fixed', bottom: 16, right: 16 }}
+        onClick={() => setTaskDialogOpen(true)}
+      >
+        <AddIcon />
+      </Fab>
     </Box>
   );
 };

@@ -14,6 +14,10 @@ import authRoutes from './routes/auth.routes';
 import customerRoutes from './routes/customer.routes';
 import customerProfileRoutes from './routes/customer-profile.routes';
 import userManagementRoutes from './routes/user-management.routes';
+import userRoutes from './routes/user.routes';
+import taskRoutes from './routes/task.routes';
+import taskCommentRoutes from './routes/task-comment.routes';
+import taskLikeRoutes from './routes/task-like.routes';
 
 // Load environment variables
 dotenv.config();
@@ -143,6 +147,14 @@ class App {
 
     // User management routes
     this.app.use('/api/user-management', userManagementRoutes);
+
+    // User routes
+    this.app.use('/api/users', userRoutes);
+
+    // Task routes
+    this.app.use('/api/tasks', taskRoutes);
+    this.app.use('/api/tasks/:taskId/comments', taskCommentRoutes);
+    this.app.use('/api/tasks/:taskId/likes', taskLikeRoutes);
 
     // 404 handler
     this.app.use((req: Request, res: Response) => {

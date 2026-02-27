@@ -1,368 +1,381 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
-  Paper,
   Button,
-  IconButton,
   TextField,
   InputAdornment,
-  Avatar,
-  Chip,
-  Divider,
   Tabs,
   Tab,
-  useTheme,
+  Grid,
+  CircularProgress,
+  Alert,
+  Chip,
 } from '@mui/material';
 import {
   Search as SearchIcon,
-  FilterList as FilterListIcon,
-  Add as AddIcon,
-  MoreVert as MoreVertIcon,
-  ThumbUp as ThumbUpIcon,
-  ChatBubbleOutline as CommentIcon,
-  Share as ShareIcon,
-  Schedule as ScheduleIcon,
-  Public as PublicIcon,
-  Facebook as FacebookIcon,
-  Twitter as TwitterIcon,
-  Instagram as InstagramIcon,
-  LinkedIn as LinkedInIcon,
+  Refresh as RefreshIcon,
+  EmojiEvents as TrophyIcon,
+  ThumbUp as LikeIcon,
+  Favorite as LoveIcon,
+  SentimentVerySatisfied as LaughIcon,
+  ThumbDown as AngryIcon,
 } from '@mui/icons-material';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useAppSelector } from '../../store/store';
+import { taskApi, likeApi, commentApi, Task, TaskLikeSummary } from '../../api/task.api';
+import TaskCard from '../../components/TaskCard';
 
-interface TabPanelProps {
-  children?: React.ReactNode;
+/* ================== Types ================== */
+type TabPanelProps = {
+  children: React.ReactNode;
   index: number;
   value: number;
+};
+
+/* ================== TabPanel ================== */
+const TabPanel = ({ children, value, index }: TabPanelProps) => (
+  <div role="tabpanel" hidden={value !== index}>
+    {value === index && <Box sx={{ p: 2 }}>{children}</Box>}
+  </div>
+);
+
+/* ================== Task Feed Card ================== */
+interface TaskFeedCardProps {
+  task: Task;
+  likeSummary?: TaskLikeSummary;
+  onLike?: (taskId: string, likeType: 'like' | 'love' | 'laugh' | 'angry') => void;
+  onUnlike?: (taskId: string) => void;
+  onComment?: (taskId: string, comment: string) => void;
 }
 
-function TabPanel(props: TabPanelProps) {
-  const { children, value, index, ...other } = props;
+const TaskFeedCard: React.FC<TaskFeedCardProps> = ({
+  task,
+  likeSummary,
+  onLike,
+  onUnlike,
+  onComment,
+}) => {
+  const { user } = useAppSelector((state) => state.auth);
 
   return (
-    <div
-      role="tabpanel"
-      hidden={value !== index}
-      id={`simple-tabpanel-${index}`}
-      aria-labelledby={`simple-tab-${index}`}
-      {...other}
-    >
-      {value === index && (
-        <Box sx={{ p: 3 }}>
-          {children}
-        </Box>
-      )}
-    </div>
+    <TaskCard
+      task={task}
+      likeSummary={likeSummary}
+      currentUserId={user?.userId || 0}
+      onLike={onLike}
+      onUnlike={onUnlike}
+      onComment={onComment}
+      showActions={false} // Hide edit/delete actions in feed
+      compact={false}
+    />
   );
+};
+
+/* ================== Leaderboard Component ================== */
+interface LeaderboardEntry {
+  userId: number;
+  userName: string;
+  userLastName: string;
+  totalLikes: number;
+  totalComments: number;
+  totalTasks: number;
+  score: number;
 }
 
-function a11yProps(index: number) {
-  return {
-    id: `simple-tab-${index}`,
-    'aria-controls': `simple-tabpanel-${index}`,
-  };
-}
+const Leaderboard: React.FC<{ entries: LeaderboardEntry[] }> = ({ entries }) => {
+  return (
+    <Box sx={{ mb: 4 }}>
+      <Box display="flex" alignItems="center" gap={1} mb={2}>
+        <TrophyIcon color="primary" />
+        <Typography variant="h6">Staff Competition Leaderboard</Typography>
+      </Box>
 
+      <Grid container spacing={2}>
+        {entries.slice(0, 5).map((entry, index) => (
+          <Grid size={{ xs: 12, sm: 6, md: 4 }} key={entry.userId}>
+            <Box
+              sx={{
+                p: 2,
+                border: 1,
+                borderColor: 'divider',
+                borderRadius: 2,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 2,
+                bgcolor: index === 0 ? 'primary.light' : 'background.paper',
+              }}
+            >
+              <Typography variant="h4" color={index === 0 ? 'primary.contrastText' : 'primary'}>
+                #{index + 1}
+              </Typography>
+              <Box>
+                <Typography variant="subtitle1" fontWeight="medium">
+                  {entry.userName} {entry.userLastName}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {entry.totalTasks} tasks • {entry.totalLikes} likes • {entry.score} points
+                </Typography>
+              </Box>
+            </Box>
+          </Grid>
+        ))}
+      </Grid>
+    </Box>
+  );
+};
+
+/* ================== Page ================== */
 const PostsPage = () => {
-  const theme = useTheme();
-  const [value, setValue] = useState(0);
+  const [activeTab, setActiveTab] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
+  const [taskLikeSummaries, setTaskLikeSummaries] = useState<Record<string, TaskLikeSummary>>({});
 
-  const handleChange = (event: React.SyntheticEvent, newValue: number) => {
-    setValue(newValue);
-  };
+  const { user } = useAppSelector((state) => state.auth);
+  const queryClient = useQueryClient();
 
-  const posts = [
-    {
-      id: 1,
-      platform: 'Instagram',
-      content: 'Check out our latest product launch! #NewProduct',
-      image: 'https://source.unsplash.com/random/800x600?social',
-      date: '2 hours ago',
-      likes: 245,
-      comments: 32,
-      shares: 12,
-      scheduled: false,
+  // Fetch assigned tasks
+  const { data: assignedTasks, isLoading: tasksLoading, error: tasksError, refetch: refetchTasks } = useQuery({
+    queryKey: ['assigned-tasks', user?.userId],
+    queryFn: () => taskApi.getTasksAssignedToMe(),
+    enabled: !!user?.userId,
+  });
+
+  // Fetch all completed tasks for the feed
+  const { data: allTasksResponse, isLoading: allTasksLoading, error: allTasksError, refetch: refetchAllTasks } = useQuery({
+    queryKey: ['all-tasks'],
+    queryFn: () => taskApi.getTasks({ status: 'done' }),
+  });
+
+  // Mutations
+  const likeMutation = useMutation({
+    mutationFn: ({ taskId, likeType }: { taskId: string; likeType: 'like' | 'love' | 'laugh' | 'angry' }) =>
+      likeApi.createOrUpdateLike(taskId, { likeType }),
+    onSuccess: (_, { taskId }) => {
+      // Refetch like summary for this task
+      fetchLikeSummary(taskId);
     },
-    {
-      id: 2,
-      platform: 'Twitter',
-      content: 'Exciting news coming soon! Stay tuned for updates. #ComingSoon',
-      image: 'https://source.unsplash.com/random/800x600?social',
-      date: '5 hours ago',
-      likes: 189,
-      comments: 24,
-      shares: 8,
-      scheduled: true,
-      scheduledDate: '2023-06-15T14:30:00',
-    },
-  ];
+  });
 
-  const getPlatformIcon = (platform: string) => {
-    switch (platform.toLowerCase()) {
-      case 'facebook':
-        return <FacebookIcon color="primary" />;
-      case 'twitter':
-        return <TwitterIcon color="info" />;
-      case 'instagram':
-        return <InstagramIcon color="secondary" />;
-      case 'linkedin':
-        return <LinkedInIcon color="primary" />;
-      default:
-        return <PublicIcon />;
+  const unlikeMutation = useMutation({
+    mutationFn: likeApi.removeLike,
+    onSuccess: (_, taskId) => {
+      fetchLikeSummary(taskId);
+    },
+  });
+
+  const commentMutation = useMutation({
+    mutationFn: ({ taskId, data }: { taskId: string; data: { comment: string } }) =>
+      commentApi.createComment(taskId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['all-tasks'] });
+    },
+  });
+
+  // Fetch like summaries for tasks
+  const fetchLikeSummary = async (taskId: string) => {
+    try {
+      const summary = await likeApi.getTaskLikeSummary(taskId);
+      setTaskLikeSummaries(prev => ({ ...prev, [taskId]: summary }));
+    } catch (error) {
+      console.error('Error fetching like summary:', error);
     }
   };
 
+  // Load like summaries for visible tasks
+  useEffect(() => {
+    const tasks = activeTab === 0 ? assignedTasks : allTasksResponse?.tasks;
+    tasks?.forEach(task => {
+      if (!taskLikeSummaries[task.taskId]) {
+        fetchLikeSummary(task.taskId);
+      }
+    });
+  }, [assignedTasks, allTasksResponse, activeTab, taskLikeSummaries]);
+
+  const handleLike = async (taskId: string, likeType: 'like' | 'love' | 'laugh' | 'angry') => {
+    await likeMutation.mutateAsync({ taskId, likeType });
+  };
+
+  const handleUnlike = async (taskId: string) => {
+    await unlikeMutation.mutateAsync(taskId);
+  };
+
+  const handleComment = async (taskId: string, comment: string) => {
+    await commentMutation.mutateAsync({ taskId, data: { comment } });
+  };
+
+  const assignedTasksList = assignedTasks || [];
+  const completedTasksList = allTasksResponse?.tasks || [];
+
+  // Mock leaderboard data - In real implementation, this would come from an API
+  const leaderboardData: LeaderboardEntry[] = [
+    { userId: 1, userName: 'John', userLastName: 'Doe', totalLikes: 45, totalComments: 12, totalTasks: 8, score: 156 },
+    { userId: 2, userName: 'Jane', userLastName: 'Smith', totalLikes: 38, totalComments: 15, totalTasks: 7, score: 143 },
+    { userId: 3, userName: 'Bob', userLastName: 'Johnson', totalLikes: 32, totalComments: 8, totalTasks: 6, score: 128 },
+  ];
+
+  const tabs = [
+    { label: 'My Tasks', key: 'assigned' },
+    { label: 'Team Feed', key: 'feed' },
+  ];
+
   return (
-    <Box>
+    <Box sx={{ width: '100%' }}>
+      {/* Header */}
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
         <Box>
-          <Typography variant="h4" component="h1" gutterBottom fontWeight="bold">
-            Posts
+          <Typography variant="h4" fontWeight="bold">
+            Posts & Competition
           </Typography>
           <Typography variant="subtitle1" color="text.secondary">
-            Manage and schedule your social media posts
+            Complete tasks and compete with your team through likes and comments
           </Typography>
         </Box>
-        <Button
-          variant="contained"
-          color="primary"
-          startIcon={<AddIcon />}
-          sx={{ borderRadius: 2, textTransform: 'none', px: 3, py: 1 }}
-        >
-          Create Post
-        </Button>
-      </Box>
-
-      <Box sx={{ width: '100%' }}>
-        <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-          <Tabs 
-            value={value} 
-            onChange={handleChange} 
-            aria-label="post tabs"
-            sx={{
-              '& .MuiTabs-indicator': {
-                height: 3,
-              },
-            }}
-          >
-            <Tab label="Published" {...a11yProps(0)} />
-            <Tab label="Scheduled" {...a11yProps(1)} />
-            <Tab label="Drafts" {...a11yProps(2)} />
-          </Tabs>
-        </Box>
-
-        <Box sx={{ my: 3 }}>
-          <TextField
-            fullWidth
+        <Box display="flex" gap={1}>
+          <Chip
+            icon={<LikeIcon />}
+            label={`${assignedTasksList.filter(t => t.status === 'done').length} Completed`}
+            color="success"
             variant="outlined"
-            placeholder="Search posts..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon color="action" />
-                </InputAdornment>
-              ),
-              endAdornment: (
-                <InputAdornment position="end">
-                  <IconButton edge="end">
-                    <FilterListIcon />
-                  </IconButton>
-                </InputAdornment>
-              ),
-              sx: {
-                borderRadius: 2,
-                bgcolor: 'background.paper',
-              },
-            }}
+          />
+          <Chip
+            icon={<TrophyIcon />}
+            label="Top Performer"
+            color="primary"
+            variant="filled"
           />
         </Box>
-
-        <TabPanel value={value} index={0}>
-          <Box display="flex" flexDirection="column" gap={3}>
-            {posts
-              .filter((post) => !post.scheduled)
-              .map((post) => (
-                <Paper key={post.id} elevation={0} sx={{ p: 3, borderRadius: 3 }}>
-                  <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2}>
-                    <Box display="flex" alignItems="center">
-                      <Avatar sx={{ bgcolor: 'primary.main', mr: 1.5 }}>
-                        {getPlatformIcon(post.platform)}
-                      </Avatar>
-                      <Box>
-                        <Typography variant="subtitle2" fontWeight="medium">
-                          {post.platform}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {post.date}
-                        </Typography>
-                      </Box>
-                    </Box>
-                    <IconButton size="small">
-                      <MoreVertIcon />
-                    </IconButton>
-                  </Box>
-                  
-                  <Typography variant="body1" paragraph>
-                    {post.content}
-                  </Typography>
-                  
-                  {post.image && (
-                    <Box 
-                      component="img"
-                      src={post.image}
-                      alt="Post"
-                      sx={{
-                        width: '100%',
-                        maxHeight: 400,
-                        objectFit: 'cover',
-                        borderRadius: 2,
-                        mb: 2,
-                      }}
-                    />
-                  )}
-                  
-                  <Box display="flex" justifyContent="space-between" alignItems="center" mt={2}>
-                    <Box display="flex" gap={2}>
-                      <Chip 
-                        icon={<ThumbUpIcon fontSize="small" />} 
-                        label={post.likes} 
-                        size="small"
-                        variant="outlined"
-                      />
-                      <Chip 
-                        icon={<CommentIcon fontSize="small" />} 
-                        label={post.comments} 
-                        size="small"
-                        variant="outlined"
-                      />
-                      <Chip 
-                        icon={<ShareIcon fontSize="small" />} 
-                        label={post.shares} 
-                        size="small"
-                        variant="outlined"
-                      />
-                    </Box>
-                    
-                    <Box>
-                      <Button 
-                        variant="outlined" 
-                        size="small" 
-                        startIcon={<ScheduleIcon />}
-                        sx={{ borderRadius: 2, textTransform: 'none' }}
-                      >
-                        Schedule Again
-                      </Button>
-                    </Box>
-                  </Box>
-                </Paper>
-              ))}
-          </Box>
-        </TabPanel>
-        
-        <TabPanel value={value} index={1}>
-          <Box display="flex" flexDirection="column" gap={3}>
-            {posts
-              .filter((post) => post.scheduled)
-              .map((post) => (
-                <Paper 
-                  key={`scheduled-${post.id}`} 
-                  elevation={0} 
-                  sx={{ 
-                    p: 3, 
-                    borderRadius: 3,
-                    borderLeft: `4px solid ${theme.palette.warning.main}`,
-                  }}
-                >
-                  <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2}>
-                    <Box display="flex" alignItems="center">
-                      <Avatar sx={{ bgcolor: 'warning.light', mr: 1.5 }}>
-                        <ScheduleIcon color="warning" />
-                      </Avatar>
-                      <Box>
-                        <Typography variant="subtitle2" fontWeight="medium">
-                          Scheduled for {new Date(post.scheduledDate || '').toLocaleString()}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {post.platform}
-                        </Typography>
-                      </Box>
-                    </Box>
-                    <IconButton size="small">
-                      <MoreVertIcon />
-                    </IconButton>
-                  </Box>
-                  
-                  <Typography variant="body1" paragraph>
-                    {post.content}
-                  </Typography>
-                  
-                  <Box display="flex" justifyContent="flex-end" gap={1} mt={2}>
-                    <Button 
-                      variant="outlined" 
-                      size="small" 
-                      color="error"
-                      sx={{ borderRadius: 2, textTransform: 'none' }}
-                    >
-                      Cancel
-                    </Button>
-                    <Button 
-                      variant="contained" 
-                      size="small" 
-                      color="primary"
-                      sx={{ borderRadius: 2, textTransform: 'none' }}
-                    >
-                      Reschedule
-                    </Button>
-                  </Box>
-                </Paper>
-              ))}
-          </Box>
-        </TabPanel>
-        
-        <TabPanel value={value} index={2}>
-          <Box 
-            display="flex" 
-            flexDirection="column" 
-            alignItems="center" 
-            justifyContent="center" 
-            minHeight={300}
-            textAlign="center"
-            p={4}
-          >
-            <Box 
-              sx={{ 
-                width: 100, 
-                height: 100, 
-                borderRadius: '50%', 
-                bgcolor: 'action.hover',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                mb: 2,
-              }}
-            >
-              <AddIcon color="action" sx={{ fontSize: 40 }} />
-            </Box>
-            <Typography variant="h6" gutterBottom>
-              No drafts yet
-            </Typography>
-            <Typography variant="body2" color="text.secondary" maxWidth={400} mb={3}>
-              Create your first draft and save it for later. Your drafts will appear here.
-            </Typography>
-            <Button 
-              variant="contained" 
-              color="primary" 
-              startIcon={<AddIcon />}
-              sx={{ borderRadius: 2, textTransform: 'none', px: 3, py: 1 }}
-            >
-              Create Draft
-            </Button>
-          </Box>
-        </TabPanel>
       </Box>
+
+      {/* Leaderboard */}
+      {activeTab === 1 && <Leaderboard entries={leaderboardData} />}
+
+      {/* Search */}
+      <Box sx={{ mb: 3 }}>
+        <Grid container spacing={2}>
+          <Grid size={{ xs: 12, md: 8 }}>
+            <TextField
+              fullWidth
+              placeholder="Search tasks..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon />
+                  </InputAdornment>
+                ),
+              }}
+            />
+          </Grid>
+          <Grid size={{ xs: 12, md: 4 }}>
+            <Button
+              fullWidth
+              startIcon={<RefreshIcon />}
+              onClick={() => {
+                refetchTasks();
+                refetchAllTasks();
+              }}
+              disabled={tasksLoading || allTasksLoading}
+            >
+              Refresh
+            </Button>
+          </Grid>
+        </Grid>
+      </Box>
+
+      {/* Tabs */}
+      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+        <Tabs value={activeTab} onChange={(_, newValue) => setActiveTab(newValue)}>
+          {tabs.map((tab, index) => (
+            <Tab
+              key={tab.key}
+              label={tab.label}
+              {...{ id: `posts-tab-${index}`, 'aria-controls': `posts-tabpanel-${index}` }}
+            />
+          ))}
+        </Tabs>
+      </Box>
+
+      {/* Error Display */}
+      {(tasksError || allTasksError) && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          Failed to load tasks. Please try again.
+        </Alert>
+      )}
+
+      {/* Task Lists */}
+      <TabPanel value={activeTab} index={0}>
+        {/* My Tasks Tab */}
+        {tasksLoading ? (
+          <Box display="flex" justifyContent="center" p={4}>
+            <CircularProgress />
+          </Box>
+        ) : (
+          <Grid container spacing={2}>
+            {assignedTasksList.length === 0 ? (
+              <Grid size={{ xs: 12 }}>
+                <Box textAlign="center" py={4}>
+                  <Typography variant="h6" color="text.secondary">
+                    No tasks assigned to you yet
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Check back later for new assignments
+                  </Typography>
+                </Box>
+              </Grid>
+            ) : (
+              assignedTasksList.map((task) => (
+                <Grid size={{ xs: 12 }} key={task.taskId}>
+                  <TaskFeedCard
+                    task={task}
+                    likeSummary={taskLikeSummaries[task.taskId]}
+                    onLike={handleLike}
+                    onUnlike={handleUnlike}
+                    onComment={handleComment}
+                  />
+                </Grid>
+              ))
+            )}
+          </Grid>
+        )}
+      </TabPanel>
+
+      <TabPanel value={activeTab} index={1}>
+        {/* Team Feed Tab */}
+        {allTasksLoading ? (
+          <Box display="flex" justifyContent="center" p={4}>
+            <CircularProgress />
+          </Box>
+        ) : (
+          <Grid container spacing={2}>
+            {completedTasksList.length === 0 ? (
+              <Grid size={{ xs: 12 }}>
+                <Box textAlign="center" py={4}>
+                  <Typography variant="h6" color="text.secondary">
+                    No completed tasks yet
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Be the first to complete a task and start the competition!
+                  </Typography>
+                </Box>
+              </Grid>
+            ) : (
+              completedTasksList.map((task) => (
+                <Grid size={{ xs: 12 }} key={task.taskId}>
+                  <TaskFeedCard
+                    task={task}
+                    likeSummary={taskLikeSummaries[task.taskId]}
+                    onLike={handleLike}
+                    onUnlike={handleUnlike}
+                    onComment={handleComment}
+                  />
+                </Grid>
+              ))
+            )}
+          </Grid>
+        )}
+      </TabPanel>
     </Box>
   );
 };

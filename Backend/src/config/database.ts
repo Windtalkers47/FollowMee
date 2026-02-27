@@ -9,6 +9,9 @@ import { Role } from '../entities/Role';
 import { Permission } from '../entities/Permission';
 import { RolePermission } from '../entities/RolePermission';
 import { UserRole } from '../entities/UserRole';
+import { Task } from '../entities/Task';
+import { TaskComment } from '../entities/TaskComment';
+import { TaskLike } from '../entities/TaskLike';
 
 dotenv.config();
 
@@ -36,6 +39,9 @@ const dataSourceOptions: DataSourceOptions = {
     Permission,
     RolePermission,
     UserRole,
+    Task,
+    TaskComment,
+    TaskLike,
     // Other entities will be loaded automatically by the glob pattern
     path.join(__dirname, '../entities/**/*.entity{.ts,.js}')
   ],

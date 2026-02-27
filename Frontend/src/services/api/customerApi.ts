@@ -164,6 +164,29 @@ export const customerApi = {
     };
   },
 
+  // List profile customers (always active)
+  async getProfileCustomers(
+    page = 1,
+    limit = 100,
+    search?: string
+  ): Promise<PaginatedCustomers> {
+    const params = new URLSearchParams({
+      page: String(page),
+      limit: String(limit),
+      ...(search && { search }),
+    });
+
+    const result = await apiRequest<{
+      data: any[];
+      meta: PaginatedCustomers['meta'];
+    }>(`/customers/profile?${params}`, 'GET');
+
+    return {
+      data: result.data.map(fromApiFormat),
+      meta: result.meta,
+    };
+  },
+
   // Get by id (requires authentication)
   getCustomerById: async (customerId: string): Promise<CustomerData> => {
     const response = await apiRequest<{ data: any }>(`/customers/${customerId}`, 'GET');

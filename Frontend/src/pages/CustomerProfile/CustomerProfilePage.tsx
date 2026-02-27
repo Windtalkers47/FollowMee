@@ -41,7 +41,7 @@ import { CustomerData } from '@/types/customer.types';
 /* ================= API ================= */
 
 async function fetchAllCustomers(search = ''): Promise<CustomerData[]> {
-  const response = await customerApi.getCustomers(1, 100, search, 'active');
+  const response = await customerApi.getProfileCustomers(1, 100, search);
   return response?.data || [];
 }
 

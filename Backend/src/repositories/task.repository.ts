@@ -86,9 +86,11 @@ export class TaskRepository extends BaseRepository<Task> {
       .where('task.isActive = :isActive', { isActive: true });
 
     if (includeAssigned) {
+      // For "Schedule" tab: show tasks created by user OR assigned to user
       qb.andWhere('(task.createdBy = :userId OR task.assignedTo = :userId)', { userId });
     } else {
-      qb.andWhere('task.createdBy = :userId', { userId });
+      // For "My Tasks" tab: show tasks assigned to user OR created by user
+      qb.andWhere('(task.assignedTo = :userId OR task.createdBy = :userId)', { userId });
     }
 
     return qb.orderBy('task.createdAt', 'DESC').getMany();
@@ -100,6 +102,47 @@ export class TaskRepository extends BaseRepository<Task> {
 
   async softDelete(taskId: string): Promise<void> {
     await this.repository.update(taskId, { isActive: false, updatedAt: new Date() });
+  }
+
+  async getCommentCount(taskId: string): Promise<number> {
+    const result = await this.repository.manager
+      .createQueryBuilder()
+      .select('COUNT(*)')
+      .from('task_comments', 'comment')
+      .where('comment.taskId = :taskId', { taskId })
+      .andWhere('comment.isActive = :isActive', { isActive: true })
+      .getRawOne();
+    
+    return parseInt(result['COUNT(*)']) || 0;
+  }
+
+  async getLikeCount(taskId: string): Promise<number> {
+    const result = await this.repository.manager
+      .createQueryBuilder()
+      .select('COUNT(*)')
+      .from('task_likes', 'like')
+      .where('like.taskId = :taskId', { taskId })
+      .getRawOne();
+    
+    return parseInt(result['COUNT(*)']) || 0;
+  }
+
+  async getLikeCountsByType(taskId: string): Promise<{ like: number; love: number; laugh: number; angry: number }> {
+    const result = await this.repository.manager
+      .createQueryBuilder()
+      .select('likeType, COUNT(*) as count')
+      .from('task_likes', 'like')
+      .where('like.taskId = :taskId', { taskId })
+      .groupBy('likeType')
+      .getRawMany();
+    
+    const counts = { like: 0, love: 0, laugh: 0, angry: 0 };
+    
+    result.forEach(item => {
+      counts[item.likeType] = parseInt(item.count) || 0;
+    });
+    
+    return counts;
   }
 
   async findOverdueTasks(): Promise<Task[]> {

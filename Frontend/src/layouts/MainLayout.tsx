@@ -299,9 +299,9 @@ const MainLayout = ({ children }: MainLayoutProps) => {
               },
             }}
           >
-            <Avatar 
-              sx={{ 
-                width: 32, 
+            <Avatar
+              sx={{
+                width: 32,
                 height: 32,
                 bgcolor: theme.palette.primary.main,
                 color: theme.palette.primary.contrastText,
@@ -309,7 +309,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
                 boxShadow: theme.shadows[1],
               }}
             >
-              U
+              {currentUser?.userName?.[0]?.toUpperCase() || currentUser?.fullName?.[0]?.toUpperCase() || 'U'}
             </Avatar>
             <Box>
               <Typography 
@@ -318,7 +318,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
                 lineHeight={1.2}
                 color="text.primary"
               >
-                User Name
+                {currentUser?.userName || currentUser?.fullName || 'User'}
               </Typography>
               <Typography 
                 variant="caption" 
@@ -330,7 +330,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
                   opacity: 0.8
                 }}
               >
-                @username
+                {currentUser?.roles?.[0] || 'User'}
               </Typography>
             </Box>
           </Box>

@@ -152,8 +152,9 @@ const PostsPage = () => {
     mutationFn: ({ taskId, likeType }: { taskId: string; likeType: 'like' | 'love' | 'laugh' | 'angry' }) =>
       likeApi.createOrUpdateLike(taskId, { likeType }),
     onSuccess: (_, { taskId }) => {
-      // Refetch like summary for this task
       fetchLikeSummary(taskId);
+      queryClient.invalidateQueries({ queryKey: ['all-tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['assigned-tasks'] });
     },
   });
 
@@ -161,14 +162,18 @@ const PostsPage = () => {
     mutationFn: likeApi.removeLike,
     onSuccess: (_, taskId) => {
       fetchLikeSummary(taskId);
+      queryClient.invalidateQueries({ queryKey: ['all-tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['assigned-tasks'] });
     },
   });
 
   const commentMutation = useMutation({
     mutationFn: ({ taskId, data }: { taskId: string; data: { comment: string } }) =>
       commentApi.createComment(taskId, data),
-    onSuccess: () => {
+    onSuccess: (_, { taskId }) => {
       queryClient.invalidateQueries({ queryKey: ['all-tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['task-comments', taskId] });
+      queryClient.invalidateQueries({ queryKey: ['assigned-tasks'] }); // Refresh assigned tasks for comment count
     },
   });
 

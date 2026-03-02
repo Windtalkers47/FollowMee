@@ -25,6 +25,9 @@ export interface Task {
   };
   _count?: {
     likes: number;
+    love: number;
+    laugh: number;
+    angry: number;
     comments: number;
   };
 }

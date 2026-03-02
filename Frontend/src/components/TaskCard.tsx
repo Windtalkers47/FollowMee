@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
   Card,
   CardContent,
@@ -18,6 +19,9 @@ import {
   TextField,
   Collapse,
   Divider,
+  Zoom,
+  Fade,
+  Grow,
 } from '@mui/material';
 import {
   MoreVert as MoreVertIcon,
@@ -31,7 +35,7 @@ import {
   CheckCircle as DoneIcon,
 } from '@mui/icons-material';
 import { format } from 'date-fns';
-import { Task, TaskLikeSummary } from '../../src/api/task.api';
+import { Task, TaskLikeSummary, commentApi } from '../../src/api/task.api';
 
 interface TaskCardProps {
   task: Task;
@@ -79,6 +83,13 @@ const TaskCard: React.FC<TaskCardProps> = ({
   const [commentText, setCommentText] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
 
+  // Fetch comments when comments section is opened
+  const { data: comments = [], isLoading: commentsLoading } = useQuery({
+    queryKey: ['task-comments', task.taskId],
+    queryFn: () => commentApi.getTaskComments(task.taskId),
+    enabled: showComments, // Only fetch when comments are shown
+  });
+
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
   };
@@ -89,8 +100,15 @@ const TaskCard: React.FC<TaskCardProps> = ({
 
   const handleLike = (likeType: 'like' | 'love' | 'laugh' | 'angry') => {
     if (likeSummary?.userLike) {
-      onUnlike?.(task.taskId);
+      // If user already liked with the same type, remove it
+      if (likeSummary.userLike === likeType) {
+        onUnlike?.(task.taskId);
+      } else {
+        // If user liked with different type, change it
+        onLike?.(task.taskId, likeType);
+      }
     } else {
+      // New like
       onLike?.(task.taskId, likeType);
     }
   };
@@ -193,41 +211,85 @@ const TaskCard: React.FC<TaskCardProps> = ({
         <CardActions sx={{ px: 2, pb: 2 }}>
           <Box display="flex" alignItems="center" gap={1} flexGrow={1}>
             {/* Like Buttons */}
-            <IconButton
-              size="small"
-              onClick={() => handleLike('like')}
-              color={likeSummary?.userLike === 'like' ? 'primary' : 'default'}
-            >
-              <LikeIcon fontSize="small" />
-              {likeSummary?.like || 0}
-            </IconButton>
+            <Zoom in={true} timeout={300}>
+              <IconButton
+                size="small"
+                onClick={() => handleLike('like')}
+                color={likeSummary?.userLike === 'like' ? 'primary' : 'default'}
+                sx={{
+                  transition: 'all 0.2s ease-in-out',
+                  '&:hover': {
+                    transform: 'scale(1.1)',
+                  },
+                  '&.MuiIconButton-colorPrimary': {
+                    transform: 'scale(1.2)',
+                  }
+                }}
+              >
+                <LikeIcon fontSize="small" />
+                {task._count?.likes || 0}
+              </IconButton>
+            </Zoom>
 
-            <IconButton
-              size="small"
-              onClick={() => handleLike('love')}
-              color={likeSummary?.userLike === 'love' ? 'error' : 'default'}
-            >
-              <LoveIcon fontSize="small" />
-              {likeSummary?.love || 0}
-            </IconButton>
+            <Zoom in={true} timeout={400}>
+              <IconButton
+                size="small"
+                onClick={() => handleLike('love')}
+                color={likeSummary?.userLike === 'love' ? 'error' : 'default'}
+                sx={{
+                  transition: 'all 0.2s ease-in-out',
+                  '&:hover': {
+                    transform: 'scale(1.1)',
+                  },
+                  '&.MuiIconButton-colorError': {
+                    transform: 'scale(1.2)',
+                  }
+                }}
+              >
+                <LoveIcon fontSize="small" />
+                {task._count?.love || 0}
+              </IconButton>
+            </Zoom>
 
-            <IconButton
-              size="small"
-              onClick={() => handleLike('laugh')}
-              color={likeSummary?.userLike === 'laugh' ? 'warning' : 'default'}
-            >
-              <LaughIcon fontSize="small" />
-              {likeSummary?.laugh || 0}
-            </IconButton>
+            <Zoom in={true} timeout={500}>
+              <IconButton
+                size="small"
+                onClick={() => handleLike('laugh')}
+                color={likeSummary?.userLike === 'laugh' ? 'warning' : 'default'}
+                sx={{
+                  transition: 'all 0.2s ease-in-out',
+                  '&:hover': {
+                    transform: 'scale(1.1) rotate(10deg)',
+                  },
+                  '&.MuiIconButton-colorWarning': {
+                    transform: 'scale(1.2) rotate(15deg)',
+                  }
+                }}
+              >
+                <LaughIcon fontSize="small" />
+                {task._count?.laugh || 0}
+              </IconButton>
+            </Zoom>
 
-            <IconButton
-              size="small"
-              onClick={() => handleLike('angry')}
-              color={likeSummary?.userLike === 'angry' ? 'error' : 'default'}
-            >
-              <AngryIcon fontSize="small" />
-              {likeSummary?.angry || 0}
-            </IconButton>
+            <Zoom in={true} timeout={600}>
+              <IconButton
+                size="small"
+                onClick={() => handleLike('angry')}
+                color={likeSummary?.userLike === 'angry' ? 'error' : 'default'}
+                sx={{
+                  transition: 'all 0.2s ease-in-out',
+                  '&:hover': {
+                    transform: 'scale(1.1) shake(-5deg)',
+                  },
+                  '&.MuiIconButton-colorError': {
+                    transform: 'scale(1.2) shake(-10deg)',
+                  }
+                }}
+              >
+                <AngryIcon fontSize="small" />
+                {task._count?.angry || 0}
+              </IconButton>
+            </Zoom>
 
             {/* Comments */}
             <IconButton
@@ -280,10 +342,37 @@ const TaskCard: React.FC<TaskCardProps> = ({
               </Button>
             </Box>
 
-            {/* Comments List - Would be implemented with actual comments data */}
-            <Typography variant="body2" color="text.secondary">
-              Comments would be displayed here...
-            </Typography>
+            {/* Comments List */}
+            {commentsLoading ? (
+              <Typography variant="body2" color="text.secondary">
+                Loading comments...
+              </Typography>
+            ) : comments.length === 0 ? (
+              <Typography variant="body2" color="text.secondary">
+                No comments yet. Be the first to comment!
+              </Typography>
+            ) : (
+              <Box display="flex" flexDirection="column" gap={1}>
+                {comments.map((comment) => (
+                  <Box key={comment.commentId} display="flex" gap={1} p={1} bgcolor="grey.50" borderRadius={1}>
+                    <Avatar sx={{ width: 24, height: 24, fontSize: '0.75rem' }}>
+                      {comment.user?.userName?.[0]?.toUpperCase() || 'U'}
+                    </Avatar>
+                    <Box flex={1}>
+                      <Typography variant="body2" fontWeight="medium">
+                        {comment.user ? `${comment.user.userName} ${comment.user.userLastName}` : 'Unknown User'}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        {comment.comment}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {format(new Date(comment.createdAt), 'MMM dd, yyyy HH:mm')}
+                      </Typography>
+                    </Box>
+                  </Box>
+                ))}
+              </Box>
+            )}
           </Box>
         </Collapse>
       </Card>

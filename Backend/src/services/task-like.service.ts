@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { TaskLike } from '../entities/TaskLike';
 import { Task } from '../entities/Task';
+import { User } from '../entities/User';
 import { CreateTaskLikeDto, UpdateTaskLikeDto } from '../dtos/task-like.dto';
 import { TaskLikeResponseDto, TaskLikeSummaryDto } from '../dtos/task-like.dto';
 
@@ -35,7 +36,18 @@ export class TaskLikeService {
       // Update existing like
       existingLike.likeType = createLikeDto.likeType;
       const savedLike = await this.taskLikeRepository.save(existingLike);
-      return this.mapToResponseDto(savedLike);
+      
+      // Fetch user data separately
+      const user = await this.taskRepository.manager.getRepository(User).findOne({
+        where: { userId: savedLike.userId }
+      });
+      
+      const likeWithUser = {
+        ...savedLike,
+        user
+      };
+      
+      return this.mapToResponseDto(likeWithUser as any);
     } else {
       // Create new like
       const like = new TaskLike();
@@ -44,7 +56,18 @@ export class TaskLikeService {
       like.likeType = createLikeDto.likeType;
 
       const savedLike = await this.taskLikeRepository.save(like);
-      return this.mapToResponseDto(savedLike);
+      
+      // Fetch user data separately
+      const user = await this.taskRepository.manager.getRepository(User).findOne({
+        where: { userId: savedLike.userId }
+      });
+      
+      const likeWithUser = {
+        ...savedLike,
+        user
+      };
+      
+      return this.mapToResponseDto(likeWithUser as any);
     }
   }
 

@@ -72,7 +72,7 @@ export class TaskService {
     const totalPages = Math.ceil(total / limit);
 
     return {
-      tasks: tasks.map(task => this.mapToResponseDto(task)),
+      tasks: await Promise.all(tasks.map(task => this.mapToResponseDto(task))),
       total,
       page,
       limit,
@@ -136,7 +136,7 @@ export class TaskService {
 
   async getUserTasks(userId: number, includeAssigned: boolean = true): Promise<TaskResponseDto[]> {
     const tasks = await this.customTaskRepository.findUserTasks(userId, includeAssigned);
-    return tasks.map(task => this.mapToResponseDto(task));
+    return await Promise.all(tasks.map(task => this.mapToResponseDto(task)));
   }
 
   async updateTaskStatuses(): Promise<void> {
@@ -152,7 +152,11 @@ export class TaskService {
     // This could be extended based on business logic
   }
 
-  private mapToResponseDto(task: Task): TaskResponseDto {
+  private async mapToResponseDto(task: Task): Promise<TaskResponseDto> {
+    // Calculate counts
+    const commentCount = await this.customTaskRepository.getCommentCount(task.taskId);
+    const likeCounts = await this.customTaskRepository.getLikeCountsByType(task.taskId);
+
     const response: TaskResponseDto = {
       taskId: task.taskId,
       title: task.title,
@@ -174,7 +178,14 @@ export class TaskService {
         userId: task.createdByUser.userId,
         userName: task.createdByUser.userName,
         userLastName: task.createdByUser.userLastName
-      } : undefined
+      } : undefined,
+      _count: {
+        comments: commentCount,
+        likes: likeCounts.like,
+        love: likeCounts.love,
+        laugh: likeCounts.laugh,
+        angry: likeCounts.angry
+      }
     };
 
     return response;

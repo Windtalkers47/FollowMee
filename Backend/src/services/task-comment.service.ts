@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { TaskComment } from '../entities/TaskComment';
 import { Task } from '../entities/Task';
+import { User } from '../entities/User';
 import { CreateTaskCommentDto, UpdateTaskCommentDto } from '../dtos/task-comment.dto';
 import { TaskCommentResponseDto } from '../dtos/task-comment.dto';
 
@@ -32,18 +33,49 @@ export class TaskCommentService {
     comment.comment = createCommentDto.comment;
 
     const savedComment = await this.taskCommentRepository.save(comment);
-    return this.mapToResponseDto(savedComment);
+    
+    // Fetch the user data separately to avoid relation issues
+    const user = await this.taskRepository.manager.getRepository(User).findOne({
+      where: { userId: savedComment.userId }
+    });
+    
+    if (!user) {
+      throw new Error('Failed to retrieve user who created the comment');
+    }
+    
+    // Create a comment object with the user relation
+    const commentWithUser = {
+      ...savedComment,
+      user
+    };
+    
+    return this.mapToResponseDto(commentWithUser as any);
   }
 
   async getTaskComments(taskId: string): Promise<TaskCommentResponseDto[]> {
     const comments = await this.taskCommentRepository
       .createQueryBuilder('comment')
-      .leftJoinAndSelect('comment.user', 'user')
       .where('comment.taskId = :taskId', { taskId })
       .orderBy('comment.createdAt', 'ASC')
       .getMany();
 
-    return comments.map(comment => this.mapToResponseDto(comment));
+    // Fetch user data for each comment separately
+    const commentsWithUsers = await Promise.all(
+      comments.map(async (comment) => {
+        const user = await this.taskRepository.manager.getRepository(User).findOne({
+          where: { userId: comment.userId }
+        });
+        
+        const commentWithUser = {
+          ...comment,
+          user
+        };
+        
+        return this.mapToResponseDto(commentWithUser as any);
+      })
+    );
+
+    return commentsWithUsers;
   }
 
   async updateComment(
@@ -94,11 +126,11 @@ export class TaskCommentService {
       userId: comment.userId,
       comment: comment.comment,
       createdAt: comment.createdAt,
-      user: {
+      user: comment.user ? {
         userId: comment.user.userId,
         userName: comment.user.userName,
         userLastName: comment.user.userLastName
-      }
+      } : undefined
     };
   }
 }

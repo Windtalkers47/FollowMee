@@ -26,6 +26,9 @@ export class TaskResponseDto {
   };
   _count?: {
     likes: number;
+    love: number;
+    laugh: number;
+    angry: number;
     comments: number;
   };
 }

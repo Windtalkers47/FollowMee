@@ -21,7 +21,7 @@ export class TaskCommentResponseDto {
   comment!: string;
   createdAt!: Date;
 
-  user!: {
+  user?: {
     userId: number;
     userName: string;
     userLastName: string;

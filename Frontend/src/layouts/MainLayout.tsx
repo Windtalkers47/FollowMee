@@ -2,7 +2,8 @@ import { useState, useCallback, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../store/store';
 import { ThemeToggle } from '../components/ThemeToggle';
-import { logout } from '../store/slices/authSlice';
+import { logout, updateUser } from '../store/slices/authSlice';
+import { userApi } from '../api/user.api';
 
 import {
   Box,
@@ -146,7 +147,27 @@ const MainLayout = ({ children }: MainLayoutProps) => {
   
   const handleProfileUpdate = useCallback(async () => {
     try {
-      // TODO: Implement profile update API call
+      if (!currentUser?.userId) {
+        setSnackbar({
+          open: true,
+          message: 'User not found',
+          severity: 'error'
+        });
+        return;
+      }
+
+      const updatedUser = await userApi.updateUser(currentUser.userId, {
+        userName: profileData.userName,
+        userEmail: profileData.userEmail,
+      });
+
+      // Update Redux state with the new user data
+      dispatch(updateUser({
+        ...currentUser,
+        userName: profileData.userName,
+        userEmail: profileData.userEmail,
+      }));
+
       setSnackbar({
         open: true,
         message: 'Profile updated successfully!',
@@ -160,11 +181,21 @@ const MainLayout = ({ children }: MainLayoutProps) => {
         severity: 'error'
       });
     }
-  }, []);
+  }, [currentUser, profileData, dispatch]);
   
   const handleAccountDelete = useCallback(async () => {
     try {
-      // TODO: Implement account deletion API call
+      if (!currentUser?.userId) {
+        setSnackbar({
+          open: true,
+          message: 'User not found',
+          severity: 'error'
+        });
+        return;
+      }
+
+      await userApi.deleteUser(currentUser.userId);
+
       setSnackbar({
         open: true,
         message: 'Account deleted successfully',
@@ -179,7 +210,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
         severity: 'error'
       });
     }
-  }, [handleLogout]);
+  }, [currentUser, handleLogout]);
 
   /* ================= Drawer ================= */
 

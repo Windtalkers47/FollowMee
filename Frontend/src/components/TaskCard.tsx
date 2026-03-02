@@ -230,8 +230,16 @@ const TaskCard: React.FC<TaskCardProps> = ({
           {/* Header */}
           <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
             <Box display="flex" alignItems="center" gap={1}>
-              <Avatar sx={{ width: 32, height: 32 }}>
-                {task.createdByUser ? task.createdByUser.userName[0].toUpperCase() : 'U'}
+              <Avatar 
+                src={task.createdByUser?.userImageUrl}
+                sx={{ 
+                  width: 32, 
+                  height: 32,
+                  bgcolor: task.createdByUser?.userImageUrl ? 'transparent' : theme.palette.primary.main,
+                  color: task.createdByUser?.userImageUrl ? 'transparent' : theme.palette.primary.contrastText,
+                }}
+              >
+                {task.createdByUser?.userImageUrl ? '' : (task.createdByUser?.userName?.[0]?.toUpperCase() || task.createdByUser?.userLastName?.[0]?.toUpperCase() || 'U')}
               </Avatar>
               <Box>
                 <Typography variant="subtitle2">
@@ -458,8 +466,17 @@ const TaskCard: React.FC<TaskCardProps> = ({
           >
             {/* Comment Input */}
             <Box display="flex" gap={1} mb={2}>
-              <Avatar sx={{ width: 32, height: 32, fontSize: '0.875rem' }}>
-                {currentUserId ? 'U' : 'U'}
+              <Avatar 
+                src={currentUserId ? '' : ''}
+                sx={{ 
+                  width: 24, 
+                  height: 24, 
+                  fontSize: '0.75rem',
+                  bgcolor: currentUserId ? 'transparent' : theme.palette.primary.main,
+                  color: currentUserId ? 'transparent' : theme.palette.primary.contrastText,
+                }}
+              >
+                {currentUserId ? '' : (currentUserId?.[0]?.toUpperCase() || 'U')}
               </Avatar>
               <TextField
                 fullWidth
@@ -544,16 +561,15 @@ const TaskCard: React.FC<TaskCardProps> = ({
                   .map((comment) => (
                     <Box key={comment.commentId} sx={{ display: 'flex', gap: 1.5 }}>
                       <Avatar 
+                        src={comment.user?.userImageUrl}
                         sx={{ 
                           width: 32, 
                           height: 32, 
-                          fontSize: '0.875rem',
-                          cursor: 'pointer',
-                          '&:hover': { transform: 'scale(1.05)' }
+                          bgcolor: comment.user?.userImageUrl ? 'transparent' : theme.palette.primary.main,
+                          color: comment.user?.userImageUrl ? 'transparent' : theme.palette.primary.contrastText,
                         }}
-                        onClick={() => {/* TODO: Show user profile */}}
                       >
-                        {comment.user?.userName?.[0]?.toUpperCase() || 'U'}
+                        {comment.user?.userImageUrl ? '' : (comment.user?.userName?.[0]?.toUpperCase() || comment.user?.userLastName?.[0]?.toUpperCase() || 'U')}
                       </Avatar>
                       <Box flex={1}>
                         <Box display="flex" alignItems="center" gap={1} mb={0.5}>
@@ -718,8 +734,17 @@ const TaskCard: React.FC<TaskCardProps> = ({
                         {/* Reply Input */}
                         {replyingTo === comment.commentId && (
                           <Box display="flex" gap={1} mt={2} ml={4}>
-                            <Avatar sx={{ width: 24, height: 24, fontSize: '0.75rem' }}>
-                              {currentUserId ? 'U' : 'U'}
+                            <Avatar 
+                              src={comment.user?.userImageUrl}
+                              sx={{ 
+                                width: 24, 
+                                height: 24, 
+                                fontSize: '0.75rem',
+                                bgcolor: comment.user?.userImageUrl ? 'transparent' : theme.palette.primary.main,
+                                color: comment.user?.userImageUrl ? 'transparent' : theme.palette.primary.contrastText,
+                              }}
+                            >
+                              {comment.user?.userImageUrl ? '' : (comment.user?.userName?.[0]?.toUpperCase() || comment.user?.userLastName?.[0]?.toUpperCase() || 'U')}
                             </Avatar>
                             <TextField
                               fullWidth

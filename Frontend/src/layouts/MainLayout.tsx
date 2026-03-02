@@ -100,7 +100,13 @@ const MainLayout = ({ children }: MainLayoutProps) => {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [profileData, setProfileData] = useState({
     userName: currentUser?.userName || '',
+    userLastName: currentUser?.userLastName || '',
     userEmail: currentUser?.userEmail || '',
+    userPhone1: currentUser?.userPhone1 || '',
+    userPhone2: currentUser?.userPhone2 || '',
+    userPassword: '',
+    confirmPassword: '',
+    userImageUrl: currentUser?.userImageUrl || '',
   });
   const [snackbar, setSnackbar] = useState({
     open: false,
@@ -156,16 +162,68 @@ const MainLayout = ({ children }: MainLayoutProps) => {
         return;
       }
 
-      const updatedUser = await userApi.updateUser(currentUser.userId, {
-        userName: profileData.userName,
-        userEmail: profileData.userEmail,
-      });
+      // Only validate passwords if user is trying to change password (typed something)
+      if (profileData.userPassword || profileData.confirmPassword) {
+        if (profileData.userPassword !== profileData.confirmPassword) {
+          setSnackbar({
+            open: true,
+            message: 'Passwords do not match',
+            severity: 'error'
+          });
+          return;
+        }
+      }
 
-      // Update Redux state with the new user data
+      const updateData: any = {};
+
+      // Only include fields that have been changed (non-empty)
+      if (profileData.userName && profileData.userName !== currentUser.userName) {
+        updateData.userName = profileData.userName;
+      }
+      if (profileData.userLastName !== currentUser.userLastName) {
+        updateData.userLastName = profileData.userLastName;
+      }
+      if (profileData.userEmail && profileData.userEmail !== currentUser.userEmail) {
+        updateData.userEmail = profileData.userEmail;
+      }
+      if (profileData.userPhone1 !== currentUser.userPhone1) {
+        updateData.userPhone1 = profileData.userPhone1;
+      }
+      if (profileData.userPhone2 !== currentUser.userPhone2) {
+        updateData.userPhone2 = profileData.userPhone2;
+      }
+
+      // Only include password if it's provided
+      if (profileData.userPassword) {
+        updateData.userPassword = profileData.userPassword;
+      }
+
+      // Handle image upload (base64 string or removal)
+      if (profileData.userImageUrl !== currentUser.userImageUrl) {
+        updateData.userImageUrl = profileData.userImageUrl;
+      }
+
+      // Check if anything was actually changed
+      if (Object.keys(updateData).length === 0) {
+        setSnackbar({
+          open: true,
+          message: 'No changes to save',
+          severity: 'warning'
+        });
+        return;
+      }
+
+      const updatedUser = await userApi.updateUser(currentUser.userId, updateData);
+
+      // Update Redux state with new user data
       dispatch(updateUser({
         ...currentUser,
-        userName: profileData.userName,
-        userEmail: profileData.userEmail,
+        userName: profileData.userName || currentUser.userName,
+        userLastName: profileData.userLastName,
+        userEmail: profileData.userEmail || currentUser.userEmail,
+        userPhone1: profileData.userPhone1,
+        userPhone2: profileData.userPhone2,
+        userImageUrl: profileData.userImageUrl,
       }));
 
       setSnackbar({
@@ -415,16 +473,17 @@ const MainLayout = ({ children }: MainLayoutProps) => {
             }}
           >
             <Avatar
+              src={currentUser?.userImageUrl}
               sx={{
                 width: 32,
                 height: 32,
-                bgcolor: theme.palette.primary.main,
-                color: theme.palette.primary.contrastText,
+                bgcolor: currentUser?.userImageUrl ? 'transparent' : theme.palette.primary.main,
+                color: currentUser?.userImageUrl ? 'transparent' : theme.palette.primary.contrastText,
                 border: `2px solid ${theme.palette.mode === 'light' ? '#fff' : theme.palette.background.paper}`,
                 boxShadow: theme.shadows[1],
               }}
             >
-              {currentUser?.userName?.[0]?.toUpperCase() || currentUser?.fullName?.[0]?.toUpperCase() || 'U'}
+              {currentUser?.userImageUrl ? '' : (currentUser?.userName?.[0]?.toUpperCase() || currentUser?.fullName?.[0]?.toUpperCase() || 'U')}
             </Avatar>
             <Box>
               <Typography 
@@ -539,11 +598,78 @@ const MainLayout = ({ children }: MainLayoutProps) => {
         </DialogTitle>
         <DialogContent>
           <Box display="flex" flexDirection="column" gap={2} pt={1}>
+            {/* Profile Picture */}
+            <Box display="flex" alignItems="center" gap={2} mb={2}>
+              <Avatar
+                src={profileData.userImageUrl}
+                sx={{ width: 80, height: 80 }}
+              />
+              <Box>
+                <Button
+                  component="label"
+                  variant="outlined"
+                  size="small"
+                  sx={{ mb: 1 }}
+                >
+                  Upload Image
+                  <input
+                    type="file"
+                    hidden
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onloadend = () => {
+                          setProfileData(prev => ({
+                            ...prev,
+                            userImageUrl: reader.result as string
+                          }));
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                  />
+                </Button>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  color="error"
+                  onClick={() => setProfileData(prev => ({ ...prev, userImageUrl: '' }))}
+                >
+                  Remove Image
+                </Button>
+              </Box>
+            </Box>
+
+            {/* Basic Info */}
             <TextField
               fullWidth
-              label="Name"
+              label="First Name"
               value={profileData.userName}
               onChange={(e) => handleProfileChange('userName', e.target.value)}
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  backdropFilter: 'blur(10px)',
+                  WebkitBackdropFilter: 'blur(10px)',
+                },
+                '& .MuiInputLabel-root': {
+                  color: theme.palette.mode === 'dark' ? '#ffffff' : '#1a1a1a',
+                  '&.Mui-focused': {
+                    color: theme.palette.primary.main,
+                  }
+                },
+                '& .MuiInputBase-input': {
+                  color: theme.palette.mode === 'dark' ? '#ffffff' : '#1a1a1a',
+                }
+              }}
+            />
+            <TextField
+              fullWidth
+              label="Last Name"
+              value={profileData.userLastName}
+              onChange={(e) => handleProfileChange('userLastName', e.target.value)}
               sx={{
                 '& .MuiOutlinedInput-root': {
                   background: 'rgba(255, 255, 255, 0.1)',
@@ -567,6 +693,100 @@ const MainLayout = ({ children }: MainLayoutProps) => {
               type="email"
               value={profileData.userEmail}
               onChange={(e) => handleProfileChange('userEmail', e.target.value)}
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  backdropFilter: 'blur(10px)',
+                  WebkitBackdropFilter: 'blur(10px)',
+                },
+                '& .MuiInputLabel-root': {
+                  color: theme.palette.mode === 'dark' ? '#ffffff' : '#1a1a1a',
+                  '&.Mui-focused': {
+                    color: theme.palette.primary.main,
+                  }
+                },
+                '& .MuiInputBase-input': {
+                  color: theme.palette.mode === 'dark' ? '#ffffff' : '#1a1a1a',
+                }
+              }}
+            />
+
+            {/* Phone Numbers */}
+            <TextField
+              fullWidth
+              label="Phone 1"
+              value={profileData.userPhone1}
+              onChange={(e) => handleProfileChange('userPhone1', e.target.value)}
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  backdropFilter: 'blur(10px)',
+                  WebkitBackdropFilter: 'blur(10px)',
+                },
+                '& .MuiInputLabel-root': {
+                  color: theme.palette.mode === 'dark' ? '#ffffff' : '#1a1a1a',
+                  '&.Mui-focused': {
+                    color: theme.palette.primary.main,
+                  }
+                },
+                '& .MuiInputBase-input': {
+                  color: theme.palette.mode === 'dark' ? '#ffffff' : '#1a1a1a',
+                }
+              }}
+            />
+            <TextField
+              fullWidth
+              label="Phone 2"
+              value={profileData.userPhone2}
+              onChange={(e) => handleProfileChange('userPhone2', e.target.value)}
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  backdropFilter: 'blur(10px)',
+                  WebkitBackdropFilter: 'blur(10px)',
+                },
+                '& .MuiInputLabel-root': {
+                  color: theme.palette.mode === 'dark' ? '#ffffff' : '#1a1a1a',
+                  '&.Mui-focused': {
+                    color: theme.palette.primary.main,
+                  }
+                },
+                '& .MuiInputBase-input': {
+                  color: theme.palette.mode === 'dark' ? '#ffffff' : '#1a1a1a',
+                }
+              }}
+            />
+
+            {/* Password Fields */}
+            <TextField
+              fullWidth
+              label="New Password (leave blank to keep current)"
+              type="password"
+              value={profileData.userPassword}
+              onChange={(e) => handleProfileChange('userPassword', e.target.value)}
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  backdropFilter: 'blur(10px)',
+                  WebkitBackdropFilter: 'blur(10px)',
+                },
+                '& .MuiInputLabel-root': {
+                  color: theme.palette.mode === 'dark' ? '#ffffff' : '#1a1a1a',
+                  '&.Mui-focused': {
+                    color: theme.palette.primary.main,
+                  }
+                },
+                '& .MuiInputBase-input': {
+                  color: theme.palette.mode === 'dark' ? '#ffffff' : '#1a1a1a',
+                }
+              }}
+            />
+            <TextField
+              fullWidth
+              label="Confirm New Password"
+              type="password"
+              value={profileData.confirmPassword}
+              onChange={(e) => handleProfileChange('confirmPassword', e.target.value)}
               sx={{
                 '& .MuiOutlinedInput-root': {
                   background: 'rgba(255, 255, 255, 0.1)',

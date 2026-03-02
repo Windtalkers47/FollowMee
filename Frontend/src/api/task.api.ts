@@ -22,6 +22,7 @@ export interface Task {
     userId: number;
     userName: string;
     userLastName: string;
+    userImageUrl?: string;
   };
   _count?: {
     likes: number;
@@ -42,6 +43,7 @@ export interface TaskComment {
     userId: number;
     userName: string;
     userLastName: string;
+    userImageUrl?: string;
   };
 }
 

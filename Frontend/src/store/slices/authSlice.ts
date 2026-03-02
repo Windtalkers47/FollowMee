@@ -15,7 +15,11 @@ export interface LoginCredentials {
 export interface AuthUser {
   userId: number;
   userName: string;
+  userLastName?: string;
   userEmail: string;
+  userPhone1?: string;
+  userPhone2?: string;
+  userImageUrl?: string;
   roles: string[];
   fullName?: string;
 }

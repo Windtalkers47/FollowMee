@@ -93,7 +93,34 @@ const ForgotPassword = () => {
         <Typography component="h1" variant="h5">
           Forgot Password
         </Typography>
-        <Paper elevation={3} sx={{ p: 4, mt: 3, width: '100%' }}>
+        <Paper elevation={3} sx={{ 
+          p: 4, 
+          mt: 3, 
+          width: '100%',
+          background: 'rgba(255, 255, 255, 0.1)',
+          backdropFilter: 'blur(25px) saturate(200%)',
+          WebkitBackdropFilter: 'blur(25px) saturate(200%)',
+          border: '1px solid rgba(255, 255, 255, 0.2)',
+          boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.37), inset 0 1px 0 0 rgba(255, 255, 255, 0.1)',
+          borderRadius: 4,
+          position: 'relative',
+          overflow: 'hidden',
+          transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+          '&::before': {
+            content: '""',
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            height: '1px',
+            background: 'linear-gradient(90deg, transparent, rgba(100, 181, 246, 0.6), transparent)',
+            opacity: 0.7,
+          },
+          '&:hover': {
+            transform: 'translateY(-2px) scale(1.02)',
+            boxShadow: '0 12px 40px 0 rgba(31, 38, 135, 0.45), inset 0 1px 0 0 rgba(255, 255, 255, 0.15)',
+          }
+        }}>
           <Typography variant="body1" sx={{ mb: 3 }}>
             Enter your email address and we'll send you a link to reset your password.
           </Typography>

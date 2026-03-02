@@ -90,9 +90,29 @@ export default function LoginPage() {
         sx={{
           width: '100%',
           p: 4,
-          borderRadius: 3,
-          border: '1px solid',
-          borderColor: 'divider',
+          borderRadius: 4,
+          background: 'rgba(255, 255, 255, 0.1)',
+          backdropFilter: 'blur(25px) saturate(200%)',
+          WebkitBackdropFilter: 'blur(25px) saturate(200%)',
+          border: '1px solid rgba(255, 255, 255, 0.2)',
+          boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.37), inset 0 1px 0 0 rgba(255, 255, 255, 0.1)',
+          position: 'relative',
+          overflow: 'hidden',
+          transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+          '&::before': {
+            content: '""',
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            height: '1px',
+            background: 'linear-gradient(90deg, transparent, rgba(100, 181, 246, 0.6), transparent)',
+            opacity: 0.7,
+          },
+          '&:hover': {
+            transform: 'translateY(-2px) scale(1.02)',
+            boxShadow: '0 12px 40px 0 rgba(31, 38, 135, 0.45), inset 0 1px 0 0 rgba(255, 255, 255, 0.15)',
+          }
         }}
       >
         {/* ===== Brand ===== */}
@@ -102,12 +122,21 @@ export default function LoginPage() {
               width: 56,
               height: 56,
               borderRadius: '50%',
-              bgcolor: 'primary.main',
+              background: 'linear-gradient(135deg, rgba(74, 108, 247, 0.8), rgba(166, 77, 255, 0.8))',
+              backdropFilter: 'blur(10px)',
+              WebkitBackdropFilter: 'blur(10px)',
+              border: '1px solid rgba(255, 255, 255, 0.3)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               mx: 'auto',
               mb: 1.5,
+              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+              animation: 'float 3s ease-in-out infinite',
+              '&:hover': {
+                transform: 'scale(1.1)',
+                boxShadow: '0 8px 25px rgba(74, 108, 247, 0.4)',
+              }
             }}
           >
             <LockOutlined sx={{ color: 'white' }} />

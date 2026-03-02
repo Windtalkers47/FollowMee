@@ -15,6 +15,7 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  DialogContentText,
   Button,
   TextField,
   Collapse,
@@ -22,6 +23,7 @@ import {
   Zoom,
   Fade,
   Grow,
+  useTheme,
 } from '@mui/material';
 import {
   MoreVert as MoreVertIcon,
@@ -78,10 +80,15 @@ const TaskCard: React.FC<TaskCardProps> = ({
   showActions = true,
   compact = false,
 }) => {
+  const theme = useTheme();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [showComments, setShowComments] = useState(false);
   const [commentText, setCommentText] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [showImagePreview, setShowImagePreview] = useState(false);
+  const [replyingTo, setReplyingTo] = useState<number | null>(null);
+  const [replyText, setReplyText] = useState('');
+  const [commentReactions, setCommentReactions] = useState<Record<number, string>>({});
 
   // Fetch comments when comments section is opened
   const { data: comments = [], isLoading: commentsLoading } = useQuery({
@@ -120,13 +127,105 @@ const TaskCard: React.FC<TaskCardProps> = ({
     }
   };
 
+  const handleCommentReaction = (commentId: number, reactionType: 'like' | 'love' | 'laugh' | 'angry') => {
+    setCommentReactions(prev => ({
+      ...prev,
+      [commentId]: prev[commentId] === reactionType ? '' : reactionType
+    }));
+  };
+
+  const handleReply = (commentId: number) => {
+    setReplyingTo(commentId);
+    setReplyText('');
+  };
+
+  const handleReplySubmit = (parentCommentId: number) => {
+    if (replyText.trim()) {
+      // TODO: Implement nested comment submission
+      console.log('Reply to comment', parentCommentId, ':', replyText);
+      setReplyText('');
+      setReplyingTo(null);
+    }
+  };
+
   const canEdit = task.createdBy === currentUserId;
   const canDelete = task.createdBy === currentUserId;
   const canUpdateStatus = task.assignedTo === currentUserId || task.createdBy === currentUserId;
 
   return (
     <>
-      <Card sx={{ mb: 2, maxWidth: compact ? 400 : '100%' }}>
+      <style>
+        {`
+          @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+          }
+          @keyframes liquid {
+            0%, 100% { border-radius: 4px; }
+            50% { border-radius: 6px; }
+          }
+          @keyframes glow {
+            0%, 100% { 
+              box-shadow: 0 0 20px rgba(100, 181, 246, 0.3);
+            }
+            50% { 
+              box-shadow: 0 0 30px rgba(100, 181, 246, 0.5);
+            }
+          }
+        `}
+      </style>
+      <Card 
+        sx={{ 
+          mb: 2, 
+          maxWidth: compact ? 400 : '100%',
+          background: theme.palette.mode === 'dark' 
+            ? 'linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%)'
+            : 'linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.7) 100%)',
+          backdropFilter: 'blur(25px) saturate(200%) brightness(1.1)',
+          WebkitBackdropFilter: 'blur(25px) saturate(200%) brightness(1.1)',
+          borderRadius: 4,
+          border: theme.palette.mode === 'dark' 
+            ? '1px solid rgba(255, 255, 255, 0.2)'
+            : '1px solid rgba(255, 255, 255, 0.4)',
+          boxShadow: theme.palette.mode === 'dark'
+            ? '0 8px 32px 0 rgba(31, 38, 135, 0.4), inset 0 1px 0 0 rgba(255, 255, 255, 0.15), 0 0 20px rgba(100, 181, 246, 0.1)'
+            : '0 8px 32px 0 rgba(31, 38, 135, 0.18), inset 0 1px 0 0 rgba(255, 255, 255, 0.4), 0 0 20px rgba(59, 130, 246, 0.15)',
+          position: 'relative',
+          overflow: 'hidden',
+          transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+          animation: 'liquid 4s ease-in-out infinite',
+          '&::before': {
+            content: '""',
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            height: '1px',
+            background: 'linear-gradient(90deg, transparent, rgba(100, 181, 246, 0.6), transparent)',
+            opacity: theme.palette.mode === 'dark' ? 0.4 : 0.7,
+            animation: 'shimmer 3s infinite',
+          },
+          '&::after': {
+            content: '""',
+            position: 'absolute',
+            top: '-50%',
+            left: '-50%',
+            width: '200%',
+            height: '200%',
+            background: 'radial-gradient(circle, rgba(100, 181, 246, 0.1) 0%, transparent 70%)',
+            opacity: 0,
+            transition: 'opacity 0.3s ease',
+            pointerEvents: 'none',
+          },
+          '&:hover': {
+            transform: 'translateY(-2px) scale(1.02)',
+            animation: 'glow 2s ease-in-out infinite',
+            '&::after': {
+              opacity: 1,
+            }
+          }
+        }}
+      >
         <CardContent>
           {/* Header */}
           <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
@@ -172,14 +271,21 @@ const TaskCard: React.FC<TaskCardProps> = ({
           {/* Task Image */}
           {task.imageUrl && (
             <Box mb={2}>
-              <img
+              <Box
+                component="img"
                 src={task.imageUrl}
                 alt={task.title}
-                style={{
+                onClick={() => setShowImagePreview(true)}
+                sx={{
                   width: '100%',
                   maxHeight: 200,
                   objectFit: 'cover',
-                  borderRadius: 8,
+                  borderRadius: 2,
+                  cursor: 'pointer',
+                  transition: 'transform 0.2s ease-in-out',
+                  '&:hover': {
+                    transform: 'scale(1.02)',
+                  }
                 }}
               />
             </Box>
@@ -315,10 +421,46 @@ const TaskCard: React.FC<TaskCardProps> = ({
 
         {/* Comments Section */}
         <Collapse in={showComments}>
-          <Divider />
-          <Box p={2}>
+          <Divider sx={{ 
+            borderColor: theme.palette.mode === 'dark' 
+              ? 'rgba(255, 255, 255, 0.1)' 
+              : 'rgba(255, 255, 255, 0.2)',
+            background: 'linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent)',
+          }} />
+          <Box 
+            p={2} 
+            sx={{ 
+              background: theme.palette.mode === 'dark' 
+                ? 'rgba(255, 255, 255, 0.03)' 
+                : 'rgba(255, 255, 255, 0.4)',
+              backdropFilter: 'blur(20px) saturate(180%)',
+              WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+              borderRadius: 3,
+              border: theme.palette.mode === 'dark' 
+                ? '1px solid rgba(255, 255, 255, 0.1)' 
+                : '1px solid rgba(255, 255, 255, 0.2)',
+              boxShadow: theme.palette.mode === 'dark'
+                ? 'inset 0 1px 0 0 rgba(255, 255, 255, 0.1)'
+                : 'inset 0 1px 0 0 rgba(255, 255, 255, 0.3)',
+              position: 'relative',
+              overflow: 'hidden',
+              '&::before': {
+                content: '""',
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                height: '1px',
+                background: 'linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent)',
+                opacity: theme.palette.mode === 'dark' ? 0.4 : 0.6,
+              }
+            }}
+          >
             {/* Comment Input */}
             <Box display="flex" gap={1} mb={2}>
+              <Avatar sx={{ width: 32, height: 32, fontSize: '0.875rem' }}>
+                {currentUserId ? 'U' : 'U'}
+              </Avatar>
               <TextField
                 fullWidth
                 size="small"
@@ -331,46 +473,304 @@ const TaskCard: React.FC<TaskCardProps> = ({
                     handleCommentSubmit();
                   }
                 }}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: 3,
+                    backgroundColor: theme.palette.mode === 'dark' 
+                      ? 'rgba(255, 255, 255, 0.08)' 
+                      : 'rgba(255, 255, 255, 0.9)',
+                    backdropFilter: 'blur(10px)',
+                    WebkitBackdropFilter: 'blur(10px)',
+                    border: theme.palette.mode === 'dark' 
+                      ? '1px solid rgba(255, 255, 255, 0.2)' 
+                      : '1px solid rgba(255, 255, 255, 0.3)',
+                    '& fieldset': {
+                      borderColor: 'transparent',
+                    },
+                    '&:hover fieldset': {
+                      borderColor: theme.palette.mode === 'dark' 
+                        ? 'rgba(255, 255, 255, 0.3)' 
+                        : 'rgba(255, 255, 255, 0.4)',
+                    },
+                    '&.Mui-focused fieldset': {
+                      borderColor: theme.palette.mode === 'dark' 
+                        ? 'rgba(100, 181, 246, 0.6)' 
+                        : 'rgba(59, 130, 246, 0.8)',
+                      boxShadow: theme.palette.mode === 'dark'
+                        ? '0 0 0 3px rgba(100, 181, 246, 0.2)'
+                        : '0 0 0 3px rgba(59, 130, 246, 0.3)',
+                    },
+                    '& input': {
+                      color: theme.palette.mode === 'dark' 
+                        ? 'rgba(255, 255, 255, 0.9)' 
+                        : 'rgba(0, 0, 0, 0.8)',
+                    },
+                    '& input::placeholder': {
+                      color: theme.palette.mode === 'dark' 
+                        ? 'rgba(255, 255, 255, 0.5)' 
+                        : 'rgba(0, 0, 0, 0.5)',
+                    }
+                  }
+                }}
               />
               <Button
                 variant="contained"
                 size="small"
                 onClick={handleCommentSubmit}
                 disabled={!commentText.trim()}
+                sx={{ borderRadius: 3 }}
               >
                 Post
               </Button>
             </Box>
 
-            {/* Comments List */}
+            {/* Comments List - Sorted by newest first, most engaging at top */}
             {commentsLoading ? (
-              <Typography variant="body2" color="text.secondary">
-                Loading comments...
-              </Typography>
+              <Box display="flex" justifyContent="center" py={2}>
+                <Typography variant="body2" color="text.secondary">
+                  Loading comments...
+                </Typography>
+              </Box>
             ) : comments.length === 0 ? (
-              <Typography variant="body2" color="text.secondary">
-                No comments yet. Be the first to comment!
-              </Typography>
+              <Box display="flex" justifyContent="center" py={2}>
+                <Typography variant="body2" color="text.secondary">
+                  No comments yet. Be the first to comment!
+                </Typography>
+              </Box>
             ) : (
-              <Box display="flex" flexDirection="column" gap={1}>
-                {comments.map((comment) => (
-                  <Box key={comment.commentId} display="flex" gap={1} p={1} bgcolor="grey.50" borderRadius={1}>
-                    <Avatar sx={{ width: 24, height: 24, fontSize: '0.75rem' }}>
-                      {comment.user?.userName?.[0]?.toUpperCase() || 'U'}
-                    </Avatar>
-                    <Box flex={1}>
-                      <Typography variant="body2" fontWeight="medium">
-                        {comment.user ? `${comment.user.userName} ${comment.user.userLastName}` : 'Unknown User'}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        {comment.comment}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {format(new Date(comment.createdAt), 'MMM dd, yyyy HH:mm')}
-                      </Typography>
+              <Box display="flex" flexDirection="column" gap={2}>
+                {comments
+                  .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                  .map((comment) => (
+                    <Box key={comment.commentId} sx={{ display: 'flex', gap: 1.5 }}>
+                      <Avatar 
+                        sx={{ 
+                          width: 32, 
+                          height: 32, 
+                          fontSize: '0.875rem',
+                          cursor: 'pointer',
+                          '&:hover': { transform: 'scale(1.05)' }
+                        }}
+                        onClick={() => {/* TODO: Show user profile */}}
+                      >
+                        {comment.user?.userName?.[0]?.toUpperCase() || 'U'}
+                      </Avatar>
+                      <Box flex={1}>
+                        <Box display="flex" alignItems="center" gap={1} mb={0.5}>
+                          <Typography variant="subtitle2" fontWeight="medium" sx={{ fontSize: '0.875rem' }}>
+                            {comment.user ? `${comment.user.userName} ${comment.user.userLastName}` : 'Unknown User'}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {format(new Date(comment.createdAt), 'MMM d, yyyy • h:mm a')}
+                          </Typography>
+                        </Box>
+                        <Typography 
+                          variant="body2" 
+                          sx={{ 
+                            fontSize: '0.875rem',
+                            lineHeight: 1.4,
+                            backgroundColor: theme.palette.mode === 'dark' 
+                              ? 'rgba(255, 255, 255, 0.08)' 
+                              : 'rgba(255, 255, 255, 0.95)',
+                            backdropFilter: 'blur(10px) saturate(180%)',
+                            WebkitBackdropFilter: 'blur(10px) saturate(180%)',
+                            padding: 1.5,
+                            borderRadius: 3,
+                            border: '1px solid',
+                            borderColor: theme.palette.mode === 'dark' 
+                              ? 'rgba(255, 255, 255, 0.15)' 
+                              : 'rgba(255, 255, 255, 0.2)',
+                            boxShadow: theme.palette.mode === 'dark'
+                              ? '0 4px 12px rgba(0, 0, 0, 0.15), inset 0 1px 0 0 rgba(255, 255, 255, 0.1)'
+                              : '0 4px 12px rgba(0, 0, 0, 0.08), inset 0 1px 0 0 rgba(255, 255, 255, 0.3)',
+                            position: 'relative',
+                            overflow: 'hidden',
+                            '&::before': {
+                              content: '""',
+                              position: 'absolute',
+                              top: 0,
+                              left: 0,
+                              right: 0,
+                              height: '1px',
+                              background: 'linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent)',
+                              opacity: theme.palette.mode === 'dark' ? 0.5 : 0.7,
+                            }
+                          }}
+                        >
+                          {comment.comment}
+                        </Typography>
+                        
+                        {/* Comment Actions */}
+                        <Box display="flex" alignItems="center" gap={1} mt={1}>
+                          {/* Like Button */}
+                          <IconButton 
+                            size="small" 
+                            sx={{ 
+                              fontSize: '0.75rem',
+                              color: commentReactions[comment.commentId] === 'like' ? 'primary' : 'default',
+                              backgroundColor: commentReactions[comment.commentId] === 'like' 
+                                ? theme.palette.mode === 'dark' ? 'rgba(255, 234, 167, 0.2)' : 'rgba(255, 234, 167, 0.3)'
+                                : 'transparent',
+                              '&:hover': {
+                                backgroundColor: theme.palette.mode === 'dark' 
+                                  ? 'rgba(255, 234, 167, 0.1)' 
+                                  : 'rgba(255, 234, 167, 0.2)',
+                              }
+                            }}
+                            onClick={() => handleCommentReaction(comment.commentId, 'like')}
+                          >
+                            <LikeIcon fontSize="inherit" />
+                            <Typography variant="caption" sx={{ ml: 0.5 }}>
+                              Like
+                            </Typography>
+                          </IconButton>
+
+                          {/* Love Button */}
+                          <IconButton 
+                            size="small" 
+                            sx={{ 
+                              fontSize: '0.75rem',
+                              color: commentReactions[comment.commentId] === 'love' ? 'error' : 'default',
+                              backgroundColor: commentReactions[comment.commentId] === 'love'
+                                ? theme.palette.mode === 'dark' ? 'rgba(255, 118, 117, 0.2)' : 'rgba(255, 118, 117, 0.3)'
+                                : 'transparent',
+                              '&:hover': {
+                                backgroundColor: theme.palette.mode === 'dark' 
+                                  ? 'rgba(255, 118, 117, 0.1)' 
+                                  : 'rgba(255, 118, 117, 0.2)',
+                              }
+                            }}
+                            onClick={() => handleCommentReaction(comment.commentId, 'love')}
+                          >
+                            <LoveIcon fontSize="inherit" />
+                            <Typography variant="caption" sx={{ ml: 0.5 }}>
+                              Love
+                            </Typography>
+                          </IconButton>
+
+                          {/* Laugh Button */}
+                          <IconButton 
+                            size="small" 
+                            sx={{ 
+                              fontSize: '0.75rem',
+                              color: commentReactions[comment.commentId] === 'laugh' ? 'warning' : 'default',
+                              backgroundColor: commentReactions[comment.commentId] === 'laugh'
+                                ? theme.palette.mode === 'dark' ? 'rgba(255, 193, 7, 0.2)' : 'rgba(255, 193, 7, 0.3)'
+                                : 'transparent',
+                              '&:hover': {
+                                backgroundColor: theme.palette.mode === 'dark' 
+                                  ? 'rgba(255, 193, 7, 0.1)' 
+                                  : 'rgba(255, 193, 7, 0.2)',
+                              }
+                            }}
+                            onClick={() => handleCommentReaction(comment.commentId, 'laugh')}
+                          >
+                            <LaughIcon fontSize="inherit" />
+                            <Typography variant="caption" sx={{ ml: 0.5 }}>
+                              Laugh
+                            </Typography>
+                          </IconButton>
+
+                          {/* Angry Button */}
+                          <IconButton 
+                            size="small" 
+                            sx={{ 
+                              fontSize: '0.75rem',
+                              color: commentReactions[comment.commentId] === 'angry' ? 'error' : 'default',
+                              backgroundColor: commentReactions[comment.commentId] === 'angry'
+                                ? theme.palette.mode === 'dark' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(239, 68, 68, 0.3)'
+                                : 'transparent',
+                              '&:hover': {
+                                backgroundColor: theme.palette.mode === 'dark' 
+                                  ? 'rgba(239, 68, 68, 0.1)' 
+                                  : 'rgba(239, 68, 68, 0.2)',
+                              }
+                            }}
+                            onClick={() => handleCommentReaction(comment.commentId, 'angry')}
+                          >
+                            <AngryIcon fontSize="inherit" />
+                            <Typography variant="caption" sx={{ ml: 0.5 }}>
+                              Angry
+                            </Typography>
+                          </IconButton>
+
+                          {/* Reply Button */}
+                          <IconButton 
+                            size="small" 
+                            sx={{ 
+                              fontSize: '0.75rem',
+                              color: 'primary',
+                              '&:hover': {
+                                backgroundColor: theme.palette.mode === 'dark' 
+                                  ? 'rgba(100, 181, 246, 0.1)' 
+                                  : 'rgba(100, 181, 246, 0.2)',
+                              }
+                            }}
+                            onClick={() => handleReply(comment.commentId)}
+                          >
+                            <CommentIcon fontSize="inherit" />
+                            <Typography variant="caption" sx={{ ml: 0.5 }}>
+                              Reply
+                            </Typography>
+                          </IconButton>
+                        </Box>
+
+                        {/* Reply Input */}
+                        {replyingTo === comment.commentId && (
+                          <Box display="flex" gap={1} mt={2} ml={4}>
+                            <Avatar sx={{ width: 24, height: 24, fontSize: '0.75rem' }}>
+                              {currentUserId ? 'U' : 'U'}
+                            </Avatar>
+                            <TextField
+                              fullWidth
+                              size="small"
+                              placeholder="Write a reply..."
+                              value={replyText}
+                              onChange={(e) => setReplyText(e.target.value)}
+                              onKeyPress={(e) => {
+                                if (e.key === 'Enter' && !e.shiftKey) {
+                                  e.preventDefault();
+                                  handleReplySubmit(comment.commentId);
+                                }
+                              }}
+                              sx={{
+                                '& .MuiOutlinedInput-root': {
+                                  borderRadius: 2,
+                                  backgroundColor: theme.palette.mode === 'dark' 
+                                    ? 'rgba(255, 255, 255, 0.05)' 
+                                    : 'rgba(255, 255, 255, 0.8)',
+                                  '& fieldset': {
+                                    borderColor: theme.palette.mode === 'dark' 
+                                      ? 'rgba(255, 255, 255, 0.1)' 
+                                      : 'rgba(0, 0, 0, 0.1)',
+                                  },
+                                  '&:hover fieldset': {
+                                    borderColor: theme.palette.mode === 'dark' 
+                                      ? 'rgba(255, 255, 255, 0.2)' 
+                                      : 'rgba(0, 0, 0, 0.2)',
+                                  },
+                                  '&.Mui-focused fieldset': {
+                                    borderColor: theme.palette.mode === 'dark' 
+                                      ? '#64b5f6' 
+                                      : '#2196f3',
+                                  },
+                                }
+                              }}
+                            />
+                            <Button
+                              variant="contained"
+                              size="small"
+                              onClick={() => handleReplySubmit(comment.commentId)}
+                              disabled={!replyText.trim()}
+                              sx={{ borderRadius: 2 }}
+                            >
+                              Reply
+                            </Button>
+                          </Box>
+                        )}
+                      </Box>
                     </Box>
-                  </Box>
-                ))}
+                  ))}
               </Box>
             )}
           </Box>
@@ -424,6 +824,36 @@ const TaskCard: React.FC<TaskCardProps> = ({
             variant="contained"
           >
             Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Image Preview Dialog */}
+      <Dialog 
+        open={showImagePreview}
+        onClose={() => setShowImagePreview(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>Task Image</DialogTitle>
+        <DialogContent>
+          {task.imageUrl && (
+            <Box
+              component="img"
+              src={task.imageUrl}
+              alt={task.title}
+              sx={{
+                width: '100%',
+                maxHeight: '70vh',
+                objectFit: 'contain',
+                borderRadius: 1,
+              }}
+            />
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowImagePreview(false)}>
+            Close
           </Button>
         </DialogActions>
       </Dialog>

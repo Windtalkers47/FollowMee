@@ -80,11 +80,27 @@ function a11yProps(index: number) {
 // Styled components
 const StyledCard = styled(Card)(({ theme }) => ({
   borderRadius: 12,
-  boxShadow: '0 4px 20px 0 rgba(0,0,0,0.05)',
-  transition: 'transform 0.3s, box-shadow 0.3s',
+  background: 'rgba(255, 255, 255, 0.1)',
+  backdropFilter: 'blur(25px) saturate(200%)',
+  WebkitBackdropFilter: 'blur(25px) saturate(200%)',
+  border: '1px solid rgba(255, 255, 255, 0.2)',
+  boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.37), inset 0 1px 0 0 rgba(255, 255, 255, 0.1)',
+  position: 'relative',
+  overflow: 'hidden',
+  transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+  '&::before': {
+    content: '""',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: '1px',
+    background: 'linear-gradient(90deg, transparent, rgba(100, 181, 246, 0.6), transparent)',
+    opacity: 0.7,
+  },
   '&:hover': {
-    boxShadow: '0 8px 30px 0 rgba(0,0,0,0.1)',
-    transform: 'translateY(-2px)'
+    transform: 'translateY(-2px) scale(1.02)',
+    boxShadow: '0 12px 40px 0 rgba(31, 38, 135, 0.45), inset 0 1px 0 0 rgba(255, 255, 255, 0.15)',
   }
 }));
 

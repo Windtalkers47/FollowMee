@@ -24,6 +24,14 @@ import {
   Menu,
   MenuItem,
   alpha,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  Button,
+  Alert,
+  Snackbar,
 } from '@mui/material';
 
 import {
@@ -42,6 +50,9 @@ import {
   Group,
   AccountCircle,
   PeopleAlt,
+  Edit as EditIcon,
+  Delete as DeleteIcon,
+  Close as CloseIcon,
 } from '@mui/icons-material';
 
 const drawerWidth = 260;
@@ -84,18 +95,91 @@ const MainLayout = ({ children }: MainLayoutProps) => {
 
   const [open, setOpen] = useState(true);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [profileData, setProfileData] = useState({
+    userName: currentUser?.userName || '',
+    userEmail: currentUser?.userEmail || '',
+  });
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'success' as 'success' | 'error' | 'warning',
+  });
 
   const handleDrawerToggle = useCallback(() => setOpen(p => !p), []);
   const handleProfileMenuOpen = useCallback((e: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(e.currentTarget);
   }, []);
   const handleMenuClose = useCallback(() => setAnchorEl(null), []);
-
+  
+  const handleProfileModalOpen = useCallback(() => {
+    setProfileModalOpen(true);
+    handleMenuClose();
+  }, []);
+  
+  const handleProfileModalClose = useCallback(() => {
+    setProfileModalOpen(false);
+  }, []);
+  
+  const handleDeleteModalOpen = useCallback(() => {
+    setDeleteModalOpen(true);
+    handleProfileModalClose();
+  }, []);
+  
+  const handleDeleteModalClose = useCallback(() => {
+    setDeleteModalOpen(false);
+  }, []);
+  
+  const handleProfileChange = useCallback((field: string, value: string) => {
+    setProfileData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  }, []);
+  
   const handleLogout = useCallback(() => {
     dispatch(logout());
     localStorage.removeItem('authToken');
     navigate('/login', { replace: true });
   }, [dispatch, navigate]);
+  
+  const handleProfileUpdate = useCallback(async () => {
+    try {
+      // TODO: Implement profile update API call
+      setSnackbar({
+        open: true,
+        message: 'Profile updated successfully!',
+        severity: 'success'
+      });
+      handleProfileModalClose();
+    } catch (error) {
+      setSnackbar({
+        open: true,
+        message: 'Failed to update profile',
+        severity: 'error'
+      });
+    }
+  }, []);
+  
+  const handleAccountDelete = useCallback(async () => {
+    try {
+      // TODO: Implement account deletion API call
+      setSnackbar({
+        open: true,
+        message: 'Account deleted successfully',
+        severity: 'success'
+      });
+      handleDeleteModalClose();
+      handleLogout();
+    } catch (error) {
+      setSnackbar({
+        open: true,
+        message: 'Failed to delete account',
+        severity: 'error'
+      });
+    }
+  }, [handleLogout]);
 
   /* ================= Drawer ================= */
 
@@ -377,14 +461,171 @@ const MainLayout = ({ children }: MainLayoutProps) => {
 
       {/* Profile Menu */}
       <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleMenuClose}>
-        <MenuItem>Profile</MenuItem>
-        <MenuItem>Account</MenuItem>
+        <MenuItem onClick={handleProfileModalOpen}>
+          <EditIcon fontSize="small" sx={{ mr: 1 }} />
+          Edit Profile
+        </MenuItem>
+        <Divider />
+        <MenuItem onClick={handleDeleteModalOpen}>
+          <DeleteIcon fontSize="small" sx={{ mr: 1 }} />
+          Delete Account
+        </MenuItem>
         <Divider />
         <MenuItem onClick={handleLogout}>
           <Logout fontSize="small" sx={{ mr: 1 }} />
           Logout
         </MenuItem>
       </Menu>
+
+      {/* Profile Modal */}
+      <Dialog 
+        open={profileModalOpen} 
+        onClose={handleProfileModalClose}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: {
+            background: theme.palette.mode === 'dark' 
+              ? 'rgba(255, 255, 255, 0.1)' 
+              : 'rgba(255, 255, 255, 0.95)',
+            backdropFilter: 'blur(25px) saturate(200%)',
+            WebkitBackdropFilter: 'blur(25px) saturate(200%)',
+            border: '1px solid rgba(255, 255, 255, 0.2)',
+            boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.37), inset 0 1px 0 0 rgba(255, 255, 255, 0.1)',
+            borderRadius: 4,
+          }
+        }}
+      >
+        <DialogTitle>
+          <Box display="flex" alignItems="center" justifyContent="space-between">
+            <Typography variant="h6" sx={{ color: theme.palette.mode === 'dark' ? '#ffffff' : '#1a1a1a', fontWeight: 600 }}>
+              Edit Profile
+            </Typography>
+            <IconButton onClick={handleProfileModalClose}>
+              <CloseIcon />
+            </IconButton>
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          <Box display="flex" flexDirection="column" gap={2} pt={1}>
+            <TextField
+              fullWidth
+              label="Name"
+              value={profileData.userName}
+              onChange={(e) => handleProfileChange('userName', e.target.value)}
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  backdropFilter: 'blur(10px)',
+                  WebkitBackdropFilter: 'blur(10px)',
+                },
+                '& .MuiInputLabel-root': {
+                  color: theme.palette.mode === 'dark' ? '#ffffff' : '#1a1a1a',
+                  '&.Mui-focused': {
+                    color: theme.palette.primary.main,
+                  }
+                },
+                '& .MuiInputBase-input': {
+                  color: theme.palette.mode === 'dark' ? '#ffffff' : '#1a1a1a',
+                }
+              }}
+            />
+            <TextField
+              fullWidth
+              label="Email"
+              type="email"
+              value={profileData.userEmail}
+              onChange={(e) => handleProfileChange('userEmail', e.target.value)}
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  backdropFilter: 'blur(10px)',
+                  WebkitBackdropFilter: 'blur(10px)',
+                },
+                '& .MuiInputLabel-root': {
+                  color: theme.palette.mode === 'dark' ? '#ffffff' : '#1a1a1a',
+                  '&.Mui-focused': {
+                    color: theme.palette.primary.main,
+                  }
+                },
+                '& .MuiInputBase-input': {
+                  color: theme.palette.mode === 'dark' ? '#ffffff' : '#1a1a1a',
+                }
+              }}
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleProfileModalClose}>Cancel</Button>
+          <Button 
+            onClick={handleProfileUpdate}
+            variant="contained"
+            sx={{
+              background: 'linear-gradient(135deg, rgba(74, 108, 247, 0.8), rgba(166, 77, 255, 0.8))',
+            }}
+          >
+            Save Changes
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Delete Account Modal */}
+      <Dialog 
+        open={deleteModalOpen} 
+        onClose={handleDeleteModalClose}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: {
+            background: theme.palette.mode === 'dark' 
+              ? 'rgba(255, 255, 255, 0.1)' 
+              : 'rgba(255, 255, 255, 0.95)',
+            backdropFilter: 'blur(25px) saturate(200%)',
+            WebkitBackdropFilter: 'blur(25px) saturate(200%)',
+            border: '1px solid rgba(255, 255, 255, 0.2)',
+            boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.37), inset 0 1px 0 0 rgba(255, 255, 255, 0.1)',
+            borderRadius: 4,
+          }
+        }}
+      >
+        <DialogTitle>
+          <Typography variant="h6" sx={{ color: theme.palette.mode === 'dark' ? '#ffffff' : '#d32f2f', fontWeight: 600 }}>
+            Delete Account
+          </Typography>
+        </DialogTitle>
+        <DialogContent>
+          <Typography sx={{ color: theme.palette.mode === 'dark' ? '#ffffff' : '#1a1a1a' }}>
+            Are you sure you want to delete your account? This action cannot be undone and all your data will be permanently removed.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleDeleteModalClose}>Cancel</Button>
+          <Button 
+            onClick={handleAccountDelete}
+            variant="contained"
+            color="error"
+            sx={{
+              background: 'linear-gradient(135deg, rgba(244, 67, 54, 0.8), rgba(220, 38, 38, 0.8))',
+            }}
+          >
+            Delete Account
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Snackbar */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
+      >
+        <Alert 
+          severity={snackbar.severity}
+          onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };

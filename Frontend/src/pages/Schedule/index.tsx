@@ -421,7 +421,22 @@ const SchedulePage = () => {
       {/* Floating Action Button for Mobile */}
       <Fab
         color="primary"
-        sx={{ position: 'fixed', bottom: 16, right: 16 }}
+        sx={{ 
+          position: 'fixed', 
+          bottom: 16, 
+          right: 16,
+          background: 'linear-gradient(135deg, rgba(74, 108, 247, 0.8), rgba(166, 77, 255, 0.8))',
+          backdropFilter: 'blur(10px)',
+          WebkitBackdropFilter: 'blur(10px)',
+          border: '1px solid rgba(255, 255, 255, 0.3)',
+          boxShadow: '0 8px 25px rgba(74, 108, 247, 0.4)',
+          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+          animation: 'float 3s ease-in-out infinite',
+          '&:hover': {
+            transform: 'scale(1.1) translateY(-2px)',
+            boxShadow: '0 12px 35px rgba(74, 108, 247, 0.6)',
+          }
+        }}
         onClick={() => setTaskDialogOpen(true)}
       >
         <AddIcon />

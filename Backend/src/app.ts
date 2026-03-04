@@ -16,6 +16,7 @@ import customerProfileRoutes from './routes/customer-profile.routes';
 import userManagementRoutes from './routes/user-management.routes';
 import userRoutes from './routes/user.routes';
 import taskRoutes from './routes/task.routes';
+import taskImageRoutes from './routes/task-image.routes';
 import taskCommentRoutes from './routes/task-comment.routes';
 import taskLikeRoutes from './routes/task-like.routes';
 
@@ -153,6 +154,7 @@ class App {
 
     // Task routes
     this.app.use('/api/tasks', taskRoutes);
+    this.app.use('/api/tasks', taskImageRoutes);
     this.app.use('/api/tasks/:taskId/comments', taskCommentRoutes);
     this.app.use('/api/tasks/:taskId/likes', taskLikeRoutes);
 

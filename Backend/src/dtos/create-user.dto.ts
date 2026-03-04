@@ -38,4 +38,9 @@ export class CreateUserDto {
 
   @IsOptional()
   isActive: boolean = true;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(500)
+  userImageUrl: string | null = null;
 }

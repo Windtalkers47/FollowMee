@@ -36,4 +36,10 @@ router.delete('/:userId', (req, res, next) => userController.deleteUser(req, res
 // Change password
 router.post('/change-password', (req, res, next) => userController.changePassword(req, res, next));
 
+// Upload profile image
+router.post('/upload-image', (req, res, next) => userController.uploadUserImage(req, res, next));
+
+// Delete profile image
+router.delete('/delete-image', (req, res, next) => userController.deleteUserImage(req, res, next));
+
 export default router;

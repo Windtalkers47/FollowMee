@@ -29,6 +29,9 @@ export class UserResponseDto {
   updatedAt!: Date;
 
   @Expose()
+  userImageUrl: string | null = null;
+
+  @Expose()
   get fullName(): string {
     return `${this.userName} ${this.userLastName}`.trim();
   }

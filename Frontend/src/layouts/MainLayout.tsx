@@ -54,6 +54,7 @@ import {
   Edit as EditIcon,
   Delete as DeleteIcon,
   Close as CloseIcon,
+  CloudUpload,
 } from '@mui/icons-material';
 
 const drawerWidth = 260;
@@ -604,12 +605,13 @@ const MainLayout = ({ children }: MainLayoutProps) => {
                 src={profileData.userImageUrl}
                 sx={{ width: 80, height: 80 }}
               />
-              <Box>
+              <Box display="flex" flexDirection="column" gap={1}>
                 <Button
                   component="label"
-                  variant="outlined"
+                  variant="contained"
                   size="small"
                   sx={{ mb: 1 }}
+                  startIcon={<CloudUpload />}
                 >
                   Upload Image
                   <input
@@ -635,6 +637,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
                   variant="outlined"
                   size="small"
                   color="error"
+                  startIcon={<DeleteIcon />}
                   onClick={() => setProfileData(prev => ({ ...prev, userImageUrl: '' }))}
                 >
                   Remove Image

@@ -5,6 +5,7 @@ import { UserRole } from './UserRole';
 import { Task } from './Task';
 import { TaskLike } from './TaskLike';
 import { TaskComment } from './TaskComment';
+import { TaskImage } from './TaskImage';
 
 @Entity('users')
 export class User {
@@ -65,6 +66,9 @@ export class User {
   @Column('datetime', { nullable: true })
   lastLogin!: Date | null;
 
+  @Column('varchar', { length: 500, nullable: true })
+  userImageUrl!: string | null;
+
   // Relations
   @OneToMany(() => UserRole, userRole => userRole.user)
   userRoles!: UserRole[];
@@ -80,6 +84,9 @@ export class User {
 
   @OneToMany(() => TaskComment, taskComment => taskComment.user)
   taskComments!: TaskComment[];
+
+  @OneToMany(() => TaskImage, taskImage => taskImage.uploadedByUser)
+  taskImages!: TaskImage[];
 
   // -------------------------
   // Hooks

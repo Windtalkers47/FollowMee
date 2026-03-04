@@ -20,6 +20,9 @@ export class TaskComment {
   @Column({ name: 'comment', type: 'text', nullable: false })
   comment!: string;
 
+  @Column({ name: 'commentImageUrl', type: 'varchar', length: 512, nullable: true })
+  commentImageUrl?: string;
+
   @Column({ name: 'isActive', type: 'boolean', default: true })
   isActive!: boolean;
 

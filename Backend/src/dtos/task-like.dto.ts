@@ -23,6 +23,7 @@ export class TaskLikeResponseDto {
     userId: number;
     userName: string;
     userLastName: string;
+    userImageUrl?: string;
   };
 }
 

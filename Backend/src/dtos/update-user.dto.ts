@@ -13,4 +13,9 @@ export class UpdateUserDto extends PartialType(CreateUserDto) {
   @MinLength(8)
   @MaxLength(100)
   userPassword?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(500)
+  userImageUrl: string | null = null;
 }

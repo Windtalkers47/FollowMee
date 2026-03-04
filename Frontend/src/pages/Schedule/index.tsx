@@ -20,12 +20,13 @@ import {
   CircularProgress,
   Alert,
   Fab,
+  Snackbar
 } from '@mui/material';
 import {
   Search as SearchIcon,
   FilterList as FilterListIcon,
   Add as AddIcon,
-  Refresh as RefreshIcon,
+  Refresh as RefreshIcon
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
@@ -33,6 +34,7 @@ import { useAppSelector } from '../../store/store';
 import { taskApi, Task, CreateTaskData, UpdateTaskData } from '../../api/task.api';
 import { userApi, User } from '../../api/user.api';
 import TaskCard from '../../components/TaskCard';
+import { TaskForm } from '../../components/TaskForm/TaskForm';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
@@ -69,7 +71,6 @@ const TaskFormDialog: React.FC<TaskFormDialogProps> = ({ open, onClose, task, on
     description: '',
     assignedTo: undefined,
     dueDate: undefined,
-    imageUrl: '',
     status: 'draft',
   });
   const [loading, setLoading] = useState(false);
@@ -81,7 +82,6 @@ const TaskFormDialog: React.FC<TaskFormDialogProps> = ({ open, onClose, task, on
         description: task.description || '',
         assignedTo: task.assignedTo,
         dueDate: task.dueDate ? new Date(task.dueDate) : undefined,
-        imageUrl: task.imageUrl || '',
         status: task.status,
       });
     } else {
@@ -90,7 +90,6 @@ const TaskFormDialog: React.FC<TaskFormDialogProps> = ({ open, onClose, task, on
         description: '',
         assignedTo: undefined,
         dueDate: undefined,
-        imageUrl: '',
         status: 'draft',
       });
     }
@@ -405,17 +404,31 @@ const SchedulePage = () => {
         </TabPanel>
       ))}
 
-      {/* Task Form Dialog */}
-      <TaskFormDialog
+      {/* Task Form */}
+      <TaskForm
         open={taskDialogOpen}
+        task={editingTask}
+        users={users || []}
         onClose={() => {
           setTaskDialogOpen(false);
           setEditingTask(undefined);
         }}
-        task={editingTask}
-        onSubmit={editingTask ? handleUpdateTask : handleCreateTask}
-        users={users}
-        usersLoading={usersLoading}
+        onSave={async (taskData) => {
+          try {
+            if (editingTask) {
+              await updateTaskMutation.mutateAsync({ 
+                taskId: editingTask.taskId, 
+                data: taskData as UpdateTaskData 
+              });
+            } else {
+              await createTaskMutation.mutateAsync(taskData as CreateTaskData);
+            }
+            setTaskDialogOpen(false);
+            setEditingTask(undefined);
+          } catch (error) {
+            console.error('Error saving task:', error);
+          }
+        }}
       />
 
       {/* Floating Action Button for Mobile */}

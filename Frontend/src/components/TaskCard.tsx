@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useAppSelector } from '../store/store';
 import {
   Card,
   CardContent,
@@ -81,6 +82,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
   compact = false,
 }) => {
   const theme = useTheme();
+  const { user } = useAppSelector((state) => state.auth);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [showComments, setShowComments] = useState(false);
   const [commentText, setCommentText] = useState('');
@@ -246,7 +248,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
                   {task.createdByUser ? `${task.createdByUser.userName} ${task.createdByUser.userLastName}` : 'Unknown User'}
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
-                  {format(new Date(task.createdAt), 'MMM dd, yyyy')}
+                  {format(new Date(task.createdAt), 'MMM dd, yyyy • h:mm a')}
                 </Typography>
               </Box>
             </Box>
@@ -276,26 +278,31 @@ const TaskCard: React.FC<TaskCardProps> = ({
             </Typography>
           )}
 
-          {/* Task Image */}
-          {task.imageUrl && (
+          {/* Task Images */}
+          {task.images && task.images.length > 0 && (
             <Box mb={2}>
-              <Box
-                component="img"
-                src={task.imageUrl}
-                alt={task.title}
-                onClick={() => setShowImagePreview(true)}
-                sx={{
-                  width: '100%',
-                  maxHeight: 200,
-                  objectFit: 'cover',
-                  borderRadius: 2,
-                  cursor: 'pointer',
-                  transition: 'transform 0.2s ease-in-out',
-                  '&:hover': {
-                    transform: 'scale(1.02)',
-                  }
-                }}
-              />
+              <Box display="flex" flexDirection="column" gap={1}>
+                {task.images.map((image: any, index: number) => (
+                  <Box
+                    key={image.imageId}
+                    component="img"
+                    src={image.imageUrl}
+                    alt={`${task.title} - Image ${index + 1}`}
+                    onClick={() => setShowImagePreview(true)}
+                    sx={{
+                      width: '100%',
+                      maxHeight: 200,
+                      objectFit: 'cover',
+                      borderRadius: 2,
+                      cursor: 'pointer',
+                      transition: 'transform 0.2s ease-in-out',
+                      '&:hover': {
+                        transform: 'scale(1.02)',
+                      }
+                    }}
+                  />
+                ))}
+              </Box>
             </Box>
           )}
 
@@ -467,16 +474,16 @@ const TaskCard: React.FC<TaskCardProps> = ({
             {/* Comment Input */}
             <Box display="flex" gap={1} mb={2}>
               <Avatar 
-                src={currentUserId ? '' : ''}
+                src={user?.userImageUrl}
                 sx={{ 
-                  width: 24, 
-                  height: 24, 
-                  fontSize: '0.75rem',
-                  bgcolor: currentUserId ? 'transparent' : theme.palette.primary.main,
-                  color: currentUserId ? 'transparent' : theme.palette.primary.contrastText,
+                  width: 32, 
+                  height: 32, 
+                  fontSize: '0.875rem',
+                  bgcolor: user?.userImageUrl ? 'transparent' : theme.palette.primary.main,
+                  color: user?.userImageUrl ? 'transparent' : theme.palette.primary.contrastText,
                 }}
               >
-                {currentUserId ? '' : (currentUserId?.[0]?.toUpperCase() || 'U')}
+                {user?.userImageUrl ? '' : (user?.userName?.[0]?.toUpperCase() || user?.userLastName?.[0]?.toUpperCase() || 'U')}
               </Avatar>
               <TextField
                 fullWidth
@@ -855,31 +862,42 @@ const TaskCard: React.FC<TaskCardProps> = ({
 
       {/* Image Preview Dialog */}
       <Dialog 
-        open={showImagePreview}
-        onClose={() => setShowImagePreview(false)}
-        maxWidth="md"
+        open={showImagePreview} 
+        onClose={() => setShowImagePreview(false)} 
+        maxWidth="md" 
         fullWidth
       >
-        <DialogTitle>Task Image</DialogTitle>
+        <DialogTitle>Task Images</DialogTitle>
         <DialogContent>
-          {task.imageUrl && (
-            <Box
-              component="img"
-              src={task.imageUrl}
-              alt={task.title}
-              sx={{
-                width: '100%',
-                maxHeight: '70vh',
-                objectFit: 'contain',
-                borderRadius: 1,
-              }}
-            />
+          {task.images && task.images.length > 0 ? (
+            <Box display="flex" flexDirection="column" gap={2}>
+              {task.images.map((image: any, index: number) => (
+                <Box key={image.imageId}>
+                  <Typography variant="subtitle2" mb={1}>
+                    Image {index + 1}
+                  </Typography>
+                  <Box
+                    component="img"
+                    src={image.imageUrl}
+                    alt={`${task.title} - Image ${index + 1}`}
+                    sx={{
+                      width: '100%',
+                      maxHeight: 400,
+                      objectFit: 'contain',
+                      borderRadius: 2,
+                    }}
+                  />
+                </Box>
+              ))}
+            </Box>
+          ) : (
+            <Typography variant="body2" color="text.secondary">
+              No images available for this task.
+            </Typography>
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setShowImagePreview(false)}>
-            Close
-          </Button>
+          <Button onClick={() => setShowImagePreview(false)}>Close</Button>
         </DialogActions>
       </Dialog>
     </>

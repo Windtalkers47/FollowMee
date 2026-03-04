@@ -2,6 +2,7 @@ import { Entity, PrimaryColumn, Column, CreateDateColumn, UpdateDateColumn, Many
 import { User } from './User';
 import { TaskLike } from './TaskLike';
 import { TaskComment } from './TaskComment';
+import { TaskImage } from './TaskImage';
 
 @Entity('tasks')
 export class Task {
@@ -31,9 +32,6 @@ export class Task {
   })
   status: 'draft' | 'upcoming' | 'past' | 'done' = 'draft';
 
-  @Column({ name: 'imageUrl', type: 'varchar', length: 512, nullable: true })
-  imageUrl?: string;
-
   @Column({ name: 'isActive', type: 'boolean', default: true })
   isActive: boolean = true;
 
@@ -55,4 +53,7 @@ export class Task {
 
   @OneToMany(() => TaskComment, comment => comment.task)
   comments!: TaskComment[];
+
+  @OneToMany(() => TaskImage, image => image.task)
+  images!: TaskImage[];
 }

@@ -1,6 +1,14 @@
 import axios from 'axios';
 import { API_BASE_URL } from './config';
 
+export interface User {
+  userId: number;
+  userName: string;
+  userLastName: string;
+  userEmail?: string;
+  userImageUrl?: string;
+}
+
 export interface Task {
   taskId: string;
   title: string;
@@ -9,14 +17,16 @@ export interface Task {
   createdBy: number;
   dueDate?: string;
   status: 'draft' | 'upcoming' | 'past' | 'done';
-  imageUrl?: string;
+  imageUrl?: string; // For backward compatibility - first image
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+  images?: TaskImage[];
   assignedToUser?: {
     userId: number;
     userName: string;
     userLastName: string;
+    userImageUrl?: string;
   };
   createdByUser: {
     userId: number;
@@ -33,11 +43,28 @@ export interface Task {
   };
 }
 
+export interface TaskImage {
+  imageId: number;
+  taskId: string;
+  imageUrl: string;
+  imageOrder: number;
+  uploadedBy: number;
+  createdAt: string;
+  isActive: boolean;
+  uploadedByUser?: {
+    userId: number;
+    userName: string;
+    userLastName: string;
+    userImageUrl?: string;
+  };
+}
+
 export interface TaskComment {
   commentId: number;
   taskId: string;
   userId: number;
   comment: string;
+  commentImageUrl?: string;
   createdAt: string;
   user: {
     userId: number;
@@ -73,8 +100,9 @@ export interface CreateTaskData {
   title: string;
   description?: string;
   assignedTo?: number;
-  dueDate?: Date | string;
-  imageUrl?: string;
+  dueDate?: Date;
+  imageUrl?: string; // Backward compatibility - single image
+  images?: { imageUrl: string; imageOrder?: number }[]; // Multiple images
   status?: 'draft' | 'upcoming' | 'past' | 'done';
 }
 
@@ -83,7 +111,8 @@ export interface UpdateTaskData {
   description?: string;
   assignedTo?: number;
   dueDate?: Date | string;
-  imageUrl?: string;
+  imageUrl?: string; // Backward compatibility - single image
+  images?: { imageUrl: string; imageOrder?: number }[]; // Multiple images
   status?: 'draft' | 'upcoming' | 'past' | 'done';
   isActive?: boolean;
 }
@@ -157,6 +186,56 @@ export const taskApi = {
     await axios.delete(`${API_BASE_URL}/tasks/${taskId}`, {
       withCredentials: true,
     });
+  },
+
+  // Upload single image
+  uploadImage: async (file: File): Promise<{ imageUrl: string }> => {
+    const formData = new FormData();
+    formData.append('image', file);
+
+    const response = await axios.post(`${API_BASE_URL}/tasks/upload`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      withCredentials: true,
+    });
+    return response.data.data;
+  },
+
+  // Create task with files
+  createTaskWithFiles: async (taskData: CreateTaskData, files: File[]): Promise<Task> => {
+    const formData = new FormData();
+    formData.append('taskData', JSON.stringify(taskData));
+    
+    files.forEach((file) => {
+      formData.append('images', file);
+    });
+
+    const response = await axios.post(`${API_BASE_URL}/tasks/with-files`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      withCredentials: true,
+    });
+    return response.data.data;
+  },
+
+  // Update task with files
+  updateTaskWithFiles: async (taskId: string, taskData: UpdateTaskData, files: File[]): Promise<Task> => {
+    const formData = new FormData();
+    formData.append('taskData', JSON.stringify(taskData));
+    
+    files.forEach((file) => {
+      formData.append('images', file);
+    });
+
+    const response = await axios.put(`${API_BASE_URL}/tasks/${taskId}/with-files`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      withCredentials: true,
+    });
+    return response.data.data;
   },
 
   // Get current user's tasks

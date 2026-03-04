@@ -1,10 +1,14 @@
-import { IsNotEmpty, IsString, Length } from 'class-validator';
+import { IsNotEmpty, IsString, Length, IsOptional } from 'class-validator';
 
 export class CreateTaskCommentDto {
   @IsNotEmpty()
   @IsString()
   @Length(1, 1000)
   comment!: string;
+
+  @IsOptional()
+  @IsString()
+  commentImageUrl?: string;
 }
 
 export class UpdateTaskCommentDto {
@@ -19,11 +23,13 @@ export class TaskCommentResponseDto {
   taskId!: string;
   userId!: number;
   comment!: string;
+  commentImageUrl?: string;
   createdAt!: Date;
 
   user?: {
     userId: number;
     userName: string;
     userLastName: string;
+    userImageUrl?: string;
   };
 }

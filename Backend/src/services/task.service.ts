@@ -6,6 +6,7 @@ import { TaskRepository } from '../repositories/task.repository';
 import { CreateTaskDto, UpdateTaskDto, TaskQueryDto } from '../dtos/task.dto';
 import { TaskResponseDto, TaskListResponseDto } from '../dtos/task-response.dto';
 import { User } from '../entities/User';
+import { TaskImageService } from './task-image.service';
 import AppDataSource from '../config/database';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -15,7 +16,8 @@ export class TaskService {
 
   constructor(
     @InjectRepository(Task)
-    private taskRepository: Repository<Task>
+    private taskRepository: Repository<Task>,
+    private taskImageService: TaskImageService
   ) {
     // Initialize custom repository
     this.customTaskRepository = new TaskRepository();
@@ -33,20 +35,38 @@ export class TaskService {
     task.createdBy = userId;
     task.dueDate = createTaskDto.dueDate ? new Date(createTaskDto.dueDate) : undefined;
     task.status = createTaskDto.status || 'draft';
-    task.imageUrl = createTaskDto.imageUrl;
     task.isActive = true;
 
     const savedTask = await this.taskRepository.save(task);
     
+    // Handle images from request - convert to task images
+    if (createTaskDto.images && createTaskDto.images.length > 0) {
+      // Multiple images
+      for (const imageData of createTaskDto.images) {
+        await this.taskImageService.createTaskImage(savedTask.taskId, {
+          imageUrl: imageData.imageUrl,
+          imageOrder: imageData.imageOrder || 0
+        }, userId);
+      }
+    } else if (createTaskDto.imageUrl) {
+      // Single image (backward compatibility)
+      await this.taskImageService.createTaskImage(savedTask.taskId, {
+        imageUrl: createTaskDto.imageUrl,
+        imageOrder: 0
+      }, userId);
+    }
+    
     // Fetch the user data separately to avoid relation issues
     const createdByUser = await AppDataSource.getRepository(User).findOne({
-      where: { userId: savedTask.createdBy }
+      where: { userId: savedTask.createdBy },
+      select: ['userId', 'userName', 'userLastName', 'userImageUrl', 'userEmail']
     });
     
     let assignedToUser: User | null = null;
     if (savedTask.assignedTo) {
       assignedToUser = await AppDataSource.getRepository(User).findOne({
-        where: { userId: savedTask.assignedTo }
+        where: { userId: savedTask.assignedTo },
+        select: ['userId', 'userName', 'userLastName', 'userImageUrl', 'userEmail']
       });
     }
     
@@ -109,11 +129,46 @@ export class TaskService {
     if (updateTaskDto.dueDate !== undefined) {
       task.dueDate = updateTaskDto.dueDate ? new Date(updateTaskDto.dueDate) : undefined;
     }
-    if (updateTaskDto.imageUrl !== undefined) task.imageUrl = updateTaskDto.imageUrl;
     if (updateTaskDto.status !== undefined) task.status = updateTaskDto.status;
     if (updateTaskDto.isActive !== undefined) task.isActive = updateTaskDto.isActive;
 
     task.updatedAt = new Date();
+
+    // Handle images update
+    if (updateTaskDto.images !== undefined) {
+      // Get existing images for this task
+      const existingImages = await this.taskImageService.getTaskImages(task.taskId);
+      
+      // Deactivate all existing images (soft delete)
+      for (const existingImage of existingImages) {
+        await this.taskImageService.deactivateTaskImage(existingImage.imageId);
+      }
+      
+      // Add new images if any
+      if (updateTaskDto.images.length > 0) {
+        for (const imageData of updateTaskDto.images) {
+          await this.taskImageService.createTaskImage(task.taskId, {
+            imageUrl: imageData.imageUrl,
+            imageOrder: imageData.imageOrder || 0
+          }, userId);
+        }
+      }
+    } else if (updateTaskDto.imageUrl !== undefined) {
+      // Single image (backward compatibility)
+      // Get existing images and deactivate them
+      const existingImages = await this.taskImageService.getTaskImages(task.taskId);
+      for (const existingImage of existingImages) {
+        await this.taskImageService.deactivateTaskImage(existingImage.imageId);
+      }
+      
+      // Add new single image if provided
+      if (updateTaskDto.imageUrl) {
+        await this.taskImageService.createTaskImage(task.taskId, {
+          imageUrl: updateTaskDto.imageUrl,
+          imageOrder: 0
+        }, userId);
+      }
+    }
 
     const savedTask = await this.taskRepository.save(task);
     return this.mapToResponseDto(savedTask);
@@ -157,6 +212,12 @@ export class TaskService {
     const commentCount = await this.customTaskRepository.getCommentCount(task.taskId);
     const likeCounts = await this.customTaskRepository.getLikeCountsByType(task.taskId);
 
+    // Get task images (only from task_images table now)
+    const images = await this.taskImageService.getTaskImages(task.taskId);
+
+    // For backward compatibility, set imageUrl to first image
+    const imageUrl = images && images.length > 0 ? images[0].imageUrl : undefined;
+
     const response: TaskResponseDto = {
       taskId: task.taskId,
       title: task.title,
@@ -165,19 +226,22 @@ export class TaskService {
       createdBy: task.createdBy,
       dueDate: task.dueDate,
       status: task.status,
-      imageUrl: task.imageUrl,
+      imageUrl: imageUrl, // Backward compatibility
       isActive: task.isActive,
       createdAt: task.createdAt,
       updatedAt: task.updatedAt,
+      images: images,
       assignedToUser: task.assignedToUser ? {
         userId: task.assignedToUser.userId,
         userName: task.assignedToUser.userName,
-        userLastName: task.assignedToUser.userLastName
+        userLastName: task.assignedToUser.userLastName,
+        userImageUrl: task.assignedToUser.userImageUrl || undefined
       } : undefined,
       createdByUser: task.createdByUser ? {
         userId: task.createdByUser.userId,
         userName: task.createdByUser.userName,
-        userLastName: task.createdByUser.userLastName
+        userLastName: task.createdByUser.userLastName,
+        userImageUrl: task.createdByUser.userImageUrl || undefined
       } : undefined,
       _count: {
         comments: commentCount,

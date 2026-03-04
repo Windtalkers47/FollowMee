@@ -136,7 +136,7 @@ class AuthController {
       // Find user by email
       const user = await this.userRepository.findOne({ 
         where: { userEmail: email },
-        select: ['userId', 'userEmail', 'userName', 'userPassword', 'isActive']
+        select: ['userId', 'userEmail', 'userName', 'userLastName', 'userPassword', 'userImageUrl', 'isActive']
       });
 
       if (!user) {
@@ -161,6 +161,7 @@ class AuthController {
           userId: userData.userId,
           userName: userData.userName,
           userEmail: userData.userEmail,
+          userImageUrl: userData.userImageUrl,
           roles,
           fullName: `${userData.userName} ${userData.userLastName}`.trim()
         },
@@ -254,7 +255,7 @@ class AuthController {
       // Get fresh user data from database
       const user = await this.userRepository.findOne({
         where: { userId: req.user.userId },
-        select: ['userId', 'userEmail', 'userName', 'userLastName', 'userPhone1', 'isActive'],
+        select: ['userId', 'userEmail', 'userName', 'userLastName', 'userPhone1', 'userImageUrl', 'isActive'],
         relations: ['userRoles', 'userRoles.role']
       });
       
@@ -275,6 +276,7 @@ class AuthController {
           userName: user.userName,
           userLastName: user.userLastName,
           userPhone1: user.userPhone1,
+          userImageUrl: user.userImageUrl,
           isActive: user.isActive,
           roles,
           fullName: `${user.userName} ${user.userLastName}`.trim()

@@ -20,7 +20,10 @@ export class CreateTaskDto {
   @IsOptional()
   @IsString()
   @Length(0, 512)
-  imageUrl?: string;
+  imageUrl?: string; // Backward compatibility - single image
+
+  @IsOptional()
+  images?: { imageUrl: string; imageOrder?: number }[]; // Multiple images
 
   @IsOptional()
   @IsEnum(['draft', 'upcoming', 'past', 'done'])
@@ -47,7 +50,10 @@ export class UpdateTaskDto {
   @IsOptional()
   @IsString()
   @Length(0, 512)
-  imageUrl?: string;
+  imageUrl?: string; // Backward compatibility - single image
+
+  @IsOptional()
+  images?: { imageUrl: string; imageOrder?: number }[]; // Multiple images
 
   @IsOptional()
   @IsEnum(['draft', 'upcoming', 'past', 'done'])

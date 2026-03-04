@@ -1,16 +1,20 @@
 import { Router } from 'express';
 import { TaskController } from '../controllers/task.controller';
 import { TaskService } from '../services/task.service';
+import { TaskImageService } from '../services/task-image.service';
 import { TaskRepository } from '../repositories/task.repository';
 import { authenticateToken } from '../middleware/auth.middleware';
+import { uploadSingle, uploadMultiple } from '../utils/file-upload.util';
 import AppDataSource from '../config/database';
 import { Task } from '../entities/Task';
+import { TaskImage } from '../entities/TaskImage';
 
 const router = Router();
 
 // Initialize dependencies
 const taskRepository = new TaskRepository();
-const taskService = new TaskService(AppDataSource.getRepository(Task));
+const taskImageService = new TaskImageService(AppDataSource.getRepository(TaskImage), AppDataSource.getRepository(Task));
+const taskService = new TaskService(AppDataSource.getRepository(Task), taskImageService);
 const taskController = new TaskController(taskService);
 
 // All task routes require authentication
@@ -36,5 +40,10 @@ router.put('/:taskId', (req, res, next) => taskController.updateTask(req, res, n
 
 // Delete a task
 router.delete('/:taskId', (req, res, next) => taskController.deleteTask(req, res, next));
+
+// File upload routes
+router.post('/upload', uploadSingle, (req, res, next) => taskController.uploadImage(req, res, next));
+router.post('/with-files', uploadMultiple, (req, res, next) => taskController.createTaskWithFiles(req, res, next));
+router.put('/:taskId/with-files', uploadMultiple, (req, res, next) => taskController.updateTaskWithFiles(req, res, next));
 
 export default router;

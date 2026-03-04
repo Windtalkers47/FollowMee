@@ -1,4 +1,5 @@
 import { IsNotEmpty, IsString, Length } from 'class-validator';
+import { TaskImageResponseDto } from './task-image.dto';
 
 export class TaskResponseDto {
   taskId!: string;
@@ -8,21 +9,24 @@ export class TaskResponseDto {
   createdBy!: number;
   dueDate?: Date;
   status!: 'draft' | 'upcoming' | 'past' | 'done';
-  imageUrl?: string;
+  imageUrl?: string; // For backward compatibility - first image
   isActive!: boolean;
   createdAt!: Date;
   updatedAt!: Date;
 
   // Relations
+  images?: TaskImageResponseDto[];
   assignedToUser?: {
     userId: number;
     userName: string;
     userLastName: string;
+    userImageUrl?: string;
   };
   createdByUser?: {
     userId: number;
     userName: string;
     userLastName: string;
+    userImageUrl?: string;
   };
   _count?: {
     likes: number;

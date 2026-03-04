@@ -31,12 +31,14 @@ export class TaskCommentService {
     comment.taskId = taskId;
     comment.userId = userId;
     comment.comment = createCommentDto.comment;
+    comment.commentImageUrl = createCommentDto.commentImageUrl;
 
     const savedComment = await this.taskCommentRepository.save(comment);
     
     // Fetch the user data separately to avoid relation issues
     const user = await this.taskRepository.manager.getRepository(User).findOne({
-      where: { userId: savedComment.userId }
+      where: { userId: savedComment.userId },
+      select: ['userId', 'userName', 'userLastName', 'userImageUrl', 'userEmail']
     });
     
     if (!user) {
@@ -63,7 +65,8 @@ export class TaskCommentService {
     const commentsWithUsers = await Promise.all(
       comments.map(async (comment) => {
         const user = await this.taskRepository.manager.getRepository(User).findOne({
-          where: { userId: comment.userId }
+          where: { userId: comment.userId },
+          select: ['userId', 'userName', 'userLastName', 'userImageUrl', 'userEmail']
         });
         
         const commentWithUser = {
@@ -125,11 +128,13 @@ export class TaskCommentService {
       taskId: comment.taskId,
       userId: comment.userId,
       comment: comment.comment,
+      commentImageUrl: comment.commentImageUrl,
       createdAt: comment.createdAt,
       user: comment.user ? {
         userId: comment.user.userId,
         userName: comment.user.userName,
-        userLastName: comment.user.userLastName
+        userLastName: comment.user.userLastName,
+        userImageUrl: comment.user.userImageUrl || undefined
       } : undefined
     };
   }

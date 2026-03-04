@@ -13,6 +13,7 @@ export interface LoginResponse {
     userId: number;
     userName: string;
     userEmail: string;
+    userImageUrl?: string;
     roles: string[];
     fullName?: string;
   };

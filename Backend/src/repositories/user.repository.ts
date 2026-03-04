@@ -10,7 +10,7 @@ export class UserRepository extends BaseRepository<User> {
   async findByEmail(email: string, selectPassword: boolean = false): Promise<User | null> {
     const options: FindOneOptions<User> = {
       where: { userEmail: email } as FindOptionsWhere<User>,
-      select: ['userId', 'userEmail', 'userName', 'userLastName', 'isActive', 'createdAt']
+      select: ['userId', 'userEmail', 'userName', 'userLastName', 'userImageUrl', 'isActive', 'createdAt']
     };
 
     if (selectPassword) {

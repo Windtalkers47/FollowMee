@@ -10,6 +10,7 @@ import { Permission } from '../entities/Permission';
 import { RolePermission } from '../entities/RolePermission';
 import { UserRole } from '../entities/UserRole';
 import { Task } from '../entities/Task';
+import { TaskImage } from '../entities/TaskImage';
 import { TaskComment } from '../entities/TaskComment';
 import { TaskLike } from '../entities/TaskLike';
 
@@ -40,6 +41,7 @@ const dataSourceOptions: DataSourceOptions = {
     RolePermission,
     UserRole,
     Task,
+    TaskImage,
     TaskComment,
     TaskLike,
     // Other entities will be loaded automatically by the glob pattern

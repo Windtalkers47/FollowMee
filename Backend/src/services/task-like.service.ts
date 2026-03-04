@@ -39,7 +39,8 @@ export class TaskLikeService {
       
       // Fetch user data separately
       const user = await this.taskRepository.manager.getRepository(User).findOne({
-        where: { userId: savedLike.userId }
+        where: { userId: savedLike.userId },
+        select: ['userId', 'userName', 'userLastName', 'userImageUrl', 'userEmail']
       });
       
       const likeWithUser = {
@@ -59,7 +60,8 @@ export class TaskLikeService {
       
       // Fetch user data separately
       const user = await this.taskRepository.manager.getRepository(User).findOne({
-        where: { userId: savedLike.userId }
+        where: { userId: savedLike.userId },
+        select: ['userId', 'userName', 'userLastName', 'userImageUrl', 'userEmail']
       });
       
       const likeWithUser = {
@@ -142,7 +144,8 @@ export class TaskLikeService {
       user: {
         userId: like.user.userId,
         userName: like.user.userName,
-        userLastName: like.user.userLastName
+        userLastName: like.user.userLastName,
+        userImageUrl: like.user.userImageUrl || undefined
       }
     };
   }

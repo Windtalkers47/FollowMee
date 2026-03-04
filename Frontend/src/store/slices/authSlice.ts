@@ -84,6 +84,7 @@ const authSlice = createSlice({
         userId: action.payload.user.userId,
         userName: action.payload.user.userName,
         userEmail: action.payload.user.userEmail,
+        userImageUrl: action.payload.user.userImageUrl,
         roles: action.payload.user?.roles,
         fullName: action.payload.user.fullName,
       };
@@ -140,6 +141,7 @@ const authSlice = createSlice({
           userId: action.payload.data!.userId,
           userName: action.payload.data!.userName,
           userEmail: action.payload.data!.userEmail,
+          userImageUrl: action.payload.data!.userImageUrl,
           roles: action.payload.data!.roles || [],
           fullName: action.payload.data!.fullName,
         };

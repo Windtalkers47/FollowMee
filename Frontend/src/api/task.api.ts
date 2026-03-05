@@ -202,6 +202,19 @@ export const taskApi = {
     return response.data.data;
   },
 
+  // Validate image URL
+  validateImageUrl: async (url: string): Promise<{ 
+    isValid: boolean; 
+    contentType?: string; 
+    fileSize?: number;
+  }> => {
+    const response = await axios.post(`${API_BASE_URL}/tasks/validate-url`, 
+      { url }, 
+      { withCredentials: true }
+    );
+    return response.data.data;
+  },
+
   // Create task with files
   createTaskWithFiles: async (taskData: CreateTaskData, files: File[]): Promise<Task> => {
     const formData = new FormData();

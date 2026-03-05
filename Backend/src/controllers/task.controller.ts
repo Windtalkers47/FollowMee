@@ -181,4 +181,80 @@ export class TaskController {
       next(error);
     }
   }
+
+  async validateImageUrl(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { url } = req.body;
+      
+      if (!url) {
+        res.status(400).json({ message: 'URL is required' });
+        return;
+      }
+
+      // Validate the URL by fetching image headers
+      const response = await fetch(url, { method: 'HEAD' });
+      
+      if (!response.ok) {
+        res.status(400).json({ 
+          success: false,
+          error: 'INVALID_URL',
+          message: 'The URL does not point to a valid image or the image cannot be accessed.'
+        });
+        return;
+      }
+
+      // Check content type
+      const contentType = response.headers.get('content-type');
+      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+      if (!contentType || !allowedTypes.includes(contentType)) {
+        res.status(400).json({ 
+          success: false,
+          error: 'UNSUPPORTED_FORMAT',
+          message: `The URL points to a file that is not a supported image format (${contentType || 'unknown'}).`
+        });
+        return;
+      }
+
+      // Check file size from content-length header
+      const contentLength = response.headers.get('content-length');
+      
+      let fileSize: number | undefined;
+      
+      if (contentLength) {
+        fileSize = parseInt(contentLength);
+      } else {
+        // If content-length is not available (due to compression), make a GET request to get actual file size
+        const getResponse = await fetch(url);
+        const buffer = await getResponse.arrayBuffer();
+        fileSize = buffer.byteLength;
+      }
+      
+      const maxSize = 5 * 1024 * 1024; // 5MB
+      
+      if (fileSize && fileSize > maxSize) {
+        res.status(400).json({ 
+          success: false,
+          error: 'FILE_TOO_LARGE',
+          message: `The image at this URL is ${(fileSize / (1024 * 1024)).toFixed(1)}MB, which exceeds the 5MB limit.`,
+          fileSize: fileSize
+        });
+        return;
+      }
+
+      res.status(200).json({ 
+        success: true, 
+        data: { 
+          isValid: true,
+          contentType,
+          fileSize: fileSize
+        }
+      });
+    } catch (error) {
+      res.status(400).json({ 
+        success: false,
+        error: 'VALIDATION_FAILED',
+        message: 'Unable to validate the image URL. Please check the URL and try again.'
+      });
+    }
+  }
 }

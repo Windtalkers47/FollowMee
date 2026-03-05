@@ -46,4 +46,7 @@ router.post('/upload', uploadSingle, (req, res, next) => taskController.uploadIm
 router.post('/with-files', uploadMultiple, (req, res, next) => taskController.createTaskWithFiles(req, res, next));
 router.put('/:taskId/with-files', uploadMultiple, (req, res, next) => taskController.updateTaskWithFiles(req, res, next));
 
+// Validate image URL
+router.post('/validate-url', (req, res, next) => taskController.validateImageUrl(req, res, next));
+
 export default router;

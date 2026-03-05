@@ -246,19 +246,120 @@ export const ImageUpload: React.FC<ImageUploadProps> = ({
       return;
     }
 
-    const newImage: TaskImage = {
-      imageId: Date.now(),
-      taskId: '',
-      imageUrl: imageUrl.trim(),
-      imageOrder: images.length,
-      uploadedBy: 0,
-      createdAt: new Date().toISOString(),
-      isActive: true
-    };
+    try {
+      // Validate the URL using backend API (avoids CORS issues)
+      const validation = await taskApi.validateImageUrl(imageUrl.trim());
+      
+      if (!validation.isValid) {
+        setErrorDialog({
+          open: true,
+          title: 'Invalid Image URL',
+          message: 'The URL does not point to a valid image or the image cannot be accessed.',
+          type: 'error',
+          suggestions: [
+            'Check if the URL is correct and accessible',
+            'Try opening the URL in your browser first',
+            'Use a different image URL',
+            'Make sure the image URL is publicly accessible'
+          ]
+        });
+        return;
+      }
 
-    onImagesChange([...images, newImage]);
-    setImageUrl('');
-    setUrlDialogOpen(false);
+      const newImage: TaskImage = {
+        imageId: Date.now(),
+        taskId: '',
+        imageUrl: imageUrl.trim(),
+        imageOrder: images.length,
+        uploadedBy: 0,
+        createdAt: new Date().toISOString(),
+        isActive: true
+      };
+
+      onImagesChange([...images, newImage]);
+      setImageUrl('');
+      setUrlDialogOpen(false);
+    } catch (error: any) {
+      // Handle specific error responses from backend
+      let errorTitle = 'URL Validation Failed';
+      let errorMessage = 'Unable to validate the image URL. Please check the URL and try again.';
+      let errorType: 'error' | 'warning' | 'info' = 'error';
+      let suggestions: string[] = [];
+
+      // Check if we have a response with data
+      if (error?.response?.data) {
+        const errorData = error.response.data;
+        
+        switch (errorData.error) {
+          case 'INVALID_URL':
+            errorTitle = 'Invalid Image URL';
+            errorMessage = errorData.message || 'The URL does not point to a valid image.';
+            errorType = 'error';
+            suggestions = [
+              'Check if the URL is correct and accessible',
+              'Try opening the URL in your browser first',
+              'Use a different image URL',
+              'Make sure the image URL is publicly accessible'
+            ];
+            break;
+            
+          case 'UNSUPPORTED_FORMAT':
+            errorTitle = 'Unsupported Format';
+            errorMessage = errorData.message || 'The URL points to an unsupported image format.';
+            errorType = 'warning';
+            suggestions = [
+              'Use URLs that point to JPG, PNG, GIF, or WebP images',
+              'Convert the image to a supported format',
+              'Use a different image source',
+              'Upload the image directly instead of using URL'
+            ];
+            break;
+            
+          case 'FILE_TOO_LARGE':
+            errorTitle = 'File Too Large';
+            errorMessage = errorData.message || 'The image exceeds the 5MB limit.';
+            errorType = 'warning';
+            suggestions = [
+              'Use a smaller image (under 5MB)',
+              'Compress the image before uploading',
+              'Use an online image compressor like TinyPNG',
+              'Convert to JPEG format for smaller file size',
+              'Upload the image directly after resizing'
+            ];
+            break;
+            
+          default:
+            errorTitle = 'URL Validation Failed';
+            errorMessage = errorData.message || 'Unable to validate the image URL.';
+            errorType = 'error';
+            suggestions = [
+              'Check if the URL is correct and accessible',
+              'Make sure you have an internet connection',
+              'Try opening the URL in your browser',
+              'Use a different image URL',
+              'Upload the image directly instead'
+            ];
+        }
+      } else {
+        // Fallback for other types of errors
+        errorMessage = error?.message || 'Unable to validate the image URL. Please check the URL and try again.';
+        suggestions = [
+          'Check if the URL is correct and accessible',
+          'Make sure you have an internet connection',
+          'Try opening the URL in your browser',
+          'Use a different image URL',
+          'Upload the image directly instead'
+        ];
+      }
+      
+      setErrorDialog({
+        open: true,
+        title: errorTitle,
+        message: errorMessage,
+        type: errorType,
+        suggestions
+      });
+    }
   };
 
   const handleRemoveImage = (index: number) => {

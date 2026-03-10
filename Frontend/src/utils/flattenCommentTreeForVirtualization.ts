@@ -35,11 +35,12 @@ export function flattenCommentTree(nodes: CommentNode[]): FlatCommentRow[] {
       });
 
       if (node.children.length > 0) {
-        traverse(
-          node.children,
-          depth + 1,
-          [...parentPath, !isLastChild] // continuation only affects children
-        );
+        const nextPath = [...parentPath];
+
+        // this column continues only if THIS node has siblings after it
+        nextPath.push(!isLastChild);
+
+        traverse(node.children, depth + 1, nextPath);
       }
     });
   }

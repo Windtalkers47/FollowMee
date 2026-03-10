@@ -8,7 +8,6 @@ interface ThreadColumnProps {
   isCollapsed?: boolean
   onToggle?: () => void
   isConnector?: boolean
-  hasPrevSibling?: boolean
 }
 
 export const ThreadColumn: React.FC<ThreadColumnProps> = ({
@@ -17,7 +16,6 @@ export const ThreadColumn: React.FC<ThreadColumnProps> = ({
   hasChildren = false,
   isCollapsed = false,
   isConnector = false,
-  hasPrevSibling = false,
   onToggle
 }) => {
   if (!showLine) {
@@ -32,44 +30,29 @@ export const ThreadColumn: React.FC<ThreadColumnProps> = ({
         flexShrink: 0
       }}
     >
-
-    {/* vertical line ABOVE connector */}
-    {hasPrevSibling && (
+      {/* main vertical line */}
       <Box
         sx={{
           position: "absolute",
           left: 11,
           top: 0,
-          height: 20,
+          bottom: isLastChild ? "50%" : 0,
           width: 2,
           backgroundColor: "rgba(0,0,0,0.15)"
         }}
       />
-    )}
 
-    {/* vertical line BELOW connector */}
-    {!isLastChild && (
-      <Box
-        sx={{
-          position: "absolute",
-          left: 11,
-          top: 20,
-          bottom: 0,
-          width: 2,
-          backgroundColor: "rgba(0,0,0,0.15)"
-        }}
-      />
-    )}
-
-      {/* connector */}
+      {/* horizontal connector */}
       {isConnector && (
         <Box
           sx={{
             position: "absolute",
             left: 11,
             top: 20,
+            bottom: isLastChild ? "calc(100% - 20px)" : 0,
             width: 13,
             height: 2,
+            transform: "translateY(-1px)",
             backgroundColor: "rgba(0,0,0,0.15)"
           }}
         />
@@ -82,7 +65,9 @@ export const ThreadColumn: React.FC<ThreadColumnProps> = ({
           sx={{
             position: "absolute",
             left: 8,
-            top: 14,
+            top: 20,
+            bottom: isLastChild ? "calc(100% - 20px)" : 0,
+            transform: "translateY(-50%)",
             width: 14,
             height: 14,
             borderRadius: "50%",
@@ -101,3 +86,4 @@ export const ThreadColumn: React.FC<ThreadColumnProps> = ({
     </Box>
   );
 };
+

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Avatar, Typography, IconButton, Box } from '@mui/material';
+import { Avatar, Typography, IconButton, Box, Button } from '@mui/material';
 import { 
   ThumbUp as LikeIcon, 
   Favorite as LoveIcon, 
@@ -60,10 +60,27 @@ const ThreadedCommentNodeComponent = React.memo<ThreadedCommentNodeProps>(({ row
     <Box sx={{ display: 'flex' }}>
       {/* Parent columns */}
       {parentPath.map((showLine, i) => (
-        <ThreadColumn
+        <Box
           key={i}
-          showLine={showLine}
-        />
+          sx={{
+            width: 24,
+            position: "relative",
+            flexShrink: 0
+          }}
+        >
+          {showLine && (
+            <Box
+              sx={{
+                position: "absolute",
+                left: 11,
+                top: 0,
+                bottom: 0,
+                width: 2,
+                backgroundColor: "rgba(0,0,0,0.15)"
+              }}
+            />
+          )}
+        </Box>
       ))}
 
       {/* Current column */}
@@ -71,7 +88,6 @@ const ThreadedCommentNodeComponent = React.memo<ThreadedCommentNodeProps>(({ row
         showLine={depth > 0}
         isConnector={depth > 0}
         isLastChild={isLastChild}
-        hasPrevSibling={!isFirstChild}
         hasChildren={hasChildren}
         isCollapsed={isCollapsed}
         onToggle={() => toggleCollapse(comment.comment.commentId)}
@@ -99,33 +115,57 @@ const ThreadedCommentNodeComponent = React.memo<ThreadedCommentNodeProps>(({ row
           <Box
             sx={{
               flex: 1,
-              backgroundColor: theme.palette?.background?.paper || 'white',
-              borderRadius: 2,
+              backgroundColor: depth > 0 ? 'rgba(0, 0, 0, 0.02)' : '#ffffff',
+              borderRadius: 1.5,
               p: 2,
-              border: '1px solid rgba(0, 0, 0, 0.1)',
+              border: '1px solid rgba(0, 0, 0, 0.08)',
+              boxShadow: depth > 0 ? 'none' : '0 1px 2px rgba(0, 0, 0, 0.05)',
+              transition: 'all 0.2s ease',
+              '&:hover': {
+                borderColor: 'rgba(0, 0, 0, 0.12)',
+                boxShadow: '0 2px 4px rgba(0, 0, 0, 0.08)'
+              }
             }}
           >
             {/* User info and timestamp */}
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-              <Typography variant="subtitle2" fontWeight="bold">
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 1.5 }}>
+              <Typography 
+                variant="body2" 
+                fontWeight="600"
+                sx={{ color: 'text.primary', fontSize: '13px' }}
+              >
                 {displayUser?.userName} {displayUser?.userLastName}
               </Typography>
               {isOwner && (
-                <Typography variant="caption" sx={{ 
-                  backgroundColor: 'primary.main', 
-                  color: 'primary.contrastText', 
-                  px: 1, 
-                  borderRadius: 1 
-                }}>
+                <Typography 
+                  variant="caption" 
+                  sx={{ 
+                    backgroundColor: 'primary.main', 
+                    color: 'primary.contrastText', 
+                    px: 0.75, 
+                    py: 0.25,
+                    borderRadius: 0.5,
+                    fontSize: '10px',
+                    fontWeight: 500
+                  }}
+                >
                   You
                 </Typography>
               )}
-              <Typography variant="caption" color="text.secondary">
+              <Typography 
+                variant="caption" 
+                color="text.secondary"
+                sx={{ fontSize: '12px' }}
+              >
                 {format(new Date(comment.comment.createdAt), 'MMM d, yyyy • h:mm a')}
               </Typography>
               {isEdited && (
-                <Typography variant="caption" color="text.secondary">
-                  (edited)
+                <Typography 
+                  variant="caption" 
+                  color="text.secondary"
+                  sx={{ fontSize: '11px', fontStyle: 'italic' }}
+                >
+                  edited
                 </Typography>
               )}
             </Box>
@@ -157,65 +197,122 @@ const ThreadedCommentNodeComponent = React.memo<ThreadedCommentNodeProps>(({ row
                 </Box>
               </Box>
             ) : (
-              <Typography variant="body2" sx={{ mb: 1, whiteSpace: 'pre-wrap' }}>
+              <Typography 
+                variant="body2" 
+                sx={{ 
+                  mb: 1.5, 
+                  whiteSpace: 'pre-wrap',
+                  fontSize: '14px',
+                  lineHeight: 1.5,
+                  color: 'text.primary'
+                }}
+              >
                 {comment.comment.comment}
               </Typography>
             )}
 
             {/* Actions */}
             {!isEditing && (
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mt: 1 }}>
                 {/* Reactions */}
-                <Box sx={{ display: 'flex', gap: 1 }}>
+                <Box sx={{ display: 'flex', gap: 0.5 }}>
                   <IconButton 
                     size="small" 
                     onClick={() => updateReaction?.(comment.comment.commentId, 'like')}
-                    sx={{ fontSize: '12px' }}
+                    sx={{ 
+                      fontSize: '12px',
+                      padding: '4px',
+                      borderRadius: '4px',
+                      '&:hover': { backgroundColor: 'rgba(0, 0, 0, 0.04)' }
+                    }}
                   >
                     <LikeIcon fontSize="inherit" />
                   </IconButton>
                   <IconButton 
                     size="small" 
                     onClick={() => updateReaction?.(comment.comment.commentId, 'love')}
-                    sx={{ fontSize: '12px' }}
+                    sx={{ 
+                      fontSize: '12px',
+                      padding: '4px',
+                      borderRadius: '4px',
+                      '&:hover': { backgroundColor: 'rgba(0, 0, 0, 0.04)' }
+                    }}
                   >
                     <LoveIcon fontSize="inherit" />
                   </IconButton>
                   <IconButton 
                     size="small" 
                     onClick={() => updateReaction?.(comment.comment.commentId, 'laugh')}
-                    sx={{ fontSize: '12px' }}
+                    sx={{ 
+                      fontSize: '12px',
+                      padding: '4px',
+                      borderRadius: '4px',
+                      '&:hover': { backgroundColor: 'rgba(0, 0, 0, 0.04)' }
+                    }}
                   >
                     <LaughIcon fontSize="inherit" />
                   </IconButton>
                 </Box>
 
                 {/* Reply */}
-                <IconButton 
+                <Button 
                   size="small" 
                   onClick={() => handleReply?.(comment.comment.commentId)}
-                  sx={{ fontSize: '12px' }}
+                  sx={{ 
+                    fontSize: '12px',
+                    textTransform: 'none',
+                    fontWeight: 500,
+                    color: 'text.secondary',
+                    padding: '4px 8px',
+                    minWidth: 'auto',
+                    '&:hover': { 
+                      backgroundColor: 'rgba(0, 0, 0, 0.04)',
+                      color: 'text.primary'
+                    }
+                  }}
                 >
-                  <CommentIcon fontSize="inherit" />
-                </IconButton>
+                  Reply
+                </Button>
 
                 {/* Edit/Delete for owner */}
                 {isOwner && (
                   <>
-                    <IconButton 
+                    <Button 
                       size="small" 
                       onClick={() => handleEditStart?.(comment.comment.commentId, comment.comment.comment)}
-                      sx={{ fontSize: '12px' }}
+                      sx={{ 
+                        fontSize: '12px',
+                        textTransform: 'none',
+                        fontWeight: 500,
+                        color: 'text.secondary',
+                        padding: '4px 8px',
+                        minWidth: 'auto',
+                        '&:hover': { 
+                          backgroundColor: 'rgba(0, 0, 0, 0.04)',
+                          color: 'text.primary'
+                        }
+                      }}
                     >
-                      <EditIcon fontSize="inherit" />
-                    </IconButton>
-                    <IconButton 
+                      Edit
+                    </Button>
+                    <Button 
                       size="small" 
                       onClick={() => handleDeleteComment?.(comment.comment.commentId)}
-                      sx={{ fontSize: '12px' }}
+                      sx={{ 
+                        fontSize: '12px',
+                        textTransform: 'none',
+                        fontWeight: 500,
+                        color: 'text.secondary',
+                        padding: '4px 8px',
+                        minWidth: 'auto',
+                        '&:hover': { 
+                          backgroundColor: 'rgba(0, 0, 0, 0.04)',
+                          color: 'error.main'
+                        }
+                      }}
                     >
-                      <DeleteIcon fontSize="inherit" />
-                    </IconButton>
+                      Delete
+                    </Button>
                   </>
                 )}
               </Box>

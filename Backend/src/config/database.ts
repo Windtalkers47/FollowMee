@@ -13,6 +13,7 @@ import { Task } from '../entities/Task';
 import { TaskImage } from '../entities/TaskImage';
 import { TaskComment } from '../entities/TaskComment';
 import { TaskLike } from '../entities/TaskLike';
+import { CommentReaction } from '../entities/CommentReaction';
 
 dotenv.config();
 
@@ -44,6 +45,7 @@ const dataSourceOptions: DataSourceOptions = {
     TaskImage,
     TaskComment,
     TaskLike,
+    CommentReaction,
     // Other entities will be loaded automatically by the glob pattern
     path.join(__dirname, '../entities/**/*.entity{.ts,.js}')
   ],

@@ -19,6 +19,7 @@ import taskRoutes from './routes/task.routes';
 import taskImageRoutes from './routes/task-image.routes';
 import taskCommentRoutes from './routes/task-comment.routes';
 import taskLikeRoutes from './routes/task-like.routes';
+import commentReactionRoutes from './routes/comment-reaction.routes';
 
 // Load environment variables
 dotenv.config();
@@ -157,6 +158,7 @@ class App {
     this.app.use('/api/tasks', taskImageRoutes);
     this.app.use('/api/tasks/:taskId/comments', taskCommentRoutes);
     this.app.use('/api/tasks/:taskId/likes', taskLikeRoutes);
+    this.app.use('/api/tasks/comments', commentReactionRoutes);
 
     // 404 handler
     this.app.use((req: Request, res: Response) => {

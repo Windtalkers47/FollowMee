@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, OneToMany, RelationCount } from 'typeorm';
 import { User } from './User';
 import { Task } from './Task';
 import { CommentReaction } from './CommentReaction';
@@ -36,12 +36,18 @@ export class TaskComment {
   @ManyToOne(() => User, user => user.taskComments)
   user!: User;
 
-  @ManyToOne(() => TaskComment, { nullable: true })
+  @ManyToOne(() => TaskComment, comment => comment.replies, { nullable: true })
   parentComment?: TaskComment;
 
-  @ManyToOne(() => TaskComment, comment => comment.replies)
+  @OneToMany(() => TaskComment, comment => comment.parentComment)
   replies?: TaskComment[];
 
-  @ManyToOne(() => TaskComment, reaction => reaction.reactions)
+  @OneToMany(() => CommentReaction, reaction => reaction.comment)
   reactions?: CommentReaction[];
+
+  @RelationCount((comment: TaskComment) => comment.replies)
+  repliesCount?: number;
+
+  @RelationCount((comment: TaskComment) => comment.reactions)
+  reactionsCount?: number;
 }

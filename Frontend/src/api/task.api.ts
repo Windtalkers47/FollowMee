@@ -59,18 +59,39 @@ export interface TaskImage {
   };
 }
 
+export interface TaskCommentReaction {
+  reactionId: number;
+  commentId: number;
+  userId: number;
+  reactionType: 'like' | 'love' | 'laugh' | 'angry';
+  createdAt: string;
+  user: {
+    userId: number;
+    userName: string;
+    userLastName: string;
+  };
+}
+
 export interface TaskComment {
   commentId: number;
   taskId: string;
   userId: number;
   comment: string;
   commentImageUrl?: string;
+  parentCommentId?: number;
   createdAt: string;
+  isActive: boolean;
   user: {
     userId: number;
     userName: string;
     userLastName: string;
     userImageUrl?: string;
+  };
+  replies?: TaskComment[];
+  reactions?: TaskCommentReaction[];
+  _count?: {
+    replies: number;
+    reactions: number;
   };
 }
 
@@ -136,6 +157,8 @@ export interface TaskListResponse {
 
 export interface CreateCommentData {
   comment: string;
+  parentCommentId?: number;
+  commentImageUrl?: string;
 }
 
 export interface UpdateCommentData {
@@ -299,6 +322,46 @@ export const commentApi = {
     await axios.delete(`${API_BASE_URL}/tasks/${taskId}/comments/${commentId}`, {
       withCredentials: true,
     });
+  },
+
+  // Upload image for comment
+  uploadCommentImage: async (file: File): Promise<{ commentImageUrl: string }> => {
+    const formData = new FormData();
+    formData.append('image', file);
+
+    const response = await axios.post(`${API_BASE_URL}/tasks/comments/upload-image`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      withCredentials: true,
+    });
+    return response.data.data;
+  },
+};
+
+// Comment reaction operations
+export const commentReactionApi = {
+  // Create or update a reaction on a comment
+  createOrUpdateReaction: async (commentId: number, data: { reactionType: 'like' | 'love' | 'laugh' | 'angry' }): Promise<TaskCommentReaction> => {
+    const response = await axios.post(`${API_BASE_URL}/tasks/comments/${commentId}/reactions`, data, {
+      withCredentials: true,
+    });
+    return response.data.data;
+  },
+
+  // Remove reaction from a comment
+  removeReaction: async (commentId: number): Promise<void> => {
+    await axios.delete(`${API_BASE_URL}/tasks/comments/${commentId}/reactions`, {
+      withCredentials: true,
+    });
+  },
+
+  // Get all reactions for a comment
+  getCommentReactions: async (commentId: number): Promise<TaskCommentReaction[]> => {
+    const response = await axios.get(`${API_BASE_URL}/tasks/comments/${commentId}/reactions`, {
+      withCredentials: true,
+    });
+    return response.data.data;
   },
 };
 

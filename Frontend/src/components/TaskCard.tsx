@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAppSelector } from '../store/store';
 import {
   Card,
@@ -36,9 +36,12 @@ import {
   Edit as EditIcon,
   Delete as DeleteIcon,
   CheckCircle as DoneIcon,
+  Cancel as CancelIcon,
 } from '@mui/icons-material';
 import { format } from 'date-fns';
-import { Task, TaskLikeSummary, commentApi } from '../../src/api/task.api';
+import { Task, TaskLikeSummary, commentApi, commentReactionApi } from '../../src/api/task.api';
+import { CommentTree } from './comments';
+import { useComments } from '../hooks/useComments';
 
 interface TaskCardProps {
   task: Task;
@@ -68,6 +71,476 @@ const statusLabels: Record<Task['status'], string> = {
   done: 'Done',
 } as const;
 
+// Recursive component for nested replies
+const NestedReply: React.FC<{
+  reply: any;
+  level: number;
+  onReply: (commentId: number) => void;
+  onCommentReaction: (commentId: number, reactionType: 'like' | 'love' | 'laugh' | 'angry') => void;
+  commentReactions: Record<number, string>;
+  format: (date: Date, formatStr: string) => string;
+  theme: any;
+  setShowImagePreview: (show: boolean) => void;
+  replyingTo: number | null;
+  replyText: string;
+  replyImages: Record<number, string>;
+  user: any;
+  onReplyTextChange: (text: string) => void;
+  onReplySubmit: (commentId: number) => void;
+  onReplyImageUpload: (commentId: number, files: File[]) => void;
+  onReplyImageRemove: (commentId: number) => void;
+  parentUser?: any; // Add parent user for @mentions
+}> = ({ 
+  reply, 
+  level, 
+  onReply, 
+  onCommentReaction, 
+  commentReactions, 
+  format, 
+  theme, 
+  setShowImagePreview,
+  replyingTo,
+  replyText,
+  replyImages,
+  user,
+  onReplyTextChange,
+  onReplySubmit,
+  onReplyImageUpload,
+  onReplyImageRemove,
+  parentUser
+}) => {
+  const hasNestedReplies = reply.replies && reply.replies.length > 0;
+  const maxNestingLevel = 3; // Facebook limits to 3 levels
+  const indentPixels = level * 32; // 32px per level for clear indentation
+  const [showCollapsedReplies, setShowCollapsedReplies] = useState(false);
+
+  return (
+    <Box sx={{ position: 'relative' }}>
+      {/* Horizontal connector line - Facebook style */}
+      {level > 0 && (
+        <Box
+          sx={{
+            position: 'absolute',
+            left: indentPixels + 10,
+            top: '50%',
+            transform: 'translateY(-50%)',
+            width: 20,
+            height: 2,
+            backgroundColor: theme.palette.mode === 'dark' 
+              ? 'rgba(255, 255, 255, 0.1)' 
+              : 'rgba(0, 0, 0, 0.1)',
+          }}
+        />
+      )}
+      
+      <Box 
+        sx={{ 
+          display: 'flex', 
+          gap: 1.5, 
+          mb: 2,
+          ml: `${indentPixels}px`,
+          position: 'relative',
+        }}
+      >
+        
+        <Avatar 
+                  src={reply.user?.userImageUrl}
+                  sx={{ 
+                    width: 40, 
+                    height: 40, 
+                    fontSize: '1rem',
+                    fontWeight: 'medium',
+                    bgcolor: reply.user?.userImageUrl ? 'transparent' : theme.palette.primary.main,
+                    color: reply.user?.userImageUrl ? 'transparent' : theme.palette.primary.contrastText,
+                    border: theme.palette.mode === 'dark' 
+                      ? '3px solid rgba(255, 255, 255, 0.1)' 
+                      : '3px solid rgba(255, 255, 255, 0.8)',
+                    boxShadow: theme.palette.mode === 'dark'
+                      ? '0 4px 12px rgba(0, 0, 0, 0.15)'
+                      : '0 4px 12px rgba(0, 0, 0, 0.08)',
+                    transition: 'all 0.3s ease',
+                    '&:hover': {
+                      transform: 'scale(1.05)',
+                      boxShadow: theme.palette.mode === 'dark'
+                        ? '0 6px 16px rgba(0, 0, 0, 0.25)'
+                        : '0 6px 16px rgba(0, 0, 0, 0.12)',
+                    }
+                  }}
+                >
+                  {reply.user?.userImageUrl ? '' : (reply.user?.userName?.[0]?.toUpperCase() || reply.user?.userLastName?.[0]?.toUpperCase() || 'U')}
+                </Avatar>
+        <Box flex={1}>
+          <Box display="flex" alignItems="center" gap={1} mb={0.5}>
+            <Typography variant="subtitle2" fontWeight="medium" sx={{ fontSize: '0.875rem' }}>
+              {reply.user ? `${reply.user.userName} ${reply.user.userLastName}` : 'Unknown User'}
+            </Typography>
+            {/* @username mention for replies */}
+            {level > 0 && parentUser && (
+              <Typography variant="subtitle2" color="primary" sx={{ fontSize: '0.875rem' }}>
+                @{parentUser.userName}{parentUser.userLastName}
+              </Typography>
+            )}
+            <Typography variant="caption" color="text.secondary">
+              {format(new Date(reply.createdAt), 'MMM d, yyyy • h:mm a')}
+            </Typography>
+            {/* Reply indicator */}
+            <Chip
+              label="reply"
+              size="small"
+              variant="outlined"
+              sx={{
+                fontSize: '0.7rem',
+                height: 20,
+                color: theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.6)' : 'rgba(0, 0, 0, 0.6)',
+                borderColor: theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.2)',
+                backgroundColor: 'transparent',
+              }}
+            />
+          </Box>
+          <Typography 
+            variant="body2" 
+            sx={{ 
+              fontSize: '0.875rem',
+              lineHeight: 1.5,
+              backgroundColor: theme.palette.mode === 'dark' 
+                ? 'rgba(255, 255, 255, 0.04)' 
+                : 'rgba(0, 0, 0, 0.02)',
+              backdropFilter: 'blur(20px) saturate(180%)',
+              WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+              padding: 2,
+              borderRadius: 2.5,
+              border: '1px solid',
+              borderColor: theme.palette.mode === 'dark' 
+                ? 'rgba(255, 255, 255, 0.08)' 
+                : 'rgba(0, 0, 0, 0.06)',
+              boxShadow: theme.palette.mode === 'dark'
+                ? '0 4px 12px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.1), inset 0 1px 0 0 rgba(255, 255, 255, 0.05)'
+                : '0 4px 12px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.05), inset 0 1px 0 0 rgba(255, 255, 255, 0.8)',
+              position: 'relative',
+              overflow: 'hidden',
+              transition: 'all 0.2s ease-in-out',
+              '&:hover': {
+                backgroundColor: theme.palette.mode === 'dark' 
+                  ? 'rgba(255, 255, 255, 0.06)' 
+                  : 'rgba(0, 0, 0, 0.03)',
+                borderColor: theme.palette.mode === 'dark' 
+                  ? 'rgba(255, 255, 255, 0.12)' 
+                  : 'rgba(0, 0, 0, 0.08)',
+                transform: 'translateY(-1px)',
+                boxShadow: theme.palette.mode === 'dark'
+                  ? '0 6px 16px rgba(0, 0, 0, 0.2), 0 3px 6px rgba(0, 0, 0, 0.15), inset 0 1px 0 0 rgba(255, 255, 255, 0.08)'
+                  : '0 6px 16px rgba(0, 0, 0, 0.12), 0 3px 6px rgba(0, 0, 0, 0.08), inset 0 1px 0 0 rgba(255, 255, 255, 0.9)',
+              },
+              '&::before': {
+                content: '""',
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                height: '1px',
+                background: 'linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent)',
+                opacity: theme.palette.mode === 'dark' ? 0.4 : 0.6,
+              }
+            }}
+          >
+            {reply.comment}
+          </Typography>
+          
+          {/* Reply Image */}
+          {reply.commentImageUrl && (
+            <Box mt={1}>
+              <Box
+                component="img"
+                src={reply.commentImageUrl}
+                alt="Reply image"
+                sx={{
+                  width: '100%',
+                  maxHeight: 200,
+                  objectFit: 'cover',
+                  borderRadius: 2,
+                  border: '1px solid',
+                  borderColor: theme.palette.mode === 'dark' 
+                    ? 'rgba(255, 255, 255, 0.2)' 
+                    : 'rgba(0, 0, 0, 0.1)',
+                  cursor: 'pointer',
+                  '&:hover': {
+                    opacity: 0.9,
+                  }
+                }}
+                onClick={() => setShowImagePreview(true)}
+              />
+            </Box>
+          )}
+          
+          {/* Reply Actions */}
+          <Box display="flex" alignItems="center" gap={1} mt={1}>
+            {/* Like Button */}
+            <IconButton 
+              size="small" 
+              sx={{ 
+                fontSize: '0.75rem',
+                color: commentReactions[reply.commentId] === 'like' ? 'primary' : 'default',
+                backgroundColor: commentReactions[reply.commentId] === 'like' 
+                  ? theme.palette.mode === 'dark' ? 'rgba(255, 234, 167, 0.2)' : 'rgba(255, 234, 167, 0.3)'
+                  : 'transparent',
+                '&:hover': {
+                  backgroundColor: theme.palette.mode === 'dark' 
+                    ? 'rgba(255, 234, 167, 0.1)' 
+                    : 'rgba(255, 234, 167, 0.2)',
+                }
+              }}
+              onClick={() => onCommentReaction(reply.commentId, 'like')}
+            >
+              <LikeIcon fontSize="inherit" />
+              <Typography variant="caption" sx={{ ml: 0.5 }}>
+                Like
+              </Typography>
+            </IconButton>
+
+            {/* Reply Button */}
+            <IconButton 
+              size="small" 
+              sx={{ 
+                fontSize: '0.75rem',
+                color: 'primary',
+                '&:hover': {
+                  backgroundColor: theme.palette.mode === 'dark' 
+                    ? 'rgba(100, 181, 246, 0.1)' 
+                    : 'rgba(100, 181, 246, 0.2)',
+                }
+              }}
+              onClick={() => onReply(reply.commentId)}
+            >
+              <CommentIcon fontSize="inherit" />
+              <Typography variant="caption" sx={{ ml: 0.5 }}>
+                Reply
+              </Typography>
+            </IconButton>
+          </Box>
+        </Box>
+      </Box>
+
+      {/* Reply Input for nested replies */}
+      {replyingTo === reply.commentId && (
+        <Box display="flex" flexDirection="column" gap={1} mt={2} ml={`${indentPixels + 16}px`}>
+          <Box display="flex" gap={1}>
+            <Avatar 
+              src={user?.userImageUrl}
+              sx={{ 
+                width: 24, 
+                height: 24, 
+                fontSize: '0.75rem',
+                bgcolor: user?.userImageUrl ? 'transparent' : theme.palette.primary.main,
+                color: user?.userImageUrl ? 'transparent' : theme.palette.primary.contrastText,
+              }}
+            >
+              {user?.userImageUrl ? '' : (user?.userName?.[0]?.toUpperCase() || user?.userLastName?.[0]?.toUpperCase() || 'U')}
+            </Avatar>
+            <Box flex={1}>
+              <TextField
+                fullWidth
+                size="small"
+                placeholder="Write a reply..."
+                value={replyText}
+                onChange={(e) => onReplyTextChange(e.target.value)}
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    onReplySubmit(reply.commentId);
+                  }
+                }}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: 2,
+                    backgroundColor: theme.palette.mode === 'dark' 
+                      ? 'rgba(255, 255, 255, 0.05)' 
+                      : 'rgba(255, 255, 255, 0.8)',
+                    '& fieldset': {
+                      borderColor: theme.palette.mode === 'dark' 
+                        ? 'rgba(255, 255, 255, 0.1)' 
+                        : 'rgba(0, 0, 0, 0.1)',
+                    },
+                    '&:hover fieldset': {
+                      borderColor: theme.palette.mode === 'dark' 
+                        ? 'rgba(255, 255, 255, 0.2)' 
+                        : 'rgba(0, 0, 0, 0.2)',
+                    },
+                    '&.Mui-focused fieldset': {
+                      borderColor: theme.palette.mode === 'dark' 
+                        ? '#64b5f6' 
+                        : '#2196f3',
+                    },
+                  }
+                }}
+              />
+              {/* Show uploaded reply image preview */}
+              {replyImages[reply.commentId] && (
+                <Box mt={1} position="relative">
+                  <Box
+                    component="img"
+                    src={replyImages[reply.commentId]}
+                    alt="Reply image"
+                    sx={{
+                      width: '100%',
+                      maxHeight: 150,
+                      objectFit: 'cover',
+                      borderRadius: 2,
+                      border: '1px solid',
+                      borderColor: theme.palette.mode === 'dark' 
+                        ? 'rgba(255, 255, 255, 0.2)' 
+                        : 'rgba(0, 0, 0, 0.1)',
+                    }}
+                  />
+                  <IconButton
+                    size="small"
+                    onClick={() => onReplyImageRemove(reply.commentId)}
+                    sx={{
+                      position: 'absolute',
+                      top: 4,
+                      right: 4,
+                      backgroundColor: theme.palette.mode === 'dark' 
+                        ? 'rgba(0, 0, 0, 0.7)' 
+                        : 'rgba(255, 255, 255, 0.9)',
+                      '&:hover': {
+                        backgroundColor: theme.palette.mode === 'dark' 
+                          ? 'rgba(0, 0, 0, 0.9)' 
+                          : 'rgba(255, 255, 255, 1)',
+                      }
+                    }}
+                  >
+                    <CancelIcon fontSize="small" />
+                  </IconButton>
+                </Box>
+              )}
+            </Box>
+            <Box display="flex" flexDirection="column" gap={0.5}>
+              <IconButton
+                size="small"
+                onClick={() => onReplyImageUpload(reply.commentId, [new File([''], 'placeholder')])}
+                sx={{
+                  color: theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.7)' : 'rgba(0, 0, 0, 0.6)',
+                }}
+              >
+                <CommentIcon fontSize="small" />
+              </IconButton>
+              <Button
+                variant="contained"
+                size="small"
+                onClick={() => onReplySubmit(reply.commentId)}
+                disabled={!replyText.trim() && !replyImages[reply.commentId]}
+                sx={{ borderRadius: 2 }}
+              >
+                Reply
+              </Button>
+            </Box>
+          </Box>
+        </Box>
+      )}
+
+      {/* Recursive nested replies - Facebook style nested structure */}
+      {hasNestedReplies && (
+        <Box sx={{ ml: `${indentPixels}px`, position: 'relative', pt: 2 }}>
+          
+          {level < maxNestingLevel ? (
+            // Show nested replies normally
+            reply.replies.map((nestedReply: any) => (
+              <NestedReply
+                key={nestedReply.commentId}
+                reply={nestedReply}
+                level={level + 1}
+                onReply={onReply}
+                onCommentReaction={onCommentReaction}
+                commentReactions={commentReactions}
+                format={format}
+                theme={theme}
+                setShowImagePreview={setShowImagePreview}
+                replyingTo={replyingTo}
+                replyText={replyText}
+                replyImages={replyImages}
+                user={user}
+                onReplyTextChange={onReplyTextChange}
+                onReplySubmit={onReplySubmit}
+                onReplyImageUpload={onReplyImageUpload}
+                onReplyImageRemove={onReplyImageRemove}
+                parentUser={reply.user} // Pass current reply user as parent for @mentions
+              />
+            ))
+          ) : (
+            // Show collapse button for deep nesting
+            <>
+              {!showCollapsedReplies ? (
+                <Box mt={1} ml={`${indentPixels}px`}>
+                  <Button
+                    size="small"
+                    variant="text"
+                    onClick={() => setShowCollapsedReplies(true)}
+                    sx={{
+                      fontSize: '0.75rem',
+                      textTransform: 'none',
+                      color: theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.7)' : 'rgba(0, 0, 0, 0.6)',
+                      '&:hover': {
+                        backgroundColor: theme.palette.mode === 'dark' 
+                          ? 'rgba(255, 255, 255, 0.1)' 
+                          : 'rgba(0, 0, 0, 0.05)',
+                      }
+                    }}
+                  >
+                    View {reply.replies.length} more {reply.replies.length === 1 ? 'reply' : 'replies'}
+                  </Button>
+                </Box>
+              ) : (
+                <>
+                  {reply.replies.map((nestedReply: any) => (
+                    <NestedReply
+                      key={nestedReply.commentId}
+                      reply={nestedReply}
+                      level={level + 1}
+                      onReply={onReply}
+                      onCommentReaction={onCommentReaction}
+                      commentReactions={commentReactions}
+                      format={format}
+                      theme={theme}
+                      setShowImagePreview={setShowImagePreview}
+                      replyingTo={replyingTo}
+                      replyText={replyText}
+                      replyImages={replyImages}
+                      user={user}
+                      onReplyTextChange={onReplyTextChange}
+                      onReplySubmit={onReplySubmit}
+                              onReplyImageUpload={onReplyImageUpload}
+                              onReplyImageRemove={onReplyImageRemove}
+                      parentUser={reply.user}
+                    />
+                  ))}
+                  <Box mt={1} ml={`${indentPixels}px`}>
+                    <Button
+                      size="small"
+                      variant="text"
+                      onClick={() => setShowCollapsedReplies(false)}
+                      sx={{
+                        fontSize: '0.75rem',
+                        textTransform: 'none',
+                        color: theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.7)' : 'rgba(0, 0, 0, 0.6)',
+                        '&:hover': {
+                          backgroundColor: theme.palette.mode === 'dark' 
+                            ? 'rgba(255, 255, 255, 0.1)' 
+                            : 'rgba(0, 0, 0, 0.05)',
+                        }
+                      }}
+                    >
+                      Hide replies
+                    </Button>
+                  </Box>
+                </>
+              )}
+            </>
+          )}
+        </Box>
+      )}
+    </Box>
+  );
+};
+
 const TaskCard: React.FC<TaskCardProps> = ({
   task,
   likeSummary,
@@ -76,27 +549,24 @@ const TaskCard: React.FC<TaskCardProps> = ({
   onDelete,
   onLike,
   onUnlike,
-  onComment,
   onStatusUpdate,
   showActions = true,
   compact = false,
 }) => {
   const theme = useTheme();
   const { user } = useAppSelector((state) => state.auth);
+  const queryClient = useQueryClient();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [showComments, setShowComments] = useState(false);
   const [commentText, setCommentText] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showImagePreview, setShowImagePreview] = useState(false);
-  const [replyingTo, setReplyingTo] = useState<number | null>(null);
-  const [replyText, setReplyText] = useState('');
   const [commentReactions, setCommentReactions] = useState<Record<number, string>>({});
 
-  // Fetch comments when comments section is opened
-  const { data: comments = [], isLoading: commentsLoading } = useQuery({
-    queryKey: ['task-comments', task.taskId],
-    queryFn: () => commentApi.getTaskComments(task.taskId),
-    enabled: showComments, // Only fetch when comments are shown
+  // Use new optimized comments hook
+  const { commentTree, isLoading: commentsLoading, refetch: commentsRefetch } = useComments({ 
+    taskId: task.taskId, 
+    enabled: showComments 
   });
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
@@ -109,7 +579,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
 
   const handleLike = (likeType: 'like' | 'love' | 'laugh' | 'angry') => {
     if (likeSummary?.userLike) {
-      // If user already liked with the same type, remove it
+      // If user already liked with same type, remove it
       if (likeSummary.userLike === likeType) {
         onUnlike?.(task.taskId);
       } else {
@@ -122,31 +592,57 @@ const TaskCard: React.FC<TaskCardProps> = ({
     }
   };
 
-  const handleCommentSubmit = () => {
-    if (commentText.trim()) {
-      onComment?.(task.taskId, commentText.trim());
+  // Mutations for comment operations
+  const createCommentMutation = useMutation({
+    mutationFn: ({ comment, commentImageUrl }: { comment: string; commentImageUrl?: string }) =>
+      commentApi.createComment(task.taskId, { comment, commentImageUrl }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['task-comments', task.taskId] });
       setCommentText('');
+    }
+  });
+
+  const commentReactionMutation = useMutation({
+    mutationFn: ({ commentId, reactionType }: { commentId: number; reactionType: 'like' | 'love' | 'laugh' | 'angry' }) =>
+      commentReactionApi.createOrUpdateReaction(commentId, { reactionType }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['task-comments', task.taskId] });
+    }
+  });
+
+  const removeCommentReactionMutation = useMutation({
+    mutationFn: (commentId: number) =>
+      commentReactionApi.removeReaction(commentId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['task-comments', task.taskId] });
+    }
+  });
+
+  const handleCommentReaction = (commentId: number, reactionType: 'like' | 'love' | 'laugh' | 'angry') => {
+    const currentReaction = commentReactions[commentId];
+    if (currentReaction === reactionType) {
+      // Remove reaction
+      removeCommentReactionMutation.mutate(commentId);
+      setCommentReactions(prev => {
+        const newReactions = { ...prev };
+        delete newReactions[commentId];
+        return newReactions;
+      });
+    } else {
+      // Add or change reaction
+      commentReactionMutation.mutate({ commentId, reactionType });
+      setCommentReactions(prev => ({
+        ...prev,
+        [commentId]: reactionType
+      }));
     }
   };
 
-  const handleCommentReaction = (commentId: number, reactionType: 'like' | 'love' | 'laugh' | 'angry') => {
-    setCommentReactions(prev => ({
-      ...prev,
-      [commentId]: prev[commentId] === reactionType ? '' : reactionType
-    }));
-  };
-
-  const handleReply = (commentId: number) => {
-    setReplyingTo(commentId);
-    setReplyText('');
-  };
-
-  const handleReplySubmit = (parentCommentId: number) => {
-    if (replyText.trim()) {
-      // TODO: Implement nested comment submission
-      console.log('Reply to comment', parentCommentId, ':', replyText);
-      setReplyText('');
-      setReplyingTo(null);
+  const handleCommentSubmit = () => {
+    if (commentText.trim()) {
+      createCommentMutation.mutate({
+        comment: commentText.trim()
+      });
     }
   };
 
@@ -442,368 +938,20 @@ const TaskCard: React.FC<TaskCardProps> = ({
               : 'rgba(255, 255, 255, 0.2)',
             background: 'linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent)',
           }} />
-          <Box 
-            p={2} 
-            sx={{ 
-              background: theme.palette.mode === 'dark' 
-                ? 'rgba(255, 255, 255, 0.03)' 
-                : 'rgba(255, 255, 255, 0.4)',
-              backdropFilter: 'blur(20px) saturate(180%)',
-              WebkitBackdropFilter: 'blur(20px) saturate(180%)',
-              borderRadius: 3,
-              border: theme.palette.mode === 'dark' 
-                ? '1px solid rgba(255, 255, 255, 0.1)' 
-                : '1px solid rgba(255, 255, 255, 0.2)',
-              boxShadow: theme.palette.mode === 'dark'
-                ? 'inset 0 1px 0 0 rgba(255, 255, 255, 0.1)'
-                : 'inset 0 1px 0 0 rgba(255, 255, 255, 0.3)',
-              position: 'relative',
-              overflow: 'hidden',
-              '&::before': {
-                content: '""',
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                right: 0,
-                height: '1px',
-                background: 'linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent)',
-                opacity: theme.palette.mode === 'dark' ? 0.4 : 0.6,
-              }
-            }}
-          >
-            {/* Comment Input */}
-            <Box display="flex" gap={1} mb={2}>
-              <Avatar 
-                src={user?.userImageUrl}
-                sx={{ 
-                  width: 32, 
-                  height: 32, 
-                  fontSize: '0.875rem',
-                  bgcolor: user?.userImageUrl ? 'transparent' : theme.palette.primary.main,
-                  color: user?.userImageUrl ? 'transparent' : theme.palette.primary.contrastText,
-                }}
-              >
-                {user?.userImageUrl ? '' : (user?.userName?.[0]?.toUpperCase() || user?.userLastName?.[0]?.toUpperCase() || 'U')}
-              </Avatar>
-              <TextField
-                fullWidth
-                size="small"
-                placeholder="Write a comment..."
-                value={commentText}
-                onChange={(e) => setCommentText(e.target.value)}
-                onKeyPress={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    handleCommentSubmit();
-                  }
-                }}
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: 3,
-                    backgroundColor: theme.palette.mode === 'dark' 
-                      ? 'rgba(255, 255, 255, 0.08)' 
-                      : 'rgba(255, 255, 255, 0.9)',
-                    backdropFilter: 'blur(10px)',
-                    WebkitBackdropFilter: 'blur(10px)',
-                    border: theme.palette.mode === 'dark' 
-                      ? '1px solid rgba(255, 255, 255, 0.2)' 
-                      : '1px solid rgba(255, 255, 255, 0.3)',
-                    '& fieldset': {
-                      borderColor: 'transparent',
-                    },
-                    '&:hover fieldset': {
-                      borderColor: theme.palette.mode === 'dark' 
-                        ? 'rgba(255, 255, 255, 0.3)' 
-                        : 'rgba(255, 255, 255, 0.4)',
-                    },
-                    '&.Mui-focused fieldset': {
-                      borderColor: theme.palette.mode === 'dark' 
-                        ? 'rgba(100, 181, 246, 0.6)' 
-                        : 'rgba(59, 130, 246, 0.8)',
-                      boxShadow: theme.palette.mode === 'dark'
-                        ? '0 0 0 3px rgba(100, 181, 246, 0.2)'
-                        : '0 0 0 3px rgba(59, 130, 246, 0.3)',
-                    },
-                    '& input': {
-                      color: theme.palette.mode === 'dark' 
-                        ? 'rgba(255, 255, 255, 0.9)' 
-                        : 'rgba(0, 0, 0, 0.8)',
-                    },
-                    '& input::placeholder': {
-                      color: theme.palette.mode === 'dark' 
-                        ? 'rgba(255, 255, 255, 0.5)' 
-                        : 'rgba(0, 0, 0, 0.5)',
-                    }
-                  }
+          <Box p={2}>
+            {/* Use new Reddit-style comment system */}
+            {commentTree && (
+              <CommentTree
+                commentTree={commentTree}
+                onReaction={handleCommentReaction}
+                theme={theme}
+                currentUserId={currentUserId}
+                taskId={task.taskId}
+                onCommentAdded={() => {
+                  // Refetch comments after adding
+                  commentsRefetch();
                 }}
               />
-              <Button
-                variant="contained"
-                size="small"
-                onClick={handleCommentSubmit}
-                disabled={!commentText.trim()}
-                sx={{ borderRadius: 3 }}
-              >
-                Post
-              </Button>
-            </Box>
-
-            {/* Comments List - Sorted by newest first, most engaging at top */}
-            {commentsLoading ? (
-              <Box display="flex" justifyContent="center" py={2}>
-                <Typography variant="body2" color="text.secondary">
-                  Loading comments...
-                </Typography>
-              </Box>
-            ) : comments.length === 0 ? (
-              <Box display="flex" justifyContent="center" py={2}>
-                <Typography variant="body2" color="text.secondary">
-                  No comments yet. Be the first to comment!
-                </Typography>
-              </Box>
-            ) : (
-              <Box display="flex" flexDirection="column" gap={2}>
-                {comments
-                  .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-                  .map((comment) => (
-                    <Box key={comment.commentId} sx={{ display: 'flex', gap: 1.5 }}>
-                      <Avatar 
-                        src={comment.user?.userImageUrl}
-                        sx={{ 
-                          width: 32, 
-                          height: 32, 
-                          bgcolor: comment.user?.userImageUrl ? 'transparent' : theme.palette.primary.main,
-                          color: comment.user?.userImageUrl ? 'transparent' : theme.palette.primary.contrastText,
-                        }}
-                      >
-                        {comment.user?.userImageUrl ? '' : (comment.user?.userName?.[0]?.toUpperCase() || comment.user?.userLastName?.[0]?.toUpperCase() || 'U')}
-                      </Avatar>
-                      <Box flex={1}>
-                        <Box display="flex" alignItems="center" gap={1} mb={0.5}>
-                          <Typography variant="subtitle2" fontWeight="medium" sx={{ fontSize: '0.875rem' }}>
-                            {comment.user ? `${comment.user.userName} ${comment.user.userLastName}` : 'Unknown User'}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            {format(new Date(comment.createdAt), 'MMM d, yyyy • h:mm a')}
-                          </Typography>
-                        </Box>
-                        <Typography 
-                          variant="body2" 
-                          sx={{ 
-                            fontSize: '0.875rem',
-                            lineHeight: 1.4,
-                            backgroundColor: theme.palette.mode === 'dark' 
-                              ? 'rgba(255, 255, 255, 0.08)' 
-                              : 'rgba(255, 255, 255, 0.95)',
-                            backdropFilter: 'blur(10px) saturate(180%)',
-                            WebkitBackdropFilter: 'blur(10px) saturate(180%)',
-                            padding: 1.5,
-                            borderRadius: 3,
-                            border: '1px solid',
-                            borderColor: theme.palette.mode === 'dark' 
-                              ? 'rgba(255, 255, 255, 0.15)' 
-                              : 'rgba(255, 255, 255, 0.2)',
-                            boxShadow: theme.palette.mode === 'dark'
-                              ? '0 4px 12px rgba(0, 0, 0, 0.15), inset 0 1px 0 0 rgba(255, 255, 255, 0.1)'
-                              : '0 4px 12px rgba(0, 0, 0, 0.08), inset 0 1px 0 0 rgba(255, 255, 255, 0.3)',
-                            position: 'relative',
-                            overflow: 'hidden',
-                            '&::before': {
-                              content: '""',
-                              position: 'absolute',
-                              top: 0,
-                              left: 0,
-                              right: 0,
-                              height: '1px',
-                              background: 'linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent)',
-                              opacity: theme.palette.mode === 'dark' ? 0.5 : 0.7,
-                            }
-                          }}
-                        >
-                          {comment.comment}
-                        </Typography>
-                        
-                        {/* Comment Actions */}
-                        <Box display="flex" alignItems="center" gap={1} mt={1}>
-                          {/* Like Button */}
-                          <IconButton 
-                            size="small" 
-                            sx={{ 
-                              fontSize: '0.75rem',
-                              color: commentReactions[comment.commentId] === 'like' ? 'primary' : 'default',
-                              backgroundColor: commentReactions[comment.commentId] === 'like' 
-                                ? theme.palette.mode === 'dark' ? 'rgba(255, 234, 167, 0.2)' : 'rgba(255, 234, 167, 0.3)'
-                                : 'transparent',
-                              '&:hover': {
-                                backgroundColor: theme.palette.mode === 'dark' 
-                                  ? 'rgba(255, 234, 167, 0.1)' 
-                                  : 'rgba(255, 234, 167, 0.2)',
-                              }
-                            }}
-                            onClick={() => handleCommentReaction(comment.commentId, 'like')}
-                          >
-                            <LikeIcon fontSize="inherit" />
-                            <Typography variant="caption" sx={{ ml: 0.5 }}>
-                              Like
-                            </Typography>
-                          </IconButton>
-
-                          {/* Love Button */}
-                          <IconButton 
-                            size="small" 
-                            sx={{ 
-                              fontSize: '0.75rem',
-                              color: commentReactions[comment.commentId] === 'love' ? 'error' : 'default',
-                              backgroundColor: commentReactions[comment.commentId] === 'love'
-                                ? theme.palette.mode === 'dark' ? 'rgba(255, 118, 117, 0.2)' : 'rgba(255, 118, 117, 0.3)'
-                                : 'transparent',
-                              '&:hover': {
-                                backgroundColor: theme.palette.mode === 'dark' 
-                                  ? 'rgba(255, 118, 117, 0.1)' 
-                                  : 'rgba(255, 118, 117, 0.2)',
-                              }
-                            }}
-                            onClick={() => handleCommentReaction(comment.commentId, 'love')}
-                          >
-                            <LoveIcon fontSize="inherit" />
-                            <Typography variant="caption" sx={{ ml: 0.5 }}>
-                              Love
-                            </Typography>
-                          </IconButton>
-
-                          {/* Laugh Button */}
-                          <IconButton 
-                            size="small" 
-                            sx={{ 
-                              fontSize: '0.75rem',
-                              color: commentReactions[comment.commentId] === 'laugh' ? 'warning' : 'default',
-                              backgroundColor: commentReactions[comment.commentId] === 'laugh'
-                                ? theme.palette.mode === 'dark' ? 'rgba(255, 193, 7, 0.2)' : 'rgba(255, 193, 7, 0.3)'
-                                : 'transparent',
-                              '&:hover': {
-                                backgroundColor: theme.palette.mode === 'dark' 
-                                  ? 'rgba(255, 193, 7, 0.1)' 
-                                  : 'rgba(255, 193, 7, 0.2)',
-                              }
-                            }}
-                            onClick={() => handleCommentReaction(comment.commentId, 'laugh')}
-                          >
-                            <LaughIcon fontSize="inherit" />
-                            <Typography variant="caption" sx={{ ml: 0.5 }}>
-                              Laugh
-                            </Typography>
-                          </IconButton>
-
-                          {/* Angry Button */}
-                          <IconButton 
-                            size="small" 
-                            sx={{ 
-                              fontSize: '0.75rem',
-                              color: commentReactions[comment.commentId] === 'angry' ? 'error' : 'default',
-                              backgroundColor: commentReactions[comment.commentId] === 'angry'
-                                ? theme.palette.mode === 'dark' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(239, 68, 68, 0.3)'
-                                : 'transparent',
-                              '&:hover': {
-                                backgroundColor: theme.palette.mode === 'dark' 
-                                  ? 'rgba(239, 68, 68, 0.1)' 
-                                  : 'rgba(239, 68, 68, 0.2)',
-                              }
-                            }}
-                            onClick={() => handleCommentReaction(comment.commentId, 'angry')}
-                          >
-                            <AngryIcon fontSize="inherit" />
-                            <Typography variant="caption" sx={{ ml: 0.5 }}>
-                              Angry
-                            </Typography>
-                          </IconButton>
-
-                          {/* Reply Button */}
-                          <IconButton 
-                            size="small" 
-                            sx={{ 
-                              fontSize: '0.75rem',
-                              color: 'primary',
-                              '&:hover': {
-                                backgroundColor: theme.palette.mode === 'dark' 
-                                  ? 'rgba(100, 181, 246, 0.1)' 
-                                  : 'rgba(100, 181, 246, 0.2)',
-                              }
-                            }}
-                            onClick={() => handleReply(comment.commentId)}
-                          >
-                            <CommentIcon fontSize="inherit" />
-                            <Typography variant="caption" sx={{ ml: 0.5 }}>
-                              Reply
-                            </Typography>
-                          </IconButton>
-                        </Box>
-
-                        {/* Reply Input */}
-                        {replyingTo === comment.commentId && (
-                          <Box display="flex" gap={1} mt={2} ml={4}>
-                            <Avatar 
-                              src={comment.user?.userImageUrl}
-                              sx={{ 
-                                width: 24, 
-                                height: 24, 
-                                fontSize: '0.75rem',
-                                bgcolor: comment.user?.userImageUrl ? 'transparent' : theme.palette.primary.main,
-                                color: comment.user?.userImageUrl ? 'transparent' : theme.palette.primary.contrastText,
-                              }}
-                            >
-                              {comment.user?.userImageUrl ? '' : (comment.user?.userName?.[0]?.toUpperCase() || comment.user?.userLastName?.[0]?.toUpperCase() || 'U')}
-                            </Avatar>
-                            <TextField
-                              fullWidth
-                              size="small"
-                              placeholder="Write a reply..."
-                              value={replyText}
-                              onChange={(e) => setReplyText(e.target.value)}
-                              onKeyPress={(e) => {
-                                if (e.key === 'Enter' && !e.shiftKey) {
-                                  e.preventDefault();
-                                  handleReplySubmit(comment.commentId);
-                                }
-                              }}
-                              sx={{
-                                '& .MuiOutlinedInput-root': {
-                                  borderRadius: 2,
-                                  backgroundColor: theme.palette.mode === 'dark' 
-                                    ? 'rgba(255, 255, 255, 0.05)' 
-                                    : 'rgba(255, 255, 255, 0.8)',
-                                  '& fieldset': {
-                                    borderColor: theme.palette.mode === 'dark' 
-                                      ? 'rgba(255, 255, 255, 0.1)' 
-                                      : 'rgba(0, 0, 0, 0.1)',
-                                  },
-                                  '&:hover fieldset': {
-                                    borderColor: theme.palette.mode === 'dark' 
-                                      ? 'rgba(255, 255, 255, 0.2)' 
-                                      : 'rgba(0, 0, 0, 0.2)',
-                                  },
-                                  '&.Mui-focused fieldset': {
-                                    borderColor: theme.palette.mode === 'dark' 
-                                      ? '#64b5f6' 
-                                      : '#2196f3',
-                                  },
-                                }
-                              }}
-                            />
-                            <Button
-                              variant="contained"
-                              size="small"
-                              onClick={() => handleReplySubmit(comment.commentId)}
-                              disabled={!replyText.trim()}
-                              sx={{ borderRadius: 2 }}
-                            >
-                              Reply
-                            </Button>
-                          </Box>
-                        )}
-                      </Box>
-                    </Box>
-                  ))}
-              </Box>
             )}
           </Box>
         </Collapse>

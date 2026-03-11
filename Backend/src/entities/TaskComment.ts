@@ -35,9 +35,11 @@ export class TaskComment {
   task!: Task;
 
   @ManyToOne(() => User, user => user.taskComments)
+  @JoinColumn({ name: 'userId' })
   user!: User;
 
   @ManyToOne(() => TaskComment, comment => comment.replies, { nullable: true })
+  @JoinColumn({ name: 'parentCommentId' })
   parentComment?: TaskComment;
 
   @OneToMany(() => TaskComment, comment => comment.parentComment)

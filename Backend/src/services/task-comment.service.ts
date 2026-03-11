@@ -16,7 +16,9 @@ export class TaskCommentService {
     @InjectRepository(Task)
     private taskRepository: Repository<Task>,
     @InjectRepository(CommentReaction)
-    private commentReactionRepository: Repository<CommentReaction>
+    private commentReactionRepository: Repository<CommentReaction>,
+    @InjectRepository(User)
+    private userRepository: Repository<User>
   ) {}
 
   async createComment(
@@ -56,7 +58,13 @@ export class TaskCommentService {
     // First, get all comments for this task (both parent and replies)
     const allComments = await this.taskCommentRepository
       .createQueryBuilder('comment')
-      .leftJoinAndSelect('comment.user', 'user')
+      .leftJoin('comment.user', 'user')
+      .addSelect([
+        'user.userId',
+        'user.userName', 
+        'user.userLastName',
+        'user.userImageUrl'
+      ])
       .leftJoinAndSelect('comment.reactions', 'reactions')
       .leftJoinAndSelect('reactions.user', 'reactionUser')
       .where('comment.taskId = :taskId AND comment.isActive = :isActive', { taskId, isActive: true })
@@ -90,9 +98,21 @@ export class TaskCommentService {
   async getCommentWithRelations(commentId: number): Promise<TaskCommentResponseDto> {
     const comment = await this.taskCommentRepository
       .createQueryBuilder('comment')
-      .leftJoinAndSelect('comment.user', 'user')
+      .leftJoin('comment.user', 'user')
+      .addSelect([
+        'user.userId',
+        'user.userName', 
+        'user.userLastName',
+        'user.userImageUrl'
+      ])
       .leftJoinAndSelect('comment.replies', 'replies')
-      .leftJoinAndSelect('replies.user', 'repliesUser')
+      .leftJoin('replies.user', 'repliesUser')
+      .addSelect([
+        'repliesUser.userId',
+        'repliesUser.userName', 
+        'repliesUser.userLastName',
+        'repliesUser.userImageUrl'
+      ])
       .leftJoinAndSelect('comment.reactions', 'reactions')
       .leftJoinAndSelect('reactions.user', 'reactionUser')
       .where('comment.commentId = :commentId', { commentId })
@@ -195,10 +215,15 @@ export class TaskCommentService {
       isActive: comment.isActive,
       user: comment.user ? {
         userId: comment.user.userId,
-        userName: comment.user.userName,
-        userLastName: comment.user.userLastName,
+        userName: comment.user.userName || 'Unknown',
+        userLastName: comment.user.userLastName || 'User',
         userImageUrl: comment.user.userImageUrl || undefined
-      } : undefined,
+      } : {
+        userId: comment.userId,
+        userName: 'Unknown',
+        userLastName: 'User',
+        userImageUrl: undefined
+      },
       replies,
       reactions,
       _count: {

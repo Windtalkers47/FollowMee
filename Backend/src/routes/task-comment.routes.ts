@@ -26,7 +26,8 @@ const upload = multer({
 const taskCommentService = new TaskCommentService(
   AppDataSource.getRepository('TaskComment'),
   AppDataSource.getRepository('Task'),
-  AppDataSource.getRepository('CommentReaction')
+  AppDataSource.getRepository('CommentReaction'),
+  AppDataSource.getRepository('User')
 );
 const taskCommentController = new TaskCommentController(taskCommentService);
 

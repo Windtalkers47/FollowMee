@@ -6,6 +6,7 @@ export interface FlatCommentRow {
   isLastChild: boolean;
   isFirstChild: boolean;
   parentPath: boolean[];
+  hasChildren: boolean; // ⭐ NEW PROPERTY
 }
 
 /**
@@ -23,7 +24,6 @@ export function flattenCommentTree(nodes: CommentNode[]): FlatCommentRow[] {
     nodes.forEach((node, index) => {
       const isLastChild = index === nodes.length - 1;
 
-      // path describes WHICH parent columns should continue
       const path = [...parentPath];
 
       result.push({
@@ -31,13 +31,13 @@ export function flattenCommentTree(nodes: CommentNode[]): FlatCommentRow[] {
         depth,
         isLastChild,
         isFirstChild: index === 0,
-        parentPath: path
+        parentPath: path,
+        hasChildren: node.children.length > 0 // ⭐ KEY FIX
       });
 
       if (node.children.length > 0) {
         const nextPath = [...parentPath];
 
-        // this column continues only if THIS node has siblings after it
         nextPath.push(!isLastChild);
 
         traverse(node.children, depth + 1, nextPath);
@@ -50,22 +50,23 @@ export function flattenCommentTree(nodes: CommentNode[]): FlatCommentRow[] {
   return result;
 }
 
-
 /**
  * Groups flattened comments by parent for efficient rendering
  */
 export function groupCommentsByParent(flatRows: FlatCommentRow[]): Map<number, FlatCommentRow[]> {
   const groups = new Map<number, FlatCommentRow[]>();
-  
+
   flatRows.forEach(row => {
     const parentId = row.comment.comment.parentCommentId;
+
     if (parentId !== undefined) {
       if (!groups.has(parentId)) {
         groups.set(parentId, []);
       }
+
       groups.get(parentId)!.push(row);
     }
   });
-  
+
   return groups;
 }

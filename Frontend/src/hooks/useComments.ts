@@ -38,6 +38,7 @@ export interface UseCommentsResult {
   handleReply: (commentId: number) => void;
   handleReplyTextChange: (commentId: number, text: string) => void;
   handleReplySubmit: (parentCommentId: number) => Promise<void>;
+  handleReplyCancel: () => void;
   handleAddComment: (text: string) => Promise<void>;
   handleEditStart: (commentId: number, text: string) => void;
   handleEditSubmit: (commentId: number) => Promise<void>;
@@ -148,6 +149,7 @@ export function useComments({
     
     const filterCollapsed = (node: any): any => {
       if (collapsedThreads.has(node.comment.commentId)) {
+        // Hide ALL descendants, not just direct children
         return {
           ...node,
           children: []
@@ -160,10 +162,16 @@ export function useComments({
       };
     };
     
-    const filtered = commentTree.nodes.map(node => filterByDepth(node, 0)).filter(Boolean);
+    // Apply collapse filtering FIRST, then depth filtering
+    const filteredNodes = commentTree.nodes
+      .map(filterCollapsed) // Remove collapsed threads first
+      .filter(Boolean)
+      .map(node => filterByDepth(node, 0)) // Then apply depth limits
+      .filter(Boolean);
+    
     return {
       ...commentTree,
-      nodes: filtered.map(filterCollapsed)
+      nodes: filteredNodes
     };
   }, [commentTree, collapsedThreads, maxDepth]);
 
@@ -277,7 +285,11 @@ export function useComments({
         console.error('Failed to submit reply:', error);
       }
     }
-  }, [addComment, replyTextByCommentId]);
+  }, [replyTextByCommentId, addComment]);
+
+  const handleReplyCancel = useCallback(() => {
+    setReplyingTo(null);
+  }, []);
 
   const handleAddComment = useCallback(async (text: string) => {
     if (text.trim()) {
@@ -356,6 +368,7 @@ export function useComments({
     handleReply,
     handleReplyTextChange,
     handleReplySubmit,
+    handleReplyCancel,
     handleAddComment,
     handleEditStart,
     handleEditSubmit,

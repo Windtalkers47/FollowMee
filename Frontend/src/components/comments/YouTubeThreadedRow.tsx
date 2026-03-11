@@ -24,8 +24,9 @@ const YouTubeThreadedRow: React.FC<YouTubeThreadedRowProps> = ({ row }) => {
       <Box sx={{ 
         flex: 1, 
         minWidth: 0,
-        maxWidth: 720,
-        pl: depth * 16 // Gentler indentation, no lines
+        maxWidth: { xs: '100%', sm: '100%', md: 720 }, // Responsive: full on mobile, max on desktop
+        pl: { xs: depth * 8, sm: depth * 12, md: depth * 16 }, // Responsive indentation
+        position: 'relative'
       }}>
         <YouTubeCommentNode row={row} />
       </Box>

@@ -10,7 +10,7 @@ interface YouTubeCommentNodeProps {
 }
 
 const YouTubeCommentNode: React.FC<YouTubeCommentNodeProps> = ({ row }) => {
-  const { updateReaction, handleReply, handleReplySubmit, handleEditStart, handleDeleteComment, replyingTo, getReplyText, handleReplyTextChange, toggleCollapse, collapsedThreads } = useCommentActionContext();
+  const { updateReaction, handleReply, handleReplySubmit, handleReplyCancel, handleEditStart, handleDeleteComment, replyingTo, getReplyText, handleReplyTextChange, toggleCollapse, collapsedThreads } = useCommentActionContext();
   
   const { comment } = row;
   const currentUserId = 0; // This should come from auth context
@@ -189,7 +189,7 @@ const YouTubeCommentNode: React.FC<YouTubeCommentNodeProps> = ({ row }) => {
             </Button>
 
             {/* Collapse/Expand thread button */}
-            {comment.comment.replies && comment.comment.replies.length > 0 && (
+            {row.hasChildren && (
               <Button
                 size="small"
                 onClick={() => toggleCollapse(comment.comment.commentId)}
@@ -206,7 +206,9 @@ const YouTubeCommentNode: React.FC<YouTubeCommentNodeProps> = ({ row }) => {
                   }
                 }}
               >
-                {collapsedThreads.has(comment.comment.commentId) ? '▼' : '▲'} {collapsedThreads.has(comment.comment.commentId) ? `View ${comment.comment.replies.length} replies` : `Hide replies`}
+                {collapsedThreads.has(comment.comment.commentId)
+                  ? '▼ View replies'
+                  : '▲ Hide replies'}
               </Button>
             )}
 
@@ -295,7 +297,7 @@ const YouTubeCommentNode: React.FC<YouTubeCommentNodeProps> = ({ row }) => {
                     </Button>
                     <Button
                       size="small"
-                      onClick={() => handleReply(0)} // Use 0 to clear reply state
+                      onClick={() => handleReplyCancel()}
                       sx={{ 
                         textTransform: 'none',
                         fontSize: '13px',

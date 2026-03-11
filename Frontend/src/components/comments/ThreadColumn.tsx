@@ -8,6 +8,7 @@ interface ThreadColumnProps {
   isCollapsed?: boolean
   onToggle?: () => void
   isConnector?: boolean
+  isContinuous?: boolean // New prop for continuous lines
 }
 
 export const ThreadColumn: React.FC<ThreadColumnProps> = ({
@@ -16,7 +17,8 @@ export const ThreadColumn: React.FC<ThreadColumnProps> = ({
   hasChildren = false,
   isCollapsed = false,
   isConnector = false,
-  onToggle
+  onToggle,
+  isContinuous = false // Default to false for backward compatibility
 }) => {
   if (!showLine) {
     return <Box sx={{ width: 24, flexShrink: 0 }} />;
@@ -30,43 +32,56 @@ export const ThreadColumn: React.FC<ThreadColumnProps> = ({
         flexShrink: 0
       }}
     >
-      {/* main vertical line */}
-      <Box
-        sx={{
-          position: "absolute",
-          left: 11,
-          top: 0,
-          bottom: isLastChild ? "50%" : 0,
-          width: 2,
-          backgroundColor: "rgba(0,0,0,0.15)"
-        }}
-      />
+      {/* Continuous vertical line - spans full height */}
+      {isContinuous && (
+        <Box
+          sx={{
+            position: "absolute",
+            left: 11,
+            top: 0,
+            bottom: 0,
+            width: 2,
+            backgroundColor: "rgba(0,0,0,0.08)"
+          }}
+        />
+      )}
+
+      {/* Original vertical line - for non-continuous case */}
+      {!isContinuous && (
+        <Box
+          sx={{
+            position: "absolute",
+            left: 11,
+            top: 0,
+            bottom: isLastChild ? 20 : 0,
+            width: 2,
+            backgroundColor: "rgba(0,0,0,0.15)"
+          }}
+        />
+      )}
 
       {/* horizontal connector */}
-      {isConnector && (
+      {isConnector && !isContinuous && (
         <Box
           sx={{
             position: "absolute",
             left: 11,
             top: 20,
-            bottom: isLastChild ? "calc(100% - 20px)" : 0,
             width: 13,
             height: 2,
-            transform: "translateY(-1px)",
             backgroundColor: "rgba(0,0,0,0.15)"
           }}
         />
       )}
 
       {/* collapse toggle */}
-      {hasChildren && (
+      {hasChildren && !isContinuous && (
         <Box
           onClick={onToggle}
           sx={{
             position: "absolute",
             left: 8,
             top: 20,
-            bottom: isLastChild ? "calc(100% - 20px)" : 0,
             transform: "translateY(-50%)",
             width: 14,
             height: 14,

@@ -1,7 +1,7 @@
-import React, { useMemo, useCallback } from 'react';
+import React, { useMemo, useCallback, useRef } from 'react';
 import { Box } from '@mui/material';
 import { DynamicVirtualizedCommentList } from './DynamicVirtualizedCommentList';
-import ThreadedCommentNode from './ThreadedCommentNode';
+import ThreadedCommentRow from './ThreadedCommentRow';
 import { flattenCommentTree, FlatCommentRow } from '../../utils/flattenCommentTreeForVirtualization';
 import { CommentDataProvider, CommentActionProvider } from '../../contexts';
 import { useComments } from '../../hooks/useComments';
@@ -21,6 +21,9 @@ const VirtualizedCommentTreeComponent: React.FC<VirtualizedCommentTreeProps> = (
   maxDepth = 3,
   containerHeight = 600
 }) => {
+  // Create ref once to prevent virtualizer breakage
+  const containerRef = useRef<HTMLDivElement>(null);
+  
   // Use the consolidated useComments hook
   const commentData = useComments({ taskId, maxDepth });
   const {
@@ -51,8 +54,8 @@ const VirtualizedCommentTreeComponent: React.FC<VirtualizedCommentTreeProps> = (
   }), [commentData.comments, commentData.commentTree, visibleTree, isLoading, error, refetch, collapsedThreads, hiddenReplyCount]);
 
   const renderCommentRow = useCallback((row: FlatCommentRow) => {
-  return <ThreadedCommentNode row={row} />;
-}, []);
+    return <ThreadedCommentRow row={row} />;
+  }, []);
 
   if (isLoading) {
     return (
@@ -84,7 +87,7 @@ const VirtualizedCommentTreeComponent: React.FC<VirtualizedCommentTreeProps> = (
         <Box sx={{ height: containerHeight, overflow: 'hidden' }}>
           <DynamicVirtualizedCommentList
             nodes={flatRows}
-            containerRef={React.useRef<HTMLDivElement>(null)}
+            containerRef={containerRef}
             renderItem={renderCommentRow}
             estimateSize={() => 120}
           />

@@ -67,42 +67,96 @@ export function updateReactionInTree(
 ): CommentTree | null {
   if (!currentTree) return currentTree;
 
-  const updateReaction = (nodes: CommentNode[]): boolean => {
-    for (const node of nodes) {
+  const updateReaction = (nodes: CommentNode[]): CommentNode[] => {
+    return nodes.map(node => {
       if (node.comment.commentId === commentId) {
-        // Update reactions array (optimistic)
-        if (!node.comment.reactions) {
-          node.comment.reactions = [];
-        }
+        // Clone comment with updated reactions (immutable update)
+        const currentReactions = node.comment.reactions || [];
+        const filteredReactions = currentReactions.filter(r => r.type !== reactionType);
         
-        // Remove existing reaction if any
-        node.comment.reactions = node.comment.reactions.filter(r => r.type !== reactionType);
-        
-        // Add new reaction if not null
+        let newReactions: any[];
         if (reactionType) {
-          node.comment.reactions.push({
-            id: Date.now(), // Temporary ID
-            type: reactionType,
-            userId: 0, // Will be updated by server
-            createdAt: new Date().toISOString()
-          });
+          newReactions = [
+            ...filteredReactions,
+            {
+              id: Date.now(), // Temporary ID
+              type: reactionType,
+              userId: 0, // Will be updated by server
+              createdAt: new Date().toISOString()
+            }
+          ];
+        } else {
+          newReactions = filteredReactions;
         }
         
-        return true;
+        // Return new node with cloned comment
+        return {
+          ...node,
+          comment: {
+            ...node.comment,
+            reactions: newReactions
+          }
+        };
       }
-      if (updateReaction(node.children)) {
-        return true;
+      
+      // Recursively update children
+      if (node.children.length > 0) {
+        return {
+          ...node,
+          children: updateReaction(node.children)
+        };
       }
-    }
-    return false;
+      
+      return node;
+    });
   };
 
-  updateReaction(currentTree.nodes);
-  return { ...currentTree };
+  return {
+    ...currentTree,
+    nodes: updateReaction(currentTree.nodes)
+  };
 }
 
 /**
- * Toggle thread collapse state
+ * Collapse state manager with version tracking for performance
+ */
+export class CollapseState {
+  private state: Map<number, boolean> = new Map();
+  private version: number = 0;
+  
+  constructor(initialCollapsed?: Set<number>) {
+    if (initialCollapsed) {
+      initialCollapsed.forEach(id => this.state.set(id, true));
+    }
+  }
+  
+  toggle(commentId: number): { version: number; changed: boolean } {
+    const current = this.state.get(commentId) || false;
+    this.state.set(commentId, !current);
+    this.version++;
+    return { version: this.version, changed: true };
+  }
+  
+  isCollapsed(commentId: number): boolean {
+    return this.state.get(commentId) || false;
+  }
+  
+  getVersion(): number {
+    return this.version;
+  }
+  
+  toSet(): Set<number> {
+    const result = new Set<number>();
+    this.state.forEach((collapsed, id) => {
+      if (collapsed) result.add(id);
+    });
+    return result;
+  }
+}
+
+/**
+ * Legacy toggle function for backward compatibility
+ * @deprecated Use CollapseState class instead
  */
 export function toggleThreadCollapse(
   collapsedThreads: Set<number>,

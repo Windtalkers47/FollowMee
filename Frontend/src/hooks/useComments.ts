@@ -6,9 +6,9 @@ import { buildCommentTree, sortComments, flattenNestedComments } from '../utils/
 import { 
   addCommentToTree, 
   updateReactionInTree, 
-  toggleThreadCollapse,
   filterVisibleTree,
-  countHiddenReplies
+  countHiddenReplies,
+  CollapseState
 } from '../utils/commentOptimistic';
 
 export interface UseCommentsOptions {
@@ -67,7 +67,8 @@ export function useComments({
   maxDepth = 3 
 }: UseCommentsOptions): UseCommentsResult {
   const queryClient = useQueryClient();
-  const [collapsedThreads, setCollapsedThreads] = useState<Set<number>>(new Set());
+  const [collapseState] = useState(() => new CollapseState());
+  const [collapseVersion, setCollapseVersion] = useState(0);
   
   // UI State Management
   const [replyingTo, setReplyingTo] = useState<number | null>(null);
@@ -109,14 +110,15 @@ export function useComments({
   // Filter visible tree based on collapsed threads and depth
   const visibleTree = useMemo(() => {
     if (!commentTree) return null;
-    return filterVisibleTree(commentTree, collapsedThreads, maxDepth);
-  }, [commentTree, collapsedThreads, maxDepth]);
+    return filterVisibleTree(commentTree, collapseState.toSet(), maxDepth);
+  }, [commentTree, collapseVersion, maxDepth]);
 
   // Optimistic add comment
   const addComment = useCallback(async (comment: string, parentCommentId?: number) => {
-    // Create optimistic comment
+    // Create optimistic comment with stable temporary ID (negative number)
+    const tempId = -(Date.now() + Math.floor(Math.random() * 1000));
     const optimisticComment: Comment = {
-      commentId: Date.now(), // Temporary ID
+      commentId: tempId, // Temporary negative ID
       taskId,
       userId: 0, // Will be updated by server
       comment,
@@ -139,10 +141,12 @@ export function useComments({
     // Optimistic update
     queryClient.setQueryData(['task-comments', taskId], (old: Comment[] | undefined) => {
       if (!old) return [optimisticComment];
-      return addCommentToTree(
-        buildCommentTree(sortComments(old)), 
-        optimisticComment
-      ).nodes.map(n => n.comment);
+      
+      const currentTree = buildCommentTree(sortComments(old));
+      const updatedTree = addCommentToTree(currentTree, optimisticComment);
+      
+      // Properly flatten the tree to include all nested comments
+      return flattenTreeNodes(updatedTree.nodes);
     });
 
     try {
@@ -176,7 +180,7 @@ export function useComments({
     const updatedTree = updateReactionInTree(tree, commentId, newReaction);
     
     if (updatedTree) {
-      queryClient.setQueryData(['task-comments', taskId], updatedTree.nodes.map(n => n.comment));
+      queryClient.setQueryData(['task-comments', taskId], flattenTreeNodes(updatedTree.nodes));
     }
 
     // API call (fire and forget for now)
@@ -189,8 +193,9 @@ export function useComments({
 
   // Toggle thread collapse
   const toggleCollapse = useCallback((commentId: number) => {
-    setCollapsedThreads(prev => toggleThreadCollapse(prev, commentId));
-  }, []);
+    const result = collapseState.toggle(commentId);
+    setCollapseVersion(result.version);
+  }, [collapseState]);
 
   // Count hidden replies
   const hiddenReplyCount = useCallback((commentId: number) => {
@@ -206,8 +211,8 @@ export function useComments({
     };
 
     const node = findNode(commentTree.nodes);
-    return node ? countHiddenReplies(node, collapsedThreads, maxDepth) : 0;
-  }, [commentTree, collapsedThreads, maxDepth]);
+    return node ? countHiddenReplies(node, collapseState.toSet(), maxDepth) : 0;
+  }, [commentTree, collapseVersion, maxDepth]);
 
   // UI Action Handlers
   const handleReply = useCallback((commentId: number) => {
@@ -293,7 +298,7 @@ export function useComments({
     updateReaction,
     
     // Thread management
-    collapsedThreads,
+    collapsedThreads: collapseState.toSet(),
     toggleCollapse,
     hiddenReplyCount,
     
@@ -327,4 +332,17 @@ function findReactionInNode(node: CommentNode, commentId: number, reactionType: 
     return node.comment.reactions?.some(r => r.type === reactionType) || false;
   }
   return node.children.some(child => findReactionInNode(child, commentId, reactionType));
+}
+
+// Helper function to flatten tree nodes to flat comment array
+function flattenTreeNodes(nodes: CommentNode[]): Comment[] {
+  const result: Comment[] = [];
+
+  const walk = (node: CommentNode) => {
+    result.push(node.comment);
+    node.children.forEach(walk);
+  };
+
+  nodes.forEach(walk);
+  return result;
 }

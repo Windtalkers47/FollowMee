@@ -1,10 +1,10 @@
 import React from 'react';
 import { Box, Typography, Avatar, IconButton } from '@mui/material';
-import ThreadedCommentNode from './ThreadedCommentNode';
 import { CommentDataProvider, CommentActionProvider } from '../../contexts';
 import { Send as SendIcon } from '@mui/icons-material';
 import { useComments } from '../../hooks/useComments';
 import { flattenCommentTree } from '../../utils/flattenCommentTreeForVirtualization';
+import YouTubeThreadedRow from './YouTubeThreadedRow';
 
 interface CommentTreeProps {
   taskId: string;
@@ -168,9 +168,9 @@ const CommentTreeComponent: React.FC<CommentTreeProps> = ({
             </Typography>
           </Box>
 
-          {/* Render flattened comments */}
+          {/* Render flattened comments using YouTubeThreadedRow */}
           {flatRows.map((row) => (
-            <ThreadedCommentNode key={row.comment.comment.commentId} row={row} />
+            <YouTubeThreadedRow key={row.comment.comment.commentId} row={row} />
           ))}
         
         {/* Main Comment Input */}

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box, Typography, Avatar, IconButton } from '@mui/material';
-import { CommentDataProvider, CommentActionProvider } from '../../contexts';
+import { CommentDataContext, CommentActionContext } from '../../contexts';
 import { Send as SendIcon } from '@mui/icons-material';
 import { useComments } from '../../hooks/useComments';
 import { flattenCommentTree } from '../../utils/flattenCommentTreeForVirtualization';
@@ -56,7 +56,7 @@ const CommentTreeComponent: React.FC<CommentTreeProps> = ({
 
   if (!visibleTree?.nodes.length) {
     return (
-      <CommentDataProvider value={{
+      <CommentDataContext.Provider value={{
         comments: commentData.comments,
         commentTree: commentData.commentTree,
         visibleTree,
@@ -66,7 +66,7 @@ const CommentTreeComponent: React.FC<CommentTreeProps> = ({
         collapsedThreads,
         hiddenReplyCount
       }}>
-        <CommentActionProvider value={commentData}>
+        <CommentActionContext.Provider value={commentData}>
           <Box>
             <Box sx={{ textAlign: 'center', py: 4 }}>
               <Typography variant="body2" color="text.secondary">
@@ -137,8 +137,8 @@ const CommentTreeComponent: React.FC<CommentTreeProps> = ({
               </Box>
             </Box>
           </Box>
-        </CommentActionProvider>
-      </CommentDataProvider>
+        </CommentActionContext.Provider>
+      </CommentDataContext.Provider>
     );
   }
 
@@ -158,8 +158,8 @@ const CommentTreeComponent: React.FC<CommentTreeProps> = ({
   }), [commentData.comments, commentData.commentTree, visibleTree, isLoading, error, refetch, collapsedThreads, hiddenReplyCount]);
 
   return (
-    <CommentDataProvider value={dataContextValue}>
-      <CommentActionProvider value={commentData}>
+    <CommentDataContext.Provider value={dataContextValue}>
+      <CommentActionContext.Provider value={commentData}>
         <Box>
           {/* Comment count header */}
           <Box sx={{ mb: 2, pb: 1, borderBottom: '1px solid', borderColor: 'divider' }}>
@@ -236,8 +236,8 @@ const CommentTreeComponent: React.FC<CommentTreeProps> = ({
           </Box>
         </Box>
       </Box>
-    </CommentActionProvider>
-    </CommentDataProvider>
+    </CommentActionContext.Provider>
+  </CommentDataContext.Provider>
   );
 };
 

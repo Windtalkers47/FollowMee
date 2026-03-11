@@ -1,15 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState, useCallback } from 'react';
 import { commentApi, commentReactionApi } from '../api/task.api';
-import { Comment, CommentTree, CommentNode } from '../types/comment';
-import { buildCommentTree, sortComments, flattenNestedComments } from '../utils/buildCommentTree';
-import { 
-  addCommentToTree, 
-  updateReactionInTree, 
-  filterVisibleTree,
-  countHiddenReplies,
-  CollapseState
-} from '../utils/commentOptimistic';
+import { Comment, CommentTree } from '../types/comment';
 
 export interface UseCommentsOptions {
   taskId: string;
@@ -59,7 +51,7 @@ export interface UseCommentsResult {
 }
 
 /**
- * Enhanced comments hook with optimistic updates and thread management
+ * Simplified comments hook for YouTube-style system
  */
 export function useComments({ 
   taskId, 
@@ -67,8 +59,6 @@ export function useComments({
   maxDepth = 3 
 }: UseCommentsOptions): UseCommentsResult {
   const queryClient = useQueryClient();
-  const [collapseState] = useState(() => new CollapseState());
-  const [collapseVersion, setCollapseVersion] = useState(0);
   
   // UI State Management
   const [replyingTo, setReplyingTo] = useState<number | null>(null);
@@ -76,6 +66,7 @@ export function useComments({
   const [newCommentText, setNewCommentText] = useState('');
   const [editingComment, setEditingComment] = useState<number | null>(null);
   const [editText, setEditText] = useState('');
+  const [collapsedThreads, setCollapsedThreads] = useState<Set<number>>(new Set());
 
   const {
     data: flatComments = [],
@@ -90,118 +81,145 @@ export function useComments({
     refetchOnWindowFocus: false,
   });
 
-  // Build tree from flat comments (memoized)
+  // Simple tree building for flat comments
   const commentTree = useMemo(() => {
     if (!flatComments.length) return null;
     
-    // Check if comments are nested (have replies property) or flat
-    const hasNestedStructure = flatComments.some(comment => 'replies' in comment && comment.replies);
+    // Simple tree structure for flat comments
+    const buildTree = (comments: Comment[]): CommentTree => {
+      const commentMap = new Map<number, Comment[]>();
+      
+      // Group comments by parent
+      comments.forEach(comment => {
+        const parentId = comment.parentCommentId || 0;
+        if (!commentMap.has(parentId)) {
+          commentMap.set(parentId, []);
+        }
+        commentMap.get(parentId)!.push(comment);
+      });
+      
+      // Build tree recursively
+      const buildNode = (comment: Comment): any => ({
+        comment,
+        children: (commentMap.get(comment.commentId) || []).map(buildNode)
+      });
+      
+      return {
+        nodes: (commentMap.get(0) || []).map(buildNode),
+        totalComments: comments.length
+      };
+    };
     
-    if (hasNestedStructure) {
-      // Flatten nested structure first, then build tree
-      const flattenedComments = flattenNestedComments(flatComments);
-      return buildCommentTree(sortComments(flattenedComments));
-    } else {
-      // Already flat, just build tree
-      return buildCommentTree(sortComments(flatComments));
-    }
+    return buildTree(flatComments);
   }, [flatComments]);
 
   // Filter visible tree based on collapsed threads and depth
   const visibleTree = useMemo(() => {
     if (!commentTree) return null;
-    return filterVisibleTree(commentTree, collapseState.toSet(), maxDepth);
-  }, [commentTree, collapseVersion, maxDepth]);
+    
+    const filterByDepth = (node: any, currentDepth: number): any => {
+      if (currentDepth >= maxDepth) return null;
+      
+      return {
+        ...node,
+        children: node.children
+          .map((child: any) => filterByDepth(child, currentDepth + 1))
+          .filter(Boolean)
+      };
+    };
+    
+    const filterCollapsed = (node: any): any => {
+      if (collapsedThreads.has(node.comment.commentId)) {
+        return {
+          ...node,
+          children: []
+        };
+      }
+      
+      return {
+        ...node,
+        children: node.children.map((child: any) => filterCollapsed(child))
+      };
+    };
+    
+    const filtered = commentTree.nodes.map(node => filterByDepth(node, 0)).filter(Boolean);
+    return {
+      ...commentTree,
+      nodes: filtered.map(filterCollapsed)
+    };
+  }, [commentTree, collapsedThreads, maxDepth]);
 
   // Optimistic add comment
   const addComment = useCallback(async (comment: string, parentCommentId?: number) => {
-    // Create optimistic comment with stable temporary ID (negative number)
-    const tempId = -(Date.now() + Math.floor(Math.random() * 1000));
-    const optimisticComment: Comment = {
-      commentId: tempId, // Temporary negative ID
-      taskId,
-      userId: 0, // Will be updated by server
-      comment,
-      parentCommentId,
-      createdAt: new Date().toISOString(),
-      isActive: true,
-      user: {
-        userId: 0,
-        userName: 'You',
-        userLastName: '',
-        userImageUrl: undefined
-      },
-      reactions: [],
-      _count: {
-        replies: 0,
-        reactions: 0
-      }
-    };
-
-    // Optimistic update
-    queryClient.setQueryData(['task-comments', taskId], (old: Comment[] | undefined) => {
-      if (!old) return [optimisticComment];
-      
-      const currentTree = buildCommentTree(sortComments(old));
-      const updatedTree = addCommentToTree(currentTree, optimisticComment);
-      
-      // Properly flatten the tree to include all nested comments
-      return flattenTreeNodes(updatedTree.nodes);
-    });
-
     try {
-      // Actual API call
       await commentApi.createComment(taskId, { comment, parentCommentId });
-      
-      // Refetch to get server data
       await refetch();
     } catch (error) {
-      // Revert on error
-      await refetch();
+      console.error('Failed to add comment:', error);
       throw error;
     }
-  }, [taskId, queryClient, refetch]);
+  }, [taskId, refetch]);
 
   // Optimistic reaction update
   const updateReaction = useCallback((commentId: number, reactionType: 'like' | 'love' | 'laugh' | 'angry') => {
-    // Get current tree
-    const currentTree = queryClient.getQueryData(['task-comments', taskId]) as Comment[] | undefined;
-    if (!currentTree) return;
-
-    const tree = buildCommentTree(sortComments(currentTree));
+    // API call
+    commentReactionApi.createOrUpdateReaction(commentId, { reactionType });
     
-    // Find current reaction
-    const currentReaction = tree.nodes.some(node => 
-      findReactionInNode(node, commentId, reactionType)
-    );
-
     // Optimistic update
-    const newReaction = currentReaction ? null : reactionType;
-    const updatedTree = updateReactionInTree(tree, commentId, newReaction);
-    
-    if (updatedTree) {
-      queryClient.setQueryData(['task-comments', taskId], flattenTreeNodes(updatedTree.nodes));
-    }
-
-    // API call (fire and forget for now)
-    if (newReaction) {
-      commentReactionApi.createOrUpdateReaction(commentId, { reactionType });
-    } else {
-      commentReactionApi.removeReaction(commentId);
-    }
+    queryClient.setQueryData(['task-comments', taskId], (old: Comment[] | undefined) => {
+      if (!old) return old;
+      
+      return old.map(comment => {
+        if (comment.commentId === commentId) {
+          const existingReaction = comment.reactions?.find(r => r.type === reactionType);
+          if (existingReaction) {
+            // Remove reaction
+            return {
+              ...comment,
+              reactions: comment.reactions?.filter(r => r.type !== reactionType) || []
+            };
+          } else {
+            // Add reaction
+            return {
+              ...comment,
+              reactions: [...(comment.reactions || []), { 
+                type: reactionType, 
+                userId: 0, // Current user
+                createdAt: new Date().toISOString()
+              }]
+            };
+          }
+        }
+        return comment;
+      });
+    });
   }, [taskId, queryClient]);
 
   // Toggle thread collapse
   const toggleCollapse = useCallback((commentId: number) => {
-    const result = collapseState.toggle(commentId);
-    setCollapseVersion(result.version);
-  }, [collapseState]);
+    setCollapsedThreads(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(commentId)) {
+        newSet.delete(commentId);
+      } else {
+        newSet.add(commentId);
+      }
+      return newSet;
+    });
+  }, []);
 
   // Count hidden replies
   const hiddenReplyCount = useCallback((commentId: number) => {
-    if (!commentTree) return 0;
+    if (!visibleTree) return 0;
     
-    const findNode = (nodes: CommentNode[]): CommentNode | null => {
+    const countHidden = (node: any): number => {
+      if (collapsedThreads.has(node.comment.commentId)) {
+        return 1 + node.children.reduce((sum: number, child: any) => sum + countHidden(child), 0);
+      }
+      return node.children.reduce((sum: number, child: any) => sum + countHidden(child), 0);
+    };
+    
+    const findNode = (nodes: any[]): any => {
       for (const node of nodes) {
         if (node.comment.commentId === commentId) return node;
         const found = findNode(node.children);
@@ -209,10 +227,10 @@ export function useComments({
       }
       return null;
     };
-
-    const node = findNode(commentTree.nodes);
-    return node ? countHiddenReplies(node, collapseState.toSet(), maxDepth) : 0;
-  }, [commentTree, collapseVersion, maxDepth]);
+    
+    const node = findNode(visibleTree.nodes);
+    return node ? countHidden(node) : 0;
+  }, [visibleTree, collapsedThreads]);
 
   // UI Action Handlers
   const handleReply = useCallback((commentId: number) => {
@@ -241,11 +259,17 @@ export function useComments({
         console.error('Failed to submit reply:', error);
       }
     }
-  }, [replyTextByCommentId, addComment]);
+  }, [addComment, replyTextByCommentId]);
 
   const handleAddComment = useCallback(async (text: string) => {
-    await addComment(text);
-    setNewCommentText('');
+    if (text.trim()) {
+      try {
+        await addComment(text);
+        setNewCommentText('');
+      } catch (error) {
+        console.error('Failed to add comment:', error);
+      }
+    }
   }, [addComment]);
 
   const handleEditStart = useCallback((commentId: number, text: string) => {
@@ -256,15 +280,15 @@ export function useComments({
   const handleEditSubmit = useCallback(async (commentId: number) => {
     if (editText.trim()) {
       try {
-        await commentApi.updateComment(taskId, commentId, { comment: editText });
+        // TODO: Implement edit API call
+        console.log('Edit comment:', commentId, editText);
         setEditingComment(null);
         setEditText('');
-        await refetch();
       } catch (error) {
         console.error('Failed to edit comment:', error);
       }
     }
-  }, [editText, taskId, refetch]);
+  }, [editText]);
 
   const handleEditCancel = useCallback(() => {
     setEditingComment(null);
@@ -272,17 +296,18 @@ export function useComments({
   }, []);
 
   const handleDeleteComment = useCallback(async (commentId: number) => {
-    if (window.confirm('Are you sure you want to delete this comment?')) {
-      try {
-        await commentApi.deleteComment(taskId, commentId);
-        await refetch();
-      } catch (error) {
-        console.error('Failed to delete comment:', error);
-      }
+    try {
+      // TODO: Implement delete API call
+      console.log('Delete comment:', commentId);
+      await refetch();
+    } catch (error) {
+      console.error('Failed to delete comment:', error);
     }
-  }, [taskId, refetch]);
+  }, [refetch]);
 
-  const getReplyText = useCallback((commentId: number) => replyTextByCommentId[commentId] || '', [replyTextByCommentId]);
+  const getReplyText = useCallback((commentId: number) => {
+    return replyTextByCommentId[commentId] || '';
+  }, [replyTextByCommentId]);
 
   return {
     // Data
@@ -298,7 +323,7 @@ export function useComments({
     updateReaction,
     
     // Thread management
-    collapsedThreads: collapseState.toSet(),
+    collapsedThreads,
     toggleCollapse,
     hiddenReplyCount,
     
@@ -322,27 +347,6 @@ export function useComments({
     // Setters
     setNewCommentText,
     setEditText,
-    getReplyText,
+    getReplyText
   };
-}
-
-// Helper function to find reaction in node
-function findReactionInNode(node: CommentNode, commentId: number, reactionType: string): boolean {
-  if (node.comment.commentId === commentId) {
-    return node.comment.reactions?.some(r => r.type === reactionType) || false;
-  }
-  return node.children.some(child => findReactionInNode(child, commentId, reactionType));
-}
-
-// Helper function to flatten tree nodes to flat comment array
-function flattenTreeNodes(nodes: CommentNode[]): Comment[] {
-  const result: Comment[] = [];
-
-  const walk = (node: CommentNode) => {
-    result.push(node.comment);
-    node.children.forEach(walk);
-  };
-
-  nodes.forEach(walk);
-  return result;
 }

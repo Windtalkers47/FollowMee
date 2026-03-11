@@ -63,7 +63,7 @@ export interface TaskCommentReaction {
   reactionId: number;
   commentId: number;
   userId: number;
-  reactionType: 'like' | 'love' | 'laugh' | 'angry';
+  reactionType: 'like' | 'dislike' | 'love' | 'laugh' | 'angry';
   createdAt: string;
   user: {
     userId: number;
@@ -342,7 +342,7 @@ export const commentApi = {
 // Comment reaction operations
 export const commentReactionApi = {
   // Create or update a reaction on a comment
-  createOrUpdateReaction: async (commentId: number, data: { reactionType: 'like' | 'love' | 'laugh' | 'angry' }): Promise<TaskCommentReaction> => {
+  createOrUpdateReaction: async (commentId: number, data: { reactionType: 'like' | 'dislike' | 'love' | 'laugh' | 'angry' }): Promise<TaskCommentReaction> => {
     const response = await axios.post(`${API_BASE_URL}/tasks/comments/${commentId}/reactions`, data, {
       withCredentials: true,
     });

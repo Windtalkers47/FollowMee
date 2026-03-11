@@ -3,7 +3,7 @@ import { createContext, useContext } from 'react';
 export interface CommentActionContextValue {
   // Optimistic actions
   addComment: (comment: string, parentCommentId?: number) => Promise<void>;
-  updateReaction: (commentId: number, reactionType: 'like' | 'love' | 'laugh' | 'angry') => void;
+  updateReaction: (commentId: number, reactionType: 'like' | 'dislike' | 'love' | 'laugh' | 'angry') => void;
   toggleCollapse: (commentId: number) => void;
   
   // UI State Management

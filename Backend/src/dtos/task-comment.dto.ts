@@ -54,14 +54,14 @@ export class TaskCommentResponseDto {
 export class CreateCommentReactionDto {
   @IsNotEmpty()
   @IsString()
-  reactionType!: 'like' | 'love' | 'laugh' | 'angry';
+  reactionType!: 'like' | 'dislike' | 'love' | 'laugh' | 'angry';
 }
 
 export class CommentReactionResponseDto {
   reactionId!: number;
   commentId!: number;
   userId!: number;
-  reactionType!: 'like' | 'love' | 'laugh' | 'angry';
+  reactionType!: 'like' | 'dislike' | 'love' | 'laugh' | 'angry';
   createdAt!: Date;
 
   user?: {

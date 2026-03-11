@@ -16,10 +16,10 @@ export class TaskLike {
   @Column({
     name: 'likeType',
     type: 'enum',
-    enum: ['like', 'love', 'laugh', 'angry'],
+    enum: ['like', 'dislike', 'love', 'laugh', 'angry'],
     nullable: false
   })
-  likeType!: 'like' | 'love' | 'laugh' | 'angry';
+  likeType!: 'like' | 'dislike' | 'love' | 'laugh' | 'angry';
 
   @CreateDateColumn({ name: 'createdAt' })
   createdAt!: Date;

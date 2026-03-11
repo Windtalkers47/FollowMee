@@ -1,6 +1,6 @@
 import React from 'react';
 import { Avatar, Typography, IconButton, Box, Button } from '@mui/material';
-import { ThumbUp as LikeIcon, Reply as ReplyIcon } from '@mui/icons-material';
+import { Reply as ReplyIcon } from '@mui/icons-material';
 import { format } from 'date-fns';
 import { FlatCommentRow } from '../../utils/flattenCommentTreeForVirtualization';
 import { useCommentActionContext } from '../../contexts/index';
@@ -10,7 +10,7 @@ interface YouTubeCommentNodeProps {
 }
 
 const YouTubeCommentNode: React.FC<YouTubeCommentNodeProps> = ({ row }) => {
-  const { updateReaction, handleReply, handleEditStart, handleEditSubmit, handleDeleteComment, replyingTo, replyTextByCommentId, getReplyText } = useCommentActionContext();
+  const { updateReaction, handleReply, handleReplySubmit, handleEditStart, handleDeleteComment, replyingTo, getReplyText, handleReplyTextChange } = useCommentActionContext();
   
   const { comment } = row;
   const currentUserId = 0; // This should come from auth context
@@ -19,6 +19,7 @@ const YouTubeCommentNode: React.FC<YouTubeCommentNodeProps> = ({ row }) => {
   
   const displayUser = comment.comment.user || { userName: 'Unknown', userLastName: 'User', userId: 0, userImageUrl: undefined };
   const likeCount = comment.comment.reactions?.filter(r => r.type === 'like').length || 0;
+  const dislikeCount = comment.comment.reactions?.filter(r => r.type === 'dislike').length || 0;
 
   return (
     <Box sx={{ 
@@ -121,9 +122,8 @@ const YouTubeCommentNode: React.FC<YouTubeCommentNodeProps> = ({ row }) => {
                   }
                 }}
               >
-                <LikeIcon sx={{ fontSize: '18px' }} />
+                👍
               </IconButton>
-              
               {likeCount > 0 && (
                 <Typography 
                   variant="caption" 
@@ -134,6 +134,36 @@ const YouTubeCommentNode: React.FC<YouTubeCommentNodeProps> = ({ row }) => {
                   }}
                 >
                   {likeCount}
+                </Typography>
+              )}
+            </Box>
+
+            {/* Dislike button */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <IconButton
+                size="small"
+                onClick={() => updateReaction(comment.comment.commentId, 'dislike')}
+                sx={{ 
+                  padding: '4px',
+                  borderRadius: '50%',
+                  color: comment.comment.reactions?.some(r => r.type === 'dislike') ? 'error.main' : 'text.secondary',
+                  '&:hover': {
+                    backgroundColor: 'rgba(0, 0, 0, 0.04)'
+                  }
+                }}
+              >
+                👎
+              </IconButton>
+              {dislikeCount > 0 && (
+                <Typography 
+                  variant="caption" 
+                  sx={{ 
+                    fontSize: '12px',
+                    color: 'text.secondary',
+                    fontWeight: 500
+                  }}
+                >
+                  {dislikeCount}
                 </Typography>
               )}
             </Box>
@@ -213,7 +243,7 @@ const YouTubeCommentNode: React.FC<YouTubeCommentNodeProps> = ({ row }) => {
                 <Box sx={{ flex: 1 }}>
                   <textarea
                     value={getReplyText(comment.comment.commentId)}
-                    onChange={(e) => replyTextByCommentId[comment.comment.commentId] = e.target.value}
+                    onChange={(e) => handleReplyTextChange(comment.comment.commentId, e.target.value)}
                     placeholder="Add a public reply..."
                     style={{
                       width: '100%',
@@ -233,7 +263,7 @@ const YouTubeCommentNode: React.FC<YouTubeCommentNodeProps> = ({ row }) => {
                   <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
                     <Button
                       size="small"
-                      onClick={() => handleEditSubmit(comment.comment.commentId)}
+                      onClick={() => handleReplySubmit(comment.comment.commentId)}
                       sx={{ 
                         textTransform: 'none',
                         fontSize: '13px',

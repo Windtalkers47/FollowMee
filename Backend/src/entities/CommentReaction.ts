@@ -14,7 +14,7 @@ export class CommentReaction {
   userId!: number;
 
   @Column({ name: 'reactionType', type: 'varchar', length: 20, nullable: false })
-  reactionType!: 'like' | 'love' | 'laugh' | 'angry';
+  reactionType!: 'like' | 'dislike' | 'love' | 'laugh' | 'angry';
 
   @CreateDateColumn({ name: 'createdAt' })
   createdAt!: Date;

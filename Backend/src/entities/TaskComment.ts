@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, OneToMany, RelationCount } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, OneToMany, RelationCount, JoinColumn } from 'typeorm';
 import { User } from './User';
 import { Task } from './Task';
 import { CommentReaction } from './CommentReaction';
@@ -30,7 +30,8 @@ export class TaskComment {
   createdAt!: Date;
 
   // Relations
-  @ManyToOne(() => Task, task => task.comments)
+  @ManyToOne(() => Task, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'taskId' })
   task!: Task;
 
   @ManyToOne(() => User, user => user.taskComments)

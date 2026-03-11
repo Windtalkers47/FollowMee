@@ -20,7 +20,7 @@ export interface UseCommentsResult {
   
   // Optimistic actions
   addComment: (comment: string, parentCommentId?: number) => Promise<void>;
-  updateReaction: (commentId: number, reactionType: 'like' | 'love' | 'laugh' | 'angry') => void;
+  updateReaction: (commentId: number, reactionType: 'like' | 'dislike' | 'love' | 'laugh' | 'angry') => void;
   
   // Thread management
   collapsedThreads: Set<number>;
@@ -81,16 +81,34 @@ export function useComments({
     refetchOnWindowFocus: false,
   });
 
-  // Simple tree building for flat comments
+  // Simple tree building for nested comments from backend
   const commentTree = useMemo(() => {
     if (!flatComments.length) return null;
     
-    // Simple tree structure for flat comments
+    // Backend already returns nested structure, so we need to flatten it first
+    const flattenComments = (comments: Comment[]): Comment[] => {
+      const result: Comment[] = [];
+      
+      const traverse = (items: Comment[]) => {
+        items.forEach(comment => {
+          result.push(comment);
+          if (comment.replies && comment.replies.length > 0) {
+            traverse(comment.replies);
+          }
+        });
+      };
+      
+      traverse(comments);
+      return result;
+    };
+    
+    // Convert backend nested structure to frontend tree structure
     const buildTree = (comments: Comment[]): CommentTree => {
       const commentMap = new Map<number, Comment[]>();
       
-      // Group comments by parent
-      comments.forEach(comment => {
+      // Group comments by parent (using flattened list)
+      const allComments = flattenComments(comments);
+      allComments.forEach(comment => {
         const parentId = comment.parentCommentId || 0;
         if (!commentMap.has(parentId)) {
           commentMap.set(parentId, []);
@@ -106,7 +124,7 @@ export function useComments({
       
       return {
         nodes: (commentMap.get(0) || []).map(buildNode),
-        totalComments: comments.length
+        totalComments: allComments.length
       };
     };
     
@@ -161,7 +179,7 @@ export function useComments({
   }, [taskId, refetch]);
 
   // Optimistic reaction update
-  const updateReaction = useCallback((commentId: number, reactionType: 'like' | 'love' | 'laugh' | 'angry') => {
+  const updateReaction = useCallback((commentId: number, reactionType: 'like' | 'dislike' | 'love' | 'laugh' | 'angry') => {
     // API call
     commentReactionApi.createOrUpdateReaction(commentId, { reactionType });
     

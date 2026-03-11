@@ -33,7 +33,7 @@ const YouTubeThreadedRow: React.FC<YouTubeThreadedRowProps> = ({ row }) => {
         width: depth * 24 + 24 // 24px per depth level
       }}>
         {/* Parent thread lines that continue through this comment */}
-        {parentPath.map((shouldShowLine, index) => (
+        {parentPath.map((_, index) => (
           <Box
             key={`parent-line-${index}`}
             sx={{
@@ -42,7 +42,7 @@ const YouTubeThreadedRow: React.FC<YouTubeThreadedRowProps> = ({ row }) => {
               top: 0,
               bottom: 0,
               width: '1px',
-              backgroundColor: 'rgba(0, 0, 0, 0.08)',
+              backgroundColor: 'rgba(0, 0, 0, 0.15)',
               zIndex: 0
             }}
           />
@@ -59,7 +59,7 @@ const YouTubeThreadedRow: React.FC<YouTubeThreadedRowProps> = ({ row }) => {
                 top: 0,
                 height: isLastChild ? 24 : '100%', // Stop at avatar for last child
                 width: '1px',
-                backgroundColor: 'rgba(0, 0, 0, 0.08)',
+                backgroundColor: 'rgba(0, 0, 0, 0.15)',
                 zIndex: 0
               }}
             />
@@ -72,7 +72,7 @@ const YouTubeThreadedRow: React.FC<YouTubeThreadedRowProps> = ({ row }) => {
                 top: 24, // Align with avatar center
                 width: 12, // Extend to comment area
                 height: '1px',
-                backgroundColor: 'rgba(0, 0, 0, 0.08)',
+                backgroundColor: 'rgba(0, 0, 0, 0.15)',
                 zIndex: 0
               }}
             />
@@ -84,6 +84,7 @@ const YouTubeThreadedRow: React.FC<YouTubeThreadedRowProps> = ({ row }) => {
       <Box sx={{ 
         flex: 1, 
         minWidth: 0,
+        maxWidth: 720, // Like YouTube comments
         pl: depth * 24 + 8, // Indent based on depth
         position: 'relative',
         zIndex: 1

@@ -10,7 +10,7 @@ interface YouTubeCommentNodeProps {
 }
 
 const YouTubeCommentNode: React.FC<YouTubeCommentNodeProps> = ({ row }) => {
-  const { updateReaction, handleReply, handleReplySubmit, handleEditStart, handleDeleteComment, replyingTo, getReplyText, handleReplyTextChange } = useCommentActionContext();
+  const { updateReaction, handleReply, handleReplySubmit, handleEditStart, handleDeleteComment, replyingTo, getReplyText, handleReplyTextChange, toggleCollapse, collapsedThreads } = useCommentActionContext();
   
   const { comment } = row;
   const currentUserId = 0; // This should come from auth context
@@ -32,10 +32,9 @@ const YouTubeCommentNode: React.FC<YouTubeCommentNodeProps> = ({ row }) => {
       {/* YouTube-style comment container */}
       <Box sx={{ 
         display: 'flex', 
-        gap: 2,
-        p: 2,
-        borderRadius: 1,
-        backgroundColor: 'transparent',
+        gap: 1.5,
+        py: 1,
+        px: 0,
         transition: 'background-color 0.2s ease',
         '&:hover': {
           backgroundColor: 'rgba(0, 0, 0, 0.02)'
@@ -45,8 +44,8 @@ const YouTubeCommentNode: React.FC<YouTubeCommentNodeProps> = ({ row }) => {
         <Avatar 
           src={displayUser?.userImageUrl}
           sx={{ 
-            width: 40, 
-            height: 40,
+            width: 32, 
+            height: 32,
             flexShrink: 0,
             border: '1px solid rgba(0, 0, 0, 0.1)'
           }}
@@ -77,7 +76,7 @@ const YouTubeCommentNode: React.FC<YouTubeCommentNodeProps> = ({ row }) => {
                 ml: 0.5
               }}
             >
-              {format(new Date(comment.comment.createdAt), 'MMM d, yyyy')}
+              • {format(new Date(comment.comment.createdAt), 'MMM d, yyyy')}
               {isEdited && ' (edited)'}
             </Typography>
           </Box>
@@ -102,7 +101,7 @@ const YouTubeCommentNode: React.FC<YouTubeCommentNodeProps> = ({ row }) => {
             sx={{ 
               display: 'flex', 
               alignItems: 'center', 
-              gap: 2,
+              gap: 1.5,
               mt: 1,
               opacity: 0.7,
               transition: 'opacity 0.2s ease'
@@ -189,6 +188,28 @@ const YouTubeCommentNode: React.FC<YouTubeCommentNodeProps> = ({ row }) => {
               Reply
             </Button>
 
+            {/* Collapse/Expand thread button */}
+            {comment.comment.replies && comment.comment.replies.length > 0 && (
+              <Button
+                size="small"
+                onClick={() => toggleCollapse(comment.comment.commentId)}
+                sx={{ 
+                  textTransform: 'none',
+                  fontSize: '13px',
+                  fontWeight: 500,
+                  color: 'text.secondary',
+                  padding: '4px 8px',
+                  minWidth: 'auto',
+                  borderRadius: 1,
+                  '&:hover': {
+                    backgroundColor: 'rgba(0, 0, 0, 0.04)'
+                  }
+                }}
+              >
+                {collapsedThreads.has(comment.comment.commentId) ? '▼' : '▲'} {collapsedThreads.has(comment.comment.commentId) ? `View ${comment.comment.replies.length} replies` : `Hide replies`}
+              </Button>
+            )}
+
             {/* Owner actions */}
             {isOwner && (
               <>
@@ -235,7 +256,7 @@ const YouTubeCommentNode: React.FC<YouTubeCommentNodeProps> = ({ row }) => {
 
           {/* Reply input area */}
           {replyingTo === comment.comment.commentId && (
-            <Box sx={{ mt: 2, pl: 2 }}>
+            <Box sx={{ mt: 2, pl: 0 }}>
               <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'flex-start' }}>
                 <Avatar sx={{ width: 32, height: 32 }}>
                   {currentUserId ? 'U' : 'G'}

@@ -4,7 +4,11 @@ export interface CommentActionContextValue {
   // Optimistic actions
   addComment: (comment: string, parentCommentId?: number) => Promise<void>;
   updateReaction: (commentId: number, reactionType: 'like' | 'dislike' | 'love' | 'laugh' | 'angry') => void;
+  
+  // Thread management
+  collapsedThreads: Set<number>;
   toggleCollapse: (commentId: number) => void;
+  hiddenReplyCount: (commentId: number) => number;
   
   // UI State Management
   replyingTo: number | null;

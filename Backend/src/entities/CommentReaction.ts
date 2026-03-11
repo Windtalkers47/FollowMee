@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
 import { User } from './User';
 import { TaskComment } from './TaskComment';
 
@@ -21,8 +21,10 @@ export class CommentReaction {
 
   // Relations
   @ManyToOne(() => TaskComment, comment => comment.reactions)
+  @JoinColumn({ name: 'commentId' })
   comment!: TaskComment;
 
   @ManyToOne(() => User)
+  @JoinColumn({ name: 'userId' })
   user!: User;
 }

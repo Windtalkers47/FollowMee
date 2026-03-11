@@ -18,8 +18,8 @@ const YouTubeCommentNode: React.FC<YouTubeCommentNodeProps> = ({ row }) => {
   const isEdited = comment.comment.updatedAt && new Date(comment.comment.updatedAt) > new Date(comment.comment.createdAt);
   
   const displayUser = comment.comment.user || { userName: 'Unknown', userLastName: 'User', userId: 0, userImageUrl: undefined };
-  const likeCount = comment.comment.reactions?.filter(r => r.type === 'like').length || 0;
-  const dislikeCount = comment.comment.reactions?.filter(r => r.type === 'dislike').length || 0;
+  const likeCount = comment.comment.reactions?.filter(r => r.reactionType === 'like').length || 0;
+  const dislikeCount = comment.comment.reactions?.filter(r => r.reactionType === 'dislike').length || 0;
 
   return (
     <Box sx={{ 
@@ -115,7 +115,7 @@ const YouTubeCommentNode: React.FC<YouTubeCommentNodeProps> = ({ row }) => {
                 sx={{ 
                   padding: '4px',
                   borderRadius: '50%',
-                  color: comment.comment.reactions?.some(r => r.type === 'like') ? 'primary.main' : 'text.secondary',
+                  color: comment.comment.reactions?.some(r => r.reactionType === 'like' && r.userId === currentUserId) ? 'primary.main' : 'text.secondary',
                   '&:hover': {
                     backgroundColor: 'rgba(0, 0, 0, 0.04)'
                   }
@@ -145,7 +145,7 @@ const YouTubeCommentNode: React.FC<YouTubeCommentNodeProps> = ({ row }) => {
                 sx={{ 
                   padding: '4px',
                   borderRadius: '50%',
-                  color: comment.comment.reactions?.some(r => r.type === 'dislike') ? 'error.main' : 'text.secondary',
+                  color: comment.comment.reactions?.some(r => r.reactionType === 'dislike' && r.userId === currentUserId) ? 'error.main' : 'text.secondary',
                   '&:hover': {
                     backgroundColor: 'rgba(0, 0, 0, 0.04)'
                   }

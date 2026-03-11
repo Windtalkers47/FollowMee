@@ -1,4 +1,4 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState, useCallback } from 'react';
 import { commentApi, commentReactionApi } from '../api/task.api';
 import { Comment, CommentTree } from '../types/comment';
@@ -59,8 +59,6 @@ export function useComments({
   enabled = true, 
   maxDepth = 3 
 }: UseCommentsOptions): UseCommentsResult {
-  const queryClient = useQueryClient();
-  
   // UI State Management
   const [replyingTo, setReplyingTo] = useState<number | null>(null);
   const [replyTextByCommentId, setReplyTextByCommentId] = useState<Record<number, string>>({});
@@ -187,39 +185,17 @@ export function useComments({
   }, [taskId, refetch]);
 
   // Optimistic reaction update
-  const updateReaction = useCallback((commentId: number, reactionType: 'like' | 'dislike' | 'love' | 'laugh' | 'angry') => {
-    // API call
-    commentReactionApi.createOrUpdateReaction(commentId, { reactionType });
-    
-    // Optimistic update
-    queryClient.setQueryData(['task-comments', taskId], (old: Comment[] | undefined) => {
-      if (!old) return old;
+  const updateReaction = useCallback(async (commentId: number, reactionType: 'like' | 'dislike' | 'love' | 'laugh' | 'angry') => {
+    try {
+      // API call to update reaction
+      await commentReactionApi.createOrUpdateReaction(commentId, { reactionType });
       
-      return old.map(comment => {
-        if (comment.commentId === commentId) {
-          const existingReaction = comment.reactions?.find(r => r.type === reactionType);
-          if (existingReaction) {
-            // Remove reaction
-            return {
-              ...comment,
-              reactions: comment.reactions?.filter(r => r.type !== reactionType) || []
-            };
-          } else {
-            // Add reaction
-            return {
-              ...comment,
-              reactions: [...(comment.reactions || []), { 
-                type: reactionType, 
-                userId: 0, // Current user
-                createdAt: new Date().toISOString()
-              }]
-            };
-          }
-        }
-        return comment;
-      });
-    });
-  }, [taskId, queryClient]);
+      // Refetch comments to get updated reaction counts
+      await refetch();
+    } catch (error) {
+      console.error('Failed to update reaction:', error);
+    }
+  }, [refetch]);
 
   // Toggle thread collapse
   const toggleCollapse = useCallback((commentId: number) => {

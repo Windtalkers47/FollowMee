@@ -21,6 +21,7 @@ const AudiencePage = React.lazy(() => import('./pages/Audience'));
 const CustomerPage = React.lazy(() => import('./pages/Customer'));
 const CustomerProfilePage = React.lazy(() => import('./pages/CustomerProfile/CustomerProfilePage'));
 const UsersPage = React.lazy(() => import('./pages/UsersManagement'));
+const SettingsPage = React.lazy(() => import('./pages/Settings'));
 
 const LoadingSpinner = () => (
   <Box
@@ -187,6 +188,7 @@ const App = () => {
             <Route path="/audience" element={<AudiencePage />} />
             <Route path="/customer" element={<CustomerPage />} />
             <Route path="/users" element={<UsersPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
             <Route path="/customer-profile" element={<CustomerProfilePage />} />
             <Route path="/customer/:customerId/profile" element={<CustomerProfilePage />} />
           </Route>

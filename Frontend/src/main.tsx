@@ -8,6 +8,7 @@ import './index.css';
 import App from './App';
 import { store } from './store/store';
 import { CustomThemeProvider } from './contexts/ThemeContext';
+import { LiquidGlassProvider } from './contexts/LiquidGlassContext';
 import { NotificationProvider } from './contexts/Notification';
 
 // Create a client
@@ -27,13 +28,15 @@ createRoot(rootElement).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <Provider store={store}>
-        <CustomThemeProvider>
-          <NotificationProvider>
-            <Router>
-              <App />
-            </Router>
-          </NotificationProvider>
-        </CustomThemeProvider>
+        <LiquidGlassProvider>
+          <CustomThemeProvider>
+            <NotificationProvider>
+              <Router>
+                <App />
+              </Router>
+            </NotificationProvider>
+          </CustomThemeProvider>
+        </LiquidGlassProvider>
       </Provider>
     </QueryClientProvider>
   </StrictMode>

@@ -1,29 +1,38 @@
 import { useState, useEffect } from 'react';
+import React from 'react';
 import {
   Box,
   Typography,
   Button,
   TextField,
   InputAdornment,
+  IconButton,
   Tabs,
   Tab,
   Grid,
   CircularProgress,
   Alert,
   Chip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Slide,
 } from '@mui/material';
 import {
   Search as SearchIcon,
-  Refresh as RefreshIcon,
+  Clear as ClearIcon,
   EmojiEvents as TrophyIcon,
   ThumbUp as LikeIcon,
   Favorite as LoveIcon,
   SentimentVerySatisfied as LaughIcon,
   ThumbDown as AngryIcon,
+  CheckCircle as DoneIcon,
 } from '@mui/icons-material';
+import { TransitionProps } from '@mui/material/transitions';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAppSelector } from '../../store/store';
-import { taskApi, likeApi, commentApi, Task, TaskLikeSummary } from '../../api/task.api';
+import { taskApi, likeApi, commentApi, Task, TaskLikeSummary, UserRank } from '../../api/task.api';
 import TaskCard from '../../components/TaskCard';
 
 /* ================== Types ================== */
@@ -32,6 +41,16 @@ type TabPanelProps = {
   index: number;
   value: number;
 };
+
+// Dialog transition
+const SlideTransition = React.forwardRef(function Transition(
+  props: TransitionProps & {
+    children: React.ReactElement<any, any>;
+  },
+  ref: React.Ref<unknown>,
+) {
+  return <Slide direction="up" ref={ref} {...props} />;
+});
 
 /* ================== TabPanel ================== */
 const TabPanel = ({ children, value, index }: TabPanelProps) => (
@@ -44,9 +63,10 @@ const TabPanel = ({ children, value, index }: TabPanelProps) => (
 interface TaskFeedCardProps {
   task: Task;
   likeSummary?: TaskLikeSummary;
-  onLike?: (taskId: string, likeType: 'like' | 'love' | 'laugh' | 'angry') => void;
+  onLike?: (taskId: string, likeType: 'like' | 'love' | 'laugh' | 'angry' | 'dislike') => void;
   onUnlike?: (taskId: string) => void;
   onComment?: (taskId: string, comment: string) => void;
+  onMarkDone?: (taskId: string) => void;
 }
 
 const TaskFeedCard: React.FC<TaskFeedCardProps> = ({
@@ -55,6 +75,7 @@ const TaskFeedCard: React.FC<TaskFeedCardProps> = ({
   onLike,
   onUnlike,
   onComment,
+  onMarkDone,
 }) => {
   const { user } = useAppSelector((state) => state.auth);
 
@@ -66,62 +87,10 @@ const TaskFeedCard: React.FC<TaskFeedCardProps> = ({
       onLike={onLike}
       onUnlike={onUnlike}
       onComment={onComment}
+      onMarkDone={onMarkDone}
       showActions={false} // Hide edit/delete actions in feed
-      compact={false}
+      compact={false} // Use full width for better social media feel
     />
-  );
-};
-
-/* ================== Leaderboard Component ================== */
-interface LeaderboardEntry {
-  userId: number;
-  userName: string;
-  userLastName: string;
-  totalLikes: number;
-  totalComments: number;
-  totalTasks: number;
-  score: number;
-}
-
-const Leaderboard: React.FC<{ entries: LeaderboardEntry[] }> = ({ entries }) => {
-  return (
-    <Box sx={{ mb: 4 }}>
-      <Box display="flex" alignItems="center" gap={1} mb={2}>
-        <TrophyIcon color="primary" />
-        <Typography variant="h6">Staff Competition Leaderboard</Typography>
-      </Box>
-
-      <Grid container spacing={2}>
-        {entries.slice(0, 5).map((entry, index) => (
-          <Grid size={{ xs: 12, sm: 6, md: 4 }} key={entry.userId}>
-            <Box
-              sx={{
-                p: 2,
-                border: 1,
-                borderColor: 'divider',
-                borderRadius: 2,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 2,
-                bgcolor: index === 0 ? 'primary.light' : 'background.paper',
-              }}
-            >
-              <Typography variant="h4" color={index === 0 ? 'primary.contrastText' : 'primary'}>
-                #{index + 1}
-              </Typography>
-              <Box>
-                <Typography variant="subtitle1" fontWeight="medium">
-                  {entry.userName} {entry.userLastName}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {entry.totalTasks} tasks • {entry.totalLikes} likes • {entry.score} points
-                </Typography>
-              </Box>
-            </Box>
-          </Grid>
-        ))}
-      </Grid>
-    </Box>
   );
 };
 
@@ -130,6 +99,11 @@ const PostsPage = () => {
   const [activeTab, setActiveTab] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [taskLikeSummaries, setTaskLikeSummaries] = useState<Record<string, TaskLikeSummary>>({});
+  const [isSearching, setIsSearching] = useState(false);
+  const [topPerformers, setTopPerformers] = useState<any[]>([]);
+  const [userRank, setUserRank] = useState<UserRank | null>(null);
+  const [doneDialogOpen, setDoneDialogOpen] = useState(false);
+  const [doneTaskData, setDoneTaskData] = useState<{ task: Task; newRank: UserRank } | null>(null);
 
   const { user } = useAppSelector((state) => state.auth);
   const queryClient = useQueryClient();
@@ -144,12 +118,37 @@ const PostsPage = () => {
   // Fetch all completed tasks for the feed
   const { data: allTasksResponse, isLoading: allTasksLoading, error: allTasksError, refetch: refetchAllTasks } = useQuery({
     queryKey: ['all-tasks'],
-    queryFn: () => taskApi.getTasks({ status: 'done' }),
+    queryFn: () => taskApi.getTasks({ status: 'done', includeStats: true }),
+  });
+
+  // Fetch top performers
+  const { data: topPerformersData } = useQuery({
+    queryKey: ['top-performers'],
+    queryFn: () => taskApi.getTopPerformers(5),
+  });
+
+  // Fetch current user's rank
+  const { data: userRankData } = useQuery({
+    queryKey: ['user-rank', user?.userId],
+    queryFn: () => taskApi.getMyRank(),
+    enabled: !!user?.userId,
+  });
+
+  // Fetch tasks with search - only when explicitly searching
+  const { data: searchResults, isLoading: searchLoading } = useQuery({
+    queryKey: ['search-tasks', searchQuery],
+    queryFn: () => taskApi.getTasks({ 
+      search: searchQuery, 
+      status: 'done', 
+      includeStats: true,
+      limit: 30 
+    }),
+    enabled: false, // Disabled by default - only enable when search button is clicked
   });
 
   // Mutations
   const likeMutation = useMutation({
-    mutationFn: ({ taskId, likeType }: { taskId: string; likeType: 'like' | 'love' | 'laugh' | 'angry' }) =>
+    mutationFn: ({ taskId, likeType }: { taskId: string; likeType: 'like' | 'love' | 'laugh' | 'angry' | 'dislike' }) =>
       likeApi.createOrUpdateLike(taskId, { likeType }),
     onSuccess: (_, { taskId }) => {
       fetchLikeSummary(taskId);
@@ -177,6 +176,23 @@ const PostsPage = () => {
     },
   });
 
+  // Mark task as done mutation
+  const markTaskDoneMutation = useMutation({
+    mutationFn: ({ taskId, data }: { taskId: string; data?: { completionNote?: string } }) =>
+      taskApi.markTaskAsDone(taskId, data),
+    onSuccess: (response) => {
+      // Show success dialog
+      setDoneTaskData({ task: response.task, newRank: response.userRank });
+      setDoneDialogOpen(true);
+      
+      // Invalidate queries to refresh data
+      queryClient.invalidateQueries({ queryKey: ['all-tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['assigned-tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['top-performers'] });
+      queryClient.invalidateQueries({ queryKey: ['user-rank'] });
+    },
+  });
+
   // Fetch like summaries for tasks
   const fetchLikeSummary = async (taskId: string) => {
     try {
@@ -187,17 +203,60 @@ const PostsPage = () => {
     }
   };
 
+  // Update top performers when data changes
+  useEffect(() => {
+    if (topPerformersData) {
+      setTopPerformers(topPerformersData);
+    }
+  }, [topPerformersData]);
+
+  // Update user rank when data changes
+  useEffect(() => {
+    if (userRankData) {
+      setUserRank(userRankData);
+    }
+  }, [userRankData]);
+
   // Load like summaries for visible tasks
   useEffect(() => {
-    const tasks = activeTab === 0 ? assignedTasks : allTasksResponse?.tasks;
+    const tasks = isSearching ? searchResults?.tasks : (activeTab === 0 ? assignedTasks : allTasksResponse?.tasks);
     tasks?.forEach(task => {
       if (!taskLikeSummaries[task.taskId]) {
         fetchLikeSummary(task.taskId);
       }
     });
-  }, [assignedTasks, allTasksResponse, activeTab, taskLikeSummaries]);
+  }, [assignedTasks, allTasksResponse, searchResults, activeTab, taskLikeSummaries, isSearching]);
 
-  const handleLike = async (taskId: string, likeType: 'like' | 'love' | 'laugh' | 'angry') => {
+  // Search handlers
+  const handleSearch = async () => {
+    if (searchQuery.trim()) {
+      setIsSearching(true);
+      // Manually trigger the search query
+      await queryClient.fetchQuery({
+        queryKey: ['search-tasks', searchQuery],
+        queryFn: () => taskApi.getTasks({ 
+          search: searchQuery, 
+          status: 'done', 
+          includeStats: true,
+          limit: 30 
+        }),
+      });
+    }
+  };
+
+  const handleClearSearch = () => {
+    setSearchQuery('');
+    setIsSearching(false);
+    refetchAllTasks();
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleSearch();
+    }
+  };
+
+  const handleLike = async (taskId: string, likeType: 'like' | 'love' | 'laugh' | 'angry' | 'dislike') => {
     await likeMutation.mutateAsync({ taskId, likeType });
   };
 
@@ -209,15 +268,17 @@ const PostsPage = () => {
     await commentMutation.mutateAsync({ taskId, data: { comment } });
   };
 
-  const assignedTasksList = assignedTasks || [];
-  const completedTasksList = allTasksResponse?.tasks || [];
+  const handleMarkTaskDone = async (taskId: string) => {
+    await markTaskDoneMutation.mutateAsync({ taskId });
+  };
 
-  // Mock leaderboard data - In real implementation, this would come from an API
-  const leaderboardData: LeaderboardEntry[] = [
-    { userId: 1, userName: 'John', userLastName: 'Doe', totalLikes: 45, totalComments: 12, totalTasks: 8, score: 156 },
-    { userId: 2, userName: 'Jane', userLastName: 'Smith', totalLikes: 38, totalComments: 15, totalTasks: 7, score: 143 },
-    { userId: 3, userName: 'Bob', userLastName: 'Johnson', totalLikes: 32, totalComments: 8, totalTasks: 6, score: 128 },
-  ];
+  const handleCloseDoneDialog = () => {
+    setDoneDialogOpen(false);
+    setDoneTaskData(null);
+  };
+
+  const assignedTasksList = assignedTasks || [];
+  const completedTasksList = isSearching ? (searchResults?.tasks || []) : (allTasksResponse?.tasks || []);
 
   const tabs = [
     { label: 'My Tasks', key: 'assigned' },
@@ -226,67 +287,188 @@ const PostsPage = () => {
 
   return (
     <Box sx={{ width: '100%' }}>
-      {/* Header */}
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Box>
-          <Typography variant="h4" fontWeight="bold">
-            Posts & Competition
-          </Typography>
-          <Typography variant="subtitle1" color="text.secondary">
-            Complete tasks and compete with your team through likes and comments
-          </Typography>
-        </Box>
-        <Box display="flex" gap={1}>
-          <Chip
-            icon={<LikeIcon />}
-            label={`${assignedTasksList.filter(t => t.status === 'done').length} Completed`}
-            color="success"
-            variant="outlined"
-          />
-          <Chip
-            icon={<TrophyIcon />}
-            label="Top Performer"
-            color="primary"
-            variant="filled"
-          />
-        </Box>
+      {/* Clean Header */}
+      <Box mb={4}>
+        <Typography variant="h3" fontWeight="bold" gutterBottom>
+          Posts & Competition
+        </Typography>
+        <Chip 
+          label={`${assignedTasksList.filter(t => t.status === 'done').length} Completed Tasks`}
+          color="success"
+          size="small"
+        />
       </Box>
 
-      {/* Leaderboard */}
-      {activeTab === 1 && <Leaderboard entries={leaderboardData} />}
+      {/* Top Performers Section */}
+      {topPerformers.length > 0 && (
+        <Box sx={{ mb: 4 }}>
+          <Box display="flex" alignItems="center" gap={1} mb={2}>
+            <TrophyIcon color="primary" />
+            <Typography variant="h6">Top Performers</Typography>
+          </Box>
+          
+          <Grid container spacing={2}>
+            {topPerformers.slice(0, 3).map((performer, index) => (
+              <Grid size={{ xs: 12, sm: 6, md: 4 }} key={performer.userId}>
+                <Box
+                  sx={{
+                    p: 2,
+                    border: 1,
+                    borderColor: 'divider',
+                    borderRadius: 2,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 2,
+                    bgcolor: index === 0 ? 'primary.50' : 'background.paper',
+                    transition: 'all 0.2s ease',
+                    '&:hover': {
+                      transform: 'translateY(-2px)',
+                      boxShadow: 2
+                    }
+                  }}
+                >
+                  <Typography 
+                    variant="h4" 
+                    color={index === 0 ? 'primary.main' : 'text.secondary'}
+                    fontWeight="bold"
+                  >
+                    #{index + 1}
+                  </Typography>
+                  <Box flex={1}>
+                    <Typography variant="subtitle1" fontWeight="medium">
+                      {performer.userName} {performer.userLastName}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {performer.completedTasks} completed tasks
+                    </Typography>
+                  </Box>
+                </Box>
+              </Grid>
+            ))}
+          </Grid>
+        </Box>
+      )}
 
-      {/* Search */}
+      {!topPerformers.length && !topPerformersData && (
+        <Box sx={{ mb: 4 }}>
+          <Box display="flex" alignItems="center" gap={1} mb={2}>
+            <TrophyIcon color="primary" />
+            <Typography variant="h6">Top Performers</Typography>
+          </Box>
+          <Grid container spacing={2}>
+            {[1, 2, 3].map((index) => (
+              <Grid size={{ xs: 12, sm: 6, md: 4 }} key={index}>
+                <Box
+                  sx={{
+                    p: 2,
+                    border: 1,
+                    borderColor: 'divider',
+                    borderRadius: 2,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 2,
+                    bgcolor: 'background.paper',
+                  }}
+                >
+                  <CircularProgress size={32} />
+                  <Box flex={1}>
+                    <Typography variant="subtitle1" fontWeight="medium">
+                      Loading...
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Calculating scores...
+                    </Typography>
+                  </Box>
+                </Box>
+              </Grid>
+            ))}
+          </Grid>
+        </Box>
+      )}
+
+      {/* Current User's Rank */}
+      {userRank && (
+        <Box sx={{ mb: 4 }}>
+          <Box display="flex" alignItems="center" gap={1} mb={2}>
+            <TrophyIcon color="secondary" />
+            <Typography variant="h6">Your Performance</Typography>
+          </Box>
+          <Box
+            sx={{
+              p: 3,
+              border: 2,
+              borderColor: 'secondary.main',
+              borderRadius: 2,
+              bgcolor: 'secondary.50',
+              textAlign: 'center',
+            }}
+          >
+            <Typography variant="h3" color="secondary.main" fontWeight="bold">
+              #{userRank.rank}
+            </Typography>
+            <Typography variant="h6" color="text.secondary" mb={1}>
+              {user?.userName} {user?.userLastName}
+            </Typography>
+            <Typography variant="body1" color="text.secondary">
+              {userRank.completedTasks} completed tasks out of {userRank.totalUsers} competitors
+            </Typography>
+            {userRank.rank > 3 && (
+              <Typography variant="body2" color="secondary.main" sx={{ mt: 1 }}>
+                Keep going! You're getting closer to the top!
+              </Typography>
+            )}
+          </Box>
+        </Box>
+      )}
+
+      {/* Clean Search Section */}
       <Box sx={{ mb: 3 }}>
-        <Grid container spacing={2}>
-          <Grid size={{ xs: 12, md: 8 }}>
-            <TextField
-              fullWidth
-              placeholder="Search tasks..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon />
-                  </InputAdornment>
-                ),
-              }}
-            />
-          </Grid>
-          <Grid size={{ xs: 12, md: 4 }}>
-            <Button
-              fullWidth
-              startIcon={<RefreshIcon />}
-              onClick={() => {
-                refetchTasks();
-                refetchAllTasks();
-              }}
-              disabled={tasksLoading || allTasksLoading}
-            >
-              Refresh
-            </Button>
-          </Grid>
-        </Grid>
+        <Box display="flex" gap={2} alignItems="center">
+          <TextField
+            fullWidth
+            placeholder="Search completed tasks by title or description..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyPress={handleKeyPress}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon color="action" />
+                </InputAdornment>
+              ),
+              endAdornment: searchQuery && (
+                <InputAdornment position="end">
+                  <IconButton onClick={handleClearSearch} size="small">
+                    <ClearIcon />
+                  </IconButton>
+                </InputAdornment>
+              )
+            }}
+            sx={{
+              '& .MuiOutlinedInput-root': {
+                borderRadius: 2
+              }
+            }}
+          />
+          <Button
+            variant="contained"
+            onClick={handleSearch}
+            disabled={!searchQuery.trim() || searchLoading}
+            startIcon={<SearchIcon />}
+            sx={{ 
+              minWidth: '120px',
+              borderRadius: 2,
+              textTransform: 'none'
+            }}
+          >
+            {searchLoading ? 'Searching...' : 'Search'}
+          </Button>
+        </Box>
+        {isSearching && (
+          <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+            Showing results for "{searchQuery}"
+          </Typography>
+        )}
       </Box>
 
       {/* Tabs */}
@@ -338,6 +520,7 @@ const PostsPage = () => {
                     onLike={handleLike}
                     onUnlike={handleUnlike}
                     onComment={handleComment}
+                    onMarkDone={handleMarkTaskDone}
                   />
                 </Grid>
               ))
@@ -348,7 +531,11 @@ const PostsPage = () => {
 
       <TabPanel value={activeTab} index={1}>
         {/* Team Feed Tab */}
-        {allTasksLoading ? (
+        {isSearching ? (
+          <Box display="flex" justifyContent="center" p={4}>
+            <CircularProgress />
+          </Box>
+        ) : allTasksLoading && !isSearching ? (
           <Box display="flex" justifyContent="center" p={4}>
             <CircularProgress />
           </Box>
@@ -358,10 +545,10 @@ const PostsPage = () => {
               <Grid size={{ xs: 12 }}>
                 <Box textAlign="center" py={4}>
                   <Typography variant="h6" color="text.secondary">
-                    No completed tasks yet
+                    {isSearching ? 'No tasks found matching your search' : 'No completed tasks yet'}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    Be the first to complete a task and start the competition!
+                    {isSearching ? 'Try different keywords or clear the search to see all tasks' : 'Be the first to complete a task and start the competition!'}
                   </Typography>
                 </Box>
               </Grid>
@@ -374,6 +561,7 @@ const PostsPage = () => {
                     onLike={handleLike}
                     onUnlike={handleUnlike}
                     onComment={handleComment}
+                    onMarkDone={handleMarkTaskDone}
                   />
                 </Grid>
               ))
@@ -381,6 +569,66 @@ const PostsPage = () => {
           </Grid>
         )}
       </TabPanel>
+      
+      {/* Task Done Success Dialog */}
+      <Dialog
+        open={doneDialogOpen}
+        TransitionComponent={SlideTransition}
+        keepMounted
+        onClose={handleCloseDoneDialog}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle sx={{ textAlign: 'center', pb: 1 }}>
+          <DoneIcon color="success" sx={{ fontSize: 48, mb: 1 }} />
+          <Typography variant="h5" color="success.main" fontWeight="bold">
+            Task Completed! 🎉
+          </Typography>
+        </DialogTitle>
+        <DialogContent sx={{ textAlign: 'center', py: 2 }}>
+          {doneTaskData && (
+            <>
+              <Typography variant="body1" sx={{ mb: 2 }}>
+                Great job! You completed "<strong>{doneTaskData.task.title}</strong>"
+              </Typography>
+              <Box sx={{ 
+                p: 2, 
+                bgcolor: 'success.50', 
+                borderRadius: 2, 
+                border: 2, 
+                borderColor: 'success.main' 
+              }}>
+                <Typography variant="h6" color="success.main" fontWeight="bold">
+                  Your New Rank: #{doneTaskData.newRank.rank}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {doneTaskData.newRank.completedTasks} completed tasks
+                </Typography>
+                {doneTaskData.newRank.rank <= 3 && (
+                  <Typography variant="body2" color="success.main" sx={{ mt: 1 }}>
+                    🏆 You're in the Top 3! Amazing work!
+                  </Typography>
+                )}
+                {doneTaskData.newRank.rank > 3 && (
+                  <Typography variant="body2" color="success.main" sx={{ mt: 1 }}>
+                    🚀 Keep climbing! You're doing great!
+                  </Typography>
+                )}
+              </Box>
+            </>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ justifyContent: 'center', pb: 3 }}>
+          <Button 
+            onClick={handleCloseDoneDialog} 
+            variant="contained" 
+            color="success"
+            size="large"
+          >
+            Awesome!
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

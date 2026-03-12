@@ -5,9 +5,9 @@ export abstract class BaseRepository<T extends ObjectLiteral> {
   protected repository: Repository<T>;
   protected dataSource: DataSource;
 
-  constructor(entity: EntityTarget<T>) {
+  constructor(entity: EntityTarget<T>, repository?: Repository<T>) {
     this.dataSource = dataSource;
-    this.repository = this.dataSource.getRepository(entity);
+    this.repository = repository || this.dataSource.getRepository(entity);
   }
 
   async findOne(where: FindOptionsWhere<T>): Promise<T | null> {

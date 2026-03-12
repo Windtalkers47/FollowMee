@@ -32,6 +32,15 @@ router.get('/my-tasks', (req, res, next) => taskController.getMyTasks(req, res, 
 // Get tasks assigned to current user
 router.get('/assigned-to-me', (req, res, next) => taskController.getTasksAssignedToMe(req, res, next));
 
+// Get top performers
+router.get('/top-performers', (req, res, next) => taskController.getTopPerformers(req, res, next));
+
+// Get current user's rank
+router.get('/my-rank', (req, res, next) => taskController.getUserRank(req, res, next));
+
+// Mark task as done
+router.put('/:taskId/mark-done', (req, res, next) => taskController.markTaskAsDone(req, res, next));
+
 // Get a specific task by ID
 router.get('/:taskId', (req, res, next) => taskController.getTaskById(req, res, next));
 

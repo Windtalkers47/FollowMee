@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { TaskService } from '../services/task.service';
-import { CreateTaskDto, UpdateTaskDto, TaskQueryDto } from '../dtos/task.dto';
+import { CreateTaskDto, UpdateTaskDto, TaskQueryDto, MarkTaskDoneDto } from '../dtos/task.dto';
 import { TaskResponseDto, TaskListResponseDto } from '../dtos/task-response.dto';
 import { CloudinaryUtil } from '../utils/cloudinary.util';
 
@@ -253,8 +253,62 @@ export class TaskController {
       res.status(400).json({ 
         success: false,
         error: 'VALIDATION_FAILED',
-        message: 'Unable to validate the image URL. Please check the URL and try again.'
+        message: 'Unable to validate the image URL. Please check if the URL is correct and accessible.'
       });
+    }
+  }
+
+  async getTopPerformers(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const limit = parseInt(req.query.limit as string) || 5;
+      const result = await this.taskService.getTopPerformers(limit);
+      res.status(200).json({ success: true, data: result });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async markTaskAsDone(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { taskId } = req.params;
+      const markTaskDoneDto: MarkTaskDoneDto = req.body;
+      const userId = req.user?.userId;
+      
+      if (!userId) {
+        res.status(401).json({ message: 'User not authenticated' });
+        return;
+      }
+
+      const result = await this.taskService.markTaskAsDone(taskId, userId, markTaskDoneDto);
+      
+      // Get user's updated rank
+      const userRank = await this.taskService.getUserRank(userId);
+      
+      res.status(200).json({ 
+        success: true, 
+        data: {
+          task: result,
+          userRank: userRank
+        }
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async getUserRank(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const userId = req.user?.userId;
+      
+      if (!userId) {
+        res.status(401).json({ message: 'User not authenticated' });
+        return;
+      }
+
+      const result = await this.taskService.getUserRank(userId);
+      res.status(200).json({ success: true, data: result });
+    } catch (error) {
+      next(error);
     }
   }
 }

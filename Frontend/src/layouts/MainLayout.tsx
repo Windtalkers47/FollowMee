@@ -363,7 +363,10 @@ const MainLayout = ({ children }: MainLayoutProps) => {
       {/* Bottom */}
       <List sx={{ px: 1, pb: 1 }}>
         <ListItem disablePadding>
-          <ListItemButton sx={{ borderRadius: 2 }}>
+          <ListItemButton 
+            sx={{ borderRadius: 2 }}
+            onClick={() => navigate('/settings')}
+          >
             <ListItemIcon sx={{ minWidth: 0, mr: open ? 1.5 : 0 }}>
               <Settings />
             </ListItemIcon>

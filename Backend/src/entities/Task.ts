@@ -1,4 +1,13 @@
-import { Entity, PrimaryColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, OneToMany, JoinColumn } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  ManyToOne,
+  OneToMany,
+  JoinColumn,
+} from 'typeorm';
 import { User } from './User';
 import { TaskLike } from './TaskLike';
 import { TaskComment } from './TaskComment';
@@ -6,7 +15,7 @@ import { TaskImage } from './TaskImage';
 
 @Entity('tasks')
 export class Task {
-  @PrimaryColumn({ name: 'taskId', type: 'varchar', length: 36 })
+  @PrimaryGeneratedColumn('uuid', { name: 'taskId' })
   taskId!: string;
 
   @Column({ name: 'title', type: 'varchar', length: 255, nullable: false })
@@ -43,9 +52,11 @@ export class Task {
 
   // Relations
   @ManyToOne(() => User, user => user.assignedTasks, { nullable: true })
+  @JoinColumn({ name: 'assignedTo' })
   assignedToUser?: User;
 
   @ManyToOne(() => User, user => user.createdTasks)
+  @JoinColumn({ name: 'createdBy' })
   createdByUser!: User;
 
   @OneToMany(() => TaskLike, like => like.task)

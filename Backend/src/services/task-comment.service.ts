@@ -55,17 +55,6 @@ export class TaskCommentService {
   }
 
   async getTaskComments(taskId: string): Promise<TaskCommentResponseDto[]> {
-    // Debug: Check if there are any reactions in the database for this task
-    const allReactions = await this.commentReactionRepository.find({
-      where: { 
-        comment: { 
-          taskId: taskId 
-        } 
-      },
-      relations: ['comment', 'user']
-    });
-    console.log('All reactions for this task:', allReactions.length, 'found');
-
     // First, get all comments for this task (both parent and replies)
     const allComments = await this.taskCommentRepository
       .createQueryBuilder('comment')
@@ -92,9 +81,6 @@ export class TaskCommentService {
       .where('comment.taskId = :taskId AND comment.isActive = :isActive', { taskId, isActive: true })
       .orderBy('comment.createdAt', 'ASC')
       .getMany();
-
-    // Debug: Check if reactions are being fetched
-    console.log('Comments with reactions:', JSON.stringify(allComments.slice(0, 2), null, 2));
 
     // Separate parent comments from replies
     const parentComments = allComments.filter(comment => !comment.parentCommentId);

@@ -64,10 +64,24 @@ export class UpdateTaskDto {
   isActive?: boolean;
 }
 
+export class MarkTaskDoneDto {
+  @IsOptional()
+  @IsString()
+  completionNote?: string;
+}
+
 export class TaskQueryDto {
   @IsOptional()
   @IsString()
   search?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  clearSearch?: boolean; // Flag to clear search and fetch all
+
+  @IsOptional()
+  @IsBoolean()
+  includeStats?: boolean; // Flag to include performance statistics
 
   @IsOptional()
   @IsEnum(['draft', 'upcoming', 'past', 'done'])

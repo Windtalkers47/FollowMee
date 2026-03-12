@@ -20,8 +20,6 @@ export class CommentReactionService {
     createReactionDto: CreateCommentReactionDto,
     userId: number
   ): Promise<CommentReactionResponseDto> {
-    console.log('Creating reaction for commentId:', commentId, 'userId:', userId, 'reactionType:', createReactionDto.reactionType);
-    
     // Verify comment exists
     const comment = await this.taskCommentRepository.findOne({
       where: { commentId, isActive: true }
@@ -29,8 +27,6 @@ export class CommentReactionService {
     if (!comment) {
       throw new NotFoundException('Comment not found');
     }
-    
-    console.log('Comment found:', comment.commentId, 'for task:', comment.taskId);
 
     // Check if user already has a reaction on this comment
     const existingReaction = await this.commentReactionRepository.findOne({

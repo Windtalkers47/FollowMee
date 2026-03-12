@@ -113,8 +113,9 @@ export interface TaskLikeSummary {
   love: number;
   laugh: number;
   angry: number;
+  dislike: number;
   total: number;
-  userLike?: 'like' | 'love' | 'laugh' | 'angry';
+  userLike?: 'like' | 'love' | 'laugh' | 'angry' | 'dislike';
 }
 
 export interface CreateTaskData {
@@ -140,6 +141,8 @@ export interface UpdateTaskData {
 
 export interface TaskQueryParams {
   search?: string;
+  clearSearch?: boolean;
+  includeStats?: boolean;
   status?: 'draft' | 'upcoming' | 'past' | 'done';
   assignedTo?: number;
   createdBy?: number;
@@ -153,6 +156,12 @@ export interface TaskListResponse {
   page: number;
   limit: number;
   totalPages: number;
+  topPerformers?: {
+    userId: number;
+    userName: string;
+    userLastName: string;
+    completedTasks: number;
+  }[];
 }
 
 export interface CreateCommentData {
@@ -165,8 +174,23 @@ export interface UpdateCommentData {
   comment: string;
 }
 
+export interface MarkTaskDoneData {
+  completionNote?: string;
+}
+
+export interface UserRank {
+  rank: number;
+  completedTasks: number;
+  totalUsers: number;
+}
+
+export interface MarkTaskDoneResponse {
+  task: Task;
+  userRank: UserRank;
+}
+
 export interface CreateLikeData {
-  likeType: 'like' | 'love' | 'laugh' | 'angry';
+  likeType: 'like' | 'love' | 'laugh' | 'angry' | 'dislike';
 }
 
 // Task CRUD operations
@@ -285,6 +309,36 @@ export const taskApi = {
   // Get tasks assigned to current user
   getTasksAssignedToMe: async (): Promise<Task[]> => {
     const response = await axios.get(`${API_BASE_URL}/tasks/assigned-to-me`, {
+      withCredentials: true,
+    });
+    return response.data.data;
+  },
+
+  // Get top performers
+  getTopPerformers: async (limit: number = 5): Promise<{
+    userId: number;
+    userName: string;
+    userLastName: string;
+    completedTasks: number;
+  }[]> => {
+    const response = await axios.get(`${API_BASE_URL}/tasks/top-performers`, {
+      params: { limit },
+      withCredentials: true,
+    });
+    return response.data.data;
+  },
+
+  // Get current user's rank
+  getMyRank: async (): Promise<UserRank> => {
+    const response = await axios.get(`${API_BASE_URL}/tasks/my-rank`, {
+      withCredentials: true,
+    });
+    return response.data.data;
+  },
+
+  // Mark task as done
+  markTaskAsDone: async (taskId: string, data?: MarkTaskDoneData): Promise<MarkTaskDoneResponse> => {
+    const response = await axios.put(`${API_BASE_URL}/tasks/${taskId}/mark-done`, data, {
       withCredentials: true,
     });
     return response.data.data;

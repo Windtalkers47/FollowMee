@@ -43,4 +43,12 @@ export class TaskListResponseDto {
   page!: number;
   limit!: number;
   totalPages!: number;
+  
+  // Performance statistics
+  topPerformers?: {
+    userId: number;
+    userName: string;
+    userLastName: string;
+    completedTasks: number;
+  }[];
 }

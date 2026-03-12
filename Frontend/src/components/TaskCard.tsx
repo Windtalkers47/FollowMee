@@ -18,28 +18,26 @@ import {
   DialogActions,
   DialogContentText,
   Button,
-  TextField,
   Collapse,
   Divider,
-  Zoom,
-  Fade,
-  Grow,
   useTheme,
+  Stack,
 } from '@mui/material';
 import {
   MoreVert as MoreVertIcon,
   ThumbUp as LikeIcon,
   Favorite as LoveIcon,
   SentimentVerySatisfied as LaughIcon,
-  ThumbDown as AngryIcon,
+  MoodBad as AngryIcon,
+  ThumbDown as DislikeIcon,
   Comment as CommentIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
   CheckCircle as DoneIcon,
   Cancel as CancelIcon,
 } from '@mui/icons-material';
-import { format } from 'date-fns';
-import { Task, TaskLikeSummary, commentApi, commentReactionApi } from '../../src/api/task.api';
+import { format, formatDistanceToNow } from 'date-fns';
+import { Task, TaskLikeSummary, commentApi } from '../../src/api/task.api';
 import { CommentTree } from './comments';
 import { useComments } from '../hooks/useComments';
 
@@ -49,12 +47,17 @@ interface TaskCardProps {
   currentUserId: number;
   onEdit?: (task: Task) => void;
   onDelete?: (taskId: string) => void;
-  onLike?: (taskId: string, likeType: 'like' | 'love' | 'laugh' | 'angry') => void;
+  onLike?: (taskId: string, likeType: 'like' | 'love' | 'laugh' | 'angry' | 'dislike') => void;
   onUnlike?: (taskId: string) => void;
   onComment?: (taskId: string, comment: string) => void;
-  onStatusUpdate?: (taskId: string, status: Task['status']) => void;
+  onMarkDone?: (taskId: string) => void;
   showActions?: boolean;
   compact?: boolean;
+  // Liquid Glass UI Controls
+  glassOpacity?: number; // 0.1 to 1.0 (higher = less transparent)
+  showBorders?: boolean; // toggle borders on/off
+  blurIntensity?: number; // 0 to 40px blur
+  glassStyle?: 'subtle' | 'medium' | 'bold'; // preset styles
 }
 
 const statusColors: Record<Task['status'], 'default' | 'primary' | 'warning' | 'success'> = {
@@ -71,476 +74,6 @@ const statusLabels: Record<Task['status'], string> = {
   done: 'Done',
 } as const;
 
-// Recursive component for nested replies
-const NestedReply: React.FC<{
-  reply: any;
-  level: number;
-  onReply: (commentId: number) => void;
-  onCommentReaction: (commentId: number, reactionType: 'like' | 'love' | 'laugh' | 'angry') => void;
-  commentReactions: Record<number, string>;
-  format: (date: Date, formatStr: string) => string;
-  theme: any;
-  setShowImagePreview: (show: boolean) => void;
-  replyingTo: number | null;
-  replyText: string;
-  replyImages: Record<number, string>;
-  user: any;
-  onReplyTextChange: (text: string) => void;
-  onReplySubmit: (commentId: number) => void;
-  onReplyImageUpload: (commentId: number, files: File[]) => void;
-  onReplyImageRemove: (commentId: number) => void;
-  parentUser?: any; // Add parent user for @mentions
-}> = ({ 
-  reply, 
-  level, 
-  onReply, 
-  onCommentReaction, 
-  commentReactions, 
-  format, 
-  theme, 
-  setShowImagePreview,
-  replyingTo,
-  replyText,
-  replyImages,
-  user,
-  onReplyTextChange,
-  onReplySubmit,
-  onReplyImageUpload,
-  onReplyImageRemove,
-  parentUser
-}) => {
-  const hasNestedReplies = reply.replies && reply.replies.length > 0;
-  const maxNestingLevel = 3; // Facebook limits to 3 levels
-  const indentPixels = level * 32; // 32px per level for clear indentation
-  const [showCollapsedReplies, setShowCollapsedReplies] = useState(false);
-
-  return (
-    <Box sx={{ position: 'relative' }}>
-      {/* Horizontal connector line - Facebook style */}
-      {level > 0 && (
-        <Box
-          sx={{
-            position: 'absolute',
-            left: indentPixels + 10,
-            top: '50%',
-            transform: 'translateY(-50%)',
-            width: 20,
-            height: 2,
-            backgroundColor: theme.palette.mode === 'dark' 
-              ? 'rgba(255, 255, 255, 0.1)' 
-              : 'rgba(0, 0, 0, 0.1)',
-          }}
-        />
-      )}
-      
-      <Box 
-        sx={{ 
-          display: 'flex', 
-          gap: 1.5, 
-          mb: 2,
-          ml: `${indentPixels}px`,
-          position: 'relative',
-        }}
-      >
-        
-        <Avatar 
-                  src={reply.user?.userImageUrl}
-                  sx={{ 
-                    width: 40, 
-                    height: 40, 
-                    fontSize: '1rem',
-                    fontWeight: 'medium',
-                    bgcolor: reply.user?.userImageUrl ? 'transparent' : theme.palette.primary.main,
-                    color: reply.user?.userImageUrl ? 'transparent' : theme.palette.primary.contrastText,
-                    border: theme.palette.mode === 'dark' 
-                      ? '3px solid rgba(255, 255, 255, 0.1)' 
-                      : '3px solid rgba(255, 255, 255, 0.8)',
-                    boxShadow: theme.palette.mode === 'dark'
-                      ? '0 4px 12px rgba(0, 0, 0, 0.15)'
-                      : '0 4px 12px rgba(0, 0, 0, 0.08)',
-                    transition: 'all 0.3s ease',
-                    '&:hover': {
-                      transform: 'scale(1.05)',
-                      boxShadow: theme.palette.mode === 'dark'
-                        ? '0 6px 16px rgba(0, 0, 0, 0.25)'
-                        : '0 6px 16px rgba(0, 0, 0, 0.12)',
-                    }
-                  }}
-                >
-                  {reply.user?.userImageUrl ? '' : (reply.user?.userName?.[0]?.toUpperCase() || reply.user?.userLastName?.[0]?.toUpperCase() || 'U')}
-                </Avatar>
-        <Box flex={1}>
-          <Box display="flex" alignItems="center" gap={1} mb={0.5}>
-            <Typography variant="subtitle2" fontWeight="medium" sx={{ fontSize: '0.875rem' }}>
-              {reply.user ? `${reply.user.userName} ${reply.user.userLastName}` : 'Unknown User'}
-            </Typography>
-            {/* @username mention for replies */}
-            {level > 0 && parentUser && (
-              <Typography variant="subtitle2" color="primary" sx={{ fontSize: '0.875rem' }}>
-                @{parentUser.userName}{parentUser.userLastName}
-              </Typography>
-            )}
-            <Typography variant="caption" color="text.secondary">
-              {format(new Date(reply.createdAt), 'MMM d, yyyy • h:mm a')}
-            </Typography>
-            {/* Reply indicator */}
-            <Chip
-              label="reply"
-              size="small"
-              variant="outlined"
-              sx={{
-                fontSize: '0.7rem',
-                height: 20,
-                color: theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.6)' : 'rgba(0, 0, 0, 0.6)',
-                borderColor: theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.2)',
-                backgroundColor: 'transparent',
-              }}
-            />
-          </Box>
-          <Typography 
-            variant="body2" 
-            sx={{ 
-              fontSize: '0.875rem',
-              lineHeight: 1.5,
-              backgroundColor: theme.palette.mode === 'dark' 
-                ? 'rgba(255, 255, 255, 0.04)' 
-                : 'rgba(0, 0, 0, 0.02)',
-              backdropFilter: 'blur(20px) saturate(180%)',
-              WebkitBackdropFilter: 'blur(20px) saturate(180%)',
-              padding: 2,
-              borderRadius: 2.5,
-              border: '1px solid',
-              borderColor: theme.palette.mode === 'dark' 
-                ? 'rgba(255, 255, 255, 0.08)' 
-                : 'rgba(0, 0, 0, 0.06)',
-              boxShadow: theme.palette.mode === 'dark'
-                ? '0 4px 12px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.1), inset 0 1px 0 0 rgba(255, 255, 255, 0.05)'
-                : '0 4px 12px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.05), inset 0 1px 0 0 rgba(255, 255, 255, 0.8)',
-              position: 'relative',
-              overflow: 'hidden',
-              transition: 'all 0.2s ease-in-out',
-              '&:hover': {
-                backgroundColor: theme.palette.mode === 'dark' 
-                  ? 'rgba(255, 255, 255, 0.06)' 
-                  : 'rgba(0, 0, 0, 0.03)',
-                borderColor: theme.palette.mode === 'dark' 
-                  ? 'rgba(255, 255, 255, 0.12)' 
-                  : 'rgba(0, 0, 0, 0.08)',
-                transform: 'translateY(-1px)',
-                boxShadow: theme.palette.mode === 'dark'
-                  ? '0 6px 16px rgba(0, 0, 0, 0.2), 0 3px 6px rgba(0, 0, 0, 0.15), inset 0 1px 0 0 rgba(255, 255, 255, 0.08)'
-                  : '0 6px 16px rgba(0, 0, 0, 0.12), 0 3px 6px rgba(0, 0, 0, 0.08), inset 0 1px 0 0 rgba(255, 255, 255, 0.9)',
-              },
-              '&::before': {
-                content: '""',
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                right: 0,
-                height: '1px',
-                background: 'linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent)',
-                opacity: theme.palette.mode === 'dark' ? 0.4 : 0.6,
-              }
-            }}
-          >
-            {reply.comment}
-          </Typography>
-          
-          {/* Reply Image */}
-          {reply.commentImageUrl && (
-            <Box mt={1}>
-              <Box
-                component="img"
-                src={reply.commentImageUrl}
-                alt="Reply image"
-                sx={{
-                  width: '100%',
-                  maxHeight: 200,
-                  objectFit: 'cover',
-                  borderRadius: 2,
-                  border: '1px solid',
-                  borderColor: theme.palette.mode === 'dark' 
-                    ? 'rgba(255, 255, 255, 0.2)' 
-                    : 'rgba(0, 0, 0, 0.1)',
-                  cursor: 'pointer',
-                  '&:hover': {
-                    opacity: 0.9,
-                  }
-                }}
-                onClick={() => setShowImagePreview(true)}
-              />
-            </Box>
-          )}
-          
-          {/* Reply Actions */}
-          <Box display="flex" alignItems="center" gap={1} mt={1}>
-            {/* Like Button */}
-            <IconButton 
-              size="small" 
-              sx={{ 
-                fontSize: '0.75rem',
-                color: commentReactions[reply.commentId] === 'like' ? 'primary' : 'default',
-                backgroundColor: commentReactions[reply.commentId] === 'like' 
-                  ? theme.palette.mode === 'dark' ? 'rgba(255, 234, 167, 0.2)' : 'rgba(255, 234, 167, 0.3)'
-                  : 'transparent',
-                '&:hover': {
-                  backgroundColor: theme.palette.mode === 'dark' 
-                    ? 'rgba(255, 234, 167, 0.1)' 
-                    : 'rgba(255, 234, 167, 0.2)',
-                }
-              }}
-              onClick={() => onCommentReaction(reply.commentId, 'like')}
-            >
-              <LikeIcon fontSize="inherit" />
-              <Typography variant="caption" sx={{ ml: 0.5 }}>
-                Like
-              </Typography>
-            </IconButton>
-
-            {/* Reply Button */}
-            <IconButton 
-              size="small" 
-              sx={{ 
-                fontSize: '0.75rem',
-                color: 'primary',
-                '&:hover': {
-                  backgroundColor: theme.palette.mode === 'dark' 
-                    ? 'rgba(100, 181, 246, 0.1)' 
-                    : 'rgba(100, 181, 246, 0.2)',
-                }
-              }}
-              onClick={() => onReply(reply.commentId)}
-            >
-              <CommentIcon fontSize="inherit" />
-              <Typography variant="caption" sx={{ ml: 0.5 }}>
-                Reply
-              </Typography>
-            </IconButton>
-          </Box>
-        </Box>
-      </Box>
-
-      {/* Reply Input for nested replies */}
-      {replyingTo === reply.commentId && (
-        <Box display="flex" flexDirection="column" gap={1} mt={2} ml={`${indentPixels + 16}px`}>
-          <Box display="flex" gap={1}>
-            <Avatar 
-              src={user?.userImageUrl}
-              sx={{ 
-                width: 24, 
-                height: 24, 
-                fontSize: '0.75rem',
-                bgcolor: user?.userImageUrl ? 'transparent' : theme.palette.primary.main,
-                color: user?.userImageUrl ? 'transparent' : theme.palette.primary.contrastText,
-              }}
-            >
-              {user?.userImageUrl ? '' : (user?.userName?.[0]?.toUpperCase() || user?.userLastName?.[0]?.toUpperCase() || 'U')}
-            </Avatar>
-            <Box flex={1}>
-              <TextField
-                fullWidth
-                size="small"
-                placeholder="Write a reply..."
-                value={replyText}
-                onChange={(e) => onReplyTextChange(e.target.value)}
-                onKeyPress={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    onReplySubmit(reply.commentId);
-                  }
-                }}
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: 2,
-                    backgroundColor: theme.palette.mode === 'dark' 
-                      ? 'rgba(255, 255, 255, 0.05)' 
-                      : 'rgba(255, 255, 255, 0.8)',
-                    '& fieldset': {
-                      borderColor: theme.palette.mode === 'dark' 
-                        ? 'rgba(255, 255, 255, 0.1)' 
-                        : 'rgba(0, 0, 0, 0.1)',
-                    },
-                    '&:hover fieldset': {
-                      borderColor: theme.palette.mode === 'dark' 
-                        ? 'rgba(255, 255, 255, 0.2)' 
-                        : 'rgba(0, 0, 0, 0.2)',
-                    },
-                    '&.Mui-focused fieldset': {
-                      borderColor: theme.palette.mode === 'dark' 
-                        ? '#64b5f6' 
-                        : '#2196f3',
-                    },
-                  }
-                }}
-              />
-              {/* Show uploaded reply image preview */}
-              {replyImages[reply.commentId] && (
-                <Box mt={1} position="relative">
-                  <Box
-                    component="img"
-                    src={replyImages[reply.commentId]}
-                    alt="Reply image"
-                    sx={{
-                      width: '100%',
-                      maxHeight: 150,
-                      objectFit: 'cover',
-                      borderRadius: 2,
-                      border: '1px solid',
-                      borderColor: theme.palette.mode === 'dark' 
-                        ? 'rgba(255, 255, 255, 0.2)' 
-                        : 'rgba(0, 0, 0, 0.1)',
-                    }}
-                  />
-                  <IconButton
-                    size="small"
-                    onClick={() => onReplyImageRemove(reply.commentId)}
-                    sx={{
-                      position: 'absolute',
-                      top: 4,
-                      right: 4,
-                      backgroundColor: theme.palette.mode === 'dark' 
-                        ? 'rgba(0, 0, 0, 0.7)' 
-                        : 'rgba(255, 255, 255, 0.9)',
-                      '&:hover': {
-                        backgroundColor: theme.palette.mode === 'dark' 
-                          ? 'rgba(0, 0, 0, 0.9)' 
-                          : 'rgba(255, 255, 255, 1)',
-                      }
-                    }}
-                  >
-                    <CancelIcon fontSize="small" />
-                  </IconButton>
-                </Box>
-              )}
-            </Box>
-            <Box display="flex" flexDirection="column" gap={0.5}>
-              <IconButton
-                size="small"
-                onClick={() => onReplyImageUpload(reply.commentId, [new File([''], 'placeholder')])}
-                sx={{
-                  color: theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.7)' : 'rgba(0, 0, 0, 0.6)',
-                }}
-              >
-                <CommentIcon fontSize="small" />
-              </IconButton>
-              <Button
-                variant="contained"
-                size="small"
-                onClick={() => onReplySubmit(reply.commentId)}
-                disabled={!replyText.trim() && !replyImages[reply.commentId]}
-                sx={{ borderRadius: 2 }}
-              >
-                Reply
-              </Button>
-            </Box>
-          </Box>
-        </Box>
-      )}
-
-      {/* Recursive nested replies - Facebook style nested structure */}
-      {hasNestedReplies && (
-        <Box sx={{ ml: `${indentPixels}px`, position: 'relative', pt: 2 }}>
-          
-          {level < maxNestingLevel ? (
-            // Show nested replies normally
-            reply.replies.map((nestedReply: any) => (
-              <NestedReply
-                key={nestedReply.commentId}
-                reply={nestedReply}
-                level={level + 1}
-                onReply={onReply}
-                onCommentReaction={onCommentReaction}
-                commentReactions={commentReactions}
-                format={format}
-                theme={theme}
-                setShowImagePreview={setShowImagePreview}
-                replyingTo={replyingTo}
-                replyText={replyText}
-                replyImages={replyImages}
-                user={user}
-                onReplyTextChange={onReplyTextChange}
-                onReplySubmit={onReplySubmit}
-                onReplyImageUpload={onReplyImageUpload}
-                onReplyImageRemove={onReplyImageRemove}
-                parentUser={reply.user} // Pass current reply user as parent for @mentions
-              />
-            ))
-          ) : (
-            // Show collapse button for deep nesting
-            <>
-              {!showCollapsedReplies ? (
-                <Box mt={1} ml={`${indentPixels}px`}>
-                  <Button
-                    size="small"
-                    variant="text"
-                    onClick={() => setShowCollapsedReplies(true)}
-                    sx={{
-                      fontSize: '0.75rem',
-                      textTransform: 'none',
-                      color: theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.7)' : 'rgba(0, 0, 0, 0.6)',
-                      '&:hover': {
-                        backgroundColor: theme.palette.mode === 'dark' 
-                          ? 'rgba(255, 255, 255, 0.1)' 
-                          : 'rgba(0, 0, 0, 0.05)',
-                      }
-                    }}
-                  >
-                    View {reply.replies.length} more {reply.replies.length === 1 ? 'reply' : 'replies'}
-                  </Button>
-                </Box>
-              ) : (
-                <>
-                  {reply.replies.map((nestedReply: any) => (
-                    <NestedReply
-                      key={nestedReply.commentId}
-                      reply={nestedReply}
-                      level={level + 1}
-                      onReply={onReply}
-                      onCommentReaction={onCommentReaction}
-                      commentReactions={commentReactions}
-                      format={format}
-                      theme={theme}
-                      setShowImagePreview={setShowImagePreview}
-                      replyingTo={replyingTo}
-                      replyText={replyText}
-                      replyImages={replyImages}
-                      user={user}
-                      onReplyTextChange={onReplyTextChange}
-                      onReplySubmit={onReplySubmit}
-                              onReplyImageUpload={onReplyImageUpload}
-                              onReplyImageRemove={onReplyImageRemove}
-                      parentUser={reply.user}
-                    />
-                  ))}
-                  <Box mt={1} ml={`${indentPixels}px`}>
-                    <Button
-                      size="small"
-                      variant="text"
-                      onClick={() => setShowCollapsedReplies(false)}
-                      sx={{
-                        fontSize: '0.75rem',
-                        textTransform: 'none',
-                        color: theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.7)' : 'rgba(0, 0, 0, 0.6)',
-                        '&:hover': {
-                          backgroundColor: theme.palette.mode === 'dark' 
-                            ? 'rgba(255, 255, 255, 0.1)' 
-                            : 'rgba(0, 0, 0, 0.05)',
-                        }
-                      }}
-                    >
-                      Hide replies
-                    </Button>
-                  </Box>
-                </>
-              )}
-            </>
-          )}
-        </Box>
-      )}
-    </Box>
-  );
-};
-
 const TaskCard: React.FC<TaskCardProps> = ({
   task,
   likeSummary,
@@ -549,9 +82,15 @@ const TaskCard: React.FC<TaskCardProps> = ({
   onDelete,
   onLike,
   onUnlike,
-  onStatusUpdate,
+  onComment,
+  onMarkDone,
   showActions = true,
   compact = false,
+  // Liquid Glass UI Controls with defaults
+  glassOpacity = 0.7,
+  showBorders = true,
+  blurIntensity = 20,
+  glassStyle = 'medium',
 }) => {
   const theme = useTheme();
   const { user } = useAppSelector((state) => state.auth);
@@ -561,7 +100,18 @@ const TaskCard: React.FC<TaskCardProps> = ({
   const [commentText, setCommentText] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showImagePreview, setShowImagePreview] = useState(false);
-  const [commentReactions, setCommentReactions] = useState<Record<number, string>>({});
+
+  // Liquid Glass UI Style Presets
+  const glassPresets = {
+    subtle: { opacity: 0.5, blur: 12, borderOpacity: 0.2 },
+    medium: { opacity: 0.7, blur: 20, borderOpacity: 0.3 },
+    bold: { opacity: 0.85, blur: 30, borderOpacity: 0.5 }
+  };
+
+  const currentPreset = glassPresets[glassStyle];
+  const finalOpacity = glassOpacity || currentPreset.opacity;
+  const finalBlur = blurIntensity || currentPreset.blur;
+  const finalBorderOpacity = showBorders ? (glassOpacity || currentPreset.borderOpacity) : 0;
 
   // Use new optimized comments hook
   const { commentTree, isLoading: commentsLoading, refetch: commentsRefetch } = useComments({ 
@@ -577,424 +127,685 @@ const TaskCard: React.FC<TaskCardProps> = ({
     setAnchorEl(null);
   };
 
-  const handleLike = (likeType: 'like' | 'love' | 'laugh' | 'angry') => {
-    if (likeSummary?.userLike) {
-      // If user already liked with same type, remove it
-      if (likeSummary.userLike === likeType) {
-        onUnlike?.(task.taskId);
-      } else {
-        // If user liked with different type, change it
-        onLike?.(task.taskId, likeType);
-      }
-    } else {
-      // New like
-      onLike?.(task.taskId, likeType);
-    }
-  };
-
-  // Mutations for comment operations
-  const createCommentMutation = useMutation({
-    mutationFn: ({ comment, commentImageUrl }: { comment: string; commentImageUrl?: string }) =>
-      commentApi.createComment(task.taskId, { comment, commentImageUrl }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['task-comments', task.taskId] });
-      setCommentText('');
-    }
-  });
-
-  const commentReactionMutation = useMutation({
-    mutationFn: ({ commentId, reactionType }: { commentId: number; reactionType: 'like' | 'love' | 'laugh' | 'angry' }) =>
-      commentReactionApi.createOrUpdateReaction(commentId, { reactionType }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['task-comments', task.taskId] });
-    }
-  });
-
-  const removeCommentReactionMutation = useMutation({
-    mutationFn: (commentId: number) =>
-      commentReactionApi.removeReaction(commentId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['task-comments', task.taskId] });
-    }
-  });
-
-  const handleCommentReaction = (commentId: number, reactionType: 'like' | 'love' | 'laugh' | 'angry') => {
-    const currentReaction = commentReactions[commentId];
-    if (currentReaction === reactionType) {
-      // Remove reaction
-      removeCommentReactionMutation.mutate(commentId);
-      setCommentReactions(prev => {
-        const newReactions = { ...prev };
-        delete newReactions[commentId];
-        return newReactions;
-      });
-    } else {
-      // Add or change reaction
-      commentReactionMutation.mutate({ commentId, reactionType });
-      setCommentReactions(prev => ({
-        ...prev,
-        [commentId]: reactionType
-      }));
-    }
-  };
-
-  const handleCommentSubmit = () => {
-    if (commentText.trim()) {
-      createCommentMutation.mutate({
-        comment: commentText.trim()
-      });
-    }
-  };
-
   const canEdit = task.createdBy === currentUserId;
   const canDelete = task.createdBy === currentUserId;
   const canUpdateStatus = task.assignedTo === currentUserId || task.createdBy === currentUserId;
 
+  // Calculate engagement metrics
+  const totalEngagement = (likeSummary?.total || 0) + (task._count?.comments || 0);
+  const isLiked = likeSummary?.userLike === 'like';
+  const isLoved = likeSummary?.userLike === 'love';
+  const isLaughed = likeSummary?.userLike === 'laugh';
+  const isAngry = likeSummary?.userLike === 'angry';
+  const isDisliked = likeSummary?.userLike === 'dislike';
+
   return (
     <>
-      <style>
-        {`
-          @keyframes shimmer {
-            0% { transform: translateX(-100%); }
-            100% { transform: translateX(100%); }
-          }
-          @keyframes liquid {
-            0%, 100% { border-radius: 4px; }
-            50% { border-radius: 6px; }
-          }
-          @keyframes glow {
-            0%, 100% { 
-              box-shadow: 0 0 20px rgba(100, 181, 246, 0.3);
-            }
-            50% { 
-              box-shadow: 0 0 30px rgba(100, 181, 246, 0.5);
-            }
-          }
-        `}
-      </style>
-      <Card 
-        sx={{ 
-          mb: 2, 
-          maxWidth: compact ? 400 : '100%',
+      <Card
+        sx={{
+          mb: 1.5,
+          maxWidth: compact ? '100%' : 500,
+          mx: compact ? 0 : 'auto',
+          borderRadius: 3,
           background: theme.palette.mode === 'dark' 
-            ? 'linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%)'
-            : 'linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.7) 100%)',
-          backdropFilter: 'blur(25px) saturate(200%) brightness(1.1)',
-          WebkitBackdropFilter: 'blur(25px) saturate(200%) brightness(1.1)',
-          borderRadius: 4,
-          border: theme.palette.mode === 'dark' 
-            ? '1px solid rgba(255, 255, 255, 0.2)'
-            : '1px solid rgba(255, 255, 255, 0.4)',
+            ? `rgba(255, 255, 255, ${finalOpacity * 0.12})`
+            : `rgba(255, 255, 255, ${finalOpacity})`,
+          backdropFilter: `blur(${finalBlur}px) saturate(180%)`,
+          WebkitBackdropFilter: `blur(${finalBlur}px) saturate(180%)`,
+          border: showBorders ? `1px solid ${theme.palette.mode === 'dark' 
+            ? `rgba(255, 255, 255, ${finalBorderOpacity * 0.15})` 
+            : `rgba(255, 255, 255, ${finalBorderOpacity * 0.3})`}` : 'none',
           boxShadow: theme.palette.mode === 'dark'
-            ? '0 8px 32px 0 rgba(31, 38, 135, 0.4), inset 0 1px 0 0 rgba(255, 255, 255, 0.15), 0 0 20px rgba(100, 181, 246, 0.1)'
-            : '0 8px 32px 0 rgba(31, 38, 135, 0.18), inset 0 1px 0 0 rgba(255, 255, 255, 0.4), 0 0 20px rgba(59, 130, 246, 0.15)',
-          position: 'relative',
-          overflow: 'hidden',
-          transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-          animation: 'liquid 4s ease-in-out infinite',
-          '&::before': {
-            content: '""',
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            height: '1px',
-            background: 'linear-gradient(90deg, transparent, rgba(100, 181, 246, 0.6), transparent)',
-            opacity: theme.palette.mode === 'dark' ? 0.4 : 0.7,
-            animation: 'shimmer 3s infinite',
-          },
-          '&::after': {
-            content: '""',
-            position: 'absolute',
-            top: '-50%',
-            left: '-50%',
-            width: '200%',
-            height: '200%',
-            background: 'radial-gradient(circle, rgba(100, 181, 246, 0.1) 0%, transparent 70%)',
-            opacity: 0,
-            transition: 'opacity 0.3s ease',
-            pointerEvents: 'none',
-          },
+            ? `0 8px 32px 0 rgba(0, 0, 0, ${0.37 * finalOpacity}), 0 2px 8px 0 rgba(0, 0, 0, ${0.2 * finalOpacity}), inset 0 1px 0 0 rgba(255, 255, 255, ${0.1 * finalOpacity})`
+            : `0 8px 32px 0 rgba(31, 38, 135, ${0.15 * finalOpacity}), 0 2px 8px 0 rgba(31, 38, 135, ${0.1 * finalOpacity}), inset 0 1px 0 0 rgba(255, 255, 255, ${0.5 * finalOpacity})`,
+          overflow: 'visible',
+          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
           '&:hover': {
-            transform: 'translateY(-2px) scale(1.02)',
-            animation: 'glow 2s ease-in-out infinite',
-            '&::after': {
-              opacity: 1,
-            }
+            transform: 'translateY(-4px) scale(1.02)',
+            boxShadow: theme.palette.mode === 'dark'
+              ? `0 12px 40px 0 rgba(0, 0, 0, ${0.45 * finalOpacity}), 0 4px 12px 0 rgba(0, 0, 0, ${0.25 * finalOpacity}), inset 0 1px 0 0 rgba(255, 255, 255, ${0.15 * finalOpacity})`
+              : `0 12px 40px 0 rgba(31, 38, 135, ${0.2 * finalOpacity}), 0 4px 12px 0 rgba(31, 38, 135, ${0.15 * finalOpacity}), inset 0 1px 0 0 rgba(255, 255, 255, ${0.6 * finalOpacity})`,
           }
         }}
       >
-        <CardContent>
-          {/* Header */}
-          <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
-            <Box display="flex" alignItems="center" gap={1}>
-              <Avatar 
-                src={task.createdByUser?.userImageUrl}
+        {/* Glass Header */}
+        <Box sx={{ 
+          p: 1.5, 
+          pb: 0.5,
+          background: 'transparent'
+        }}>
+          <Stack direction="row" spacing={1.5} alignItems="flex-start">
+            {/* Glass Avatar */}
+            <Avatar
+              src={task.createdByUser?.userImageUrl}
+              sx={{
+                width: 32,
+                height: 32,
+                border: `2px solid ${theme.palette.mode === 'dark' 
+                  ? 'rgba(255, 255, 255, 0.3)' 
+                  : 'rgba(255, 255, 255, 0.8)'}`,
+                boxShadow: theme.palette.mode === 'dark'
+                  ? '0 4px 12px rgba(0, 0, 0, 0.4)'
+                  : '0 4px 12px rgba(31, 38, 135, 0.2)',
+                backdropFilter: 'blur(8px)',
+                WebkitBackdropFilter: 'blur(8px)',
+              }}
+            >
+              {task.createdByUser?.userName?.[0]}
+            </Avatar>
+            
+            {/* Glass Content */}
+            <Box flex={1} minWidth={0}>
+              <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.5 }}>
+                <Typography 
+                  variant="body2" 
+                  fontWeight="600" 
+                  noWrap
+                  sx={{
+                    color: theme.palette.mode === 'dark' ? '#fff' : 'rgba(0, 0, 0, 0.8)',
+                    textShadow: theme.palette.mode === 'dark' 
+                      ? '0 1px 2px rgba(0, 0, 0, 0.3)' 
+                      : '0 1px 2px rgba(255, 255, 255, 0.5)',
+                  }}
+                >
+                  {task.createdByUser?.userName} {task.createdByUser?.userLastName}
+                </Typography>
+                <Chip
+                  label={statusLabels[task.status]}
+                  color={statusColors[task.status]}
+                  size="small"
+                  sx={{ 
+                    fontSize: '0.65rem', 
+                    height: 18,
+                    fontWeight: 500,
+                    background: theme.palette.mode === 'dark'
+                      ? 'rgba(255, 255, 255, 0.15)'
+                      : 'rgba(255, 255, 255, 0.9)',
+                    backdropFilter: 'blur(8px)',
+                    WebkitBackdropFilter: 'blur(8px)',
+                    border: `1px solid ${theme.palette.mode === 'dark' 
+                      ? 'rgba(255, 255, 255, 0.2)' 
+                      : 'rgba(255, 255, 255, 0.7)'}`,
+                  }}
+                />
+              </Stack>
+              
+              <Typography 
+                variant="subtitle1" 
+                fontWeight="600" 
                 sx={{ 
-                  width: 32, 
-                  height: 32,
-                  bgcolor: task.createdByUser?.userImageUrl ? 'transparent' : theme.palette.primary.main,
-                  color: task.createdByUser?.userImageUrl ? 'transparent' : theme.palette.primary.contrastText,
+                  fontSize: '1rem', 
+                  lineHeight: 1.3, 
+                  mb: 0.5,
+                  color: theme.palette.mode === 'dark' ? '#fff' : 'rgba(0, 0, 0, 0.9)',
+                  textShadow: theme.palette.mode === 'dark' 
+                    ? '0 2px 4px rgba(0, 0, 0, 0.4)' 
+                    : '0 2px 4px rgba(0, 0, 0, 0.1)',
                 }}
               >
-                {task.createdByUser?.userImageUrl ? '' : (task.createdByUser?.userName?.[0]?.toUpperCase() || task.createdByUser?.userLastName?.[0]?.toUpperCase() || 'U')}
-              </Avatar>
-              <Box>
-                <Typography variant="subtitle2">
-                  {task.createdByUser ? `${task.createdByUser.userName} ${task.createdByUser.userLastName}` : 'Unknown User'}
+                {task.title}
+              </Typography>
+              
+              {task.description && (
+                <Typography 
+                  variant="body2" 
+                  color="text.secondary" 
+                  sx={{ 
+                    display: '-webkit-box',
+                    WebkitLineClamp: 1,
+                    WebkitBoxOrient: 'vertical',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    lineHeight: 1.3,
+                    fontSize: '0.875rem',
+                    color: theme.palette.mode === 'dark' 
+                      ? 'rgba(255, 255, 255, 0.7)' 
+                      : 'rgba(0, 0, 0, 0.6)',
+                  }}
+                >
+                  {task.description}
                 </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  {format(new Date(task.createdAt), 'MMM dd, yyyy • h:mm a')}
-                </Typography>
-              </Box>
-            </Box>
-
-            <Box display="flex" alignItems="center" gap={1}>
-              <Chip
-                label={statusLabels[task.status]}
-                color={statusColors[task.status]}
-                size="small"
-              />
-              {showActions && (
-                <IconButton size="small" onClick={handleMenuOpen}>
-                  <MoreVertIcon />
-                </IconButton>
               )}
             </Box>
-          </Box>
 
-          {/* Task Content */}
-          <Typography variant="h6" gutterBottom>
-            {task.title}
-          </Typography>
+            {/* Glass Menu */}
+            {showActions && (
+              <IconButton 
+                size="small" 
+                onClick={handleMenuOpen} 
+                sx={{ 
+                  p: 0.5,
+                  background: theme.palette.mode === 'dark'
+                    ? 'rgba(255, 255, 255, 0.1)'
+                    : 'rgba(255, 255, 255, 0.5)',
+                  backdropFilter: 'blur(8px)',
+                  WebkitBackdropFilter: 'blur(8px)',
+                  border: `1px solid ${theme.palette.mode === 'dark' 
+                    ? 'rgba(255, 255, 255, 0.15)' 
+                    : 'rgba(255, 255, 255, 0.3)'}`,
+                  '&:hover': {
+                    background: theme.palette.mode === 'dark'
+                      ? 'rgba(255, 255, 255, 0.2)'
+                      : 'rgba(255, 255, 255, 0.7)',
+                  }
+                }}
+              >
+                <MoreVertIcon fontSize="small" />
+              </IconButton>
+            )}
+          </Stack>
+        </Box>
 
-          {task.description && (
-            <Typography variant="body2" color="text.secondary" mb={2}>
-              {task.description}
-            </Typography>
-          )}
-
-          {/* Task Images */}
-          {task.images && task.images.length > 0 && (
-            <Box mb={2}>
-              <Box display="flex" flexDirection="column" gap={1}>
-                {task.images.map((image: any, index: number) => (
-                  <Box
-                    key={image.imageId}
-                    component="img"
-                    src={image.imageUrl}
-                    alt={`${task.title} - Image ${index + 1}`}
-                    onClick={() => setShowImagePreview(true)}
-                    sx={{
-                      width: '100%',
-                      maxHeight: 200,
-                      objectFit: 'cover',
-                      borderRadius: 2,
-                      cursor: 'pointer',
-                      transition: 'transform 0.2s ease-in-out',
-                      '&:hover': {
-                        transform: 'scale(1.02)',
-                      }
-                    }}
-                  />
-                ))}
-              </Box>
+        {/* Glass Task Image */}
+        {task.imageUrl && (
+          <Box
+            sx={{
+              position: 'relative',
+              cursor: 'pointer',
+              '&:hover .overlay': {
+                opacity: 1,
+              }
+            }}
+            onClick={() => setShowImagePreview(true)}
+          >
+            <Box
+              component="img"
+              src={task.imageUrl}
+              alt={task.title}
+              sx={{
+                width: '100%',
+                height: 150,
+                objectFit: 'cover',
+                borderRadius: 2,
+              }}
+            />
+            <Box
+              className="overlay"
+              sx={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                background: 'linear-gradient(to top, rgba(0, 0, 0, 0.7), transparent)',
+                backdropFilter: 'blur(4px)',
+                WebkitBackdropFilter: 'blur(4px)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                opacity: 0,
+                transition: 'opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                borderRadius: 2,
+              }}
+            >
+              <Typography 
+                color="white" 
+                variant="caption" 
+                fontWeight="600"
+                sx={{
+                  background: 'rgba(0, 0, 0, 0.6)',
+                  padding: '4px 12px',
+                  borderRadius: 12,
+                  backdropFilter: 'blur(8px)',
+                  WebkitBackdropFilter: 'blur(8px)',
+                }}
+              >
+                View
+              </Typography>
             </Box>
-          )}
-
-          {/* Assignment and Due Date */}
-          <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-            {task.assignedToUser && (
-              <Box display="flex" alignItems="center" gap={1}>
-                <Typography variant="caption">Assigned to:</Typography>
-                <Typography variant="body2" fontWeight="medium">
-                  {task.assignedToUser.userName} {task.assignedToUser.userLastName}
-                </Typography>
-              </Box>
-            )}
-
-            {task.dueDate && (
-              <Box display="flex" alignItems="center" gap={1}>
-                <Typography variant="caption">Due:</Typography>
-                <Typography variant="body2">
-                  {format(new Date(task.dueDate), 'MMM dd, yyyy')}
-                </Typography>
-              </Box>
-            )}
           </Box>
-        </CardContent>
+        )}
 
-        {/* Actions */}
-        <CardActions sx={{ px: 2, pb: 2 }}>
-          <Box display="flex" alignItems="center" gap={1} flexGrow={1}>
-            {/* Like Buttons */}
-            <Zoom in={true} timeout={300}>
-              <IconButton
-                size="small"
-                onClick={() => handleLike('like')}
-                color={likeSummary?.userLike === 'like' ? 'primary' : 'default'}
+        {/* Glass Metadata & Actions */}
+        <Box sx={{ 
+          px: 1.5, 
+          py: 1,
+          background: 'transparent'
+        }}>
+          <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 1 }}>
+            {/* Due Date */}
+            {task.dueDate && (
+              <Typography 
+                variant="caption" 
+                color="text.secondary" 
+                fontWeight="500"
                 sx={{
-                  transition: 'all 0.2s ease-in-out',
-                  '&:hover': {
-                    transform: 'scale(1.1)',
-                  },
-                  '&.MuiIconButton-colorPrimary': {
-                    transform: 'scale(1.2)',
-                  }
+                  background: theme.palette.mode === 'dark'
+                    ? 'rgba(255, 255, 255, 0.1)'
+                    : 'rgba(255, 255, 255, 0.7)',
+                  padding: '2px 8px',
+                  borderRadius: 8,
+                  backdropFilter: 'blur(4px)',
+                  WebkitBackdropFilter: 'blur(4px)',
+                  fontSize: '0.7rem',
                 }}
               >
-                <LikeIcon fontSize="small" />
-                {task._count?.likes || 0}
-              </IconButton>
-            </Zoom>
+                Due {format(new Date(task.dueDate), 'MMM dd')}
+              </Typography>
+            )}
 
-            <Zoom in={true} timeout={400}>
-              <IconButton
-                size="small"
-                onClick={() => handleLike('love')}
-                color={likeSummary?.userLike === 'love' ? 'error' : 'default'}
-                sx={{
-                  transition: 'all 0.2s ease-in-out',
-                  '&:hover': {
-                    transform: 'scale(1.1)',
-                  },
-                  '&.MuiIconButton-colorError': {
-                    transform: 'scale(1.2)',
-                  }
-                }}
-              >
-                <LoveIcon fontSize="small" />
-                {task._count?.love || 0}
-              </IconButton>
-            </Zoom>
+            {/* Assigned To */}
+            {task.assignedToUser && (
+              <Stack direction="row" spacing={0.5} alignItems="center">
+                <Typography 
+                  variant="caption" 
+                  color="text.secondary" 
+                  fontWeight="500"
+                  sx={{
+                    background: theme.palette.mode === 'dark'
+                      ? 'rgba(255, 255, 255, 0.1)'
+                      : 'rgba(255, 255, 255, 0.7)',
+                    padding: '2px 8px',
+                    borderRadius: 8,
+                    backdropFilter: 'blur(4px)',
+                    WebkitBackdropFilter: 'blur(4px)',
+                    fontSize: '0.7rem',
+                  }}
+                >
+                  Assigned to
+                </Typography>
+                <Avatar
+                  src={task.assignedToUser.userImageUrl}
+                  sx={{ 
+                    width: 16, 
+                    height: 16,
+                    border: `1px solid ${theme.palette.mode === 'dark' 
+                      ? 'rgba(255, 255, 255, 0.3)' 
+                      : 'rgba(255, 255, 255, 0.8)'}`,
+                    boxShadow: theme.palette.mode === 'dark'
+                      ? '0 2px 6px rgba(0, 0, 0, 0.3)'
+                      : '0 2px 6px rgba(31, 38, 135, 0.2)',
+                  }}
+                >
+                  {task.assignedToUser.userName?.[0]}
+                </Avatar>
+                <Typography 
+                  variant="caption" 
+                  color="text.secondary" 
+                  fontWeight="500"
+                  sx={{
+                    background: theme.palette.mode === 'dark'
+                      ? 'rgba(255, 255, 255, 0.1)'
+                      : 'rgba(255, 255, 255, 0.7)',
+                    padding: '2px 8px',
+                    borderRadius: 8,
+                    backdropFilter: 'blur(4px)',
+                    WebkitBackdropFilter: 'blur(4px)',
+                    fontSize: '0.7rem',
+                  }}
+                >
+                  {task.assignedToUser.userName}
+                </Typography>
+              </Stack>
+            )}
 
-            <Zoom in={true} timeout={500}>
-              <IconButton
-                size="small"
-                onClick={() => handleLike('laugh')}
-                color={likeSummary?.userLike === 'laugh' ? 'warning' : 'default'}
-                sx={{
-                  transition: 'all 0.2s ease-in-out',
-                  '&:hover': {
-                    transform: 'scale(1.1) rotate(10deg)',
-                  },
-                  '&.MuiIconButton-colorWarning': {
-                    transform: 'scale(1.2) rotate(15deg)',
-                  }
-                }}
-              >
-                <LaughIcon fontSize="small" />
-                {task._count?.laugh || 0}
-              </IconButton>
-            </Zoom>
+            <Box flex={1} />
 
-            <Zoom in={true} timeout={600}>
-              <IconButton
-                size="small"
-                onClick={() => handleLike('angry')}
-                color={likeSummary?.userLike === 'angry' ? 'error' : 'default'}
-                sx={{
-                  transition: 'all 0.2s ease-in-out',
-                  '&:hover': {
-                    transform: 'scale(1.1) shake(-5deg)',
-                  },
-                  '&.MuiIconButton-colorError': {
-                    transform: 'scale(1.2) shake(-10deg)',
-                  }
-                }}
-              >
-                <AngryIcon fontSize="small" />
-                {task._count?.angry || 0}
-              </IconButton>
-            </Zoom>
+            {/* Time Ago */}
+            <Typography 
+              variant="caption" 
+              color="text.secondary"
+              sx={{
+                background: theme.palette.mode === 'dark'
+                  ? 'rgba(255, 255, 255, 0.1)'
+                  : 'rgba(255, 255, 255, 0.7)',
+                padding: '2px 8px',
+                borderRadius: 8,
+                backdropFilter: 'blur(4px)',
+                WebkitBackdropFilter: 'blur(4px)',
+                fontSize: '0.7rem',
+              }}
+            >
+              {formatDistanceToNow(new Date(task.createdAt), { addSuffix: true })}
+            </Typography>
+          </Stack>
 
-            {/* Comments */}
+          {/* Glass Engagement Bar */}
+          <Stack direction="row" spacing={0.5} alignItems="center">
+            {/* Like Button */}
+            <IconButton
+              size="small"
+              onClick={() => isLiked ? onUnlike?.(task.taskId) : onLike?.(task.taskId, 'like')}
+              color={isLiked ? 'primary' : 'default'}
+              sx={{ 
+                p: 0.5,
+                background: isLiked 
+                  ? theme.palette.mode === 'dark'
+                    ? 'rgba(25, 118, 210, 0.2)'
+                    : 'rgba(25, 118, 210, 0.15)'
+                  : theme.palette.mode === 'dark'
+                    ? 'rgba(255, 255, 255, 0.08)'
+                    : 'rgba(255, 255, 255, 0.6)',
+                backdropFilter: 'blur(8px)',
+                WebkitBackdropFilter: 'blur(8px)',
+                border: `1px solid ${theme.palette.mode === 'dark' 
+                  ? 'rgba(25, 118, 210, 0.3)' 
+                  : 'rgba(25, 118, 210, 0.4)'}`,
+                '&:hover': {
+                  background: isLiked 
+                    ? theme.palette.mode === 'dark'
+                      ? 'rgba(25, 118, 210, 0.3)'
+                      : 'rgba(25, 118, 210, 0.25)'
+                    : theme.palette.mode === 'dark'
+                      ? 'rgba(255, 255, 255, 0.12)'
+                      : 'rgba(255, 255, 255, 0.8)',
+                }
+              }}
+            >
+              <LikeIcon fontSize="small" />
+            </IconButton>
+
+            {/* Love Button */}
+            <IconButton
+              size="small"
+              onClick={() => isLoved ? onUnlike?.(task.taskId) : onLike?.(task.taskId, 'love')}
+              color={isLoved ? 'error' : 'default'}
+              sx={{ 
+                p: 0.5,
+                background: isLoved 
+                  ? theme.palette.mode === 'dark'
+                    ? 'rgba(239, 68, 68, 0.2)'
+                    : 'rgba(239, 68, 68, 0.15)'
+                  : theme.palette.mode === 'dark'
+                    ? 'rgba(255, 255, 255, 0.08)'
+                    : 'rgba(255, 255, 255, 0.6)',
+                backdropFilter: 'blur(8px)',
+                WebkitBackdropFilter: 'blur(8px)',
+                border: `1px solid ${theme.palette.mode === 'dark' 
+                  ? 'rgba(239, 68, 68, 0.3)' 
+                  : 'rgba(239, 68, 68, 0.4)'}`,
+                '&:hover': {
+                  background: isLoved 
+                    ? theme.palette.mode === 'dark'
+                      ? 'rgba(239, 68, 68, 0.3)'
+                      : 'rgba(239, 68, 68, 0.25)'
+                    : theme.palette.mode === 'dark'
+                      ? 'rgba(255, 255, 255, 0.12)'
+                      : 'rgba(255, 255, 255, 0.8)',
+                }
+              }}
+            >
+              <LoveIcon fontSize="small" />
+            </IconButton>
+
+            {/* Laugh Button */}
+            <IconButton
+              size="small"
+              onClick={() => isLaughed ? onUnlike?.(task.taskId) : onLike?.(task.taskId, 'laugh')}
+              color={isLaughed ? 'warning' : 'default'}
+              sx={{ 
+                p: 0.5,
+                background: isLaughed 
+                  ? theme.palette.mode === 'dark'
+                    ? 'rgba(245, 158, 11, 0.2)'
+                    : 'rgba(245, 158, 11, 0.15)'
+                  : theme.palette.mode === 'dark'
+                    ? 'rgba(255, 255, 255, 0.08)'
+                    : 'rgba(255, 255, 255, 0.6)',
+                backdropFilter: 'blur(8px)',
+                WebkitBackdropFilter: 'blur(8px)',
+                border: `1px solid ${theme.palette.mode === 'dark' 
+                  ? 'rgba(245, 158, 11, 0.3)' 
+                  : 'rgba(245, 158, 11, 0.4)'}`,
+                '&:hover': {
+                  background: isLaughed 
+                    ? theme.palette.mode === 'dark'
+                      ? 'rgba(245, 158, 11, 0.3)'
+                      : 'rgba(245, 158, 11, 0.25)'
+                    : theme.palette.mode === 'dark'
+                      ? 'rgba(255, 255, 255, 0.12)'
+                      : 'rgba(255, 255, 255, 0.8)',
+                }
+              }}
+            >
+              <LaughIcon fontSize="small" />
+            </IconButton>
+
+            {/* Angry Button */}
+            <IconButton
+              size="small"
+              onClick={() => isAngry ? onUnlike?.(task.taskId) : onLike?.(task.taskId, 'angry')}
+              color={isAngry ? 'error' : 'default'}
+              sx={{ 
+                p: 0.5,
+                background: isAngry 
+                  ? theme.palette.mode === 'dark'
+                    ? 'rgba(220, 38, 38, 0.2)'
+                    : 'rgba(220, 38, 38, 0.15)'
+                  : theme.palette.mode === 'dark'
+                    ? 'rgba(255, 255, 255, 0.08)'
+                    : 'rgba(255, 255, 255, 0.6)',
+                backdropFilter: 'blur(8px)',
+                WebkitBackdropFilter: 'blur(8px)',
+                border: `1px solid ${theme.palette.mode === 'dark' 
+                  ? 'rgba(220, 38, 38, 0.3)' 
+                  : 'rgba(220, 38, 38, 0.4)'}`,
+                '&:hover': {
+                  background: isAngry 
+                    ? theme.palette.mode === 'dark'
+                      ? 'rgba(220, 38, 38, 0.3)'
+                      : 'rgba(220, 38, 38, 0.25)'
+                    : theme.palette.mode === 'dark'
+                      ? 'rgba(255, 255, 255, 0.12)'
+                      : 'rgba(255, 255, 255, 0.8)',
+                }
+              }}
+            >
+              <AngryIcon fontSize="small" />
+            </IconButton>
+
+            {/* Dislike Button */}
+            <IconButton
+              size="small"
+              onClick={() => isDisliked ? onUnlike?.(task.taskId) : onLike?.(task.taskId, 'dislike')}
+              color={isDisliked ? 'default' : 'default'}
+              sx={{ 
+                p: 0.5,
+                background: isDisliked 
+                  ? theme.palette.mode === 'dark'
+                    ? 'rgba(158, 158, 158, 0.2)'
+                    : 'rgba(158, 158, 158, 0.15)'
+                  : theme.palette.mode === 'dark'
+                    ? 'rgba(255, 255, 255, 0.08)'
+                    : 'rgba(255, 255, 255, 0.6)',
+                backdropFilter: 'blur(8px)',
+                WebkitBackdropFilter: 'blur(8px)',
+                border: `1px solid ${theme.palette.mode === 'dark' 
+                  ? 'rgba(158, 158, 158, 0.3)' 
+                  : 'rgba(158, 158, 158, 0.4)'}`,
+                '&:hover': {
+                  background: isDisliked 
+                    ? theme.palette.mode === 'dark'
+                      ? 'rgba(158, 158, 158, 0.3)'
+                      : 'rgba(158, 158, 158, 0.25)'
+                    : theme.palette.mode === 'dark'
+                      ? 'rgba(255, 255, 255, 0.12)'
+                      : 'rgba(255, 255, 255, 0.8)',
+                }
+              }}
+            >
+              <DislikeIcon fontSize="small" />
+            </IconButton>
+
+            {/* Comment Button */}
             <IconButton
               size="small"
               onClick={() => setShowComments(!showComments)}
+              sx={{
+                p: 0.5,
+                background: showComments 
+                  ? theme.palette.mode === 'dark'
+                    ? 'rgba(66, 66, 66, 0.2)'
+                    : 'rgba(66, 66, 66, 0.15)'
+                  : theme.palette.mode === 'dark'
+                    ? 'rgba(255, 255, 255, 0.08)'
+                    : 'rgba(255, 255, 255, 0.6)',
+                backdropFilter: 'blur(8px)',
+                WebkitBackdropFilter: 'blur(8px)',
+                border: `1px solid ${theme.palette.mode === 'dark' 
+                  ? 'rgba(66, 66, 66, 0.3)' 
+                  : 'rgba(66, 66, 66, 0.4)'}`,
+                '&:hover': {
+                  background: showComments 
+                    ? theme.palette.mode === 'dark'
+                      ? 'rgba(66, 66, 66, 0.3)'
+                      : 'rgba(66, 66, 66, 0.25)'
+                    : theme.palette.mode === 'dark'
+                      ? 'rgba(255, 255, 255, 0.12)'
+                      : 'rgba(255, 255, 255, 0.8)',
+                }
+              }}
             >
               <CommentIcon fontSize="small" />
-              {task._count?.comments || 0}
             </IconButton>
-          </Box>
 
-          {/* Status Update for assigned users */}
-          {canUpdateStatus && task.status !== 'done' && (
-            <Button
-              size="small"
-              startIcon={<DoneIcon />}
-              onClick={() => onStatusUpdate?.(task.taskId, 'done')}
+            <Typography 
+              variant="caption" 
+              color="text.secondary" 
+              sx={{ 
+                ml: 0.5,
+                background: theme.palette.mode === 'dark'
+                  ? 'rgba(255, 255, 255, 0.1)'
+                  : 'rgba(255, 255, 255, 0.7)',
+                padding: '2px 6px',
+                borderRadius: 6,
+                backdropFilter: 'blur(4px)',
+                WebkitBackdropFilter: 'blur(4px)',
+                fontSize: '0.7rem',
+              }}
             >
-              Mark Done
-            </Button>
-          )}
-        </CardActions>
+              {totalEngagement > 0 && `${totalEngagement}`}
+            </Typography>
+
+            <Box flex={1} />
+
+            {/* Glass Mark Done Button */}
+            {canUpdateStatus && task.status !== 'done' && (
+              <Button
+                size="small"
+                startIcon={<DoneIcon />}
+                onClick={() => onMarkDone?.(task.taskId)}
+                variant="contained"
+                color="success"
+                sx={{
+                  borderRadius: 15,
+                  textTransform: 'none',
+                  fontWeight: 600,
+                  px: 1.5,
+                  py: 0.5,
+                  fontSize: '0.75rem',
+                  background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                  boxShadow: '0 4px 12px rgba(16, 185, 129, 0.4)',
+                  backdropFilter: 'blur(8px)',
+                  WebkitBackdropFilter: 'blur(8px)',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  '&:hover': {
+                    background: 'linear-gradient(135deg, #059669 0%, #047857 100%)',
+                    boxShadow: '0 6px 16px rgba(16, 185, 129, 0.5)',
+                    transform: 'translateY(-1px)',
+                  }
+                }}
+              >
+                Done
+              </Button>
+            )}
+
+            {/* Action Menu */}
+            {showActions && (canEdit || canDelete) && (
+              <Menu
+                anchorEl={anchorEl}
+                open={Boolean(anchorEl)}
+                onClose={handleMenuClose}
+                PaperProps={{
+                  sx: {
+                    background: theme.palette.mode === 'dark'
+                      ? 'rgba(255, 255, 255, 0.1)'
+                      : 'rgba(255, 255, 255, 0.95)',
+                    backdropFilter: 'blur(20px) saturate(180%)',
+                    WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+                    border: `1px solid ${theme.palette.mode === 'dark' 
+                      ? 'rgba(255, 255, 255, 0.2)' 
+                      : 'rgba(255, 255, 255, 0.3)'}`,
+                    boxShadow: theme.palette.mode === 'dark'
+                      ? '0 8px 32px 0 rgba(0, 0, 0, 0.37)'
+                      : '0 8px 32px 0 rgba(31, 38, 135, 0.2)',
+                  }
+                }}
+              >
+                {canEdit && (
+                  <MenuItem onClick={() => { onEdit?.(task); handleMenuClose(); }}>
+                    <EditIcon fontSize="small" sx={{ mr: 1 }} />
+                    Edit
+                  </MenuItem>
+                )}
+                {canDelete && (
+                  <MenuItem onClick={() => { setConfirmDelete(true); handleMenuClose(); }}>
+                    <DeleteIcon fontSize="small" sx={{ mr: 1 }} />
+                    Delete
+                  </MenuItem>
+                )}
+              </Menu>
+            )}
+          </Stack>
+        </Box>
 
         {/* Comments Section */}
         <Collapse in={showComments}>
-          <Divider sx={{ 
-            borderColor: theme.palette.mode === 'dark' 
-              ? 'rgba(255, 255, 255, 0.1)' 
-              : 'rgba(255, 255, 255, 0.2)',
-            background: 'linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent)',
-          }} />
+          <Divider />
           <Box p={2}>
-            {/* Use new Reddit-style comment system */}
             {commentTree && (
               <CommentTree
-                commentTree={commentTree}
-                onReaction={handleCommentReaction}
-                theme={theme}
-                currentUserId={currentUserId}
                 taskId={task.taskId}
-                onCommentAdded={() => {
-                  // Refetch comments after adding
-                  commentsRefetch();
-                }}
+                maxDepth={3}
               />
             )}
           </Box>
         </Collapse>
       </Card>
 
-      {/* Menu */}
-      <Menu
-        anchorEl={anchorEl}
-        open={Boolean(anchorEl)}
-        onClose={handleMenuClose}
+      {/* Image Preview Dialog */}
+      <Dialog
+        open={showImagePreview}
+        onClose={() => setShowImagePreview(false)}
+        maxWidth="md"
+        fullWidth
       >
-        {canEdit && (
-          <MenuItem
-            onClick={() => {
-              onEdit?.(task);
-              handleMenuClose();
-            }}
-          >
-            <EditIcon fontSize="small" sx={{ mr: 1 }} />
-            Edit
-          </MenuItem>
-        )}
-        {canDelete && (
-          <MenuItem
-            onClick={() => {
-              setConfirmDelete(true);
-              handleMenuClose();
-            }}
-          >
-            <DeleteIcon fontSize="small" sx={{ mr: 1 }} />
-            Delete
-          </MenuItem>
-        )}
-      </Menu>
-
-      {/* Delete Confirmation Dialog */}
-      <Dialog open={confirmDelete} onClose={() => setConfirmDelete(false)}>
-        <DialogTitle>Delete Task</DialogTitle>
+        <DialogTitle>{task.title}</DialogTitle>
         <DialogContent>
-          Are you sure you want to delete this task? This action cannot be undone.
+          {task.imageUrl && (
+            <Box
+              component="img"
+              src={task.imageUrl}
+              alt={task.title}
+              sx={{
+                width: '100%',
+                maxHeight: 500,
+                objectFit: 'contain',
+                borderRadius: 1,
+              }}
+            />
+          )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setConfirmDelete(false)}>Cancel</Button>
+          <Button onClick={() => setShowImagePreview(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog
+        open={confirmDelete}
+        onClose={() => setConfirmDelete(false)}
+      >
+        <DialogTitle>Confirm Delete</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Are you sure you want to delete "{task.title}"? This action cannot be undone.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmDelete(false)} color="primary">
+            Cancel
+          </Button>
           <Button
             onClick={() => {
               onDelete?.(task.taskId);
@@ -1005,47 +816,6 @@ const TaskCard: React.FC<TaskCardProps> = ({
           >
             Delete
           </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Image Preview Dialog */}
-      <Dialog 
-        open={showImagePreview} 
-        onClose={() => setShowImagePreview(false)} 
-        maxWidth="md" 
-        fullWidth
-      >
-        <DialogTitle>Task Images</DialogTitle>
-        <DialogContent>
-          {task.images && task.images.length > 0 ? (
-            <Box display="flex" flexDirection="column" gap={2}>
-              {task.images.map((image: any, index: number) => (
-                <Box key={image.imageId}>
-                  <Typography variant="subtitle2" mb={1}>
-                    Image {index + 1}
-                  </Typography>
-                  <Box
-                    component="img"
-                    src={image.imageUrl}
-                    alt={`${task.title} - Image ${index + 1}`}
-                    sx={{
-                      width: '100%',
-                      maxHeight: 400,
-                      objectFit: 'contain',
-                      borderRadius: 2,
-                    }}
-                  />
-                </Box>
-              ))}
-            </Box>
-          ) : (
-            <Typography variant="body2" color="text.secondary">
-              No images available for this task.
-            </Typography>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setShowImagePreview(false)}>Close</Button>
         </DialogActions>
       </Dialog>
     </>

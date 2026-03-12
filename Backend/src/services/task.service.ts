@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Task } from '../entities/Task';
 import { TaskRepository } from '../repositories/task.repository';
-import { CreateTaskDto, UpdateTaskDto, TaskQueryDto } from '../dtos/task.dto';
+import { CreateTaskDto, UpdateTaskDto, TaskQueryDto, MarkTaskDoneDto } from '../dtos/task.dto';
 import { TaskResponseDto, TaskListResponseDto } from '../dtos/task-response.dto';
 import { User } from '../entities/User';
 import { TaskImageService } from './task-image.service';
@@ -19,8 +19,8 @@ export class TaskService {
     private taskRepository: Repository<Task>,
     private taskImageService: TaskImageService
   ) {
-    // Initialize custom repository
-    this.customTaskRepository = new TaskRepository();
+    // Initialize custom repository with the injected repository
+    this.customTaskRepository = new TaskRepository(this.taskRepository);
   }
 
   async createTask(createTaskDto: CreateTaskDto, userId: number): Promise<TaskResponseDto> {
@@ -91,13 +91,58 @@ export class TaskService {
     const limit = query.limit || 10;
     const totalPages = Math.ceil(total / limit);
 
-    return {
+    // Build response with performance stats if requested
+    const response: TaskListResponseDto = {
       tasks: await Promise.all(tasks.map(task => this.mapToResponseDto(task))),
       total,
       page,
       limit,
       totalPages
     };
+
+    // Add performance statistics if requested
+    if (query.includeStats && tasks.length > 0) {
+      response.topPerformers = this.calculateTopPerformers(tasks);
+    }
+
+    return response;
+  }
+
+  private calculateTopPerformers(tasks: Task[]): Array<{userId: number, userName: string, userLastName: string, completedTasks: number}> {
+    // Count completed tasks by user
+    const userTaskCounts = tasks.reduce((acc, task) => {
+      if (task.status === 'done' && task.createdBy) {
+        const userId = task.createdBy;
+        acc[userId] = (acc[userId] || 0) + 1;
+      }
+      return acc;
+    }, {} as Record<number, number>);
+
+    // Get user details from tasks (user data is already loaded via relations)
+    const userDetails = tasks.reduce((acc, task) => {
+      if (task.createdBy && task.createdByUser && !acc[task.createdBy]) {
+        acc[task.createdBy] = {
+          userId: task.createdBy,
+          userName: task.createdByUser.userName || 'Unknown',
+          userLastName: task.createdByUser.userLastName || 'User'
+        };
+      }
+      return acc;
+    }, {} as Record<number, {userId: number, userName: string, userLastName: string}>);
+
+    // Create top performers array
+    return Object.entries(userTaskCounts)
+      .map(([userId, count]) => {
+        const user = userDetails[parseInt(userId)];
+        return {
+          userId: parseInt(userId),
+          userName: user?.userName || 'Unknown',
+          userLastName: user?.userLastName || 'User',
+          completedTasks: count
+        };
+      })
+      .sort((a, b) => b.completedTasks - a.completedTasks)
+      .slice(0, 5); // Top 5 performers
   }
 
   async getTaskById(taskId: string): Promise<TaskResponseDto> {
@@ -205,6 +250,43 @@ export class TaskService {
 
     // Update upcoming tasks that are now current (if needed)
     // This could be extended based on business logic
+  }
+
+  async getTopPerformers(limit: number = 5): Promise<Array<{userId: number, userName: string, userLastName: string, completedTasks: number}>> {
+    return await this.customTaskRepository.getTopPerformers(limit);
+  }
+
+  async markTaskAsDone(taskId: string, userId: number, markTaskDoneDto?: MarkTaskDoneDto): Promise<TaskResponseDto> {
+    const task = await this.customTaskRepository.findById(taskId);
+
+    if (!task) {
+      throw new NotFoundException('Task not found');
+    }
+
+    // Check if user can mark this task as done (owner or assigned user)
+    if (task.createdBy !== userId && task.assignedTo !== userId) {
+      throw new ForbiddenException('You can only mark tasks as done if you are the owner or assigned user');
+    }
+
+    // Check if task is already done
+    if (task.status === 'done') {
+      throw new ForbiddenException('Task is already marked as done');
+    }
+
+    // Update task status to done
+    await this.customTaskRepository.updateTaskStatus(taskId, 'done');
+
+    // Get the updated task with relations
+    const updatedTask = await this.customTaskRepository.findTaskByIdWithRelations(taskId);
+    if (!updatedTask) {
+      throw new NotFoundException('Failed to retrieve updated task');
+    }
+
+    return this.mapToResponseDto(updatedTask);
+  }
+
+  async getUserRank(userId: number): Promise<{ rank: number; completedTasks: number; totalUsers: number }> {
+    return await this.customTaskRepository.getUserRank(userId);
   }
 
   private async mapToResponseDto(task: Task): Promise<TaskResponseDto> {

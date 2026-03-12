@@ -4,8 +4,8 @@ import { BaseRepository } from './base.repository';
 import { TaskQueryDto } from '../dtos/task.dto';
 
 export class TaskRepository extends BaseRepository<Task> {
-  constructor() {
-    super(Task);
+  constructor(repository?: Repository<Task>) {
+    super(Task, repository);
   }
 
   async findById(id: string): Promise<Task | null> {
@@ -21,12 +21,17 @@ export class TaskRepository extends BaseRepository<Task> {
       .leftJoin('task.comments', 'comment')
       .where('task.isActive = :isActive', { isActive: true });
 
-    // Search functionality
-    if (query.search) {
+    // Search functionality - only search when explicitly requested
+    if (query.search && !query.clearSearch) {
       qb.andWhere(
         '(task.title LIKE :search OR task.description LIKE :search)',
         { search: `%${query.search}%` }
       );
+    }
+    
+    // Clear search functionality - fetch all when clearSearch is true
+    if (query.clearSearch) {
+      // Don't add any search filters - fetch all active tasks
     }
 
     // Status filter
@@ -50,6 +55,13 @@ export class TaskRepository extends BaseRepository<Task> {
       .groupBy('task.taskId')
       .addGroupBy('assignedUser.userId')
       .addGroupBy('createdUser.userId');
+    
+    // Performance stats - only when requested
+    if (query.includeStats) {
+      qb.addSelect('COUNT(CASE WHEN task.status = :doneStatus THEN 1 END)', 'completedTasks')
+        .orderBy('completedTasks', 'DESC')
+        .setParameter('doneStatus', 'done');
+    }
 
     // Pagination
     const page = query.page || 1;
@@ -69,7 +81,7 @@ export class TaskRepository extends BaseRepository<Task> {
       .createQueryBuilder('task')
       .leftJoinAndSelect('task.assignedToUser', 'assignedUser')
       .leftJoinAndSelect('task.createdByUser', 'createdUser')
-      .leftJoinAndSelect('task.likes', 'likes', 'likes.isActive = :isActive', { isActive: true })
+      .leftJoinAndSelect('task.likes', 'likes')
       .leftJoinAndSelect('likes.user', 'likeUser')
       .leftJoinAndSelect('task.comments', 'comments', 'comments.isActive = :isActive', { isActive: true })
       .leftJoinAndSelect('comments.user', 'commentUser')
@@ -152,5 +164,62 @@ export class TaskRepository extends BaseRepository<Task> {
       .andWhere('task.status IN (:...statuses)', { statuses: ['draft', 'upcoming'] })
       .andWhere('task.isActive = :isActive', { isActive: true })
       .getMany();
+  }
+
+  async getTopPerformers(limit: number = 5): Promise<Array<{userId: number, userName: string, userLastName: string, completedTasks: number}>> {
+    const result = await this.repository
+      .createQueryBuilder('task')
+      .select('user.userId', 'userId')
+      .addSelect('user.userName', 'userName')
+      .addSelect('user.userLastName', 'userLastName')
+      .addSelect('COUNT(task.taskId)', 'completedTasks')
+      .leftJoin('users', 'user', 'user.userId = task.createdBy')
+      .where('task.status = :status', { status: 'done' })
+      .andWhere('task.isActive = :isActive', { isActive: true })
+      .andWhere('task.createdBy IS NOT NULL')
+      .groupBy('user.userId')
+      .addGroupBy('user.userName')
+      .addGroupBy('user.userLastName')
+      .orderBy('completedTasks', 'DESC')
+      .limit(limit)
+      .getRawMany();
+
+    return result.map(row => ({
+      userId: row.userId,
+      userName: row.userName || 'Unknown',
+      userLastName: row.userLastName || 'User',
+      completedTasks: parseInt(row.completedTasks) || 0
+    }));
+  }
+
+  async getUserRank(userId: number): Promise<{ rank: number; completedTasks: number; totalUsers: number }> {
+    // Get all users with their completed task counts
+    const allUserStats = await this.repository
+      .createQueryBuilder('task')
+      .select('user.userId', 'userId')
+      .addSelect('COUNT(task.taskId)', 'completedTasks')
+      .leftJoin('users', 'user', 'user.userId = task.createdBy')
+      .where('task.status = :status', { status: 'done' })
+      .andWhere('task.isActive = :isActive', { isActive: true })
+      .andWhere('task.createdBy IS NOT NULL')
+      .groupBy('user.userId')
+      .orderBy('completedTasks', 'DESC')
+      .getRawMany();
+
+    // Find the user's rank and completed tasks
+    const userStat = allUserStats.find(stat => stat.userId === userId);
+    const completedTasks = userStat ? parseInt(userStat.completedTasks) : 0;
+    
+    // Calculate rank (1-based index)
+    let rank = allUserStats.length + 1; // Default to last if user has no completed tasks
+    if (completedTasks > 0) {
+      rank = allUserStats.findIndex(stat => stat.userId === userId) + 1;
+    }
+
+    return {
+      rank,
+      completedTasks,
+      totalUsers: allUserStats.length
+    };
   }
 }

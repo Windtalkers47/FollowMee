@@ -10,7 +10,6 @@ import {
   Typography,
   TextField,
   Button,
-  Alert,
   CircularProgress,
   Link,
   Divider,
@@ -18,6 +17,7 @@ import {
   InputAdornment,
 } from '@mui/material';
 import { LockOutlined, Visibility, VisibilityOff } from '@mui/icons-material';
+import Swal from 'sweetalert2';
 
 const Register = () => {
   const [formData, setFormData] = useState({
@@ -29,7 +29,6 @@ const Register = () => {
     userPhone1: '',
   });
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const navigate = useNavigate();
@@ -43,21 +42,49 @@ const Register = () => {
     }));
   };
 
-  const validateForm = () => {
+  const validateForm = async () => {
     if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match');
+      await Swal.fire({
+        icon: 'error',
+        title: 'Password Mismatch',
+        text: 'Passwords do not match',
+        customClass: {
+          popup: 'swal2-error-dialog'
+        }
+      });
       return false;
     }
     if (formData.password.length < 8) {
-      setError('Password must be at least 8 characters long');
+      await Swal.fire({
+        icon: 'error',
+        title: 'Password Too Short',
+        text: 'Password must be at least 8 characters long',
+        customClass: {
+          popup: 'swal2-error-dialog'
+        }
+      });
       return false;
     }
     if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      setError('Please enter a valid email address');
+      await Swal.fire({
+        icon: 'error',
+        title: 'Invalid Email',
+        text: 'Please enter a valid email address',
+        customClass: {
+          popup: 'swal2-error-dialog'
+        }
+      });
       return false;
     }
     if (!formData.userName.trim() || !formData.userLastName.trim()) {
-      setError('Please enter your full name');
+      await Swal.fire({
+        icon: 'error',
+        title: 'Missing Name',
+        text: 'Please enter your full name',
+        customClass: {
+          popup: 'swal2-error-dialog'
+        }
+      });
       return false;
     }
     return true;
@@ -65,9 +92,8 @@ const Register = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
     
-    if (!validateForm()) return;
+    if (!(await validateForm())) return;
 
     try {
       setIsLoading(true);
@@ -95,13 +121,30 @@ const Register = () => {
       
       // Check if login was successful
       if (loginUser.fulfilled.match(resultAction)) {
-      
+        await Swal.fire({
+          icon: 'success',
+          title: 'Registration Successful!',
+          text: 'Your account has been created successfully. Redirecting to dashboard...',
+          timer: 2000,
+          timerProgressBar: true,
+          customClass: {
+            popup: 'swal2-success-dialog'
+          }
+        });
+        
         // Redirect to dashboard on successful registration and login
         navigate('/dashboard');
       }
     } catch (error: any) {
       console.error('Registration error:', error);
-      setError(error.response?.data?.message || 'Registration failed. Please try again.');
+      await Swal.fire({
+        icon: 'error',
+        title: 'Registration Failed',
+        text: error.response?.data?.message || 'Registration failed. Please try again.',
+        customClass: {
+          popup: 'swal2-error-dialog'
+        }
+      });
     } finally {
       setIsLoading(false);
     }
@@ -178,11 +221,6 @@ const Register = () => {
             boxShadow: '0 12px 40px 0 rgba(31, 38, 135, 0.45), inset 0 1px 0 0 rgba(255, 255, 255, 0.15)',
           }
         }}>
-          {error && (
-            <Alert severity="error" sx={{ mb: 3 }}>
-              {error}
-            </Alert>
-          )}
           
           <Box component="form" onSubmit={handleSubmit} noValidate>
             <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>

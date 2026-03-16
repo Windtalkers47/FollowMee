@@ -7,12 +7,12 @@ import {
   Typography,
   TextField,
   Button,
-  Alert,
   CircularProgress,
   InputAdornment,
   IconButton
 } from '@mui/material';
 import { Visibility, VisibilityOff } from '@mui/icons-material';
+import Swal from 'sweetalert2';
 
 // Hide browser's built-in password reveal button
 const styles = `
@@ -45,8 +45,6 @@ const ResetPassword = () => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [isSuccess, setIsSuccess] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const token = searchParams.get('token');
@@ -66,15 +64,28 @@ const ResetPassword = () => {
 
 const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
-  setError('');
 
   if (password !== confirmPassword) {
-    setError('Passwords do not match');
+    await Swal.fire({
+      icon: 'error',
+      title: 'Password Mismatch',
+      text: 'Passwords do not match',
+      customClass: {
+        popup: 'swal2-error-dialog'
+      }
+    });
     return;
   }
 
   if (password.length < 8) {
-    setError('Password must be at least 8 characters long');
+    await Swal.fire({
+      icon: 'error',
+      title: 'Password Too Short',
+      text: 'Password must be at least 8 characters long',
+      customClass: {
+        popup: 'swal2-error-dialog'
+      }
+    });
     return;
   }
 
@@ -101,14 +112,39 @@ const handleSubmit = async (e: React.FormEvent) => {
     const responseData = await response.json();
 
     if (!response.ok) {
+      await Swal.fire({
+        icon: 'error',
+        title: 'Reset Failed',
+        text: responseData.message || 'Failed to reset password',
+        customClass: {
+          popup: 'swal2-error-dialog'
+        }
+      });
       throw new Error(responseData.message || 'Failed to reset password');
     }
 
-    setIsSuccess(true);
-    setTimeout(() => navigate('/login'), 3000);
+    await Swal.fire({
+      icon: 'success',
+      title: 'Password Reset Successful!',
+      text: 'Your password has been updated successfully. Redirecting to login page...',
+      timer: 3000,
+      timerProgressBar: true,
+      customClass: {
+        popup: 'swal2-success-dialog'
+      }
+    });
+    
+    navigate('/login');
   } catch (error: any) {
     console.error('Reset password error:', error);
-    setError(error.message || 'Failed to reset password. Please try again.');
+    await Swal.fire({
+      icon: 'error',
+      title: 'Reset Failed',
+      text: error.message || 'Failed to reset password. Please try again.',
+      customClass: {
+        popup: 'swal2-error-dialog'
+      }
+    });
   } finally {
     setIsLoading(false);
   }
@@ -116,30 +152,6 @@ const handleSubmit = async (e: React.FormEvent) => {
 
   if (!token) {
     return null;
-  }
-
-  if (isSuccess) {
-    return (
-      <Container component="main" maxWidth="sm">
-        <Box
-          sx={{
-            marginTop: 8,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-          }}
-        >
-          <Paper elevation={3} sx={{ p: 4, mt: 3, width: '100%', textAlign: 'center' }}>
-            <Typography component="h1" variant="h5" gutterBottom>
-              Password Reset Successful!
-            </Typography>
-            <Typography>
-              Your password has been updated successfully. Redirecting to login page...
-            </Typography>
-          </Paper>
-        </Box>
-      </Container>
-    );
   }
 
   return (
@@ -183,11 +195,6 @@ const handleSubmit = async (e: React.FormEvent) => {
             boxShadow: '0 12px 40px 0 rgba(31, 38, 135, 0.45), inset 0 1px 0 0 rgba(255, 255, 255, 0.15)',
           }
         }}>
-          {error && (
-            <Alert severity="error" sx={{ mb: 2 }}>
-              {error}
-            </Alert>
-          )}
           <Box component="form" onSubmit={handleSubmit} noValidate>
             <TextField
               margin="normal"

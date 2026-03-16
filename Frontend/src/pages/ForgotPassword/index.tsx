@@ -8,77 +8,74 @@ import {
   Typography,
   TextField,
   Button,
-  Alert,
   CircularProgress,
   Link,
 } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
+import Swal from 'sweetalert2';
 
 const ForgotPassword = () => {
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [isSuccess, setIsSuccess] = useState(false);
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
 
     if (!email) {
-      setError('Please enter your email address');
+      await Swal.fire({
+        icon: 'error',
+        title: 'Email Required',
+        text: 'Please enter your email address',
+        customClass: {
+          popup: 'swal2-error-dialog'
+        }
+      });
       return;
     }
 
     if (!/\S+@\S+\.\S+/.test(email)) {
-      setError('Please enter a valid email address');
+      await Swal.fire({
+        icon: 'error',
+        title: 'Invalid Email',
+        text: 'Please enter a valid email address',
+        customClass: {
+          popup: 'swal2-error-dialog'
+        }
+      });
       return;
     }
 
     try {
       setIsLoading(true);
       await authApi.forgotPassword(email);
-      setIsSuccess(true);
+      
+      await Swal.fire({
+        icon: 'success',
+        title: 'Reset Email Sent!',
+        html: `We've sent a password reset link to <strong>${email}</strong><br><br>If you don't see the email, check your spam folder or try again.`,
+        confirmButtonText: 'Back to Login',
+        customClass: {
+          popup: 'swal2-success-dialog'
+        }
+      }).then((result) => {
+        if (result.isConfirmed) {
+          navigate('/login');
+        }
+      });
     } catch (error: any) {
-      setError(error.message || 'Failed to send reset email');
+      await Swal.fire({
+        icon: 'error',
+        title: 'Send Failed',
+        text: error.message || 'Failed to send reset email',
+        customClass: {
+          popup: 'swal2-error-dialog'
+        }
+      });
     } finally {
       setIsLoading(false);
     }
   };
-
-  if (isSuccess) {
-    return (
-      <Container component="main" maxWidth="sm">
-        <Box
-          sx={{
-            marginTop: 8,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-          }}
-        >
-          <Paper elevation={3} sx={{ p: 4, mt: 3, width: '100%', textAlign: 'center' }}>
-            <Typography component="h1" variant="h5" gutterBottom>
-              Check Your Email
-            </Typography>
-            <Typography>
-              We've sent a password reset link to <strong>{email}</strong>
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-              If you don't see the email, check your spam folder or try again.
-            </Typography>
-            <Button
-              variant="contained"
-              sx={{ mt: 3 }}
-              onClick={() => navigate('/login')}
-            >
-              Back to Login
-            </Button>
-          </Paper>
-        </Box>
-      </Container>
-    );
-  }
 
   return (
     <Container component="main" maxWidth="xs">
@@ -124,13 +121,6 @@ const ForgotPassword = () => {
           <Typography variant="body1" sx={{ mb: 3 }}>
             Enter your email address and we'll send you a link to reset your password.
           </Typography>
-          
-          {error && (
-            <Alert severity="error" sx={{ mb: 2 }}>
-              {error}
-            </Alert>
-          )}
-          
           <Box component="form" onSubmit={handleSubmit} noValidate>
             <TextField
               margin="normal"

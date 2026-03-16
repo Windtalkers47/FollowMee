@@ -1,0 +1,447 @@
+/* SweetAlert2 Modern Social Media Styles */
+
+/* Base container styles - Ensure proper centering */
+.swal2-container {
+  z-index: 9999 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+.swal2-container-modern {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+}
+
+/* Modern popup styles */
+.swal2-popup-modern {
+  border-radius: 16px !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(255, 255, 255, 0.1) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  background: rgba(255, 255, 255, 0.95) !important;
+  position: relative !important;
+  margin: auto !important;
+  max-width: 90% !important;
+  max-height: 90% !important;
+  overflow: auto !important;
+}
+
+/* Confirm dialog styles */
+.swal2-confirm-dialog {
+  border-radius: 16px !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(255, 255, 255, 0.1) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  background: rgba(255, 255, 255, 0.95) !important;
+  position: relative !important;
+  margin: auto !important;
+  max-width: 90% !important;
+  max-height: 90% !important;
+  overflow: auto !important;
+}
+
+.swal2-confirm-dialog-title {
+  color: #333 !important;
+  font-weight: 600 !important;
+  font-size: 18px !important;
+  margin-bottom: 10px !important;
+}
+
+.swal2-confirm-dialog-content {
+  color: #666 !important;
+  font-size: 14px !important;
+  line-height: 1.5 !important;
+}
+
+.swal2-confirm-dialog-actions {
+  display: flex !important;
+  gap: 10px !important;
+  justify-content: flex-end !important;
+  padding: 15px 0 0 0 !important;
+}
+
+.swal2-confirm-button {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+  color: white !important;
+  border: none !important;
+  border-radius: 8px !important;
+  padding: 10px 20px !important;
+  font-weight: 600 !important;
+  font-size: 14px !important;
+  transition: all 0.3s ease !important;
+}
+
+.swal2-confirm-button:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4) !important;
+}
+
+.swal2-cancel-button {
+  background: #6c757d !important;
+  color: white !important;
+  border: none !important;
+  border-radius: 8px !important;
+  padding: 10px 20px !important;
+  font-weight: 600 !important;
+  font-size: 14px !important;
+  transition: all 0.3s ease !important;
+}
+
+.swal2-cancel-button:hover {
+  background: #5a6268 !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 8px 25px rgba(108, 117, 125, 0.4) !important;
+}
+
+/* Success dialog styles */
+.swal2-success-dialog {
+  border-radius: 16px !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(255, 255, 255, 0.1) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  background: rgba(255, 255, 255, 0.95) !important;
+}
+
+.swal2-success-dialog .swal2-title {
+  color: #28a745 !important;
+  font-weight: 600 !important;
+  font-size: 18px !important;
+}
+
+.swal2-success-dialog .swal2-content {
+  color: #666 !important;
+  font-size: 14px !important;
+  line-height: 1.5 !important;
+}
+
+/* Error dialog styles */
+.swal2-error-dialog {
+  border-radius: 16px !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(255, 255, 255, 0.1) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  background: rgba(255, 255, 255, 0.95) !important;
+}
+
+.swal2-error-dialog .swal2-title {
+  color: #dc3545 !important;
+  font-weight: 600 !important;
+  font-size: 18px !important;
+}
+
+.swal2-error-dialog .swal2-content {
+  color: #666 !important;
+  font-size: 14px !important;
+  line-height: 1.5 !important;
+}
+
+/* Toast container positioning */
+.swal2-container.swal2-toast-shown {
+  display: flex !important;
+  align-items: flex-end !important;
+  justify-content: center !important;
+  padding: 20px !important;
+}
+
+.swal2-container.swal2-toast-shown .swal2-popup {
+  margin: 0 !important;
+  width: auto !important;
+  max-width: 400px !important;
+}
+
+/* Success toast styles */
+.swal2-success-toast {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 8px 32px rgba(102, 126, 234, 0.3) !important;
+}
+
+.swal2-success-toast .swal2-title {
+  color: white !important;
+  font-weight: 600 !important;
+  font-size: 14px !important;
+}
+
+.swal2-success-toast .swal2-content {
+  color: rgba(255, 255, 255, 0.9) !important;
+  font-size: 12px !important;
+}
+
+/* Error toast styles */
+.swal2-error-toast {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 8px 32px rgba(245, 87, 108, 0.3) !important;
+}
+
+.swal2-error-toast .swal2-title {
+  color: white !important;
+  font-weight: 600 !important;
+  font-size: 14px !important;
+}
+
+.swal2-error-toast .swal2-content {
+  color: rgba(255, 255, 255, 0.9) !important;
+  font-size: 12px !important;
+}
+
+/* Warning toast styles */
+.swal2-warning-toast {
+  background: linear-gradient(135deg, #fa709a 0%, #fee140 100%) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 8px 32px rgba(250, 112, 154, 0.3) !important;
+}
+
+.swal2-warning-toast .swal2-title {
+  color: white !important;
+  font-weight: 600 !important;
+  font-size: 14px !important;
+}
+
+.swal2-warning-toast .swal2-content {
+  color: rgba(255, 255, 255, 0.9) !important;
+  font-size: 12px !important;
+}
+
+/* Info toast styles */
+.swal2-info-toast {
+  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 8px 32px rgba(79, 172, 254, 0.3) !important;
+}
+
+.swal2-info-toast .swal2-title {
+  color: white !important;
+  font-weight: 600 !important;
+  font-size: 14px !important;
+}
+
+.swal2-info-toast .swal2-content {
+  color: rgba(255, 255, 255, 0.9) !important;
+  font-size: 12px !important;
+}
+
+/* Confirmation dialog styles */
+.swal2-confirm-dialog {
+  border-radius: 20px !important;
+  backdrop-filter: blur(30px) !important;
+  -webkit-backdrop-filter: blur(30px) !important;
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.2) !important;
+  border: 1px solid rgba(255, 255, 255, 0.3) !important;
+  background: rgba(255, 255, 255, 0.98) !important;
+}
+
+.swal2-confirm-dialog .swal2-title {
+  color: #1a1a1a !important;
+  font-weight: 700 !important;
+  font-size: 20px !important;
+  margin-bottom: 8px !important;
+}
+
+.swal2-confirm-dialog .swal2-content {
+  color: #666 !important;
+  font-size: 15px !important;
+  line-height: 1.5 !important;
+}
+
+.swal2-confirm-button {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+  border-radius: 12px !important;
+  font-weight: 600 !important;
+  padding: 12px 24px !important;
+  border: none !important;
+  transition: all 0.3s ease !important;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3) !important;
+}
+
+.swal2-confirm-button:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4) !important;
+}
+
+.swal2-cancel-button {
+  background: #f8f9fa !important;
+  color: #666 !important;
+  border-radius: 12px !important;
+  font-weight: 600 !important;
+  padding: 12px 24px !important;
+  border: 2px solid #e9ecef !important;
+  transition: all 0.3s ease !important;
+}
+
+.swal2-cancel-button:hover {
+  background: #e9ecef !important;
+  transform: translateY(-2px) !important;
+}
+
+/* Delete dialog styles */
+.swal2-delete-dialog {
+  border-radius: 20px !important;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(248, 249, 250, 0.98)) !important;
+  box-shadow: 0 25px 50px rgba(220, 53, 69, 0.15) !important;
+  border: 1px solid rgba(220, 53, 69, 0.2) !important;
+}
+
+.swal2-delete-dialog .swal2-title {
+  color: #dc3545 !important;
+  font-weight: 700 !important;
+}
+
+/* Loading dialog styles */
+.swal2-loading-dialog {
+  border-radius: 20px !important;
+  backdrop-filter: blur(30px) !important;
+  -webkit-backdrop-filter: blur(30px) !important;
+  background: rgba(255, 255, 255, 0.98) !important;
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.1) !important;
+}
+
+.swal2-loading-dialog .swal2-title {
+  color: #333 !important;
+  font-weight: 600 !important;
+}
+
+/* Input dialog styles */
+.swal2-input-dialog {
+  border-radius: 20px !important;
+  backdrop-filter: blur(30px) !important;
+  -webkit-backdrop-filter: blur(30px) !important;
+  background: rgba(255, 255, 255, 0.98) !important;
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.1) !important;
+}
+
+.swal2-input-dialog .swal2-input {
+  border-radius: 12px !important;
+  border: 2px solid #e9ecef !important;
+  padding: 12px 16px !important;
+  font-size: 15px !important;
+  transition: all 0.3s ease !important;
+}
+
+.swal2-input-dialog .swal2-input:focus {
+  border-color: #667eea !important;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1) !important;
+}
+
+/* Animated success styles */
+.swal2-animated-success {
+  border-radius: 20px !important;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+  box-shadow: 0 25px 50px rgba(102, 126, 234, 0.3) !important;
+}
+
+.swal2-animated-success .swal2-title {
+  color: white !important;
+  font-weight: 700 !important;
+  font-size: 24px !important;
+}
+
+.swal2-animated-success .swal2-content {
+  color: rgba(255, 255, 255, 0.9) !important;
+  font-size: 16px !important;
+}
+
+/* Animated error styles */
+.swal2-animated-error {
+  border-radius: 20px !important;
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%) !important;
+  box-shadow: 0 25px 50px rgba(245, 87, 108, 0.3) !important;
+}
+
+.swal2-animated-error .swal2-title {
+  color: white !important;
+  font-weight: 700 !important;
+  font-size: 24px !important;
+}
+
+.swal2-animated-error .swal2-content {
+  color: rgba(255, 255, 255, 0.9) !important;
+  font-size: 16px !important;
+}
+
+/* Icon styling */
+.swal2-success-toast .swal2-icon,
+.swal2-error-toast .swal2-icon,
+.swal2-warning-toast .swal2-icon,
+.swal2-info-toast .swal2-icon {
+  border-color: rgba(255, 255, 255, 0.3) !important;
+}
+
+.swal2-success-toast .swal2-icon::after,
+.swal2-error-toast .swal2-icon::after,
+.swal2-warning-toast .swal2-icon::after,
+.swal2-info-toast .swal2-icon::after {
+  background-color: rgba(255, 255, 255, 0.9) !important;
+}
+
+/* Progress bar styling */
+.swal2-timer-progress-bar {
+  background: rgba(255, 255, 255, 0.3) !important;
+  border-radius: 0 0 12px 12px !important;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .swal2-popup-modern,
+  .swal2-confirm-dialog,
+  .swal2-delete-dialog,
+  .swal2-loading-dialog,
+  .swal2-input-dialog {
+    margin: 20px !important;
+    width: calc(100% - 40px) !important;
+  }
+  
+  .swal2-confirm-button,
+  .swal2-cancel-button {
+    padding: 10px 20px !important;
+    font-size: 14px !important;
+  }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .swal2-popup-modern {
+    background: rgba(30, 30, 30, 0.95) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  }
+  
+  .swal2-confirm-dialog,
+  .swal2-loading-dialog,
+  .swal2-input-dialog {
+    background: rgba(30, 30, 30, 0.98) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  }
+  
+  .swal2-confirm-dialog .swal2-title,
+  .swal2-loading-dialog .swal2-title,
+  .swal2-input-dialog .swal2-title {
+    color: #fff !important;
+  }
+  
+  .swal2-confirm-dialog .swal2-content,
+  .swal2-loading-dialog .swal2-content,
+  .swal2-input-dialog .swal2-content {
+    color: #ccc !important;
+  }
+  
+  .swal2-cancel-button {
+    background: #404040 !important;
+    color: #fff !important;
+    border-color: #555 !important;
+  }
+  
+  .swal2-cancel-button:hover {
+    background: #555 !important;
+  }
+}

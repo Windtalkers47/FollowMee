@@ -18,8 +18,6 @@ import {
   Tab, 
   Typography, 
   CircularProgress, 
-  Alert, 
-  Snackbar,
   IconButton,
   Card,
   CardContent,
@@ -29,6 +27,7 @@ import {
   InputAdornment,
   TextField
 } from '@mui/material';
+import { showSuccess, showError, showInfo, showDeleteConfirm } from '../../utils/toast';
 import { styled } from '@mui/material/styles';
 import { Link } from 'react-router-dom';
 import { FilterBar } from '@/components/FilterBar';
@@ -178,24 +177,6 @@ const CustomerPage = () => {
   const [formApiError, setFormApiError] = useState<ApiError | null>(null);
   const { notify } = useNotification();
   
-  const [snackbar, setSnackbar] = useState<{
-    open: boolean;
-    message: string | React.ReactNode;
-    severity: 'success' | 'error' | 'info';
-  }>({
-    open: false,
-    message: '',
-    severity: 'info',
-  });
-
-  const showSnackbar = (message: string | React.ReactNode, severity: 'success' | 'error' | 'info') => {
-    setSnackbar({ open: true, message, severity });
-  };
-
-  const handleCloseSnackbar = () => {
-    setSnackbar(prev => ({ ...prev, open: false }));
-  };
-
   const emptyRows = page > 0 ? Math.max(0, (1 + page) * pageSize - customers.length) : 0;
 
   // Filter customers based on tab value
@@ -363,11 +344,8 @@ const CustomerPage = () => {
   }
 
   if (error) {
-    return (
-      <Box p={3}>
-        <Alert severity="error">{error}</Alert>
-      </Box>
-    );
+    showError(error);
+    return null;
   }
 
   return (
@@ -377,17 +355,6 @@ const CustomerPage = () => {
       minHeight: '100vh',
       p: 3
     }}>
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={6000}
-        onClose={handleCloseSnackbar}
-        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-      >
-        <Alert onClose={handleCloseSnackbar} severity={snackbar.severity as any} sx={{ width: '100%' }}>
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
-
       <CustomerForm
         open={isFormOpen}
         onClose={handleCloseForm}
@@ -1242,13 +1209,13 @@ const CustomerPage = () => {
                 };
                 
                 await updateCustomer(selectedMember.customerId, updateData);
-                showSnackbar(`Customer marked as ${status}`, 'success');
+                showSuccess(`Customer marked as ${status}`);
                 refetch(); // Refresh the list to show updated status
                 break;
               }
                 
               case 'report':
-                showSnackbar('Report submitted', 'info');
+                showInfo('Report submitted');
                 break;
                 
               default:
@@ -1256,7 +1223,7 @@ const CustomerPage = () => {
             }
           } catch (error) {
             console.error('Error handling action:', error);
-            showSnackbar('Failed to update customer status', 'error');
+            showError('Failed to update customer status');
           } finally {
             handleActionMenuClose();
           }

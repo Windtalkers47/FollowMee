@@ -13,12 +13,11 @@ import {
   Chip,
   Typography,
   CircularProgress,
-  Alert,
-  Snackbar,
   IconButton,
   Card,
   CardContent,
   useTheme,
+  Tooltip,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -26,8 +25,7 @@ import {
   FormControl,
   InputLabel,
   Select,
-  MenuItem,
-  Tooltip
+  MenuItem
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import {
@@ -37,11 +35,11 @@ import {
   SupervisorAccount as SupervisorIcon,
   Person as PersonIcon,
   Edit as EditIcon,
-  Delete as DeleteIcon,
-  Refresh as RefreshIcon
+  Delete as DeleteIcon
 } from '@mui/icons-material';
 
 import { useUsersManagement, User, Role } from '../../hooks/useUsersManagement';
+import Swal from 'sweetalert2';
 
 // Styled components
 const StyledCard = styled(Card)(({ theme }) => ({
@@ -120,16 +118,6 @@ const UsersPage = () => {
     availableRoles: []
   });
 
-  const [snackbar, setSnackbar] = useState<{
-    open: boolean;
-    message: string;
-    severity: 'success' | 'error' | 'info';
-  }>({
-    open: false,
-    message: '',
-    severity: 'info'
-  });
-
   const handleAssignRoleOpen = useCallback((user: User) => {
     setAssignRoleDialog({
       open: true,
@@ -155,10 +143,13 @@ const UsersPage = () => {
       // Find the role ID from the selected role name
       const selectedRoleObj = roles.find(r => r.roleName === assignRoleDialog.selectedRole);
       if (!selectedRoleObj) {
-        setSnackbar({
-          open: true,
-          message: 'Selected role not found',
-          severity: 'error'
+        await Swal.fire({
+          icon: 'error',
+          title: 'Invalid Role',
+          text: 'The selected role could not be found.',
+          customClass: {
+            popup: 'swal2-error-dialog'
+          }
         });
         return;
       }
@@ -166,33 +157,38 @@ const UsersPage = () => {
       const success = await assignRoleToUser(assignRoleDialog.user.userId, selectedRoleObj.roleId);
 
       if (success) {
-        setSnackbar({
-          open: true,
-          message: `Role "${assignRoleDialog.selectedRole}" assigned successfully`,
-          severity: 'success'
+        await Swal.fire({
+          icon: 'success',
+          title: 'Role Assigned Successfully',
+          text: `Role "${assignRoleDialog.selectedRole.replace('_', ' ')}" has been assigned to ${assignRoleDialog.user.userName} ${assignRoleDialog.user.userLastName}`,
+          customClass: {
+            popup: 'swal2-success-dialog'
+          }
         });
       } else {
-        setSnackbar({
-          open: true,
-          message: 'Failed to assign role',
-          severity: 'error'
+        await Swal.fire({
+          icon: 'error',
+          title: 'Assignment Failed',
+          text: 'Failed to assign the role. Please try again.',
+          customClass: {
+            popup: 'swal2-error-dialog'
+          }
         });
       }
     } catch (error) {
       console.error('Error assigning role:', error);
-      setSnackbar({
-        open: true,
-        message: 'An error occurred while assigning the role',
-        severity: 'error'
+      await Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'An error occurred while assigning the role.',
+        customClass: {
+          popup: 'swal2-error-dialog'
+        }
       });
     }
 
     handleAssignRoleClose();
   }, [assignRoleDialog, roles, assignRoleToUser, handleAssignRoleClose]);
-
-  const handleSnackbarClose = useCallback(() => {
-    setSnackbar(prev => ({ ...prev, open: false }));
-  }, []);
 
   const handleRoleChange = useCallback((role: string) => {
     setAssignRoleDialog(prev => ({
@@ -314,6 +310,18 @@ const UsersPage = () => {
         onClose={handleAssignRoleClose}
         maxWidth="sm"
         fullWidth
+        PaperProps={{
+          sx: {
+            background: theme.palette.mode === 'dark' 
+              ? 'rgba(255, 255, 255, 0.1)' 
+              : 'rgba(255, 255, 255, 0.95)',
+            backdropFilter: 'blur(25px) saturate(200%)',
+            WebkitBackdropFilter: 'blur(25px) saturate(200%)',
+            border: '1px solid rgba(255, 255, 255, 0.2)',
+            boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.37), inset 0 1px 0 0 rgba(255, 255, 255, 0.1)',
+            borderRadius: 4,
+          }
+        }}
       >
         <DialogTitle>
           Manage Roles - {assignRoleDialog.user?.userName} {assignRoleDialog.user?.userLastName}
@@ -366,18 +374,6 @@ const UsersPage = () => {
           </Button>
         </DialogActions>
       </Dialog>
-
-      {/* Snackbar for notifications */}
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={6000}
-        onClose={handleSnackbarClose}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-      >
-        <Alert onClose={handleSnackbarClose} severity={snackbar.severity} sx={{ width: '100%' }}>
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
     </Box>
   );
 };

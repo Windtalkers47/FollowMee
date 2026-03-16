@@ -4,6 +4,7 @@ import { useAppDispatch, useAppSelector } from '../store/store';
 import { ThemeToggle } from '../components/ThemeToggle';
 import { logout, updateUser } from '../store/slices/authSlice';
 import { userApi } from '../api/user.api';
+import { showSuccess, showError, showWarning } from '../utils/toast';
 
 import {
   Box,
@@ -24,15 +25,12 @@ import {
   Badge,
   Menu,
   MenuItem,
-  alpha,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
   TextField,
   Button,
-  Alert,
-  Snackbar,
 } from '@mui/material';
 
 import {
@@ -41,7 +39,6 @@ import {
   Analytics,
   PostAdd,
   Schedule,
-  People,
   Settings,
   Logout,
   Notifications,
@@ -70,7 +67,6 @@ const menuItems = [
   { text: 'Analytics', icon: <Analytics />, path: '/analytics', exact: true },
   { text: 'Posts', icon: <PostAdd />, path: '/posts', exact: true },
   { text: 'Schedule', icon: <Schedule />, path: '/schedule', exact: true },
-  { text: 'Audience', icon: <People />, path: '/audience', exact: true },
   { text: 'Customer', icon: <Group />, path: '/customer', exact: true },
   { text: 'User Management', icon: <PeopleAlt />, path: '/users', exact: true },
   { text: 'Profiles', icon: <AccountCircle />, path: '/customer-profile', exact: false },
@@ -108,11 +104,6 @@ const MainLayout = ({ children }: MainLayoutProps) => {
     userPassword: '',
     confirmPassword: '',
     userImageUrl: currentUser?.userImageUrl || '',
-  });
-  const [snackbar, setSnackbar] = useState({
-    open: false,
-    message: '',
-    severity: 'success' as 'success' | 'error' | 'warning',
   });
 
   const handleDrawerToggle = useCallback(() => setOpen(p => !p), []);
@@ -155,22 +146,14 @@ const MainLayout = ({ children }: MainLayoutProps) => {
   const handleProfileUpdate = useCallback(async () => {
     try {
       if (!currentUser?.userId) {
-        setSnackbar({
-          open: true,
-          message: 'User not found',
-          severity: 'error'
-        });
+        showError('User not found');
         return;
       }
 
       // Only validate passwords if user is trying to change password (typed something)
       if (profileData.userPassword || profileData.confirmPassword) {
         if (profileData.userPassword !== profileData.confirmPassword) {
-          setSnackbar({
-            open: true,
-            message: 'Passwords do not match',
-            severity: 'error'
-          });
+          showError('Passwords do not match');
           return;
         }
       }
@@ -206,15 +189,11 @@ const MainLayout = ({ children }: MainLayoutProps) => {
 
       // Check if anything was actually changed
       if (Object.keys(updateData).length === 0) {
-        setSnackbar({
-          open: true,
-          message: 'No changes to save',
-          severity: 'warning'
-        });
+        showWarning('No changes to save');
         return;
       }
 
-      const updatedUser = await userApi.updateUser(currentUser.userId, updateData);
+      await userApi.updateUser(currentUser.userId, updateData);
 
       // Update Redux state with new user data
       dispatch(updateUser({
@@ -227,47 +206,27 @@ const MainLayout = ({ children }: MainLayoutProps) => {
         userImageUrl: profileData.userImageUrl,
       }));
 
-      setSnackbar({
-        open: true,
-        message: 'Profile updated successfully!',
-        severity: 'success'
-      });
+      showSuccess('Profile updated successfully!');
       handleProfileModalClose();
     } catch (error) {
-      setSnackbar({
-        open: true,
-        message: 'Failed to update profile',
-        severity: 'error'
-      });
+      showError('Failed to update profile');
     }
   }, [currentUser, profileData, dispatch]);
   
   const handleAccountDelete = useCallback(async () => {
     try {
       if (!currentUser?.userId) {
-        setSnackbar({
-          open: true,
-          message: 'User not found',
-          severity: 'error'
-        });
+        showError('User not found');
         return;
       }
 
       await userApi.deleteUser(currentUser.userId);
 
-      setSnackbar({
-        open: true,
-        message: 'Account deleted successfully',
-        severity: 'success'
-      });
+      showSuccess('Account deleted successfully');
       handleDeleteModalClose();
       handleLogout();
     } catch (error) {
-      setSnackbar({
-        open: true,
-        message: 'Failed to delete account',
-        severity: 'error'
-      });
+      showError('Failed to delete account');
     }
   }, [currentUser, handleLogout]);
 
@@ -869,20 +828,6 @@ const MainLayout = ({ children }: MainLayoutProps) => {
           </Button>
         </DialogActions>
       </Dialog>
-
-      {/* Snackbar */}
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={6000}
-        onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
-      >
-        <Alert 
-          severity={snackbar.severity}
-          onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
-        >
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
     </Box>
   );
 };

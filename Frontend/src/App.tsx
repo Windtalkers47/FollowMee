@@ -17,7 +17,6 @@ const DashboardPage = React.lazy(() => import('./pages/Dashboard'));
 const AnalyticsPage = React.lazy(() => import('./pages/Analytics'));
 const PostsPage = React.lazy(() => import('./pages/Posts'));
 const SchedulePage = React.lazy(() => import('./pages/Schedule'));
-const AudiencePage = React.lazy(() => import('./pages/Audience'));
 const CustomerPage = React.lazy(() => import('./pages/Customer'));
 const CustomerProfilePage = React.lazy(() => import('./pages/CustomerProfile/CustomerProfilePage'));
 const UsersPage = React.lazy(() => import('./pages/UsersManagement'));
@@ -185,7 +184,6 @@ const App = () => {
             <Route path="/analytics" element={<AnalyticsPage />} />
             <Route path="/posts" element={<PostsPage />} />
             <Route path="/schedule" element={<SchedulePage />} />
-            <Route path="/audience" element={<AudiencePage />} />
             <Route path="/customer" element={<CustomerPage />} />
             <Route path="/users" element={<UsersPage />} />
             <Route path="/settings" element={<SettingsPage />} />

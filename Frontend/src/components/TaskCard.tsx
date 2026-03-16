@@ -1,10 +1,8 @@
 import React, { useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAppSelector } from '../store/store';
+import { showDeleteConfirm } from '../utils/toast';
 import {
   Card,
-  CardContent,
-  CardActions,
   Typography,
   Box,
   Avatar,
@@ -16,28 +14,20 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  DialogContentText,
   Button,
-  Collapse,
-  Divider,
-  useTheme,
   Stack,
+  Divider,
+  Collapse,
+  useTheme,
 } from '@mui/material';
 import {
   MoreVert as MoreVertIcon,
-  ThumbUp as LikeIcon,
-  Favorite as LoveIcon,
-  SentimentVerySatisfied as LaughIcon,
-  MoodBad as AngryIcon,
-  ThumbDown as DislikeIcon,
-  Comment as CommentIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
-  CheckCircle as DoneIcon,
-  Cancel as CancelIcon,
+  Comment as CommentIcon,
 } from '@mui/icons-material';
 import { format, formatDistanceToNow } from 'date-fns';
-import { Task, TaskLikeSummary, commentApi } from '../../src/api/task.api';
+import { Task, TaskLikeSummary } from '../../src/api/task.api';
 import { CommentTree } from './comments';
 import { useComments } from '../hooks/useComments';
 
@@ -93,12 +83,9 @@ const TaskCard: React.FC<TaskCardProps> = ({
   glassStyle = 'medium',
 }) => {
   const theme = useTheme();
-  const { user } = useAppSelector((state) => state.auth);
-  const queryClient = useQueryClient();
+  const { } = useAppSelector((state) => state.auth);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [showComments, setShowComments] = useState(false);
-  const [commentText, setCommentText] = useState('');
-  const [confirmDelete, setConfirmDelete] = useState(false);
   const [showImagePreview, setShowImagePreview] = useState(false);
 
   // Liquid Glass UI Style Presets
@@ -113,10 +100,10 @@ const TaskCard: React.FC<TaskCardProps> = ({
   const finalBlur = blurIntensity || currentPreset.blur;
   const finalBorderOpacity = showBorders ? (glassOpacity || currentPreset.borderOpacity) : 0;
 
-  // Use new optimized comments hook
-  const { commentTree, isLoading: commentsLoading, refetch: commentsRefetch } = useComments({ 
+  // Use comments hook for comment functionality - always enabled to prevent refetch issues
+  const { commentTree } = useComments({ 
     taskId: task.taskId, 
-    enabled: showComments 
+    enabled: true 
   });
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
@@ -492,7 +479,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
                 }
               }}
             >
-              <LikeIcon fontSize="small" />
+              <span>👍</span>
             </IconButton>
 
             {/* Love Button */}
@@ -525,7 +512,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
                 }
               }}
             >
-              <LoveIcon fontSize="small" />
+              <span>❤️</span>
             </IconButton>
 
             {/* Laugh Button */}
@@ -558,7 +545,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
                 }
               }}
             >
-              <LaughIcon fontSize="small" />
+              <span>😂</span>
             </IconButton>
 
             {/* Angry Button */}
@@ -591,7 +578,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
                 }
               }}
             >
-              <AngryIcon fontSize="small" />
+              <span>😠</span>
             </IconButton>
 
             {/* Dislike Button */}
@@ -624,58 +611,88 @@ const TaskCard: React.FC<TaskCardProps> = ({
                 }
               }}
             >
-              <DislikeIcon fontSize="small" />
+              <span>👎</span>
             </IconButton>
 
-            {/* Comment Button */}
-            <IconButton
-              size="small"
-              onClick={() => setShowComments(!showComments)}
-              sx={{
-                p: 0.5,
-                background: showComments 
-                  ? theme.palette.mode === 'dark'
-                    ? 'rgba(66, 66, 66, 0.2)'
-                    : 'rgba(66, 66, 66, 0.15)'
-                  : theme.palette.mode === 'dark'
-                    ? 'rgba(255, 255, 255, 0.08)'
-                    : 'rgba(255, 255, 255, 0.6)',
-                backdropFilter: 'blur(8px)',
-                WebkitBackdropFilter: 'blur(8px)',
-                border: `1px solid ${theme.palette.mode === 'dark' 
-                  ? 'rgba(66, 66, 66, 0.3)' 
-                  : 'rgba(66, 66, 66, 0.4)'}`,
-                '&:hover': {
+            {/* Glass Comment Button */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <IconButton
+                size="small"
+                onClick={() => setShowComments(!showComments)}
+                sx={{
+                  p: 0.5,
                   background: showComments 
                     ? theme.palette.mode === 'dark'
-                      ? 'rgba(66, 66, 66, 0.3)'
-                      : 'rgba(66, 66, 66, 0.25)'
+                      ? 'rgba(66, 66, 66, 0.2)'
+                      : 'rgba(66, 66, 66, 0.15)'
                     : theme.palette.mode === 'dark'
-                      ? 'rgba(255, 255, 255, 0.12)'
-                      : 'rgba(255, 255, 255, 0.8)',
-                }
-              }}
-            >
-              <CommentIcon fontSize="small" />
-            </IconButton>
+                      ? 'rgba(255, 255, 255, 0.08)'
+                      : 'rgba(255, 255, 255, 0.6)',
+                  backdropFilter: 'blur(8px)',
+                  WebkitBackdropFilter: 'blur(8px)',
+                  border: `1px solid ${theme.palette.mode === 'dark' 
+                    ? 'rgba(66, 66, 66, 0.3)' 
+                    : 'rgba(66, 66, 66, 0.4)'}`,
+                  '&:hover': {
+                    background: showComments 
+                      ? theme.palette.mode === 'dark'
+                        ? 'rgba(66, 66, 66, 0.3)'
+                        : 'rgba(66, 66, 66, 0.25)'
+                      : theme.palette.mode === 'dark'
+                        ? 'rgba(255, 255, 255, 0.12)'
+                        : 'rgba(255, 255, 255, 0.8)',
+                  }
+                }}
+              >
+                <CommentIcon fontSize="small" />
+              </IconButton>
+              {(task._count?.comments || 0) > 0 && (
+                <Typography 
+                  variant="caption" 
+                  sx={{ 
+                    ml: 0.5,
+                    color: theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.8)' : 'rgba(0, 0, 0, 0.6)',
+                    fontWeight: 500,
+                    background: theme.palette.mode === 'dark'
+                      ? 'rgba(255, 255, 255, 0.1)'
+                      : 'rgba(255, 255, 255, 0.7)',
+                    padding: '2px 6px',
+                    borderRadius: 6,
+                    backdropFilter: 'blur(4px)',
+                    WebkitBackdropFilter: 'blur(4px)',
+                    border: `1px solid ${theme.palette.mode === 'dark' 
+                      ? 'rgba(255, 255, 255, 0.2)' 
+                      : 'rgba(255, 255, 255, 0.5)'}`,
+                  }}
+                >
+                  {task._count?.comments || 0}
+                </Typography>
+              )}
+            </Box>
 
-            <Typography 
-              variant="caption" 
-              color="text.secondary" 
-              sx={{ 
-                ml: 0.5,
-                background: theme.palette.mode === 'dark'
-                  ? 'rgba(255, 255, 255, 0.1)'
-                  : 'rgba(255, 255, 255, 0.7)',
-                padding: '2px 6px',
-                borderRadius: 6,
-                backdropFilter: 'blur(4px)',
-                WebkitBackdropFilter: 'blur(4px)',
-                fontSize: '0.7rem',
-              }}
-            >
-              {totalEngagement > 0 && `${totalEngagement}`}
-            </Typography>
+            {/* Glass Engagement Count */}
+            {totalEngagement > 0 && (
+              <Typography 
+                variant="caption" 
+                sx={{ 
+                  color: theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.7)' : 'rgba(0, 0, 0, 0.6)',
+                  fontWeight: 500,
+                  background: theme.palette.mode === 'dark'
+                    ? 'rgba(255, 255, 255, 0.1)'
+                    : 'rgba(255, 255, 255, 0.7)',
+                  padding: '2px 6px',
+                  borderRadius: 6,
+                  backdropFilter: 'blur(4px)',
+                  WebkitBackdropFilter: 'blur(4px)',
+                  border: `1px solid ${theme.palette.mode === 'dark' 
+                    ? 'rgba(255, 255, 255, 0.2)' 
+                    : 'rgba(255, 255, 255, 0.5)'}`,
+                  fontSize: '0.7rem',
+                }}
+              >
+                {totalEngagement}
+              </Typography>
+            )}
 
             <Box flex={1} />
 
@@ -683,7 +700,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
             {canUpdateStatus && task.status !== 'done' && (
               <Button
                 size="small"
-                startIcon={<DoneIcon />}
+                startIcon={<span>✓</span>}
                 onClick={() => onMarkDone?.(task.taskId)}
                 variant="contained"
                 color="success"
@@ -739,7 +756,13 @@ const TaskCard: React.FC<TaskCardProps> = ({
                   </MenuItem>
                 )}
                 {canDelete && (
-                  <MenuItem onClick={() => { setConfirmDelete(true); handleMenuClose(); }}>
+                  <MenuItem onClick={async () => { 
+                    handleMenuClose();
+                    const confirmed = await showDeleteConfirm(`"${task.title}"`);
+                    if (confirmed) {
+                      onDelete?.(task.taskId);
+                    }
+                  }}>
                     <DeleteIcon fontSize="small" sx={{ mr: 1 }} />
                     Delete
                   </MenuItem>
@@ -788,34 +811,6 @@ const TaskCard: React.FC<TaskCardProps> = ({
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setShowImagePreview(false)}>Close</Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Delete Confirmation Dialog */}
-      <Dialog
-        open={confirmDelete}
-        onClose={() => setConfirmDelete(false)}
-      >
-        <DialogTitle>Confirm Delete</DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            Are you sure you want to delete "{task.title}"? This action cannot be undone.
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setConfirmDelete(false)} color="primary">
-            Cancel
-          </Button>
-          <Button
-            onClick={() => {
-              onDelete?.(task.taskId);
-              setConfirmDelete(false);
-            }}
-            color="error"
-            variant="contained"
-          >
-            Delete
-          </Button>
         </DialogActions>
       </Dialog>
     </>

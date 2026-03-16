@@ -1,5 +1,5 @@
 import React from 'react';
-import { Avatar, Typography, IconButton, Box, Button } from '@mui/material';
+import { Avatar, Typography, IconButton, Box, Button, useTheme } from '@mui/material';
 import { Reply as ReplyIcon } from '@mui/icons-material';
 import { format } from 'date-fns';
 import { FlatCommentRow } from '../../utils/flattenCommentTreeForVirtualization';
@@ -11,11 +11,18 @@ interface YouTubeCommentNodeProps {
 
 const YouTubeCommentNode: React.FC<YouTubeCommentNodeProps> = ({ row }) => {
   const { updateReaction, handleReply, handleReplySubmit, handleReplyCancel, handleEditStart, handleDeleteComment, replyingTo, getReplyText, handleReplyTextChange, toggleCollapse, collapsedThreads } = useCommentActionContext();
+  const theme = useTheme();
   
   const { comment } = row;
   const currentUserId = 0; // This should come from auth context
   const isOwner = currentUserId === comment.comment.user?.userId;
   const isEdited = comment.comment.updatedAt && new Date(comment.comment.updatedAt) > new Date(comment.comment.createdAt);
+  
+  // Glass morphism presets
+  const glassOpacity = 0.7;
+  const finalOpacity = glassOpacity;
+  const finalBlur = 20;
+  const finalBorderOpacity = 0.3;
   
   const displayUser = comment.comment.user || { userName: 'Unknown', userLastName: 'User', userId: 0, userImageUrl: undefined };
   const likeCount = comment.comment.reactions?.filter(r => r.reactionType === 'like').length || 0;
@@ -29,25 +36,32 @@ const YouTubeCommentNode: React.FC<YouTubeCommentNodeProps> = ({ row }) => {
         opacity: 1
       }
     }}>
-      {/* YouTube-style comment container */}
+      {/* Glass-style comment container */}
       <Box sx={{ 
         display: 'flex', 
         gap: 1.5,
         py: 1,
         px: 0,
-        transition: 'background-color 0.2s ease',
+        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
         '&:hover': {
-          backgroundColor: 'rgba(0, 0, 0, 0.02)'
+          transform: 'translateX(2px)',
         }
       }}>
-        {/* Avatar */}
+        {/* Glass Avatar */}
         <Avatar 
           src={displayUser?.userImageUrl}
           sx={{ 
             width: 32, 
             height: 32,
             flexShrink: 0,
-            border: '1px solid rgba(0, 0, 0, 0.1)'
+            border: `2px solid ${theme.palette.mode === 'dark' 
+              ? 'rgba(255, 255, 255, 0.3)' 
+              : 'rgba(255, 255, 255, 0.8)'}`,
+            boxShadow: theme.palette.mode === 'dark'
+              ? '0 4px 12px rgba(0, 0, 0, 0.4)'
+              : '0 4px 12px rgba(31, 38, 135, 0.2)',
+            backdropFilter: 'blur(8px)',
+            WebkitBackdropFilter: 'blur(8px)',
           }}
         >
           {displayUser?.userName?.[0]}
@@ -62,7 +76,10 @@ const YouTubeCommentNode: React.FC<YouTubeCommentNodeProps> = ({ row }) => {
               sx={{ 
                 fontSize: '13px', 
                 fontWeight: 600,
-                color: 'text.primary'
+                color: theme.palette.mode === 'dark' ? '#fff' : 'rgba(0, 0, 0, 0.8)',
+                textShadow: theme.palette.mode === 'dark' 
+                  ? '0 1px 2px rgba(0, 0, 0, 0.3)' 
+                  : '0 1px 2px rgba(255, 255, 255, 0.5)',
               }}
             >
               {displayUser.userName} {displayUser.userLastName}
@@ -72,7 +89,7 @@ const YouTubeCommentNode: React.FC<YouTubeCommentNodeProps> = ({ row }) => {
               variant="caption" 
               sx={{ 
                 fontSize: '12px', 
-                color: 'text.secondary',
+                color: theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.7)' : 'rgba(0, 0, 0, 0.6)',
                 ml: 0.5
               }}
             >
@@ -82,42 +99,90 @@ const YouTubeCommentNode: React.FC<YouTubeCommentNodeProps> = ({ row }) => {
           </Box>
 
           {/* Comment text */}
-          <Typography 
-            variant="body2" 
-            sx={{ 
-              fontSize: '14px',
-              lineHeight: 1.5,
-              color: 'text.primary',
-              whiteSpace: 'pre-wrap',
-              wordBreak: 'break-word'
-            }}
-          >
-            {comment.comment.comment}
-          </Typography>
+          <Box sx={{
+            background: theme.palette.mode === 'dark' 
+              ? `rgba(255, 255, 255, ${finalOpacity * 0.08})`
+              : `rgba(255, 255, 255, ${finalOpacity * 0.6})`,
+            backdropFilter: `blur(${finalBlur}px) saturate(180%)`,
+            WebkitBackdropFilter: `blur(${finalBlur}px) saturate(180%)`,
+            border: `1px solid ${theme.palette.mode === 'dark' 
+              ? `rgba(255, 255, 255, ${finalBorderOpacity * 0.15})` 
+              : `rgba(255, 255, 255, ${finalBorderOpacity * 0.4})`}`,
+            borderRadius: 2,
+            p: 1.5,
+            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+            '&:hover': {
+              transform: 'translateY(-1px)',
+              boxShadow: theme.palette.mode === 'dark'
+                ? `0 4px 16px 0 rgba(0, 0, 0, ${0.3 * finalOpacity})`
+                : `0 4px 16px 0 rgba(31, 38, 135, ${0.1 * finalOpacity})`,
+            }
+          }}>
+            <Typography 
+              variant="body2" 
+              sx={{ 
+                fontSize: '14px',
+                lineHeight: 1.5,
+                color: theme.palette.mode === 'dark' ? '#fff' : 'rgba(0, 0, 0, 0.8)',
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-word'
+              }}
+            >
+              {comment.comment.comment}
+            </Typography>
+          </Box>
 
-          {/* Action buttons */}
+          {/* Glass Action buttons */}
           <Box 
             className="comment-actions"
             sx={{ 
               display: 'flex', 
               alignItems: 'center', 
               gap: 1.5,
-              mt: 1,
-              opacity: 0.7,
-              transition: 'opacity 0.2s ease'
+              mt: 1.5,
+              opacity: 0.8,
+              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+              '&:hover': {
+                opacity: 1,
+              }
             }}
           >
-            {/* Like button */}
+            {/* Glass Like button */}
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
               <IconButton
                 size="small"
                 onClick={() => updateReaction(comment.comment.commentId, 'like')}
                 sx={{ 
-                  padding: '4px',
+                  padding: '6px',
                   borderRadius: '50%',
-                  color: comment.comment.reactions?.some(r => r.reactionType === 'like' && r.userId === currentUserId) ? 'primary.main' : 'text.secondary',
+                  background: comment.comment.reactions?.some(r => r.reactionType === 'like' && r.userId === currentUserId)
+                    ? theme.palette.mode === 'dark'
+                      ? 'rgba(25, 118, 210, 0.2)'
+                      : 'rgba(25, 118, 210, 0.15)'
+                    : theme.palette.mode === 'dark'
+                      ? 'rgba(255, 255, 255, 0.1)'
+                      : 'rgba(255, 255, 255, 0.8)',
+                  backdropFilter: 'blur(8px)',
+                  WebkitBackdropFilter: 'blur(8px)',
+                  border: `1px solid ${theme.palette.mode === 'dark' 
+                    ? 'rgba(255, 255, 255, 0.2)' 
+                    : 'rgba(255, 255, 255, 0.7)'}`,
+                  color: comment.comment.reactions?.some(r => r.reactionType === 'like' && r.userId === currentUserId) 
+                    ? 'primary.main' 
+                    : theme.palette.mode === 'dark' ? '#fff' : 'rgba(0, 0, 0, 0.6)',
+                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                   '&:hover': {
-                    backgroundColor: 'rgba(0, 0, 0, 0.04)'
+                    transform: 'scale(1.1)',
+                    background: comment.comment.reactions?.some(r => r.reactionType === 'like' && r.userId === currentUserId)
+                      ? theme.palette.mode === 'dark'
+                        ? 'rgba(25, 118, 210, 0.3)'
+                        : 'rgba(25, 118, 210, 0.25)'
+                      : theme.palette.mode === 'dark'
+                        ? 'rgba(255, 255, 255, 0.2)'
+                        : 'rgba(255, 255, 255, 0.9)',
+                    boxShadow: theme.palette.mode === 'dark'
+                      ? '0 4px 12px rgba(0, 0, 0, 0.3)'
+                      : '0 4px 12px rgba(31, 38, 135, 0.2)',
                   }
                 }}
               >
@@ -128,8 +193,16 @@ const YouTubeCommentNode: React.FC<YouTubeCommentNodeProps> = ({ row }) => {
                   variant="caption" 
                   sx={{ 
                     fontSize: '12px',
-                    color: 'text.secondary',
-                    fontWeight: 500
+                    color: theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.8)' : 'rgba(0, 0, 0, 0.6)',
+                    fontWeight: 500,
+                    background: theme.palette.mode === 'dark'
+                      ? 'rgba(255, 255, 255, 0.1)'
+                      : 'rgba(255, 255, 255, 0.8)',
+                    px: 1,
+                    py: 0.25,
+                    borderRadius: 1,
+                    backdropFilter: 'blur(4px)',
+                    WebkitBackdropFilter: 'blur(4px)',
                   }}
                 >
                   {likeCount}

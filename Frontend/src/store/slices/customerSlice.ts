@@ -1,6 +1,7 @@
 import { createAsyncThunk, createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { Customer, CustomerData, CustomerStatus } from '../../types/customer.types';
 import customerApi from '../../services/api/customerApi';
+import type { RootState } from '../store';
 
 /* ============================
    State
@@ -92,7 +93,8 @@ export const fetchCustomers = createAsyncThunk(
   async (params: FetchCustomersParams = {}, { getState, dispatch, rejectWithValue }) => {
     dispatch(fetchStatusStats());
     try {
-      const { customer } = getState() as { customer: CustomerState };
+      const state = getState() as RootState;
+      const customer = state.customer;
 
       const page = params.page ?? customer.page;
       const limit = params.limit ?? customer.pageSize;
@@ -224,7 +226,7 @@ const customerSlice = createSlice({
       .addCase(fetchStatusStats.fulfilled, (state, action) => {
         state.statusStats = action.payload;
       })
-      .addCase(fetchStatusStats.rejected, (state, action) => {
+      .addCase(fetchStatusStats.rejected, (state, _action) => {
         state.statusStats = {
           statuses: [
             { status: 'active', count: 0 },

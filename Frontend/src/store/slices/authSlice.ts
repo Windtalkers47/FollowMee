@@ -1,7 +1,6 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import authApi from '../../api/auth.api';
 import type { LoginResponse, ApiResponse } from '../../types/api.types';
-import type { RootState } from '../store';
 
 /* =====================
    Types
@@ -175,11 +174,11 @@ export default authSlice.reducer;
 /* =====================
    Selectors (FIXED)
 ===================== */
-export const selectCurrentUser = (state: RootState) => state.auth.user;
-export const selectIsAuthenticated = (state: RootState) =>
+export const selectCurrentUser = (state: { auth: AuthState }) => state.auth.user;
+export const selectIsAuthenticated = (state: { auth: AuthState }) =>
   state.auth.isAuthenticated;
-export const selectAuthLoading = (state: RootState) => state.auth.loading;
-export const selectAuthError = (state: RootState) => state.auth.error;
+export const selectAuthLoading = (state: { auth: AuthState }) => state.auth.loading;
+export const selectAuthError = (state: { auth: AuthState }) => state.auth.error;
 export const selectLastActivity = (state: { auth: AuthState }) =>
   state.auth.lastActivity;
 export const selectCheckingSession = (state: { auth: AuthState }) =>

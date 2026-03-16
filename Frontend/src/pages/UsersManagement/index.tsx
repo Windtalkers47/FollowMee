@@ -30,7 +30,6 @@ import {
 import { styled } from '@mui/material/styles';
 import {
   PersonAdd as PersonAddIcon,
-  MoreHoriz as MoreHorizIcon,
   AdminPanelSettings as AdminIcon,
   SupervisorAccount as SupervisorIcon,
   Person as PersonIcon,
@@ -103,7 +102,8 @@ const UsersPage = () => {
     error,
     fetchUsers,
     assignRoleToUser,
-    removeRoleFromUser
+    removeRoleFromUser,
+    deleteUser
   } = useUsersManagement();
 
   const [assignRoleDialog, setAssignRoleDialog] = useState<{
@@ -196,6 +196,43 @@ const UsersPage = () => {
       selectedRole: role
     }));
   }, []);
+
+  const handleDeleteUser = useCallback(async (user: User) => {
+    const result = await Swal.fire({
+      title: 'Are you sure?',
+      text: `You are about to delete ${user.userName} ${user.userLastName || ''}. This action cannot be undone!`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Yes, delete user!',
+      cancelButtonText: 'Cancel',
+      confirmButtonColor: '#dc3545',
+      cancelButtonColor: '#6c757d',
+      reverseButtons: true,
+    });
+
+    if (result.isConfirmed) {
+      try {
+        const success = await deleteUser(user.userId);
+        if (success) {
+          await Swal.fire({
+            icon: 'success',
+            title: 'User Deleted!',
+            text: `${user.userName} has been successfully deleted.`,
+            timer: 2000,
+            timerProgressBar: true,
+            showConfirmButton: false,
+          });
+        }
+      } catch (error) {
+        await Swal.fire({
+          icon: 'error',
+          title: 'Deletion Failed',
+          text: 'Failed to delete the user. Please try again.',
+          confirmButtonColor: '#dc3545',
+        });
+      }
+    }
+  }, [deleteUser]);
 
   if (loading) {
     return (
@@ -290,9 +327,19 @@ const UsersPage = () => {
                           <EditIcon fontSize="small" />
                         </IconButton>
                       </Tooltip>
-                      <Tooltip title="More Actions">
-                        <IconButton size="small">
-                          <MoreHorizIcon fontSize="small" />
+                      <Tooltip title="Delete User">
+                        <IconButton
+                          size="small"
+                          onClick={() => handleDeleteUser(user)}
+                          sx={{
+                            color: 'error.main',
+                            '&:hover': {
+                              bgcolor: 'error.light',
+                              color: 'error.dark',
+                            },
+                          }}
+                        >
+                          <DeleteIcon fontSize="small" />
                         </IconButton>
                       </Tooltip>
                     </TableCell>

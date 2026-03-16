@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { userApi } from '../api/user.api';
 
 export interface User {
   userId: number;
@@ -188,6 +189,19 @@ export const useUsersManagement = () => {
     }
   };
 
+  const deleteUser = useCallback(async (userId: number): Promise<boolean> => {
+    try {
+      await userApi.deleteUser(userId);
+      await fetchUsers(); // Refresh the users list
+      return true;
+    } catch (err) {
+      console.error('Error deleting user:', err);
+      const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
+      setError(errorMessage);
+      return false;
+    }
+  }, [fetchUsers]);
+
   useEffect(() => {
     fetchUsers();
     fetchRoles();
@@ -203,5 +217,6 @@ export const useUsersManagement = () => {
     fetchRoles,
     assignRoleToUser,
     removeRoleFromUser,
+    deleteUser,
   };
 };

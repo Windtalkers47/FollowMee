@@ -4,7 +4,7 @@ import { useAppDispatch, useAppSelector } from '../store/store';
 import { ThemeToggle } from '../components/ThemeToggle';
 import { logout, updateUser } from '../store/slices/authSlice';
 import { userApi } from '../api/user.api';
-import { showSuccess, showError, showWarning } from '../utils/toast';
+import Swal from 'sweetalert2';
 
 import {
   Box,
@@ -146,14 +146,24 @@ const MainLayout = ({ children }: MainLayoutProps) => {
   const handleProfileUpdate = useCallback(async () => {
     try {
       if (!currentUser?.userId) {
-        showError('User not found');
+        await Swal.fire({
+          icon: 'error',
+          title: 'User not found',
+          text: 'Please try again or contact support.',
+          confirmButtonColor: '#d33',
+        });
         return;
       }
 
       // Only validate passwords if user is trying to change password (typed something)
       if (profileData.userPassword || profileData.confirmPassword) {
         if (profileData.userPassword !== profileData.confirmPassword) {
-          showError('Passwords do not match');
+          await Swal.fire({
+            icon: 'error',
+            title: 'Password Mismatch',
+            text: 'The passwords you entered do not match. Please try again.',
+            confirmButtonColor: '#d33',
+          });
           return;
         }
       }
@@ -189,7 +199,12 @@ const MainLayout = ({ children }: MainLayoutProps) => {
 
       // Check if anything was actually changed
       if (Object.keys(updateData).length === 0) {
-        showWarning('No changes to save');
+        await Swal.fire({
+        icon: 'warning',
+        title: 'No Changes',
+        text: 'No changes were made to your profile.',
+        confirmButtonColor: '#3085d6',
+      });
         return;
       }
 
@@ -206,27 +221,56 @@ const MainLayout = ({ children }: MainLayoutProps) => {
         userImageUrl: profileData.userImageUrl,
       }));
 
-      showSuccess('Profile updated successfully!');
+      await Swal.fire({
+        icon: 'success',
+        title: 'Profile Updated!',
+        text: 'Your profile has been successfully updated.',
+        timer: 2000,
+        timerProgressBar: true,
+        showConfirmButton: false,
+      });
       handleProfileModalClose();
     } catch (error) {
-      showError('Failed to update profile');
+      await Swal.fire({
+        icon: 'error',
+        title: 'Update Failed',
+        text: 'Failed to update your profile. Please try again.',
+        confirmButtonColor: '#d33',
+      });
     }
   }, [currentUser, profileData, dispatch]);
   
   const handleAccountDelete = useCallback(async () => {
     try {
       if (!currentUser?.userId) {
-        showError('User not found');
+        await Swal.fire({
+          icon: 'error',
+          title: 'User not found',
+          text: 'Please try again or contact support.',
+          confirmButtonColor: '#d33',
+        });
         return;
       }
 
       await userApi.deleteUser(currentUser.userId);
 
-      showSuccess('Account deleted successfully');
+      await Swal.fire({
+        icon: 'success',
+        title: 'Account Deleted!',
+        text: 'Your account has been successfully deleted.',
+        timer: 2000,
+        timerProgressBar: true,
+        showConfirmButton: false,
+      });
       handleDeleteModalClose();
       handleLogout();
     } catch (error) {
-      showError('Failed to delete account');
+      await Swal.fire({
+        icon: 'error',
+        title: 'Deletion Failed',
+        text: 'Failed to delete your account. Please try again.',
+        confirmButtonColor: '#d33',
+      });
     }
   }, [currentUser, handleLogout]);
 

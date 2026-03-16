@@ -5,7 +5,6 @@ import { useAppDispatch, useAppSelector } from './store/store';
 import { restoreSession, clearAuth } from './store/slices/authSlice';
 import MainLayout from './layouts/MainLayout';
 import { API_BASE_URL } from './api/config';
-import { NotificationProvider } from './contexts/Notification';
 
 // Lazy load pages
 const LandingPage = React.lazy(() => import('./pages/Landing'));
@@ -135,10 +134,9 @@ const App = () => {
           }
         `}
       </style>
-      <NotificationProvider>
-        <Box sx={{ minHeight: '100vh' }}>
-          <Suspense fallback={<LoadingSpinner />}>
-            <Routes location={location}>
+      <Box sx={{ minHeight: '100vh' }}>
+        <Suspense fallback={<LoadingSpinner />}>
+          <Routes location={location}>
           {/* Public */}
           <Route index element={<LandingPage />} />
           <Route
@@ -208,7 +206,6 @@ const App = () => {
         </Routes>
       </Suspense>
     </Box>
-    </NotificationProvider>
     </>
   );
 };

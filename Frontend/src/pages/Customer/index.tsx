@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { 
   Box, 
   Button, 
@@ -27,7 +27,7 @@ import {
   InputAdornment,
   TextField
 } from '@mui/material';
-import { showSuccess, showError, showInfo, showDeleteConfirm } from '../../utils/toast';
+import Swal from 'sweetalert2';
 import { styled } from '@mui/material/styles';
 import { Link } from 'react-router-dom';
 import { FilterBar } from '@/components/FilterBar';
@@ -63,7 +63,6 @@ import FilterMenu from '../../components/customers/FilterMenu';
 import AddCustomerMenu from '../../components/customers/AddCustomerMenu';
 import CustomerForm from '@/components/customers/CustomerForm';
 import ActionMenu from '@/components/ActionMenu';
-import { useNotification } from '../../contexts/Notification';
 
 interface Customer extends CustomerType {
   // All properties are now inherited from CustomerType
@@ -175,7 +174,6 @@ const CustomerPage = () => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [formApiError, setFormApiError] = useState<ApiError | null>(null);
-  const { notify } = useNotification();
   
   const emptyRows = page > 0 ? Math.max(0, (1 + page) * pageSize - customers.length) : 0;
 
@@ -307,12 +305,24 @@ const CustomerPage = () => {
             message: result.message,
           });
         } else {
-          notify(result.message || 'An error occurred', 'error');
+          await Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: result.message || 'An error occurred',
+            confirmButtonColor: '#d33',
+          });
         }
         return;
       }
   
-      notify('Customer saved successfully', 'success');
+      await Swal.fire({
+        icon: 'success',
+        title: 'Success!',
+        text: 'Customer saved successfully',
+        timer: 2000,
+        timerProgressBar: true,
+        showConfirmButton: false,
+      });
       setIsFormOpen(false);
       setEditingCustomer(null);
       refetch();
@@ -327,7 +337,12 @@ const CustomerPage = () => {
           message: message,
         });
       } else {
-        notify(message, 'error');
+        await Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: message,
+          confirmButtonColor: '#d33',
+        });
       }
     }
   };
@@ -335,17 +350,27 @@ const CustomerPage = () => {
 
   const isSelected = (id: string) => selected.includes(id);
 
+  // Handle error display with SweetAlert2
+  useEffect(() => {
+    if (error) {
+      const showError = async () => {
+        await Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: error,
+          confirmButtonColor: '#d33',
+        });
+      };
+      showError();
+    }
+  }, [error]);
+
   if (loading && customers.length === 0) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" height="80vh">
         <CircularProgress />
       </Box>
     );
-  }
-
-  if (error) {
-    showError(error);
-    return null;
   }
 
   return (
@@ -1209,13 +1234,27 @@ const CustomerPage = () => {
                 };
                 
                 await updateCustomer(selectedMember.customerId, updateData);
-                showSuccess(`Customer marked as ${status}`);
+                await Swal.fire({
+                  icon: 'success',
+                  title: 'Status Updated',
+                  text: `Customer marked as ${status}`,
+                  timer: 2000,
+                  timerProgressBar: true,
+                  showConfirmButton: false,
+                });
                 refetch(); // Refresh the list to show updated status
                 break;
               }
                 
               case 'report':
-                showInfo('Report submitted');
+                await Swal.fire({
+                  icon: 'info',
+                  title: 'Report Submitted',
+                  text: 'The report has been submitted successfully.',
+                  timer: 2000,
+                  timerProgressBar: true,
+                  showConfirmButton: false,
+                });
                 break;
                 
               default:
@@ -1223,7 +1262,12 @@ const CustomerPage = () => {
             }
           } catch (error) {
             console.error('Error handling action:', error);
-            showError('Failed to update customer status');
+            await Swal.fire({
+              icon: 'error',
+              title: 'Update Failed',
+              text: 'Failed to update customer status',
+              confirmButtonColor: '#d33',
+            });
           } finally {
             handleActionMenuClose();
           }

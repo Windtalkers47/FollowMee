@@ -55,7 +55,9 @@ import {
   LocationOn as LocationIcon,
   CalendarToday as CalendarIcon,
   MoreHoriz as MoreHorizIcon,
-  CheckCircle as VerifiedIcon
+  CheckCircle as VerifiedIcon,
+  PauseCircleOutline as PauseCircleOutlineIcon,
+  Cancel as CancelIcon
 } from '@mui/icons-material';
 
 import { useCustomers } from '../../hooks/useCustomers';
@@ -768,6 +770,233 @@ const CustomerPage = () => {
           </Tabs>
         </Box>
 
+      {/* Bulk Actions Bar */}
+      {selected.length > 0 && (
+        <Paper 
+          sx={{ 
+            p: 2, 
+            mb: 2, 
+            borderRadius: 2, 
+            background: theme.palette.primary.main,
+            color: 'white',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            animation: 'slideDown 0.3s ease',
+            position: 'sticky',
+            top: 0,
+            zIndex: 1000,
+            boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+          }}
+        >
+          <Typography variant="body1" sx={{ fontWeight: 500 }}>
+            {selected.length} {selected.length === 1 ? 'customer' : 'customers'} selected
+          </Typography>
+          <Box display="flex" gap={1}>
+            <Button 
+              size="small" 
+              variant="contained"
+              startIcon={<CheckCircleIcon />}
+              sx={{ 
+                bgcolor: '#28a745', 
+                color: 'white',
+                fontWeight: 600,
+                px: 2,
+                '&:hover': { 
+                  bgcolor: '#218838',
+                  transform: 'translateY(-1px)',
+                  boxShadow: '0 4px 8px rgba(40, 167, 69, 0.3)'
+                }
+              }}
+              onClick={async () => {
+                const result = await Swal.fire({
+                  title: 'Mark as Active',
+                  text: `Are you sure you want to mark ${selected.length} customer(s) as active?`,
+                  icon: 'question',
+                  showCancelButton: true,
+                  confirmButtonColor: '#28a745',
+                  cancelButtonColor: '#6c757d',
+                  confirmButtonText: 'Yes, mark as active'
+                });
+                
+                if (result.isConfirmed) {
+                  try {
+                    for (const customerId of selected) {
+                      const customer = customers.find(c => c.customerId === customerId);
+                      if (customer) {
+                        await updateCustomer(customerId, {
+                          ...customer,
+                          status: 'active',
+                          isActive: true
+                        });
+                      }
+                    }
+                    await Swal.fire({
+                      icon: 'success',
+                      title: 'Success',
+                      text: `${selected.length} customer(s) marked as active`,
+                      timer: 2000,
+                      timerProgressBar: true,
+                      showConfirmButton: false
+                    });
+                    setSelected([]);
+                    refetch();
+                  } catch (error) {
+                    await Swal.fire({
+                      icon: 'error',
+                      title: 'Error',
+                      text: 'Failed to update customers',
+                      confirmButtonColor: '#d33'
+                    });
+                  }
+                }
+              }}
+            >
+              Mark Active
+            </Button>
+            <Button 
+              size="small" 
+              variant="contained"
+              startIcon={<PauseCircleOutlineIcon />}
+              sx={{ 
+                bgcolor: '#ffc107', 
+                color: '#212529',
+                fontWeight: 600,
+                px: 2,
+                '&:hover': { 
+                  bgcolor: '#e0a800',
+                  transform: 'translateY(-1px)',
+                  boxShadow: '0 4px 8px rgba(255, 193, 7, 0.3)'
+                }
+              }}
+              onClick={async () => {
+                const result = await Swal.fire({
+                  title: 'Mark as Inactive',
+                  text: `Are you sure you want to mark ${selected.length} customer(s) as inactive?`,
+                  icon: 'question',
+                  showCancelButton: true,
+                  confirmButtonColor: '#ffc107',
+                  cancelButtonColor: '#6c757d',
+                  confirmButtonText: 'Yes, mark as inactive'
+                });
+                
+                if (result.isConfirmed) {
+                  try {
+                    for (const customerId of selected) {
+                      const customer = customers.find(c => c.customerId === customerId);
+                      if (customer) {
+                        await updateCustomer(customerId, {
+                          ...customer,
+                          status: 'inactive',
+                          isActive: false
+                        });
+                      }
+                    }
+                    await Swal.fire({
+                      icon: 'success',
+                      title: 'Success',
+                      text: `${selected.length} customer(s) marked as inactive`,
+                      timer: 2000,
+                      timerProgressBar: true,
+                      showConfirmButton: false
+                    });
+                    setSelected([]);
+                    refetch();
+                  } catch (error) {
+                    await Swal.fire({
+                      icon: 'error',
+                      title: 'Error',
+                      text: 'Failed to update customers',
+                      confirmButtonColor: '#d33'
+                    });
+                  }
+                }
+              }}
+            >
+              Mark Inactive
+            </Button>
+            <Button 
+              size="small" 
+              variant="contained"
+              startIcon={<CancelIcon />}
+              sx={{ 
+                bgcolor: '#dc3545', 
+                color: 'white',
+                fontWeight: 600,
+                px: 2,
+                '&:hover': { 
+                  bgcolor: '#c82333',
+                  transform: 'translateY(-1px)',
+                  boxShadow: '0 4px 8px rgba(220, 53, 69, 0.3)'
+                }
+              }}
+              onClick={async () => {
+                const result = await Swal.fire({
+                  title: 'Mark as Canceled',
+                  text: `Are you sure you want to mark ${selected.length} customer(s) as canceled?`,
+                  icon: 'warning',
+                  showCancelButton: true,
+                  confirmButtonColor: '#dc3545',
+                  cancelButtonColor: '#6c757d',
+                  confirmButtonText: 'Yes, mark as canceled'
+                });
+                
+                if (result.isConfirmed) {
+                  try {
+                    for (const customerId of selected) {
+                      const customer = customers.find(c => c.customerId === customerId);
+                      if (customer) {
+                        await updateCustomer(customerId, {
+                          ...customer,
+                          status: 'canceled',
+                          isActive: false
+                        });
+                      }
+                    }
+                    await Swal.fire({
+                      icon: 'success',
+                      title: 'Success',
+                      text: `${selected.length} customer(s) marked as canceled`,
+                      timer: 2000,
+                      timerProgressBar: true,
+                      showConfirmButton: false
+                    });
+                    setSelected([]);
+                    refetch();
+                  } catch (error) {
+                    await Swal.fire({
+                      icon: 'error',
+                      title: 'Error',
+                      text: 'Failed to update customers',
+                      confirmButtonColor: '#d33'
+                    });
+                  }
+                }
+              }}
+            >
+              Mark Canceled
+            </Button>
+            <Button 
+              size="small" 
+              variant="text" 
+              sx={{ 
+                color: 'white',
+                borderColor: 'rgba(255,255,255,0.5)',
+                borderWidth: 1,
+                borderStyle: 'solid',
+                '&:hover': { 
+                  bgcolor: 'rgba(255,255,255,0.1)',
+                  borderColor: 'white'
+                }
+              }}
+              onClick={() => setSelected([])}
+            >
+              Clear Selection
+            </Button>
+          </Box>
+        </Paper>
+      )}
+
       {/* Customer List */}
       <Card sx={{ borderRadius: 3, overflow: 'hidden', boxShadow: '0 2px 10px rgba(0,0,0,0.04)' }}>
         <TableContainer>
@@ -987,111 +1216,6 @@ const CustomerPage = () => {
                         </Box>
                       </TableCell>
                       <TableCell>
-                        <Box 
-                          display="flex" 
-                          gap={1} 
-                          minHeight={40}
-                          alignItems="center"
-                        >
-                          {customer.customerFacebook && (
-                            <Tooltip title="Facebook" arrow>
-                              <IconButton
-                                size="small"
-                                href={customer.customerFacebook}
-                                target="_blank"
-                                onClick={(e) => e.stopPropagation()}
-                                sx={{
-                                  bgcolor: '#1877F2',
-                                  color: 'white',
-                                  '&:hover': { bgcolor: '#166FE5' },
-                                  width: 28,
-                                  height: 28
-                                }}
-                              >
-                                <FacebookIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                          )}
-                          {customer.customerInstagram && (
-                            <Tooltip title="Instagram" arrow>
-                              <IconButton
-                                size="small"
-                                href={customer.customerInstagram}
-                                target="_blank"
-                                onClick={(e) => e.stopPropagation()}
-                                sx={{
-                                  background: 'radial-gradient(circle at 30% 107%, #fdf497 0%, #fdf497 5%, #fd5949 45%,#d6249f 60%,#285AEB 90%)',
-                                  color: 'white',
-                                  '&:hover': { opacity: 0.9 },
-                                  width: 28,
-                                  height: 28
-                                }}
-                              >
-                                <InstagramIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                          )}
-                          {customer.customerTikTok && (
-                            <Tooltip title="TikTok" arrow>
-                              <IconButton
-                                size="small"
-                                href={customer.customerTikTok}
-                                target="_blank"
-                                onClick={(e) => e.stopPropagation()}
-                                sx={{
-                                  bgcolor: '#000000',
-                                  color: 'white',
-                                  '&:hover': { bgcolor: '#333333' },
-                                  width: 28,
-                                  height: 28
-                                }}
-                              >
-                                <MusicNoteIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                          )}
-                          {customer.customerLine && (
-                            <Tooltip title="Line" arrow>
-                              <IconButton
-                                size="small"
-                                href={`https://line.me/ti/p/${customer.customerLine}`}
-                                target="_blank"
-                                onClick={(e) => e.stopPropagation()}
-                                sx={{
-                                  bgcolor: '#06C755',
-                                  color: 'white',
-                                  '&:hover': { bgcolor: '#05a548' },
-                                  width: 28,
-                                  height: 28
-                                }}
-                              >
-                                <MessageIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                          )}
-                          {customer.customerX && (
-                            <Tooltip title="X (Twitter)" arrow>
-                              <IconButton
-                                size="small"
-                                href={customer.customerX}
-                                target="_blank"
-                                onClick={(e) => e.stopPropagation()}
-                                sx={{
-                                  bgcolor: '#000000',
-                                  color: 'white',
-                                  '&:hover': { bgcolor: '#333333' },
-                                  width: 28,
-                                  height: 28
-                                }}
-                              >
-                                <TwitterIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                          )}
-                        </Box>
-
-                      </TableCell>
-                      <TableCell>
                         <Box display="flex" alignItems="center" gap={1}>
                           {customer.customerPhone1 ? (
                             <>
@@ -1139,6 +1263,8 @@ const CustomerPage = () => {
                           sx={{
                             display: 'flex',
                             justifyContent: 'flex-end',
+                            alignItems: 'center',
+                            gap: 0.5,
                             opacity: 0,
                             visibility: 'hidden',
                             transition: 'all 0.2s ease',
@@ -1148,6 +1274,104 @@ const CustomerPage = () => {
                             },
                           }}
                         >
+                          {/* Social Media Icons */}
+                          {customer.customerFacebook && (
+                            <Tooltip title="Facebook" arrow>
+                              <IconButton
+                                size="small"
+                                href={customer.customerFacebook}
+                                target="_blank"
+                                onClick={(e) => e.stopPropagation()}
+                                sx={{
+                                  bgcolor: '#1877F2',
+                                  color: 'white',
+                                  '&:hover': { bgcolor: '#166FE5' },
+                                  width: 24,
+                                  height: 24
+                                }}
+                              >
+                                <FacebookIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          )}
+                          {customer.customerInstagram && (
+                            <Tooltip title="Instagram" arrow>
+                              <IconButton
+                                size="small"
+                                href={customer.customerInstagram}
+                                target="_blank"
+                                onClick={(e) => e.stopPropagation()}
+                                sx={{
+                                  background: 'radial-gradient(circle at 30% 107%, #fdf497 0%, #fdf497 5%, #fd5949 45%,#d6249f 60%,#285AEB 90%)',
+                                  color: 'white',
+                                  '&:hover': { opacity: 0.9 },
+                                  width: 24,
+                                  height: 24
+                                }}
+                              >
+                                <InstagramIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          )}
+                          {customer.customerTikTok && (
+                            <Tooltip title="TikTok" arrow>
+                              <IconButton
+                                size="small"
+                                href={customer.customerTikTok}
+                                target="_blank"
+                                onClick={(e) => e.stopPropagation()}
+                                sx={{
+                                  bgcolor: '#000000',
+                                  color: 'white',
+                                  '&:hover': { bgcolor: '#333333' },
+                                  width: 24,
+                                  height: 24
+                                }}
+                              >
+                                <MusicNoteIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          )}
+                          {customer.customerLine && (
+                            <Tooltip title="Line" arrow>
+                              <IconButton
+                                size="small"
+                                href={`https://line.me/ti/p/${customer.customerLine}`}
+                                target="_blank"
+                                onClick={(e) => e.stopPropagation()}
+                                sx={{
+                                  bgcolor: '#06C755',
+                                  color: 'white',
+                                  '&:hover': { bgcolor: '#05a548' },
+                                  width: 24,
+                                  height: 24
+                                }}
+                              >
+                                <MessageIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          )}
+                          {customer.customerX && (
+                            <Tooltip title="X (Twitter)" arrow>
+                              <IconButton
+                                size="small"
+                                href={customer.customerX}
+                                target="_blank"
+                                onClick={(e) => e.stopPropagation()}
+                                sx={{
+                                  bgcolor: '#000000',
+                                  color: 'white',
+                                  '&:hover': { bgcolor: '#333333' },
+                                  width: 24,
+                                  height: 24
+                                }}
+                              >
+                                <TwitterIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          )}
+                          
+                          {/* More Actions Menu */}
                           <Tooltip title="More actions">
                             <IconButton 
                               size="small"
@@ -1178,13 +1402,15 @@ const CustomerPage = () => {
           </Table>
         </TableContainer>
         <TablePagination
-          rowsPerPageOptions={[5, 10, 25]}
+          rowsPerPageOptions={[10, 25, 50, 100]}
           component="div"
           count={total}
           rowsPerPage={pageSize}
           page={page - 1}
           onPageChange={handlePageChangeEvent}
           onRowsPerPageChange={handleChangeRowsPerPage}
+          labelRowsPerPage="Rows per page:"
+          labelDisplayedRows={({ from, to, count }) => `${from}-${to} of ${count}`}
         />
       </Card>
 

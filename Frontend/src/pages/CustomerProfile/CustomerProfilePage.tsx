@@ -33,6 +33,7 @@ import {
   Share as ShareIcon,
 } from '@mui/icons-material';
 import { toPng } from 'html-to-image';
+import Swal from 'sweetalert2';
 import CustomerProfileSearch from '@/components/CustomerProfileSearch';
 
 import customerApi from '@/services/api/customerApi';
@@ -81,7 +82,22 @@ const CustomerProfilePage: React.FC = () => {
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [profileUrl, setProfileUrl] = useState('');
+  const [selectedGradient, setSelectedGradient] = useState(0); // Default to first gradient
   const profileRef = useRef<HTMLDivElement>(null);
+
+  // Predefined gradient presets
+  const gradientPresets = [
+    { name: 'Pink Peach', colors: ['#fbc2eb', '#fcd5ce'] }, // Default
+    { name: 'Ocean Blue', colors: ['#6366f1', '#8b5cf6', '#d946ef'] },
+    { name: 'Sunset', colors: ['#ff512f', '#dd2476'] },
+    { name: 'Warm Light', colors: ['#dbeafe', '#e0f2fe'] },
+    { name: 'Fresh Green', colors: ['#d1fae5', '#ecfdf5'] },
+    { name: 'Light Gray', colors: ['#f8fafc'] },
+    { name: 'Sky Blue', colors: ['#e0f2fe', '#f0f9ff'] },
+    { name: 'Dark Red', colors: ['#3b0a0a', '#7f1d1d'] },
+    { name: 'Dark Purple', colors: ['#1e293b', '#334155'] },
+    { name: 'Dark', colors: ['#0f172a'] },
+  ];
 
   const loadCustomers = useCallback(async (q = '') => {
     setLoading(true);
@@ -134,11 +150,41 @@ const CustomerProfilePage: React.FC = () => {
     }
   }, [customerId]);
 
-  const copyUrl = () => {
-    navigator.clipboard.writeText(profileUrl);
-    setSnackbar({ open: true, message: 'Link copied to clipboard!', severity: 'success' });
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const copyUrl = async () => {
+    try {
+      await navigator.clipboard.writeText(profileUrl);
+      setCopied(true);
+      
+      // Beautiful SweetAlert2 notification
+      await Swal.fire({
+        position: 'top-end',
+        icon: 'success',
+        title: 'Link Copied!',
+        text: 'Profile link has been copied to clipboard',
+        showConfirmButton: false,
+        timer: 2000,
+        timerProgressBar: true,
+        toast: true,
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        color: 'white',
+      });
+      
+      setTimeout(() => setCopied(false), 2000);
+    } catch (error) {
+      // Error notification
+      await Swal.fire({
+        position: 'top-end',
+        icon: 'error',
+        title: 'Copy Failed',
+        text: 'Failed to copy profile link',
+        showConfirmButton: false,
+        timer: 3000,
+        timerProgressBar: true,
+        toast: true,
+        background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+        color: 'white'
+      });
+    }
   };
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
@@ -282,7 +328,7 @@ const CustomerProfilePage: React.FC = () => {
 
           // background: 'linear-gradient(145deg, #1e293b, #334155)',
 
-              background: 'linear-gradient(160deg, #fbc2eb, #fcd5ce)',
+              background: `linear-gradient(160deg, ${gradientPresets[selectedGradient].colors.join(', ')})`,
 
               // background: 'linear-gradient(160deg, #dbeafe, #e0f2fe)',
 
@@ -368,6 +414,36 @@ const CustomerProfilePage: React.FC = () => {
                 </MenuItem>
               </Menu>
             </Box>
+
+            {/* Color Preset Selector */}
+            <Box sx={{ mt: 2, mb: 2 }}>
+              <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.8)', mb: 1, textAlign: 'center' }}>
+                Choose Background Style
+              </Typography>
+              <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center', flexWrap: 'wrap', px: 2 }}>
+                {gradientPresets.map((preset, index) => (
+                  <Tooltip key={index} title={preset.name} arrow>
+                    <Box
+                      onClick={() => setSelectedGradient(index)}
+                      sx={{
+                        width: 32,
+                        height: 32,
+                        borderRadius: '50%',
+                        background: `linear-gradient(135deg, ${preset.colors.join(', ')})`,
+                        border: selectedGradient === index ? '3px solid white' : '2px solid rgba(255,255,255,0.3)',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease',
+                        '&:hover': {
+                          transform: 'scale(1.1)',
+                          borderColor: 'white',
+                        }
+                      }}
+                    />
+                  </Tooltip>
+                ))}
+              </Box>
+            </Box>
+
             {/* Profile Picture */}
             <Box sx={{ mt: 6, mb: 4, position: 'relative' }}>
               {/* Radial Light Background */}
@@ -572,9 +648,32 @@ const CustomerProfilePage: React.FC = () => {
                   boxShadow: 3,
                 },
                 transition: 'all 0.3s ease',
+                mr: 2,
               }}
             >
               Save as Story
+            </Button>
+            <Button
+              variant="outlined"
+              startIcon={<ContentCopy />}
+              onClick={copyUrl}
+              size="large"
+              sx={{
+                borderRadius: 3,
+                px: 4,
+                py: 1.5,
+                borderColor: 'rgba(255,255,255,0.5)',
+                color: 'white',
+                '&:hover': {
+                  borderColor: 'white',
+                  bgcolor: 'rgba(255,255,255,0.1)',
+                  transform: 'translateY(-2px)',
+                  boxShadow: 3,
+                },
+                transition: 'all 0.3s ease',
+              }}
+            >
+              {copied ? 'Copied!' : 'Copy Profile Link'}
             </Button>
           </Box>
 

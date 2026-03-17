@@ -24,6 +24,11 @@ export const CustomThemeProvider = ({ children }: { children: React.ReactNode })
 
   const { isLiquidGlassEnabled, liquidGlassSettings } = useLiquidGlass();
 
+  // Apply theme attribute to document for SweetAlert2 styling
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', mode);
+  }, [mode]);
+
   const colorMode = useMemo(
     () => ({
       toggleColorMode: () => {
@@ -36,29 +41,33 @@ export const CustomThemeProvider = ({ children }: { children: React.ReactNode })
 
   const theme = useMemo(() => {
     if (isLiquidGlassEnabled) {
-      // Enhanced Liquid Glass Theme
+      // Enhanced Liquid Glass Theme - respects current mode
       return createTheme({
         palette: {
           mode,
           primary: {
-            main: '#4a6cf7',
-            light: '#7f9bff',
-            dark: '#0041c3',
+            main: mode === 'light' ? '#4a6cf7' : '#7f9bff',
+            light: mode === 'light' ? '#7f9bff' : '#a8c0ff',
+            dark: mode === 'light' ? '#0041c3' : '#5d7dff',
             contrastText: '#ffffff',
           },
           secondary: {
-            main: '#a64dff',
-            light: '#dc7dff',
-            dark: '#7200ca',
+            main: mode === 'light' ? '#a64dff' : '#c27dff',
+            light: mode === 'light' ? '#dc7dff' : '#e8b3ff',
+            dark: mode === 'light' ? '#7200ca' : '#8a2be2',
             contrastText: '#ffffff',
           },
           background: {
-            default: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-            paper: 'rgba(255, 255, 255, 0.08)',
+            default: mode === 'light' 
+              ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+              : 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)',
+            paper: mode === 'light' 
+              ? 'rgba(255, 255, 255, 0.08)'
+              : 'rgba(255, 255, 255, 0.05)',
           },
           text: {
-            primary: '#1a1a1a',
-            secondary: '#4a4a4a',
+            primary: mode === 'light' ? '#1a1a1a' : '#ffffff',
+            secondary: mode === 'light' ? '#4a4a4a' : '#b3b3b3',
           },
         },
         typography: {

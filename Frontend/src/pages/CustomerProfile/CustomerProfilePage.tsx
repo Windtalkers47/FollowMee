@@ -209,13 +209,33 @@ const CustomerProfilePage: React.FC = () => {
       link.href = dataUrl;
       link.click();
       
-      setSnackbar({ open: true, message: 'Image downloaded!', severity: 'success' });
+      // Beautiful SweetAlert2 success notification
+      await Swal.fire({
+        position: 'top-end',
+        icon: 'success',
+        title: 'Image Downloaded!',
+        text: 'Profile image has been saved successfully',
+        showConfirmButton: false,
+        timer: 2000,
+        timerProgressBar: true,
+        toast: true,
+        background: 'linear-gradient(135deg, #28a745 0%, #20c997 100%)',
+        color: 'white',
+      });
     } catch (error) {
       console.error('Error downloading image:', error);
-      setSnackbar({ 
-        open: true, 
-        message: error instanceof Error ? error.message : 'Failed to download image', 
-        severity: 'error' 
+      // Beautiful SweetAlert2 error notification
+      await Swal.fire({
+        position: 'top-end',
+        icon: 'error',
+        title: 'Download Failed',
+        text: error instanceof Error ? error.message : 'Failed to download image',
+        showConfirmButton: false,
+        timer: 3000,
+        timerProgressBar: true,
+        toast: true,
+        background: 'linear-gradient(135deg, #dc3545 0%, #c82333 100%)',
+        color: 'white',
       });
     }
     
@@ -233,10 +253,18 @@ const CustomerProfilePage: React.FC = () => {
       } catch (err: unknown) {
         const error = err as Error;
         if (error.name !== 'AbortError') {
-          setSnackbar({ 
-            open: true, 
-            message: 'Error sharing profile', 
-            severity: 'error' 
+          // Beautiful SweetAlert2 error notification
+          await Swal.fire({
+            position: 'top-end',
+            icon: 'error',
+            title: 'Share Failed',
+            text: 'Failed to share profile',
+            showConfirmButton: false,
+            timer: 3000,
+            timerProgressBar: true,
+            toast: true,
+            background: 'linear-gradient(135deg, #ff6b6b 0%, #ffa726 100%)',
+            color: 'white',
           });
         }
       }

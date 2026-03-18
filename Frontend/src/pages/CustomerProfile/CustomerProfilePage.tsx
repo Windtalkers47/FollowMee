@@ -30,12 +30,11 @@ import {
   Share,
   Download,
   CameraAlt,
-  Share as ShareIcon,
 } from '@mui/icons-material';
 import { toPng } from 'html-to-image';
 import Swal from 'sweetalert2';
 import CustomerProfileSearch from '@/components/CustomerProfileSearch';
-
+import ProfileImageContent from '@/components/ProfileImageContent';
 import customerApi from '@/services/api/customerApi';
 import { CustomerData } from '@/types/customer.types';
 
@@ -202,6 +201,7 @@ const CustomerProfilePage: React.FC = () => {
       const dataUrl = await toPng(profileRef.current, {
         pixelRatio: 2,
         quality: 1,
+        cacheBust: true,
       });
       
       const link = document.createElement('a');
@@ -325,8 +325,29 @@ const CustomerProfilePage: React.FC = () => {
 
     return (
       <Box sx={{ p: 2, maxWidth: '600px', mx: 'auto' }}>
+        {/* Hidden Render for Image Capture */}
+        <Box
+          sx={{
+            position: 'fixed',
+            top: -9999,
+            left: -9999,
+            opacity: 0,
+            pointerEvents: 'none',
+          }}
+        >
+          <div ref={profileRef}>
+            {customer && (
+              <ProfileImageContent
+                customer={customer}
+                selectedGradient={selectedGradient}
+                gradientPresets={gradientPresets}
+              />
+            )}
+          </div>
+        </Box>
+
         {/* Story Container */}
-        <Paper sx={storyStyle} ref={profileRef}>
+        <Paper sx={storyStyle}>
           {/* Gradient Background */}
           <Box
             sx={{
@@ -334,38 +355,11 @@ const CustomerProfilePage: React.FC = () => {
               top: 0,
               left: 0,
               right: 0,
-              // height: '40%', // ปรับขนาดสีของการ์ด Profile
               width: '540px',
               height: '960px',
               borderRadius: 4,
               overflow: 'hidden',
-              // background: 'linear-gradient(135deg, #6366f1, #8b5cf6, #d946ef)',
-              // background: 'linear-gradient(135deg, #ff512f, #dd2476)',
-            //   background: `
-            //   radial-gradient(circle at 50% 30%, rgba(255,255,255,0.3), transparent 60%),
-            //   linear-gradient(135deg, #ff6b6b, #ffa726, #ffd54f)
-            // `,
-
-            // background: 'linear-gradient(160deg, #3b0a0a, #7f1d1d)',
-          //   background: `
-          //   radial-gradient(circle at 50% 25%, rgba(255,255,255,0.08), transparent 60%),
-          //   linear-gradient(160deg, #3b0a0a, #7f1d1d)
-          // `,
-
-          // background: '#0f172a',
-
-          // background: 'linear-gradient(145deg, #1e293b, #334155)',
-
               background: `linear-gradient(160deg, ${gradientPresets[selectedGradient].colors.join(', ')})`,
-
-              // background: 'linear-gradient(160deg, #dbeafe, #e0f2fe)',
-
-              // background: 'linear-gradient(160deg, #d1fae5, #ecfdf5)',
-
-              // background: '#f8fafc',
-
-              // background: 'linear-gradient(160deg, #e0f2fe, #f0f9ff)',
-
               zIndex: 0,
               '&::after': {
                 content: '""',

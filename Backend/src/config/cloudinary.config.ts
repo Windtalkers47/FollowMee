@@ -23,7 +23,7 @@ export const uploadToCloudinary = async (
     const result = await cloudinary.uploader.upload(dataURI, {
       folder,
       resource_type: 'auto',
-      format: 'webp', // Convert all uploads to WebP for better compression
+      format: 'png', // Force PNG format for better canvas compatibility
       quality: 'auto',
       fetch_format: 'auto',
     });
@@ -54,7 +54,7 @@ export const uploadBase64Image = async (
     const result = await cloudinary.uploader.upload(base64, {
       folder,
       resource_type: 'auto',
-      format: 'webp', // Convert to WebP for better compression
+      format: 'png', // Force PNG format for better canvas compatibility
       quality: 'auto',
       fetch_format: 'auto',
     });

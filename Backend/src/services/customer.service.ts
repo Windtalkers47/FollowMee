@@ -4,6 +4,7 @@ import { UpdateCustomerDto } from '../dtos/update-customer.dto';
 import { CustomerRepository } from '../repositories/customer.repository';
 import { CustomerResponseDto } from '../dtos/customer-response.dto';
 import { StatusCountsResponse } from '../types/status.types';
+import { CloudinaryUtil } from '../utils/cloudinary.util';
 
 export class CustomerService {
   constructor(private customerRepository: CustomerRepository) {}
@@ -132,6 +133,20 @@ export class CustomerService {
       }
     }
 
+    // Handle image removal if customerImageUrl is explicitly set to null or empty
+    if (updateData.customerImageUrl === null || updateData.customerImageUrl === '') {
+      // Delete old image from Cloudinary if it exists
+      if (customer.customerImageUrl) {
+        try {
+          await CloudinaryUtil.deleteImage(customer.customerImageUrl);
+        } catch (error) {
+          console.error('Failed to delete old image from Cloudinary:', error);
+        }
+      }
+      // Set to null in database
+      updateData.customerImageUrl = null;
+    }
+
     // Exclude read-only properties and undefined values
     const updatePayload = Object.entries(updateData).reduce((acc, [key, value]) => {
       // Skip read-only properties and undefined values
@@ -141,7 +156,7 @@ export class CustomerService {
       return acc;
     }, {} as Record<string, any>);
 
-    // Update customer with the filtered data
+    // Update customer with filtered data
     const updated = await this.customerRepository.update(id, updatePayload);
 
     if (!updated) {

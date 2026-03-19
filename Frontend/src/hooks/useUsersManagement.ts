@@ -8,6 +8,7 @@ export interface User {
   userEmail: string;
   userPhone1?: string | null;
   userPhone2?: string | null;
+  userImageUrl?: string | null;
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;

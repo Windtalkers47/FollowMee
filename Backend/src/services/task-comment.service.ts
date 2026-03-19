@@ -7,6 +7,7 @@ import { User } from '../entities/User';
 import { CommentReaction } from '../entities/CommentReaction';
 import { CreateTaskCommentDto, UpdateTaskCommentDto } from '../dtos/task-comment.dto';
 import { TaskCommentResponseDto } from '../dtos/task-comment.dto';
+import { CloudinaryUtil } from '../utils/cloudinary.util';
 
 @Injectable()
 export class TaskCommentService {
@@ -156,6 +157,14 @@ export class TaskCommentService {
 
     comment.comment = updateCommentDto.comment;
     if (updateCommentDto.commentImageUrl !== undefined) {
+      // Delete old image from Cloudinary if it's being replaced
+      if (comment.commentImageUrl && comment.commentImageUrl !== updateCommentDto.commentImageUrl) {
+        try {
+          await CloudinaryUtil.deleteImage(comment.commentImageUrl);
+        } catch (error) {
+          console.error('Failed to delete old comment image from Cloudinary:', error);
+        }
+      }
       comment.commentImageUrl = updateCommentDto.commentImageUrl;
     }
 
@@ -175,6 +184,15 @@ export class TaskCommentService {
     // Check if user owns this comment
     if (comment.userId !== userId) {
       throw new ForbiddenException('You can only delete your own comments');
+    }
+
+    // Delete comment image from Cloudinary if it exists
+    if (comment.commentImageUrl) {
+      try {
+        await CloudinaryUtil.deleteImage(comment.commentImageUrl);
+      } catch (error) {
+        console.error('Failed to delete comment image from Cloudinary:', error);
+      }
     }
 
     // Soft delete by setting isActive to false

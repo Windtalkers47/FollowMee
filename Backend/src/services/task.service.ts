@@ -7,6 +7,7 @@ import { CreateTaskDto, UpdateTaskDto, TaskQueryDto, MarkTaskDoneDto } from '../
 import { TaskResponseDto, TaskListResponseDto } from '../dtos/task-response.dto';
 import { User } from '../entities/User';
 import { TaskImageService } from './task-image.service';
+import { CloudinaryUtil } from '../utils/cloudinary.util';
 import AppDataSource from '../config/database';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -229,6 +230,18 @@ export class TaskService {
     // Check if user can delete this task (only creator can delete their own tasks)
     if (task.createdBy !== userId) {
       throw new ForbiddenException('You can only delete tasks you created');
+    }
+
+    // Delete all associated images from Cloudinary before deleting the task
+    const images = await this.taskImageService.getTaskImages(taskId);
+    for (const image of images) {
+      if (image.imageUrl) {
+        try {
+          await CloudinaryUtil.deleteImage(image.imageUrl);
+        } catch (error) {
+          console.error('Failed to delete image from Cloudinary:', error);
+        }
+      }
     }
 
     await this.customTaskRepository.softDelete(taskId);

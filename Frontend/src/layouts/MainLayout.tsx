@@ -31,6 +31,7 @@ import {
   DialogActions,
   TextField,
   Button,
+  CircularProgress,
 } from '@mui/material';
 
 import {
@@ -95,6 +96,9 @@ const MainLayout = ({ children }: MainLayoutProps) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [isRemovingImage, setIsRemovingImage] = useState(false);
+  const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
   const [profileData, setProfileData] = useState({
     userName: currentUser?.userName || '',
     userLastName: currentUser?.userLastName || '',
@@ -103,7 +107,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
     userPhone2: currentUser?.userPhone2 || '',
     userPassword: '',
     confirmPassword: '',
-    userImageUrl: currentUser?.userImageUrl || '',
+    userImageUrl: currentUser?.userImageUrl || null,
   });
 
   const handleDrawerToggle = useCallback(() => setOpen(p => !p), []);
@@ -135,6 +139,34 @@ const MainLayout = ({ children }: MainLayoutProps) => {
       ...prev,
       [field]: value
     }));
+  }, []);
+  
+  const handleRemoveProfileImage = useCallback(async () => {
+    const result = await Swal.fire({
+      title: 'Remove Image?',
+      text: 'Are you sure you want to remove your profile image? It will be deleted from Cloudinary and database.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#308',
+      confirmButtonText: 'Yes, remove it!',
+      cancelButtonText: 'Cancel',
+    });
+
+    if (result.isConfirmed) {
+      setProfileData(prev => ({ ...prev, userImageUrl: null }));
+      
+      // Show success toast
+      Swal.fire({
+        icon: 'success',
+        title: 'Image Removed',
+        text: 'Your profile image has been removed successfully! Click "Save Changes" to update your profile.',
+        timer: 2000,
+        showConfirmButton: false,
+        position: 'top-end',
+        toast: true
+      });
+    }
   }, []);
   
   const handleLogout = useCallback(() => {
@@ -208,6 +240,20 @@ const MainLayout = ({ children }: MainLayoutProps) => {
         return;
       }
 
+      // Show loading state for profile update
+      setIsUpdatingProfile(true);
+      Swal.fire({
+        title: 'Updating Profile...',
+        text: 'Please wait while we update your profile',
+        icon: 'info',
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        showConfirmButton: false,
+        didOpen: () => {
+          Swal.showLoading();
+        }
+      });
+
       await userApi.updateUser(currentUser.userId, updateData);
 
       // Update Redux state with new user data
@@ -218,10 +264,12 @@ const MainLayout = ({ children }: MainLayoutProps) => {
         userEmail: profileData.userEmail || currentUser.userEmail,
         userPhone1: profileData.userPhone1,
         userPhone2: profileData.userPhone2,
-        userImageUrl: profileData.userImageUrl,
+        userImageUrl: profileData.userImageUrl || undefined,
       }));
 
-      await Swal.fire({
+      // Close loading and show success
+      Swal.close();
+      Swal.fire({
         icon: 'success',
         title: 'Profile Updated!',
         text: 'Your profile has been successfully updated.',
@@ -231,12 +279,15 @@ const MainLayout = ({ children }: MainLayoutProps) => {
       });
       handleProfileModalClose();
     } catch (error) {
+      Swal.close();
       await Swal.fire({
         icon: 'error',
         title: 'Update Failed',
         text: 'Failed to update your profile. Please try again.',
         confirmButtonColor: '#d33',
       });
+    } finally {
+      setIsUpdatingProfile(false);
     }
   }, [currentUser, profileData, dispatch]);
   
@@ -480,7 +531,12 @@ const MainLayout = ({ children }: MainLayoutProps) => {
             }}
           >
             <Avatar
-              src={currentUser?.userImageUrl}
+              src={currentUser?.userImageUrl || undefined}
+              imgProps={{ crossOrigin: 'anonymous' }}
+              onError={(e: any) => {
+                const target = e.target as HTMLImageElement;
+                if (target) target.src = '';
+              }}
               sx={{
                 width: 32,
                 height: 32,
@@ -490,7 +546,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
                 boxShadow: theme.shadows[1],
               }}
             >
-              {currentUser?.userImageUrl ? '' : (currentUser?.userName?.[0]?.toUpperCase() || currentUser?.fullName?.[0]?.toUpperCase() || 'U')}
+              {(!currentUser?.userImageUrl || currentUser.userImageUrl === '') && (currentUser?.userName?.[0]?.toUpperCase() || currentUser?.fullName?.[0]?.toUpperCase() || 'U')}
             </Avatar>
             <Box>
               <Typography 
@@ -608,33 +664,91 @@ const MainLayout = ({ children }: MainLayoutProps) => {
             {/* Profile Picture */}
             <Box display="flex" alignItems="center" gap={2} mb={2}>
               <Avatar
-                src={profileData.userImageUrl}
+                src={profileData.userImageUrl || undefined}
+                imgProps={{ crossOrigin: 'anonymous' }}
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  if (target) target.src = '';
+                }}
                 sx={{ width: 80, height: 80 }}
-              />
+              >
+                {(!profileData.userImageUrl || profileData.userImageUrl === '') && (
+                  profileData.userName?.charAt(0).toUpperCase() + (profileData.userLastName?.charAt(0).toUpperCase() || '') || 'U'
+                )}
+              </Avatar>
               <Box display="flex" flexDirection="column" gap={1}>
                 <Button
                   component="label"
                   variant="contained"
                   size="small"
                   sx={{ mb: 1 }}
-                  startIcon={<CloudUpload />}
+                  startIcon={isUploadingImage ? <CircularProgress size={16} /> : <CloudUpload />}
+                  disabled={isUploadingImage || isRemovingImage}
                 >
-                  Upload Image
+                  {isUploadingImage ? 'Processing...' : 'Upload Image'}
                   <input
                     type="file"
                     hidden
                     accept="image/*"
-                    onChange={(e) => {
+                    onChange={async (e) => {
                       const file = e.target.files?.[0];
                       if (file) {
-                        const reader = new FileReader();
-                        reader.onloadend = () => {
-                          setProfileData(prev => ({
-                            ...prev,
-                            userImageUrl: reader.result as string
-                          }));
-                        };
-                        reader.readAsDataURL(file);
+                        try {
+                          setIsUploadingImage(true);
+                          
+                          // Show loading toast
+                          Swal.fire({
+                            title: 'Processing Image...',
+                            text: 'Please wait while we process your image',
+                            icon: 'info',
+                            allowOutsideClick: false,
+                            allowEscapeKey: false,
+                            showConfirmButton: false,
+                            didOpen: () => {
+                              Swal.showLoading();
+                            }
+                          });
+                          
+                          const reader = new FileReader();
+                          reader.onloadend = () => {
+                            setProfileData(prev => ({
+                              ...prev,
+                              userImageUrl: reader.result as string
+                            }));
+                            
+                            // Close loading and show success
+                            Swal.close();
+                            Swal.fire({
+                              icon: 'success',
+                              title: 'Image Processed',
+                              text: 'Your image has been processed successfully!',
+                              timer: 1500,
+                              showConfirmButton: false,
+                              position: 'top-end',
+                              toast: true
+                            });
+                          };
+                          reader.onerror = () => {
+                            setIsUploadingImage(false);
+                            Swal.close();
+                            Swal.fire({
+                              icon: 'error',
+                              title: 'Processing Failed',
+                              text: 'Failed to process image. Please try another one.',
+                            });
+                          };
+                          reader.readAsDataURL(file);
+                        } catch (error) {
+                          setIsUploadingImage(false);
+                          Swal.close();
+                          Swal.fire({
+                            icon: 'error',
+                            title: 'Processing Failed',
+                            text: 'Failed to process image. Please try another one.',
+                          });
+                        } finally {
+                          setIsUploadingImage(false);
+                        }
                       }
                     }}
                   />
@@ -644,7 +758,8 @@ const MainLayout = ({ children }: MainLayoutProps) => {
                   size="small"
                   color="error"
                   startIcon={<DeleteIcon />}
-                  onClick={() => setProfileData(prev => ({ ...prev, userImageUrl: '' }))}
+                  onClick={handleRemoveProfileImage}
+                  disabled={isUploadingImage}
                 >
                   Remove Image
                 </Button>
@@ -820,11 +935,13 @@ const MainLayout = ({ children }: MainLayoutProps) => {
           <Button 
             onClick={handleProfileUpdate}
             variant="contained"
+            disabled={isUpdatingProfile || isUploadingImage}
+            startIcon={isUpdatingProfile ? <CircularProgress size={16} /> : undefined}
             sx={{
               background: 'linear-gradient(135deg, rgba(74, 108, 247, 0.8), rgba(166, 77, 255, 0.8))',
             }}
           >
-            Save Changes
+            {isUpdatingProfile ? 'Updating...' : 'Save Changes'}
           </Button>
         </DialogActions>
       </Dialog>

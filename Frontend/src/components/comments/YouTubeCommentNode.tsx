@@ -50,6 +50,11 @@ const YouTubeCommentNode: React.FC<YouTubeCommentNodeProps> = ({ row }) => {
         {/* Glass Avatar */}
         <Avatar 
           src={displayUser?.userImageUrl}
+          imgProps={{ crossOrigin: 'anonymous' }}
+          onError={(e) => {
+            const target = e.target as HTMLImageElement;
+            if (target) target.src = '';
+          }}
           sx={{ 
             width: 32, 
             height: 32,
@@ -64,7 +69,7 @@ const YouTubeCommentNode: React.FC<YouTubeCommentNodeProps> = ({ row }) => {
             WebkitBackdropFilter: 'blur(8px)',
           }}
         >
-          {displayUser?.userName?.[0]}
+          {(!displayUser?.userImageUrl || displayUser.userImageUrl === '') && displayUser?.userName?.[0]}
         </Avatar>
 
         {/* Comment content */}

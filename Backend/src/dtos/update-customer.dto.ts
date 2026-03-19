@@ -58,9 +58,14 @@ export class UpdateCustomerDto {
 
   @IsString()
   @IsOptional()
-  customerImageUrl?: string;
+  @MaxLength(255, { message: 'Image URL must be at most 255 characters' })
+  customerImageUrl?: string | null;
 
   @IsBoolean()
   @IsOptional()
   isActive?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  removeImage?: boolean;
 }

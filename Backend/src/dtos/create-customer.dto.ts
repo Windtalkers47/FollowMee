@@ -68,4 +68,8 @@ export class CreateCustomerDto {
   @IsOptional()
   @IsBase64()
   base64Image?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  removeImage?: boolean;
 }

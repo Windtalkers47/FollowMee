@@ -278,13 +278,19 @@ const UsersPage = () => {
                     <TableCell>
                       <Box display="flex" alignItems="center" gap={2}>
                         <Avatar
+                          src={user.userImageUrl || undefined}
+                          imgProps={{ crossOrigin: 'anonymous' }}
+                          onError={(e: any) => {
+                            const target = e.target as HTMLImageElement;
+                            if (target) target.src = '';
+                          }}
                           sx={{
-                            bgcolor: user.isActive
+                            bgcolor: user.userImageUrl ? 'transparent' : (user.isActive
                               ? theme.palette.primary.main
-                              : theme.palette.grey[500]
+                              : theme.palette.grey[500])
                           }}
                         >
-                          {user.userName.charAt(0)}
+                          {(!user.userImageUrl || user.userImageUrl === '') && user.userName.charAt(0)}
                         </Avatar>
                         <Box>
                           <Typography variant="body2" fontWeight={500}>

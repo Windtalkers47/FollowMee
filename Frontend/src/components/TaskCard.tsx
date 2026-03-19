@@ -165,6 +165,11 @@ const TaskCard: React.FC<TaskCardProps> = ({
             {/* Glass Avatar */}
             <Avatar
               src={task.createdByUser?.userImageUrl}
+              imgProps={{ crossOrigin: 'anonymous' }}
+              onError={(e) => {
+                const target = e.target as HTMLImageElement;
+                if (target) target.src = '';
+              }}
               sx={{
                 width: 32,
                 height: 32,
@@ -178,7 +183,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
                 WebkitBackdropFilter: 'blur(8px)',
               }}
             >
-              {task.createdByUser?.userName?.[0]}
+              {(!task.createdByUser?.userImageUrl || task.createdByUser.userImageUrl === '') && task.createdByUser?.userName?.[0]}
             </Avatar>
             
             {/* Glass Content */}
@@ -393,6 +398,11 @@ const TaskCard: React.FC<TaskCardProps> = ({
                 </Typography>
                 <Avatar
                   src={task.assignedToUser.userImageUrl}
+                  imgProps={{ crossOrigin: 'anonymous' }}
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    if (target) target.src = '';
+                  }}
                   sx={{ 
                     width: 16, 
                     height: 16,
@@ -404,7 +414,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
                       : '0 2px 6px rgba(31, 38, 135, 0.2)',
                   }}
                 >
-                  {task.assignedToUser.userName?.[0]}
+                  {(!task.assignedToUser.userImageUrl || task.assignedToUser.userImageUrl === '') && task.assignedToUser.userName?.[0]}
                 </Avatar>
                 <Typography 
                   variant="caption" 

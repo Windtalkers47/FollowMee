@@ -198,10 +198,72 @@ const CustomerProfilePage: React.FC = () => {
     if (!profileRef.current) return;
     
     try {
+      // Wait for all images to load before capturing (handle errors gracefully)
+      const images = profileRef.current.querySelectorAll('img');
+      
+      // Pre-check and hide all potentially problematic images
+      const originalStyles: string[] = [];
+      images.forEach((img, index) => {
+        originalStyles[index] = img.style.display || '';
+        const htmlImg = img as HTMLImageElement;
+        const src = img.getAttribute('src') || '';
+        
+        // Aggressive check for any image issues
+        const hasIssues = htmlImg.naturalWidth === 0 || 
+                         htmlImg.naturalHeight === 0 ||
+                         src.includes('404') ||
+                         src.includes('undefined') ||
+                         src.includes('null') ||
+                         src.includes('error') ||
+                         !src.startsWith('http') ||
+                         (!src.startsWith('data:') && !src.startsWith('http'));
+        
+        if (hasIssues) {
+          img.style.display = 'none';
+        }
+      });
+      
+      await Promise.all(
+        Array.from(images).map(img => {
+          const htmlImg = img as HTMLImageElement;
+          
+          // Skip already hidden images
+          if (img.style.display === 'none') {
+            return Promise.resolve();
+          }
+          
+          if (img.complete) return Promise.resolve();
+          
+          return new Promise<void>((resolve) => {
+            const timeout = setTimeout(() => {
+              // Hide on timeout too
+              img.style.display = 'none';
+              resolve();
+            }, 1500); // Further reduced timeout
+            
+            img.onload = () => {
+              clearTimeout(timeout);
+              resolve();
+            };
+            img.onerror = () => {
+              clearTimeout(timeout);
+              img.style.display = 'none'; // Hide on error
+              resolve();
+            };
+          });
+        })
+      );
+
       const dataUrl = await toPng(profileRef.current, {
         pixelRatio: 2,
         quality: 1,
         cacheBust: true,
+        skipAutoScale: true,
+        imagePlaceholder: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', // tiny fallback
+        fetchRequestInit: {
+          mode: 'cors',
+          credentials: 'omit',
+        },
       });
       
       const link = document.createElement('a');
@@ -224,12 +286,13 @@ const CustomerProfilePage: React.FC = () => {
       });
     } catch (error) {
       console.error('Error downloading image:', error);
-      // Beautiful SweetAlert2 error notification
+      
+      // Show error message
       await Swal.fire({
         position: 'top-end',
         icon: 'error',
         title: 'Download Failed',
-        text: error instanceof Error ? error.message : 'Failed to download image',
+        text: 'Unable to generate image. Profile images may not be available.',
         showConfirmButton: false,
         timer: 3000,
         timerProgressBar: true,
@@ -484,7 +547,13 @@ const CustomerProfilePage: React.FC = () => {
               />
               <Avatar
                 src={customer.customerImageUrl || undefined}
+                imgProps={{ crossOrigin: 'anonymous' }}
                 alt={customer.customerName}
+                onError={(e) => {
+                  // Fallback to initials on image error
+                  const target = e.target as HTMLImageElement;
+                  if (target) target.src = '';
+                }}
                 sx={{
                   width: 200,
                   height: 200,
@@ -784,7 +853,13 @@ const CustomerProfilePage: React.FC = () => {
           >
             <Avatar 
               src={c.customerImageUrl || undefined}
+              imgProps={{ crossOrigin: 'anonymous' }}
               alt={c.customerName}
+              onError={(e) => {
+                // Fallback to initials on image error
+                const target = e.target as HTMLImageElement;
+                if (target) target.src = '';
+              }}
               sx={{ 
                 bgcolor: 'primary.light',
                 color: 'primary.contrastText',

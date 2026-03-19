@@ -103,12 +103,29 @@ export class UserController {
       
       const updateUserDto = userData as UpdateUserDto;
       
-      // If there's a userImageUrl, upload it and include it in the update
-      if (userImageUrl) {
+      // Handle image removal if userImageUrl is explicitly set to null
+      if (userImageUrl === null) {
+        // Find the user to get the current image URL
+        const user = await this.userService.getUserById(userId);
+        
+        if (user && user.userImageUrl) {
+          try {
+            await deleteFromCloudinary(user.userImageUrl);
+          } catch (error) {
+            console.error('Error deleting user image from Cloudinary:', error);
+            // Continue even if deletion fails
+          }
+        }
+        
+        // Set userImageUrl to null to remove it
+        updateUserDto.userImageUrl = null;
+      }
+      // If there's a userImageUrl (base64 string), upload it
+      else if (userImageUrl) {
         try {
           const imageUrl = await uploadBase64Image(userImageUrl, 'followmee/users');
           updateUserDto.userImageUrl = imageUrl;
-        } catch (error) {
+                  } catch (error) {
           console.error('Error uploading user image:', error);
           // Don't fail the entire request if image upload fails
           // Just continue without updating the image
@@ -119,7 +136,8 @@ export class UserController {
       res.status(200).json({ 
         success: true, 
         data: user,
-        message: 'Profile updated successfully' 
+        message: userImageUrl === null ? 'Profile updated and image removed successfully' : 
+                  userImageUrl ? 'Profile updated with new image successfully' : 'Profile updated successfully'
       });
     } catch (error) {
       next(error);
@@ -138,12 +156,30 @@ export class UserController {
       
       const updateUserDto = userData as UpdateUserDto;
       
-      // If there's a userImageUrl, upload it and include it in the update
-      if (userImageUrl) {
+      // Handle image removal if userImageUrl is explicitly set to null
+      if (userImageUrl === null) {
+        // Find the user to get the current image URL
+        const user = await this.userService.getUserById(Number(userId));
+        
+        if (user && user.userImageUrl) {
+          try {
+            await deleteFromCloudinary(user.userImageUrl);
+            console.log('User image deleted from Cloudinary');
+          } catch (error) {
+            console.error('Error deleting user image from Cloudinary:', error);
+            // Continue even if deletion fails
+          }
+        }
+        
+        // Set userImageUrl to null to remove it
+        updateUserDto.userImageUrl = null;
+              }
+      // If there's a userImageUrl (base64 string), upload it
+      else if (userImageUrl) {
         try {
           const imageUrl = await uploadBase64Image(userImageUrl, 'followmee/users');
           updateUserDto.userImageUrl = imageUrl;
-        } catch (error) {
+                  } catch (error) {
           console.error('Error uploading user image:', error);
           // Don't fail the entire request if image upload fails
           // Just continue without updating the image
@@ -154,7 +190,8 @@ export class UserController {
       res.status(200).json({ 
         success: true, 
         data: user,
-        message: 'User updated successfully' 
+        message: userImageUrl === null ? 'User updated and image removed successfully' : 
+                  userImageUrl ? 'User updated with new image successfully' : 'User updated successfully'
       });
     } catch (error) {
       next(error);

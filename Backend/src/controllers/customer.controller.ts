@@ -206,15 +206,60 @@ export class CustomerController {
   async updateCustomer(req: Request, res: Response) {
     try {
       const { id } = req.params;
-      const updateData = plainToInstance(UpdateCustomerDto, req.body);
+      const { base64Image, ...otherData } = req.body;
+      
+      console.log('Request body received:', req.body);
+      console.log('removeImage in request body:', req.body.removeImage);
+      console.log('base64Image present:', !!base64Image);
+      
+      const updateData = plainToInstance(UpdateCustomerDto, otherData);
+      console.log('updateData after plainToInstance:', updateData);
+      console.log('removeImage in updateData:', updateData.removeImage);
+      
       const errors = await validate(updateData, { skipMissingProperties: true });
       
       if (errors.length > 0) {
+        console.log('Validation errors:', errors);
         return res.status(400).json({ 
           success: false, 
           message: 'Validation failed',
           errors: errors.map(err => Object.values(err.constraints || {})).flat()
         });
+      }
+      
+      // Handle image removal if requested
+      if (updateData.removeImage) {
+        console.log('Processing image removal...');
+        // Find the customer to get the current image URL
+        const customer = await this.customerService.findOne(id);
+        console.log('Current customer:', customer?.customerImageUrl);
+        if (customer && customer.customerImageUrl) {
+          try {
+            await deleteFromCloudinary(customer.customerImageUrl);
+            console.log('Image deleted from Cloudinary');
+          } catch (error) {
+            console.error('Error deleting image from Cloudinary:', error);
+            // Continue even if deletion fails
+          }
+        }
+        // Set customerImageUrl to null to remove it (service handles null values)
+        updateData.customerImageUrl = null;
+        console.log('Set customerImageUrl to null');
+      }
+      
+      // Handle new image upload if provided
+      if (base64Image && !updateData.removeImage) {
+        console.log('Processing new image upload...');
+        try {
+          const imageUrl = await uploadBase64Image(base64Image);
+          console.log('Image uploaded to Cloudinary:', imageUrl);
+          updateData.customerImageUrl = imageUrl;
+          console.log('Set customerImageUrl to new URL');
+        } catch (error) {
+          console.error('Error uploading customer image:', error);
+          // Don't fail the entire request if image upload fails
+          // The customer data will still be updated without the image
+        }
       }
       
       const customer = await this.customerService.update(id, updateData);
@@ -229,7 +274,8 @@ export class CustomerController {
       return res.json({ 
         success: true, 
         data: customer,
-        message: 'Customer updated successfully' 
+        message: updateData.removeImage ? 'Customer updated and image removed successfully' : 
+                  base64Image ? 'Customer updated with new image successfully' : 'Customer updated successfully'
       });
     } catch (error: unknown) {
       console.error('Error updating customer:', error);

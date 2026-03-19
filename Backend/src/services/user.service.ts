@@ -1,12 +1,14 @@
 import * as bcrypt from 'bcryptjs';
 import { User } from '../entities/User';
 import { CreateUserDto } from '../dtos/create-user.dto';
+import { UpdateUserDto } from '../dtos/update-user.dto';
 import { UserResponseDto } from '../dtos/user-response.dto';
 import { UserRepository } from '../repositories/user.repository';
 import { RoleRepository } from '../repositories/role.repository';
 import { UserRoleRepository } from '../repositories/user-role.repository';
 import { PermissionRepository } from '../repositories/permission.repository';
 import { RolePermissionRepository } from '../repositories/role-permission.repository';
+import { CloudinaryUtil } from '../utils/cloudinary.util';
 
 interface UserWithRolesResponse extends UserResponseDto {
   roles: string[];
@@ -74,7 +76,7 @@ export class UserService {
    */
   async updateUser(
     id: number, 
-    userData: Partial<Omit<CreateUserDto, 'userPassword'>> & { userPassword?: string }
+    userData: Partial<UpdateUserDto>
   ): Promise<UserResponseDto> {
     const user = await this.userRepository.findOne({ userId: id });
     if (!user) {
@@ -87,6 +89,20 @@ export class UserService {
       if (existingUser) {
         throw new Error('Email already in use');
       }
+    }
+
+    // Handle image removal if userImageUrl is explicitly set to null or empty
+    if (userData.userImageUrl === null || userData.userImageUrl === '') {
+      // Delete old image from Cloudinary if it exists
+      if (user.userImageUrl) {
+        try {
+          await CloudinaryUtil.deleteImage(user.userImageUrl);
+        } catch (error) {
+          console.error('Failed to delete old image from Cloudinary:', error);
+        }
+      }
+      // Set to null in database
+      userData.userImageUrl = null;
     }
 
     // Update user data

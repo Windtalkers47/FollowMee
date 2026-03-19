@@ -5,6 +5,7 @@ import { TaskImage } from '../entities/TaskImage';
 import { Task } from '../entities/Task';
 import { User } from '../entities/User';
 import { CreateTaskImageDto, UpdateTaskImageDto, TaskImageResponseDto } from '../dtos/task-image.dto';
+import { CloudinaryUtil } from '../utils/cloudinary.util';
 
 @Injectable()
 export class TaskImageService {
@@ -108,6 +109,14 @@ export class TaskImageService {
     }
 
     if (updateImageDto.imageUrl !== undefined) {
+      // Delete old image from Cloudinary if it's being replaced
+      if (image.imageUrl && image.imageUrl !== updateImageDto.imageUrl) {
+        try {
+          await CloudinaryUtil.deleteImage(image.imageUrl);
+        } catch (error) {
+          console.error('Failed to delete old image from Cloudinary:', error);
+        }
+      }
       image.imageUrl = updateImageDto.imageUrl;
     }
     if (updateImageDto.imageOrder !== undefined) {
@@ -143,6 +152,15 @@ export class TaskImageService {
     const task = await this.taskRepository.findOne({ where: { taskId: image.taskId } });
     if (image.uploadedBy !== userId && task?.createdBy !== userId) {
       throw new ForbiddenException('You can only delete images you uploaded or tasks you created');
+    }
+
+    // Delete image from Cloudinary before deactivating
+    if (image.imageUrl) {
+      try {
+        await CloudinaryUtil.deleteImage(image.imageUrl);
+      } catch (error) {
+        console.error('Failed to delete image from Cloudinary:', error);
+      }
     }
 
     await this.taskImageRepository.update(imageId, { isActive: false });

@@ -270,7 +270,7 @@ const CustomerPage = () => {
     setFormApiError(null);
     
     try {
-      const payload: Omit<Customer, 'customerId' | 'fullName'> & { base64Image?: string } = {
+      const payload: Omit<Customer, 'customerId' | 'fullName'> & { base64Image?: string; removeImage?: boolean } = {
         customerName: formData.customerName || '',
         customerLastName: formData.customerLastName || null,
         customerEmail: formData.customerEmail || '',
@@ -287,6 +287,7 @@ const CustomerPage = () => {
         updatedAt: new Date().toISOString(),
         deletedAt: null,
         ...(formData.base64Image ? { base64Image: formData.base64Image } : {}),
+        ...(formData.removeImage ? { removeImage: formData.removeImage } : {}),
         ...(editingCustomer
           ? { createdAt: editingCustomer.createdAt }
           : { createdAt: new Date().toISOString() }),
@@ -1115,7 +1116,12 @@ const CustomerPage = () => {
                           >
                             <Avatar
                               src={customer.customerImageUrl || undefined}
+                              imgProps={{ crossOrigin: 'anonymous' }}
                               alt={customer.fullName || customer.customerName}
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                if (target) target.src = '';
+                              }}
                               sx={{
                                 width: 40,
                                 height: 40,
@@ -1126,7 +1132,7 @@ const CustomerPage = () => {
                                 }
                               }}
                             >
-                              {!customer.customerImageUrl && (
+                              {(!customer.customerImageUrl || customer.customerImageUrl === '') && (
                                 <>
                                   {customer.customerName.charAt(0).toUpperCase()}
                                   {customer.customerLastName?.charAt(0).toUpperCase() || ''}

@@ -52,9 +52,20 @@ export class CloudinaryUtil {
   static async deleteImage(imageUrl: string): Promise<void> {
     try {
       // Extract public_id from URL
-      const publicId = imageUrl.split('/').pop()?.split('.')[0];
-      if (publicId) {
-        await cloudinary.uploader.destroy(`followmee/tasks/${publicId}`);
+      const urlParts = imageUrl.split('/');
+      const filename = urlParts.pop()?.split('.')[0];
+      if (filename) {
+        // Check if it's a customer image, user image, comment image, or task image
+        if (urlParts.includes('customers')) {
+          await cloudinary.uploader.destroy(`followmee/customers/${filename}`);
+        } else if (urlParts.includes('users')) {
+          await cloudinary.uploader.destroy(`followmee/users/${filename}`);
+        } else if (urlParts.includes('comments')) {
+          await cloudinary.uploader.destroy(`followmee/comments/${filename}`);
+        } else {
+          // Default to tasks folder
+          await cloudinary.uploader.destroy(`followmee/tasks/${filename}`);
+        }
       }
     } catch (error) {
       console.error('Failed to delete image from Cloudinary:', error);

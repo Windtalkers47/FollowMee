@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -14,6 +14,7 @@ import {
   Twitter,
 } from '@mui/icons-material';
 import { CustomerData } from '@/types/customer.types';
+import { isValidCloudinaryUrl, isLikelyInvalidImage, generateFallbackAvatar } from '@/utils/imageUtils';
 
 interface ProfileImageContentProps {
   customer: CustomerData;
@@ -26,8 +27,86 @@ const ProfileImageContent: React.FC<ProfileImageContentProps> = ({
   selectedGradient,
   gradientPresets,
 }) => {
+  const [imageError, setImageError] = useState(false);
+  const [imageLoading, setImageLoading] = useState(true);
+  
   const hasSocialMedia = customer.customerFacebook || customer.customerInstagram || 
                        customer.customerTikTok || customer.customerLine || customer.customerX;
+
+  // State to track if image is valid
+  const [isImageValid, setIsImageValid] = useState(false);
+  const [safeImage, setSafeImage] = useState('');
+  
+  // Generate fallback avatar URL
+  const fallbackAvatarUrl = generateFallbackAvatar(
+    `${customer.customerName} ${customer.customerLastName}`,
+    420
+  );
+
+  // Convert image to base64 to eliminate CORS issues
+  const toBase64 = async (url: string): Promise<string> => {
+    try {
+      const response = await fetch(url, { mode: 'cors' });
+      const blob = await response.blob();
+      return new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    } catch (error) {
+      console.error('Error converting image to base64:', error);
+      return '';
+    }
+  };
+
+  // Pre-validate Cloudinary image and convert to base64
+  useEffect(() => {
+    if (customer.customerImageUrl && isValidCloudinaryUrl(customer.customerImageUrl)) {
+      const img = new Image();
+      img.crossOrigin = 'anonymous'; // Add CORS attribute
+      
+      // Set a timeout to handle hanging requests
+      const timeout = setTimeout(() => {
+        setIsImageValid(false);
+        setImageError(true);
+        setImageLoading(false);
+      }, 5000); // 5 second timeout
+      
+      img.onload = async () => {
+        clearTimeout(timeout);
+        // Double-check image dimensions to ensure it's valid
+        if (img.naturalWidth > 0 && img.naturalHeight > 0) {
+          setIsImageValid(true);
+          setImageLoading(false);
+          // Convert to base64 for safe canvas rendering
+          const base64 = await toBase64(customer.customerImageUrl!);
+          if (base64) {
+            setSafeImage(base64);
+          }
+        } else {
+          setIsImageValid(false);
+          setImageError(true);
+          setImageLoading(false);
+        }
+      };
+      
+      img.onerror = () => {
+        clearTimeout(timeout);
+        setIsImageValid(false);
+        setImageError(true);
+        setImageLoading(false);
+      };
+      
+      img.src = customer.customerImageUrl;
+    } else {
+      setIsImageValid(false);
+      setImageLoading(false);
+    }
+  }, [customer.customerImageUrl]);
+
+  // Determine which image source to use (prefer base64 for canvas safety)
+  const imageSource = safeImage || (isImageValid && !imageError ? (customer.customerImageUrl || fallbackAvatarUrl) : fallbackAvatarUrl);
 
   return (
     <Box
@@ -107,8 +186,15 @@ const ProfileImageContent: React.FC<ProfileImageContentProps> = ({
           }}
         />
         <Avatar
-          src={customer.customerImageUrl || undefined}
+          src={imageSource}
+          imgProps={{ crossOrigin: 'anonymous' }}
           alt={`${customer.customerName} ${customer.customerLastName}`}
+          onLoad={() => setImageLoading(false)}
+          onError={() => {
+            setImageError(true);
+            setIsImageValid(false);
+            setImageLoading(false);
+          }}
           sx={{
             width: 420,
             height: 420,
@@ -118,9 +204,22 @@ const ProfileImageContent: React.FC<ProfileImageContentProps> = ({
             zIndex: 1,
             mx: 'auto',
             mb: 4,
+            // Add loading state styling
+            ...(imageLoading && {
+              '&::after': {
+                content: '""',
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                background: 'rgba(255,255,255,0.1)',
+                borderRadius: '50%',
+              }
+            })
           }}
         >
-          {!customer.customerImageUrl && (
+          {(!isImageValid || imageError) && (
             <Typography sx={{ fontSize: 120, fontWeight: 700, color: '#1f2937' }}>
               {customer.customerName?.charAt(0).toUpperCase()}
               {customer.customerLastName?.charAt(0).toUpperCase()}

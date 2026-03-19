@@ -14,7 +14,6 @@ import {
   Twitter,
 } from '@mui/icons-material';
 import { CustomerData } from '@/types/customer.types';
-import { isValidCloudinaryUrl, isLikelyInvalidImage, generateFallbackAvatar } from '@/utils/imageUtils';
 
 interface ProfileImageContentProps {
   customer: CustomerData;
@@ -37,65 +36,66 @@ const ProfileImageContent: React.FC<ProfileImageContentProps> = ({
   const [isImageValid, setIsImageValid] = useState(false);
   const [safeImage, setSafeImage] = useState('');
   
-  // Generate fallback avatar URL
-  const fallbackAvatarUrl = generateFallbackAvatar(
-    `${customer.customerName} ${customer.customerLastName}`,
-    420
-  );
-
-  // Convert image to base64 to eliminate CORS issues
-  const toBase64 = async (url: string): Promise<string> => {
-    try {
-      const response = await fetch(url, { mode: 'cors' });
-      const blob = await response.blob();
-      return new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result as string);
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-      });
-    } catch (error) {
-      console.error('Error converting image to base64:', error);
-      return '';
-    }
+  // Generate fallback avatar with styled initials (not external URL)
+  const renderFallbackAvatar = () => {
+    const firstName = customer.customerName || '';
+    const lastName = customer.customerLastName || '';
+    const initials = `${firstName.charAt(0).toUpperCase()}${lastName.charAt(0).toUpperCase()}`;
+    
+    return (
+      <Box
+        sx={{
+          width: '100%',
+          height: '100%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: `linear-gradient(135deg, ${gradientPresets[selectedGradient].colors.join(', ')})`,
+          fontSize: 120,
+          fontWeight: 700,
+          color: 'white',
+        }}
+      >
+        {initials}
+      </Box>
+    );
   };
 
-  // Pre-validate Cloudinary image and convert to base64
+  // Pre-validate and load image
   useEffect(() => {
-    if (customer.customerImageUrl && isValidCloudinaryUrl(customer.customerImageUrl)) {
+    if (customer.customerImageUrl) {
+      setImageError(false);
+      setImageLoading(true);
+      
       const img = new Image();
-      img.crossOrigin = 'anonymous'; // Add CORS attribute
       
-      // Set a timeout to handle hanging requests
-      const timeout = setTimeout(() => {
-        setIsImageValid(false);
-        setImageError(true);
-        setImageLoading(false);
-      }, 5000); // 5 second timeout
+      // Don't use crossOrigin for Cloudinary images to avoid CORS issues
+      if (customer.customerImageUrl.includes('cloudinary.com')) {
+        img.crossOrigin = 'anonymous';
+      }
       
-      img.onload = async () => {
-        clearTimeout(timeout);
-        // Double-check image dimensions to ensure it's valid
+      img.onload = () => {
         if (img.naturalWidth > 0 && img.naturalHeight > 0) {
           setIsImageValid(true);
           setImageLoading(false);
-          // Convert to base64 for safe canvas rendering
-          const base64 = await toBase64(customer.customerImageUrl!);
-          if (base64) {
-            setSafeImage(base64);
-          }
+          setSafeImage(customer.customerImageUrl!);
         } else {
-          setIsImageValid(false);
           setImageError(true);
+          setIsImageValid(false);
           setImageLoading(false);
         }
       };
       
       img.onerror = () => {
-        clearTimeout(timeout);
-        setIsImageValid(false);
-        setImageError(true);
-        setImageLoading(false);
+        // Try again without crossOrigin if it failed
+        if (img.crossOrigin === 'anonymous') {
+          img.crossOrigin = '';
+          img.src = customer.customerImageUrl!;
+        } else {
+          setImageError(true);
+          setIsImageValid(false);
+          setImageLoading(false);
+        }
       };
       
       img.src = customer.customerImageUrl;
@@ -105,8 +105,8 @@ const ProfileImageContent: React.FC<ProfileImageContentProps> = ({
     }
   }, [customer.customerImageUrl]);
 
-  // Determine which image source to use (prefer base64 for canvas safety)
-  const imageSource = safeImage || (isImageValid && !imageError ? (customer.customerImageUrl || fallbackAvatarUrl) : fallbackAvatarUrl);
+  // Determine which image source to use
+  const imageSource = safeImage || (isImageValid && !imageError ? customer.customerImageUrl : null);
 
   return (
     <Box
@@ -185,47 +185,59 @@ const ProfileImageContent: React.FC<ProfileImageContentProps> = ({
             zIndex: 0,
           }}
         />
-        <Avatar
-          src={imageSource}
-          imgProps={{ crossOrigin: 'anonymous' }}
-          alt={`${customer.customerName} ${customer.customerLastName}`}
-          onLoad={() => setImageLoading(false)}
-          onError={() => {
-            setImageError(true);
-            setIsImageValid(false);
-            setImageLoading(false);
-          }}
-          sx={{
-            width: 420,
-            height: 420,
-            border: '6px solid rgba(255,255,255,0.9)',
-            boxShadow: '0 20px 60px rgba(0,0,0,0.4)',
-            position: 'relative',
-            zIndex: 1,
-            mx: 'auto',
-            mb: 4,
-            // Add loading state styling
-            ...(imageLoading && {
-              '&::after': {
-                content: '""',
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                background: 'rgba(255,255,255,0.1)',
-                borderRadius: '50%',
-              }
-            })
-          }}
-        >
-          {(!isImageValid || imageError) && (
-            <Typography sx={{ fontSize: 120, fontWeight: 700, color: '#1f2937' }}>
-              {customer.customerName?.charAt(0).toUpperCase()}
-              {customer.customerLastName?.charAt(0).toUpperCase()}
-            </Typography>
-          )}
-        </Avatar>
+        {imageSource ? (
+          <Avatar
+            src={imageSource}
+            imgProps={{ crossOrigin: 'anonymous' }}
+            alt={`${customer.customerName} ${customer.customerLastName}`}
+            onLoad={() => setImageLoading(false)}
+            onError={() => {
+              setImageError(true);
+              setIsImageValid(false);
+              setImageLoading(false);
+            }}
+            sx={{
+              width: 420,
+              height: 420,
+              border: '6px solid rgba(255,255,255,0.9)',
+              boxShadow: '0 20px 60px rgba(0,0,0,0.4)',
+              position: 'relative',
+              zIndex: 1,
+              mx: 'auto',
+              mb: 4,
+              // Add loading state styling
+              ...(imageLoading && {
+                '&::after': {
+                  content: '""',
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  background: 'rgba(255,255,255,0.1)',
+                  borderRadius: '50%',
+                }
+              })
+            }}
+          />
+        ) : (
+          <Box
+            sx={{
+              width: 420,
+              height: 420,
+              borderRadius: '50%',
+              border: '6px solid rgba(255,255,255,0.9)',
+              boxShadow: '0 20px 60px rgba(0,0,0,0.4)',
+              position: 'relative',
+              zIndex: 1,
+              mx: 'auto',
+              mb: 4,
+              overflow: 'hidden',
+            }}
+          >
+            {renderFallbackAvatar()}
+          </Box>
+        )}
         
         <Typography
           sx={{

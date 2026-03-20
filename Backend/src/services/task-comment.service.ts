@@ -195,7 +195,7 @@ export class TaskCommentService {
       }
     }
 
-    // Soft delete by setting isActive to false
+    // Soft delete by setting isActive to false (keeps for audit/history)
     comment.isActive = false;
     await this.taskCommentRepository.save(comment);
   }

@@ -248,7 +248,7 @@ export function useComments({
 
   const handleReplySubmit = useCallback(async (parentCommentId: number, sourceCommentId?: number) => {
     const replyTextSourceId = sourceCommentId || parentCommentId;
-    const replyText = replyTextByCommentId[replyTextSourceId];
+    let replyText = replyTextByCommentId[replyTextSourceId];
     if (replyText?.trim()) {
       try {
         // If parentCommentId is 0, submit as top-level comment

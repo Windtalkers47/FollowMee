@@ -118,7 +118,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
   const canUpdateStatus = task.assignedTo === currentUserId || task.createdBy === currentUserId;
 
   // Calculate engagement metrics
-  const totalEngagement = (likeSummary?.total || 0) + (task._count?.comments || 0);
+  const totalReactions = likeSummary?.total || 0;
   const isLiked = likeSummary?.userLike === 'like';
   const isLoved = likeSummary?.userLike === 'love';
   const isLaughed = likeSummary?.userLike === 'laugh';
@@ -130,7 +130,8 @@ const TaskCard: React.FC<TaskCardProps> = ({
       <Card
         sx={{
           mb: 1.5,
-          maxWidth: compact ? '100%' : 500,
+          // maxWidth: compact ? '100%' : 700, ปรับขนาด TaskCard
+          maxWidth: '100%',
           mx: compact ? 0 : 'auto',
           borderRadius: 3,
           background: theme.palette.mode === 'dark' 
@@ -682,8 +683,8 @@ const TaskCard: React.FC<TaskCardProps> = ({
               )}
             </Box>
 
-            {/* Glass Engagement Count */}
-            {totalEngagement > 0 && (
+            {/* Glass Reaction Count */}
+            {totalReactions > 0 && (
               <Typography 
                 variant="caption" 
                 sx={{ 
@@ -702,7 +703,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
                   fontSize: '0.7rem',
                 }}
               >
-                {totalEngagement}
+                {totalReactions}
               </Typography>
             )}
 

@@ -1,11 +1,91 @@
 import React from 'react';
-import { Avatar, Typography, IconButton, Box, Button, useTheme } from '@mui/material';
+import { Avatar, Typography, IconButton, Box, Button, useTheme, TextField } from '@mui/material';
 import { Reply as ReplyIcon } from '@mui/icons-material';
 import { format } from 'date-fns';
 import { FlatCommentRow } from '../../utils/flattenCommentTreeForVirtualization';
 import { useCommentActionContext } from '../../contexts/index';
 import { useAppSelector } from '../../store/store';
 import { selectCurrentUser } from '../../store/slices/authSlice';
+
+// Custom MentionTextarea component with glass-morphism styling for @mentions
+const MentionTextarea: React.FC<{
+  value: string;
+  onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
+  placeholder: string;
+  theme: any;
+}> = ({ value, onChange, placeholder, theme }) => {
+  const renderText = (text: string) => {
+    const mentionRegex = /@(\w+\s*\w*)/g;
+    const parts = text.split(mentionRegex);
+    
+    return parts.map((part, index) => {
+      if (part && part.startsWith('@')) {
+        return (
+          <span
+            key={index}
+            style={{
+              background: theme.palette.mode === 'dark'
+                ? 'rgba(25, 118, 210, 0.3)'
+                : 'rgba(25, 118, 210, 0.2)',
+              color: theme.palette.mode === 'dark'
+                ? '#fff'
+                : '#fff',
+              padding: '3px 8px',
+              borderRadius: '6px',
+              margin: '0 2px',
+              backdropFilter: 'blur(6px)',
+              WebkitBackdropFilter: 'blur(6px)',
+              border: `1px solid ${theme.palette.mode === 'dark'
+                ? 'rgba(25, 118, 210, 0.5)'
+                : 'rgba(25, 118, 210, 0.4)'}`,
+              fontWeight: 600,
+              fontSize: '13px',
+              boxShadow: theme.palette.mode === 'dark'
+                ? '0 2px 8px rgba(25, 118, 210, 0.3)'
+                : '0 2px 8px rgba(25, 118, 210, 0.2)',
+            }}
+          >
+            {part}
+          </span>
+        );
+      }
+      return part;
+    });
+  };
+
+  return (
+    <div
+      style={{
+        width: '100%',
+        padding: '8px 12px',
+        borderRadius: '8px',
+        background: theme.palette.mode === 'dark'
+          ? 'rgba(255, 255, 255, 0.08)'
+          : 'rgba(255, 255, 255, 0.9)',
+        backdropFilter: 'blur(8px)',
+        WebkitBackdropFilter: 'blur(8px)',
+        border: `1px solid ${theme.palette.mode === 'dark'
+          ? 'rgba(255, 255, 255, 0.15)'
+          : 'rgba(255, 255, 255, 0.4)'}`,
+        outline: 'none',
+        resize: 'vertical',
+        minHeight: '60px',
+        fontFamily: 'inherit',
+        lineHeight: '1.4',
+        fontSize: '14px',
+        color: theme.palette.mode === 'dark' ? '#fff' : 'rgba(0, 0, 0, 0.8)',
+      }}
+      contentEditable
+      suppressContentEditableWarning={true}
+      onInput={(e: React.FormEvent<HTMLDivElement>) => {
+        const newText = e.currentTarget.textContent || '';
+        onChange({ target: { value: newText } } as React.ChangeEvent<HTMLTextAreaElement>);
+      }}
+    >
+      {value ? renderText(value) : <span style={{ color: 'gray' }}>{placeholder}</span>}
+    </div>
+  );
+};
 
 interface YouTubeCommentNodeProps {
   row: FlatCommentRow;
@@ -202,7 +282,7 @@ const YouTubeCommentNode: React.FC<YouTubeCommentNodeProps> = ({ row }) => {
             sx={{ 
               display: 'flex', 
               alignItems: 'center', 
-              gap: 1.5,
+              gap: 1,
               mt: 1.5,
               opacity: 0.8,
               transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
@@ -211,134 +291,121 @@ const YouTubeCommentNode: React.FC<YouTubeCommentNodeProps> = ({ row }) => {
               }
             }}
           >
-            {/* Glass Like button */}
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <IconButton
-                size="small"
-                onClick={() => updateReaction(comment.comment.commentId, 'like')}
-                sx={{ 
-                  padding: '6px',
-                  borderRadius: '50%',
-                  background: comment.comment.reactions?.some(r => r.reactionType === 'like' && r.userId === currentUser?.userId)
-                    ? theme.palette.mode === 'dark'
-                      ? 'rgba(25, 118, 210, 0.2)'
-                      : 'rgba(25, 118, 210, 0.15)'
-                    : theme.palette.mode === 'dark'
-                      ? 'rgba(255, 255, 255, 0.1)'
-                      : 'rgba(255, 255, 255, 0.8)',
-                  backdropFilter: 'blur(8px)',
-                  WebkitBackdropFilter: 'blur(8px)',
-                  border: `1px solid ${theme.palette.mode === 'dark' 
-                    ? 'rgba(255, 255, 255, 0.2)' 
-                    : 'rgba(255, 255, 255, 0.7)'}`,
-                  color: comment.comment.reactions?.some(r => r.reactionType === 'like' && r.userId === currentUser?.userId) 
-                    ? 'primary.main' 
-                    : theme.palette.mode === 'dark' ? '#fff' : 'rgba(0, 0, 0, 0.6)',
-                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                  '&:hover': {
-                    transform: 'scale(1.1)',
+            {/* Like, Dislike, Reply, Collapse/Expand buttons */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              {/* Glass Like button */}
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <IconButton
+                  size="small"
+                  onClick={() => updateReaction(comment.comment.commentId, 'like')}
+                  sx={{ 
+                    p: 0.5,
                     background: comment.comment.reactions?.some(r => r.reactionType === 'like' && r.userId === currentUser?.userId)
                       ? theme.palette.mode === 'dark'
-                        ? 'rgba(25, 118, 210, 0.3)'
-                        : 'rgba(25, 118, 210, 0.25)'
+                        ? 'rgba(25, 118, 210, 0.2)'
+                        : 'rgba(25, 118, 210, 0.15)'
                       : theme.palette.mode === 'dark'
-                        ? 'rgba(255, 255, 255, 0.2)'
-                        : 'rgba(255, 255, 255, 0.9)',
-                    boxShadow: theme.palette.mode === 'dark'
-                      ? '0 4px 12px rgba(0, 0, 0, 0.3)'
-                      : '0 4px 12px rgba(31, 38, 135, 0.2)',
-                  }
-                }}
-              >
-                👍
-              </IconButton>
-              {likeCount > 0 && (
-                <Typography 
-                  variant="caption" 
-                  sx={{ 
-                    fontSize: '12px',
-                    color: theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.8)' : 'rgba(0, 0, 0, 0.6)',
-                    fontWeight: 500,
-                    background: theme.palette.mode === 'dark'
-                      ? 'rgba(255, 255, 255, 0.1)'
-                      : 'rgba(255, 255, 255, 0.8)',
-                    px: 1,
-                    py: 0.25,
-                    borderRadius: 1,
-                    backdropFilter: 'blur(4px)',
-                    WebkitBackdropFilter: 'blur(4px)',
+                        ? 'rgba(255, 255, 255, 0.08)'
+                        : 'rgba(255, 255, 255, 0.6)',
+                    backdropFilter: 'blur(8px)',
+                    WebkitBackdropFilter: 'blur(8px)',
+                    border: `1px solid ${theme.palette.mode === 'dark' 
+                      ? 'rgba(25, 118, 210, 0.3)' 
+                      : 'rgba(25, 118, 210, 0.4)'}`,
+                    '&:hover': {
+                      background: comment.comment.reactions?.some(r => r.reactionType === 'like' && r.userId === currentUser?.userId)
+                        ? theme.palette.mode === 'dark'
+                          ? 'rgba(25, 118, 210, 0.3)'
+                          : 'rgba(25, 118, 210, 0.25)'
+                        : theme.palette.mode === 'dark'
+                          ? 'rgba(255, 255, 255, 0.12)'
+                          : 'rgba(255, 255, 255, 0.8)',
+                    }
                   }}
                 >
-                  {likeCount}
-                </Typography>
-              )}
-            </Box>
+                  <span>👍</span>
+                </IconButton>
+                {likeCount > 0 && (
+                  <Typography 
+                    variant="caption" 
+                    sx={{ 
+                      fontSize: '12px',
+                      color: theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.8)' : 'rgba(0, 0, 0, 0.6)',
+                      fontWeight: 500,
+                      background: theme.palette.mode === 'dark'
+                        ? 'rgba(255, 255, 255, 0.1)'
+                        : 'rgba(255, 255, 255, 0.8)',
+                      px: 1,
+                      py: 0.25,
+                      borderRadius: 1,
+                      backdropFilter: 'blur(4px)',
+                      WebkitBackdropFilter: 'blur(4px)',
+                    }}
+                  >
+                    {likeCount}
+                  </Typography>
+                )}
+              </Box>
 
-            {/* Dislike button */}
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <IconButton
-                size="small"
-                onClick={() => updateReaction(comment.comment.commentId, 'dislike')}
-                sx={{ 
-                  padding: '4px',
-                  borderRadius: '50%',
-                  color: comment.comment.reactions?.some(r => r.reactionType === 'dislike' && r.userId === currentUser?.userId) ? 'error.main' : 'text.secondary',
-                  '&:hover': {
-                    backgroundColor: 'rgba(0, 0, 0, 0.04)'
-                  }
-                }}
-              >
-                👎
-              </IconButton>
-              {dislikeCount > 0 && (
-                <Typography 
-                  variant="caption" 
+              {/* Dislike button */}
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <IconButton
+                  size="small"
+                  onClick={() => updateReaction(comment.comment.commentId, 'dislike')}
                   sx={{ 
-                    fontSize: '12px',
-                    color: 'text.secondary',
-                    fontWeight: 500
+                    p: 0.5,
+                    background: comment.comment.reactions?.some(r => r.reactionType === 'dislike' && r.userId === currentUser?.userId)
+                      ? theme.palette.mode === 'dark'
+                        ? 'rgba(158, 158, 158, 0.2)'
+                        : 'rgba(158, 158, 158, 0.15)'
+                      : theme.palette.mode === 'dark'
+                        ? 'rgba(255, 255, 255, 0.08)'
+                        : 'rgba(255, 255, 255, 0.6)',
+                    backdropFilter: 'blur(8px)',
+                    WebkitBackdropFilter: 'blur(8px)',
+                    border: `1px solid ${theme.palette.mode === 'dark' 
+                      ? 'rgba(158, 158, 158, 0.3)' 
+                      : 'rgba(158, 158, 158, 0.4)'}`,
+                    '&:hover': {
+                      background: comment.comment.reactions?.some(r => r.reactionType === 'dislike' && r.userId === currentUser?.userId)
+                        ? theme.palette.mode === 'dark'
+                          ? 'rgba(158, 158, 158, 0.3)'
+                          : 'rgba(158, 158, 158, 0.25)'
+                        : theme.palette.mode === 'dark'
+                          ? 'rgba(255, 255, 255, 0.12)'
+                          : 'rgba(255, 255, 255, 0.8)',
+                    }
                   }}
                 >
-                  {dislikeCount}
-                </Typography>
-              )}
-            </Box>
+                  <span>👎</span>
+                </IconButton>
+                {dislikeCount > 0 && (
+                  <Typography 
+                    variant="caption" 
+                    sx={{ 
+                      fontSize: '12px',
+                      color: 'text.secondary',
+                      fontWeight: 500
+                    }}
+                  >
+                    {dislikeCount}
+                  </Typography>
+                )}
+              </Box>
 
-            {/* Reply button */}
-            <Button
-              size="small"
-              startIcon={<ReplyIcon sx={{ fontSize: '16px' }} />}
-              onClick={() => {
-                if (isAtMaxDepth) {
-                  // When at max depth, tag the user instead of creating nested reply
-                  const tagText = `@${displayUser.userName} ${displayUser.userLastName} `;
-                  handleReply(comment.comment.commentId);
-                  handleReplyTextChange(comment.comment.commentId, tagText);
-                } else {
-                  handleReply(comment.comment.commentId);
-                }
-              }}
-              sx={{ 
-                textTransform: 'none',
-                fontSize: '13px',
-                fontWeight: 500,
-                color: 'text.secondary',
-                padding: '4px 8px',
-                minWidth: 'auto',
-                borderRadius: 1,
-                '&:hover': {
-                  backgroundColor: 'rgba(0, 0, 0, 0.04)'
-                }
-              }}
-            >
-              Reply
-            </Button>
-
-            {/* Collapse/Expand thread button */}
-            {hasChildrenInOriginal && (
+              {/* Reply button */}
               <Button
                 size="small"
-                onClick={() => toggleCollapse(comment.comment.commentId)}
+                onClick={() => {
+                  if (isAtMaxDepth) {
+                    // For max depth, pre-fill the reply input with user tag
+                    const taggedText = `@${displayUser.userName} ${displayUser.userLastName} `;
+                    handleReply(comment.comment.commentId);
+                    handleReplyTextChange(comment.comment.commentId, taggedText);
+                  } else {
+                    handleReply(comment.comment.commentId);
+                  }
+                }}
                 sx={{ 
                   textTransform: 'none',
                   fontSize: '13px',
@@ -352,16 +419,14 @@ const YouTubeCommentNode: React.FC<YouTubeCommentNodeProps> = ({ row }) => {
                   }
                 }}
               >
-                {isCollapsed ? '▼ View replies' : '▲ Hide replies'}
+                Reply
               </Button>
-            )}
 
-            {/* Owner actions */}
-            {isOwner && (
-              <>
+              {/* Collapse/Expand thread button */}
+              {hasChildrenInOriginal && (
                 <Button
                   size="small"
-                  onClick={() => handleEditStart(comment.comment.commentId, comment.comment.comment)}
+                  onClick={() => toggleCollapse(comment.comment.commentId)}
                   sx={{ 
                     textTransform: 'none',
                     fontSize: '13px',
@@ -375,29 +440,52 @@ const YouTubeCommentNode: React.FC<YouTubeCommentNodeProps> = ({ row }) => {
                     }
                   }}
                 >
-                  Edit
+                  {isCollapsed ? '▼ View replies' : '▲ Hide replies'}
                 </Button>
-                
-                <Button
-                  size="small"
-                  onClick={() => handleDeleteComment(comment.comment.commentId)}
-                  sx={{ 
-                    textTransform: 'none',
-                    fontSize: '13px',
-                    fontWeight: 500,
-                    color: 'error.main',
-                    padding: '4px 8px',
-                    minWidth: 'auto',
-                    borderRadius: 1,
-                    '&:hover': {
-                      backgroundColor: 'rgba(211, 47, 47, 0.04)'
-                    }
-                  }}
-                >
-                  Delete
-                </Button>
-              </>
-            )}
+              )}
+
+              {/* Owner actions */}
+              {isOwner && (
+                <>
+                  <Button
+                    size="small"
+                    onClick={() => handleEditStart(comment.comment.commentId, comment.comment.comment)}
+                    sx={{ 
+                      textTransform: 'none',
+                      fontSize: '13px',
+                      fontWeight: 500,
+                      color: 'text.secondary',
+                      padding: '4px 8px',
+                      minWidth: 'auto',
+                      borderRadius: 1,
+                      '&:hover': {
+                        backgroundColor: 'rgba(0, 0, 0, 0.04)'
+                      }
+                    }}
+                  >
+                    Edit
+                  </Button>
+                  <Button
+                    size="small"
+                    onClick={() => handleDeleteComment(comment.comment.commentId)}
+                    sx={{ 
+                      textTransform: 'none',
+                      fontSize: '13px',
+                      fontWeight: 500,
+                      color: 'error.main',
+                      padding: '4px 8px',
+                      minWidth: 'auto',
+                      borderRadius: 1,
+                      '&:hover': {
+                        backgroundColor: 'rgba(211, 47, 47, 0.04)'
+                      }
+                    }}
+                  >
+                    Delete
+                  </Button>
+                </>
+              )}
+            </Box>
           </Box>
 
           {/* Reply input area */}
@@ -442,27 +530,14 @@ const YouTubeCommentNode: React.FC<YouTubeCommentNodeProps> = ({ row }) => {
                     `${currentUser?.userName?.[0] || 'U'}${currentUser?.userLastName?.[0] || ''}`}
                 </Avatar>
                 <Box sx={{ flex: 1 }}>
-                  <textarea
+                  <MentionTextarea
                     value={getReplyText(comment.comment.commentId)}
                     onChange={(e) => {
                       const newText = e.target.value;
                       handleReplyTextChange(comment.comment.commentId, newText);
                     }}
                     placeholder={isAtMaxDepth ? "Write a reply with user tag..." : "Add a public reply..."}
-                    style={{
-                      width: '100%',
-                      padding: '8px 12px',
-                      border: '1px solid rgba(0, 0, 0, 0.2)',
-                      borderRadius: '8px',
-                      backgroundColor: 'rgba(255, 255, 255, 0.9)',
-                      color: 'rgba(0, 0, 0, 0.8)',
-                      fontSize: '14px',
-                      outline: 'none',
-                      resize: 'vertical',
-                      minHeight: '60px',
-                      fontFamily: 'inherit',
-                      lineHeight: '1.4'
-                    }}
+                    theme={theme}
                   />
                   <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
                     <Button
@@ -472,7 +547,6 @@ const YouTubeCommentNode: React.FC<YouTubeCommentNodeProps> = ({ row }) => {
                         if (replyText?.trim()) {
                           if (isAtMaxDepth) {
                             // For max depth replies, submit as a reply to the parent instead of this comment
-                            // But use the current comment's ID to get the reply text
                             const actualParentId = comment.comment.parentCommentId || 0;
                             handleReplySubmit(actualParentId, comment.comment.commentId);
                           } else {

@@ -1,7 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState, useCallback } from 'react';
-import { commentApi, commentReactionApi } from '../api/task.api';
+import { commentApi, commentReactionApi, TaskCommentReaction } from '../api/task.api';
 import { Comment, CommentTree } from '../types/comment';
+import { useAppSelector } from '../store/store';
+import { selectCurrentUser } from '../store/slices/authSlice';
 
 export interface UseCommentsOptions {
   taskId: string;
@@ -66,6 +68,9 @@ export function useComments({
   const [editingComment, setEditingComment] = useState<number | null>(null);
   const [editText, setEditText] = useState('');
   const [collapsedThreads, setCollapsedThreads] = useState<Set<number>>(new Set());
+
+  // Get current user
+  const currentUser = useAppSelector(selectCurrentUser);
 
   const {
     data: flatComments = [],
@@ -187,15 +192,39 @@ export function useComments({
   // Optimistic reaction update
   const updateReaction = useCallback(async (commentId: number, reactionType: 'like' | 'dislike' | 'love' | 'laugh' | 'angry') => {
     try {
-      // API call to update reaction
-      await commentReactionApi.createOrUpdateReaction(commentId, { reactionType });
+      // Find the comment in the current data to check existing reaction
+      const findComment = (nodes: any[]): any => {
+        for (const node of nodes) {
+          if (node.comment.commentId === commentId) {
+            return node;
+          }
+          if (node.children) {
+            const found = findComment(node.children);
+            if (found) return found;
+          }
+        }
+        return null;
+      };
+
+      const comment = findComment(visibleTree?.nodes || []);
+      const existingReaction = comment?.comment.reactions?.find(
+        (r: TaskCommentReaction) => r.userId === currentUser?.userId
+      );
+
+      if (existingReaction && existingReaction.reactionType === reactionType) {
+        // User is clicking the same reaction again - remove it
+        await commentReactionApi.removeReaction(commentId);
+      } else {
+        // User is adding a new reaction or changing reaction
+        await commentReactionApi.createOrUpdateReaction(commentId, { reactionType });
+      }
       
       // Refetch comments to get updated reaction counts
       await refetch();
     } catch (error) {
       console.error('Failed to update reaction:', error);
     }
-  }, [refetch]);
+  }, [refetch, visibleTree, currentUser]);
 
   // Toggle thread collapse
   const toggleCollapse = useCallback((commentId: number) => {

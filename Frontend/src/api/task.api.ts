@@ -343,6 +343,14 @@ export const taskApi = {
     });
     return response.data.data;
   },
+
+  // Mark task as undone
+  markTaskAsUndone: async (taskId: string): Promise<MarkTaskDoneResponse> => {
+    const response = await axios.put(`${API_BASE_URL}/tasks/${taskId}/mark-undone`, {}, {
+      withCredentials: true,
+    });
+    return response.data.data;
+  },
 };
 
 // Comment operations

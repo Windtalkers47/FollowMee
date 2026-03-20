@@ -67,6 +67,7 @@ interface TaskFeedCardProps {
   onUnlike?: (taskId: string) => void;
   onComment?: (taskId: string, comment: string) => void;
   onMarkDone?: (taskId: string) => void;
+  onMarkUndone?: (taskId: string) => void;
 }
 
 const TaskFeedCard: React.FC<TaskFeedCardProps> = ({
@@ -76,6 +77,7 @@ const TaskFeedCard: React.FC<TaskFeedCardProps> = ({
   onUnlike,
   onComment,
   onMarkDone,
+  onMarkUndone,
 }) => {
   const { user } = useAppSelector((state) => state.auth);
 
@@ -88,6 +90,7 @@ const TaskFeedCard: React.FC<TaskFeedCardProps> = ({
       onUnlike={onUnlike}
       onComment={onComment}
       onMarkDone={onMarkDone}
+      onMarkUndone={onMarkUndone}
       showActions={false} // Hide edit/delete actions in feed
       compact={false} // Use full width for better social media feel
     />
@@ -104,6 +107,8 @@ const PostsPage = () => {
   const [userRank, setUserRank] = useState<UserRank | null>(null);
   const [doneDialogOpen, setDoneDialogOpen] = useState(false);
   const [doneTaskData, setDoneTaskData] = useState<{ task: Task; newRank: UserRank } | null>(null);
+  const [undoneDialogOpen, setUndoneDialogOpen] = useState(false);
+  const [undoneTaskData, setUndoneTaskData] = useState<{ task: Task; newRank: UserRank } | null>(null);
 
   const { user } = useAppSelector((state) => state.auth);
   const queryClient = useQueryClient();
@@ -193,6 +198,22 @@ const PostsPage = () => {
     },
   });
 
+  // Mark task as undone mutation
+  const markTaskUndoneMutation = useMutation({
+    mutationFn: (taskId: string) => taskApi.markTaskAsUndone(taskId),
+    onSuccess: (response) => {
+      // Show undone dialog
+      setUndoneTaskData({ task: response.task, newRank: response.userRank });
+      setUndoneDialogOpen(true);
+      
+      // Invalidate queries to refresh data
+      queryClient.invalidateQueries({ queryKey: ['all-tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['assigned-tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['top-performers'] });
+      queryClient.invalidateQueries({ queryKey: ['user-rank'] });
+    },
+  });
+
   // Fetch like summaries for tasks
   const fetchLikeSummary = async (taskId: string) => {
     try {
@@ -272,9 +293,18 @@ const PostsPage = () => {
     await markTaskDoneMutation.mutateAsync({ taskId });
   };
 
+  const handleMarkTaskUndone = async (taskId: string) => {
+    await markTaskUndoneMutation.mutateAsync(taskId);
+  };
+
   const handleCloseDoneDialog = () => {
     setDoneDialogOpen(false);
     setDoneTaskData(null);
+  };
+
+  const handleCloseUndoneDialog = () => {
+    setUndoneDialogOpen(false);
+    setUndoneTaskData(null);
   };
 
   const assignedTasksList = assignedTasks || [];
@@ -521,6 +551,7 @@ const PostsPage = () => {
                     onUnlike={handleUnlike}
                     onComment={handleComment}
                     onMarkDone={handleMarkTaskDone}
+                    onMarkUndone={handleMarkTaskUndone}
                   />
                 </Grid>
               ))
@@ -562,6 +593,7 @@ const PostsPage = () => {
                     onUnlike={handleUnlike}
                     onComment={handleComment}
                     onMarkDone={handleMarkTaskDone}
+                    onMarkUndone={handleMarkTaskUndone}
                   />
                 </Grid>
               ))
@@ -626,6 +658,69 @@ const PostsPage = () => {
             size="large"
           >
             Awesome!
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Task Undone Dialog */}
+      <Dialog
+        open={undoneDialogOpen}
+        TransitionComponent={SlideTransition}
+        keepMounted
+        onClose={handleCloseUndoneDialog}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle sx={{ textAlign: 'center', pb: 1 }}>
+          <Typography sx={{ fontSize: 48, mb: 1 }}>💪</Typography>
+          <Typography variant="h5" color="warning.main" fontWeight="bold">
+            Task Reopened! 🔄
+          </Typography>
+        </DialogTitle>
+        <DialogContent sx={{ textAlign: 'center', py: 2 }}>
+          {undoneTaskData && (
+            <>
+              <Typography variant="body1" sx={{ mb: 2 }}>
+                No worries! "<strong>{undoneTaskData.task.title}</strong>" has been reopened for improvement.
+              </Typography>
+              <Box sx={{ 
+                p: 2, 
+                bgcolor: 'warning.50', 
+                borderRadius: 2, 
+                border: 2, 
+                borderColor: 'warning.main' 
+              }}>
+                <Typography variant="h6" color="warning.main" fontWeight="bold">
+                  Your Current Rank: #{undoneTaskData.newRank.rank}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {undoneTaskData.newRank.completedTasks} completed tasks
+                </Typography>
+                <Typography variant="body2" color="warning.main" sx={{ mt: 1 }}>
+                  💡 Take your time and do your best. You've got this!
+                </Typography>
+                {undoneTaskData.newRank.rank <= 3 && (
+                  <Typography variant="body2" color="warning.main" sx={{ mt: 1 }}>
+                    🎯 Still in the Top 3! Keep up the great work!
+                  </Typography>
+                )}
+                {undoneTaskData.newRank.rank > 3 && (
+                  <Typography variant="body2" color="warning.main" sx={{ mt: 1 }}>
+                    🚀 Every setback is a setup for a comeback!
+                  </Typography>
+                )}
+              </Box>
+            </>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ justifyContent: 'center', pb: 3 }}>
+          <Button 
+            onClick={handleCloseUndoneDialog} 
+            variant="contained" 
+            color="warning"
+            size="large"
+          >
+            Got it!
           </Button>
         </DialogActions>
       </Dialog>

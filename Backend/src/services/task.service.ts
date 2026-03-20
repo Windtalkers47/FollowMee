@@ -298,6 +298,35 @@ export class TaskService {
     return this.mapToResponseDto(updatedTask);
   }
 
+  async markTaskAsUndone(taskId: string, userId: number): Promise<TaskResponseDto> {
+    const task = await this.customTaskRepository.findById(taskId);
+
+    if (!task) {
+      throw new NotFoundException('Task not found');
+    }
+
+    // Check if user can undo this task (owner or assigned user)
+    if (task.createdBy !== userId && task.assignedTo !== userId) {
+      throw new ForbiddenException('You can only undo tasks if you are the owner or assigned user');
+    }
+
+    // Check if task is not done
+    if (task.status !== 'done') {
+      throw new ForbiddenException('Task is not marked as done');
+    }
+
+    // Update task status back to upcoming (or previous status)
+    await this.customTaskRepository.updateTaskStatus(taskId, 'upcoming');
+
+    // Get the updated task with relations
+    const updatedTask = await this.customTaskRepository.findTaskByIdWithRelations(taskId);
+    if (!updatedTask) {
+      throw new NotFoundException('Failed to retrieve updated task');
+    }
+
+    return this.mapToResponseDto(updatedTask);
+  }
+
   async getUserRank(userId: number): Promise<{ rank: number; completedTasks: number; totalUsers: number }> {
     return await this.customTaskRepository.getUserRank(userId);
   }

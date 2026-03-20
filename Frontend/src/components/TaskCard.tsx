@@ -40,6 +40,7 @@ interface TaskCardProps {
   onUnlike?: (taskId: string) => void;
   onComment?: (taskId: string, comment: string) => void;
   onMarkDone?: (taskId: string) => void;
+  onMarkUndone?: (taskId: string) => void;
   showActions?: boolean;
   compact?: boolean;
   // Liquid Glass UI Controls
@@ -73,6 +74,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
   onUnlike,
   onComment,
   onMarkDone,
+  onMarkUndone,
   showActions = true,
   compact = false,
   // Liquid Glass UI Controls with defaults
@@ -116,6 +118,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
   const canEdit = task.createdBy === currentUserId;
   const canDelete = task.createdBy === currentUserId;
   const canUpdateStatus = task.assignedTo === currentUserId || task.createdBy === currentUserId;
+  const canUndone = task.createdBy === currentUserId || task.assignedTo === currentUserId;
 
   // Calculate engagement metrics
   const totalReactions = likeSummary?.total || 0;
@@ -737,6 +740,37 @@ const TaskCard: React.FC<TaskCardProps> = ({
                 }}
               >
                 Done
+              </Button>
+            )}
+
+            {/* Glass Mark Undone Button */}
+            {canUndone && task.status === 'done' && (
+              <Button
+                size="small"
+                startIcon={<span>↶</span>}
+                onClick={() => onMarkUndone?.(task.taskId)}
+                variant="contained"
+                color="warning"
+                sx={{
+                  borderRadius: 15,
+                  textTransform: 'none',
+                  fontWeight: 600,
+                  px: 1.5,
+                  py: 0.5,
+                  fontSize: '0.75rem',
+                  background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                  boxShadow: '0 4px 12px rgba(245, 158, 11, 0.4)',
+                  backdropFilter: 'blur(8px)',
+                  WebkitBackdropFilter: 'blur(8px)',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  '&:hover': {
+                    background: 'linear-gradient(135deg, #d97706 0%, #b45309 100%)',
+                    boxShadow: '0 6px 16px rgba(245, 158, 11, 0.5)',
+                    transform: 'translateY(-1px)',
+                  }
+                }}
+              >
+                Undone
               </Button>
             )}
 

@@ -41,6 +41,9 @@ router.get('/my-rank', (req, res, next) => taskController.getUserRank(req, res, 
 // Mark task as done
 router.put('/:taskId/mark-done', (req, res, next) => taskController.markTaskAsDone(req, res, next));
 
+// Mark task as undone
+router.put('/:taskId/mark-undone', (req, res, next) => taskController.markTaskAsUndone(req, res, next));
+
 // Get a specific task by ID
 router.get('/:taskId', (req, res, next) => taskController.getTaskById(req, res, next));
 

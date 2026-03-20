@@ -42,6 +42,24 @@ const CommentTreeComponent: React.FC<CommentTreeProps> = ({
   const finalBlur = 20;
   const finalBorderOpacity = 0.3;
 
+  // Flatten the tree for rendering - ALWAYS call hooks before any conditional returns
+  const flatRows = React.useMemo(() => 
+    visibleTree ? flattenCommentTree(visibleTree.nodes) : [],
+    [visibleTree]
+  );
+
+  // Memoize context values - ALWAYS call hooks before any conditional returns
+  const dataContextValue = React.useMemo(() => ({
+    comments: commentData.comments,
+    commentTree: commentData.commentTree,
+    visibleTree,
+    isLoading,
+    error,
+    refetch,
+    collapsedThreads,
+    hiddenReplyCount
+  }), [commentData.comments, commentData.commentTree, visibleTree, isLoading, error, refetch, collapsedThreads, hiddenReplyCount]);
+
   const handleAddComment = async () => {
     if (newCommentText.trim()) {
       await addComment(newCommentText);
@@ -74,23 +92,14 @@ const CommentTreeComponent: React.FC<CommentTreeProps> = ({
   if (error) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-        Error loading comments: {error.message}
+        Error loading comments: {error instanceof Error ? error.message : 'Unknown error'}
       </Box>
     );
   }
 
   if (!visibleTree?.nodes.length) {
     return (
-      <CommentDataContext.Provider value={{
-        comments: commentData.comments,
-        commentTree: commentData.commentTree,
-        visibleTree,
-        isLoading,
-        error,
-        refetch,
-        collapsedThreads,
-        hiddenReplyCount
-      }}>
+      <CommentDataContext.Provider value={dataContextValue}>
         <CommentActionContext.Provider value={commentData}>
           <Box>
             <Box sx={{ textAlign: 'center', py: 4 }}>
@@ -234,21 +243,6 @@ const CommentTreeComponent: React.FC<CommentTreeProps> = ({
       </CommentDataContext.Provider>
     );
   }
-
-  // Flatten the tree for rendering
-  const flatRows = flattenCommentTree(visibleTree.nodes);
-
-  // Memoize context values
-  const dataContextValue = React.useMemo(() => ({
-    comments: commentData.comments,
-    commentTree: commentData.commentTree,
-    visibleTree,
-    isLoading,
-    error,
-    refetch,
-    collapsedThreads,
-    hiddenReplyCount
-  }), [commentData.comments, commentData.commentTree, visibleTree, isLoading, error, refetch, collapsedThreads, hiddenReplyCount]);
 
   return (
     <CommentDataContext.Provider value={dataContextValue}>

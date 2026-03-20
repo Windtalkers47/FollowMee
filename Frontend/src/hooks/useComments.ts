@@ -37,7 +37,7 @@ export interface UseCommentsResult {
   // UI Actions
   handleReply: (commentId: number) => void;
   handleReplyTextChange: (commentId: number, text: string) => void;
-  handleReplySubmit: (parentCommentId: number) => Promise<void>;
+  handleReplySubmit: (parentCommentId: number, sourceCommentId?: number) => Promise<void>;
   handleReplyCancel: () => void;
   handleAddComment: (text: string) => Promise<void>;
   handleEditStart: (commentId: number, text: string) => void;
@@ -135,7 +135,7 @@ export function useComments({
     if (!commentTree) return null;
     
     const filterByDepth = (node: any, currentDepth: number): any => {
-      if (currentDepth >= maxDepth) return null;
+      if (currentDepth > maxDepth) return null; // Changed from >= to > to allow exactly maxDepth levels
       
       return {
         ...node,
@@ -160,11 +160,11 @@ export function useComments({
       };
     };
     
-    // Apply collapse filtering FIRST, then depth filtering
+    // Apply depth filtering FIRST, then collapse filtering
     const filteredNodes = commentTree.nodes
-      .map(filterCollapsed) // Remove collapsed threads first
+      .map(node => filterByDepth(node, 0)) // First apply depth limits
       .filter(Boolean)
-      .map(node => filterByDepth(node, 0)) // Then apply depth limits
+      .map(filterCollapsed) // Then apply collapse filtering
       .filter(Boolean);
     
     return {
@@ -240,21 +240,24 @@ export function useComments({
     if (!replyTextByCommentId[commentId]) {
       setReplyTextByCommentId(prev => ({ ...prev, [commentId]: '' }));
     }
-  }, [replyTextByCommentId]);
+  }, []);
 
   const handleReplyTextChange = useCallback((commentId: number, text: string) => {
     setReplyTextByCommentId(prev => ({ ...prev, [commentId]: text }));
   }, []);
 
-  const handleReplySubmit = useCallback(async (parentCommentId: number) => {
-    const replyText = replyTextByCommentId[parentCommentId];
+  const handleReplySubmit = useCallback(async (parentCommentId: number, sourceCommentId?: number) => {
+    const replyTextSourceId = sourceCommentId || parentCommentId;
+    const replyText = replyTextByCommentId[replyTextSourceId];
     if (replyText?.trim()) {
       try {
-        await addComment(replyText, parentCommentId);
+        // If parentCommentId is 0, submit as top-level comment
+        const actualParentId = parentCommentId === 0 ? undefined : parentCommentId;
+        await addComment(replyText, actualParentId);
         setReplyingTo(null);
         setReplyTextByCommentId(prev => {
           const newState = { ...prev };
-          delete newState[parentCommentId];
+          delete newState[replyTextSourceId];
           return newState;
         });
       } catch (error) {
@@ -286,15 +289,15 @@ export function useComments({
   const handleEditSubmit = useCallback(async (commentId: number) => {
     if (editText.trim()) {
       try {
-        // TODO: Implement edit API call
-        console.log('Edit comment:', commentId, editText);
+        await commentApi.updateComment(taskId, commentId, { comment: editText });
+        await refetch();
         setEditingComment(null);
         setEditText('');
       } catch (error) {
         console.error('Failed to edit comment:', error);
       }
     }
-  }, [editText]);
+  }, [editText, taskId, refetch]);
 
   const handleEditCancel = useCallback(() => {
     setEditingComment(null);
@@ -303,13 +306,12 @@ export function useComments({
 
   const handleDeleteComment = useCallback(async (commentId: number) => {
     try {
-      // TODO: Implement delete API call
-      console.log('Delete comment:', commentId);
+      await commentApi.deleteComment(taskId, commentId);
       await refetch();
     } catch (error) {
       console.error('Failed to delete comment:', error);
     }
-  }, [refetch]);
+  }, [taskId, refetch]);
 
   const getReplyText = useCallback((commentId: number) => {
     return replyTextByCommentId[commentId] || '';

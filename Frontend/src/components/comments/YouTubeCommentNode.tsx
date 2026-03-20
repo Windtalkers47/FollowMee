@@ -4,19 +4,29 @@ import { Reply as ReplyIcon } from '@mui/icons-material';
 import { format } from 'date-fns';
 import { FlatCommentRow } from '../../utils/flattenCommentTreeForVirtualization';
 import { useCommentActionContext } from '../../contexts/index';
+import { useAppSelector } from '../../store/store';
+import { selectCurrentUser } from '../../store/slices/authSlice';
 
 interface YouTubeCommentNodeProps {
   row: FlatCommentRow;
 }
 
 const YouTubeCommentNode: React.FC<YouTubeCommentNodeProps> = ({ row }) => {
-  const { updateReaction, handleReply, handleReplySubmit, handleReplyCancel, handleEditStart, handleDeleteComment, replyingTo, getReplyText, handleReplyTextChange, toggleCollapse, collapsedThreads } = useCommentActionContext();
+  const context = useCommentActionContext();
+  const { updateReaction, handleReply, handleReplySubmit, handleReplyCancel, handleEditStart, handleEditSubmit, handleEditCancel, handleDeleteComment, replyingTo, getReplyText, handleReplyTextChange, toggleCollapse, collapsedThreads, editingComment, editText, setEditText } = context;
   const theme = useTheme();
+  const currentUser = useAppSelector(selectCurrentUser);
   
-  const { comment } = row;
-  const currentUserId = 0; // This should come from auth context
-  const isOwner = currentUserId === comment.comment.user?.userId;
+  const { comment, depth } = row;
+  const isOwner = currentUser?.userId === comment.comment.user?.userId;
   const isEdited = comment.comment.updatedAt && new Date(comment.comment.updatedAt) > new Date(comment.comment.createdAt);
+  
+  // Check if this comment is at maximum depth (depth 2 means parent -> reply -> this comment)
+  const isAtMaxDepth = depth >= 2;
+  
+  // Check if this comment is collapsed
+  const isCollapsed = collapsedThreads.has(comment.comment.commentId);
+  const hasChildrenInOriginal = comment.comment.replies && comment.comment.replies.length > 0;
   
   // Glass morphism presets
   const glassOpacity = 0.7;
@@ -103,7 +113,7 @@ const YouTubeCommentNode: React.FC<YouTubeCommentNodeProps> = ({ row }) => {
             </Typography>
           </Box>
 
-          {/* Comment text */}
+          {/* Comment text or edit form */}
           <Box sx={{
             background: theme.palette.mode === 'dark' 
               ? `rgba(255, 255, 255, ${finalOpacity * 0.08})`
@@ -123,18 +133,67 @@ const YouTubeCommentNode: React.FC<YouTubeCommentNodeProps> = ({ row }) => {
                 : `0 4px 16px 0 rgba(31, 38, 135, ${0.1 * finalOpacity})`,
             }
           }}>
-            <Typography 
-              variant="body2" 
-              sx={{ 
-                fontSize: '14px',
-                lineHeight: 1.5,
-                color: theme.palette.mode === 'dark' ? '#fff' : 'rgba(0, 0, 0, 0.8)',
-                whiteSpace: 'pre-wrap',
-                wordBreak: 'break-word'
-              }}
-            >
-              {comment.comment.comment}
-            </Typography>
+            {editingComment === comment.comment.commentId ? (
+              // Edit mode
+              <Box>
+                <textarea
+                  value={editText}
+                  onChange={(e) => setEditText(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    border: '1px solid rgba(0, 0, 0, 0.2)',
+                    borderRadius: '8px',
+                    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                    color: 'rgba(0, 0, 0, 0.8)',
+                    fontSize: '14px',
+                    outline: 'none',
+                    resize: 'vertical',
+                    minHeight: '60px',
+                    fontFamily: 'inherit',
+                    lineHeight: '1.4'
+                  }}
+                />
+                <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
+                  <Button
+                    size="small"
+                    onClick={() => handleEditSubmit(comment.comment.commentId)}
+                    sx={{ 
+                      textTransform: 'none',
+                      fontSize: '13px',
+                      fontWeight: 500
+                    }}
+                  >
+                    Save
+                  </Button>
+                  <Button
+                    size="small"
+                    onClick={() => handleEditCancel()}
+                    sx={{ 
+                      textTransform: 'none',
+                      fontSize: '13px',
+                      color: 'text.secondary'
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                </Box>
+              </Box>
+            ) : (
+              // Display mode
+              <Typography 
+                variant="body2" 
+                sx={{ 
+                  fontSize: '14px',
+                  lineHeight: 1.5,
+                  color: theme.palette.mode === 'dark' ? '#fff' : 'rgba(0, 0, 0, 0.8)',
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-word'
+                }}
+              >
+                {comment.comment.comment}
+              </Typography>
+            )}
           </Box>
 
           {/* Glass Action buttons */}
@@ -160,7 +219,7 @@ const YouTubeCommentNode: React.FC<YouTubeCommentNodeProps> = ({ row }) => {
                 sx={{ 
                   padding: '6px',
                   borderRadius: '50%',
-                  background: comment.comment.reactions?.some(r => r.reactionType === 'like' && r.userId === currentUserId)
+                  background: comment.comment.reactions?.some(r => r.reactionType === 'like' && r.userId === currentUser?.userId)
                     ? theme.palette.mode === 'dark'
                       ? 'rgba(25, 118, 210, 0.2)'
                       : 'rgba(25, 118, 210, 0.15)'
@@ -172,13 +231,13 @@ const YouTubeCommentNode: React.FC<YouTubeCommentNodeProps> = ({ row }) => {
                   border: `1px solid ${theme.palette.mode === 'dark' 
                     ? 'rgba(255, 255, 255, 0.2)' 
                     : 'rgba(255, 255, 255, 0.7)'}`,
-                  color: comment.comment.reactions?.some(r => r.reactionType === 'like' && r.userId === currentUserId) 
+                  color: comment.comment.reactions?.some(r => r.reactionType === 'like' && r.userId === currentUser?.userId) 
                     ? 'primary.main' 
                     : theme.palette.mode === 'dark' ? '#fff' : 'rgba(0, 0, 0, 0.6)',
                   transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                   '&:hover': {
                     transform: 'scale(1.1)',
-                    background: comment.comment.reactions?.some(r => r.reactionType === 'like' && r.userId === currentUserId)
+                    background: comment.comment.reactions?.some(r => r.reactionType === 'like' && r.userId === currentUser?.userId)
                       ? theme.palette.mode === 'dark'
                         ? 'rgba(25, 118, 210, 0.3)'
                         : 'rgba(25, 118, 210, 0.25)'
@@ -223,7 +282,7 @@ const YouTubeCommentNode: React.FC<YouTubeCommentNodeProps> = ({ row }) => {
                 sx={{ 
                   padding: '4px',
                   borderRadius: '50%',
-                  color: comment.comment.reactions?.some(r => r.reactionType === 'dislike' && r.userId === currentUserId) ? 'error.main' : 'text.secondary',
+                  color: comment.comment.reactions?.some(r => r.reactionType === 'dislike' && r.userId === currentUser?.userId) ? 'error.main' : 'text.secondary',
                   '&:hover': {
                     backgroundColor: 'rgba(0, 0, 0, 0.04)'
                   }
@@ -249,7 +308,16 @@ const YouTubeCommentNode: React.FC<YouTubeCommentNodeProps> = ({ row }) => {
             <Button
               size="small"
               startIcon={<ReplyIcon sx={{ fontSize: '16px' }} />}
-              onClick={() => handleReply(comment.comment.commentId)}
+              onClick={() => {
+                if (isAtMaxDepth) {
+                  // When at max depth, tag the user instead of creating nested reply
+                  const tagText = `@${displayUser.userName} ${displayUser.userLastName} `;
+                  handleReply(comment.comment.commentId);
+                  handleReplyTextChange(comment.comment.commentId, tagText);
+                } else {
+                  handleReply(comment.comment.commentId);
+                }
+              }}
               sx={{ 
                 textTransform: 'none',
                 fontSize: '13px',
@@ -267,7 +335,7 @@ const YouTubeCommentNode: React.FC<YouTubeCommentNodeProps> = ({ row }) => {
             </Button>
 
             {/* Collapse/Expand thread button */}
-            {row.hasChildren && (
+            {hasChildrenInOriginal && (
               <Button
                 size="small"
                 onClick={() => toggleCollapse(comment.comment.commentId)}
@@ -284,9 +352,7 @@ const YouTubeCommentNode: React.FC<YouTubeCommentNodeProps> = ({ row }) => {
                   }
                 }}
               >
-                {collapsedThreads.has(comment.comment.commentId)
-                  ? '▼ View replies'
-                  : '▲ Hide replies'}
+                {isCollapsed ? '▼ View replies' : '▲ Hide replies'}
               </Button>
             )}
 
@@ -337,15 +403,52 @@ const YouTubeCommentNode: React.FC<YouTubeCommentNodeProps> = ({ row }) => {
           {/* Reply input area */}
           {replyingTo === comment.comment.commentId && (
             <Box sx={{ mt: 2, pl: 0 }}>
+              {isAtMaxDepth && (
+                <Typography 
+                  variant="caption" 
+                  sx={{ 
+                    mb: 1, 
+                    display: 'block',
+                    color: 'text.secondary',
+                    fontStyle: 'italic'
+                  }}
+                >
+                  Replying will tag @{displayUser.userName} {displayUser.userLastName} instead of creating a nested reply
+                </Typography>
+              )}
               <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'flex-start' }}>
-                <Avatar sx={{ width: 32, height: 32 }}>
-                  {currentUserId ? 'U' : 'G'}
+                <Avatar 
+                  src={currentUser?.userImageUrl || undefined}
+                  imgProps={{ crossOrigin: 'anonymous' }}
+                  onError={(e: React.SyntheticEvent<HTMLImageElement, Event>) => {
+                    const target = e.target as HTMLImageElement;
+                    if (target) target.src = '';
+                  }}
+                  sx={{ 
+                    width: 32, 
+                    height: 32,
+                    flexShrink: 0,
+                    border: `2px solid ${theme.palette.mode === 'dark' 
+                      ? 'rgba(255, 255, 255, 0.3)' 
+                      : 'rgba(255, 255, 255, 0.8)'}`,
+                    boxShadow: theme.palette.mode === 'dark'
+                      ? '0 4px 12px rgba(0, 0, 0, 0.4)'
+                      : '0 4px 12px rgba(31, 38, 135, 0.2)',
+                    backdropFilter: 'blur(8px)',
+                    WebkitBackdropFilter: 'blur(8px)',
+                  }}
+                >
+                  {(!currentUser?.userImageUrl || currentUser?.userImageUrl === '') && 
+                    `${currentUser?.userName?.[0] || 'U'}${currentUser?.userLastName?.[0] || ''}`}
                 </Avatar>
                 <Box sx={{ flex: 1 }}>
                   <textarea
                     value={getReplyText(comment.comment.commentId)}
-                    onChange={(e) => handleReplyTextChange(comment.comment.commentId, e.target.value)}
-                    placeholder="Add a public reply..."
+                    onChange={(e) => {
+                      const newText = e.target.value;
+                      handleReplyTextChange(comment.comment.commentId, newText);
+                    }}
+                    placeholder={isAtMaxDepth ? "Write a reply with user tag..." : "Add a public reply..."}
                     style={{
                       width: '100%',
                       padding: '8px 12px',
@@ -364,7 +467,19 @@ const YouTubeCommentNode: React.FC<YouTubeCommentNodeProps> = ({ row }) => {
                   <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
                     <Button
                       size="small"
-                      onClick={() => handleReplySubmit(comment.comment.commentId)}
+                      onClick={() => {
+                        const replyText = getReplyText(comment.comment.commentId);
+                        if (replyText?.trim()) {
+                          if (isAtMaxDepth) {
+                            // For max depth replies, submit as a reply to the parent instead of this comment
+                            // But use the current comment's ID to get the reply text
+                            const actualParentId = comment.comment.parentCommentId || 0;
+                            handleReplySubmit(actualParentId, comment.comment.commentId);
+                          } else {
+                            handleReplySubmit(comment.comment.commentId);
+                          }
+                        }
+                      }}
                       sx={{ 
                         textTransform: 'none',
                         fontSize: '13px',

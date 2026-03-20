@@ -4,6 +4,8 @@ import { CommentDataContext, CommentActionContext } from '../../contexts';
 import { Send as SendIcon } from '@mui/icons-material';
 import { useComments } from '../../hooks/useComments';
 import { flattenCommentTree } from '../../utils/flattenCommentTreeForVirtualization';
+import { useAppSelector } from '../../store/store';
+import { selectCurrentUser } from '../../store/slices/authSlice';
 import YouTubeThreadedRow from './YouTubeThreadedRow';
 
 interface CommentTreeProps {
@@ -17,10 +19,11 @@ interface CommentTreeProps {
  */
 const CommentTreeComponent: React.FC<CommentTreeProps> = ({
   taskId,
-  maxDepth = 3
+  maxDepth = 2
 }) => {
   const theme = useTheme();
   const commentData = useComments({ taskId, maxDepth });
+  const currentUser = useAppSelector(selectCurrentUser);
   const {
     visibleTree,
     isLoading,
@@ -117,6 +120,12 @@ const CommentTreeComponent: React.FC<CommentTreeProps> = ({
               </Typography>
               <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'flex-end' }}>
                 <Avatar 
+                  src={currentUser?.userImageUrl || undefined}
+                  imgProps={{ crossOrigin: 'anonymous' }}
+                  onError={(e: React.SyntheticEvent<HTMLImageElement, Event>) => {
+                    const target = e.target as HTMLImageElement;
+                    if (target) target.src = '';
+                  }}
                   sx={{ 
                     width: 32, 
                     height: 32,
@@ -130,7 +139,8 @@ const CommentTreeComponent: React.FC<CommentTreeProps> = ({
                     WebkitBackdropFilter: 'blur(8px)',
                   }}
                 >
-                  U
+                  {(!currentUser?.userImageUrl || currentUser?.userImageUrl === '') && 
+                    `${currentUser?.userName?.[0] || 'U'}${currentUser?.userLastName?.[0] || ''}`}
                 </Avatar>
                 <Box flex={1}>
                   <input
@@ -263,9 +273,27 @@ const CommentTreeComponent: React.FC<CommentTreeProps> = ({
           </Typography>
           <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'flex-end' }}>
             <Avatar 
-              sx={{ width: 32, height: 32 }}
+              src={currentUser?.userImageUrl || undefined}
+              imgProps={{ crossOrigin: 'anonymous' }}
+              onError={(e: React.SyntheticEvent<HTMLImageElement, Event>) => {
+                const target = e.target as HTMLImageElement;
+                if (target) target.src = '';
+              }}
+              sx={{ 
+                width: 32, 
+                height: 32,
+                border: `2px solid ${theme.palette.mode === 'dark' 
+                  ? 'rgba(255, 255, 255, 0.3)' 
+                  : 'rgba(255, 255, 255, 0.8)'}`,
+                boxShadow: theme.palette.mode === 'dark'
+                  ? '0 4px 12px rgba(0, 0, 0, 0.4)'
+                  : '0 4px 12px rgba(31, 38, 135, 0.2)',
+                backdropFilter: 'blur(8px)',
+                WebkitBackdropFilter: 'blur(8px)',
+              }}
             >
-              U
+              {(!currentUser?.userImageUrl || currentUser?.userImageUrl === '') && 
+                `${currentUser?.userName?.[0] || 'U'}${currentUser?.userLastName?.[0] || ''}`}
             </Avatar>
             <Box flex={1}>
               <input

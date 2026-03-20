@@ -20,7 +20,7 @@ export interface CommentActionContextValue {
   // UI Actions
   handleReply: (commentId: number) => void;
   handleReplyTextChange: (commentId: number, text: string) => void;
-  handleReplySubmit: (parentCommentId: number) => Promise<void>;
+  handleReplySubmit: (parentCommentId: number, sourceCommentId?: number) => Promise<void>;
   handleReplyCancel: () => void;
   handleAddComment: (text: string) => Promise<void>;
   handleEditStart: (commentId: number, text: string) => void;

@@ -17,7 +17,6 @@ import {
   Button,
   Stack,
   Divider,
-  Collapse,
   useTheme,
 } from '@mui/material';
 import {
@@ -101,7 +100,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
   const finalBorderOpacity = showBorders ? (glassOpacity || currentPreset.borderOpacity) : 0;
 
   // Use comments hook for comment functionality - always enabled to prevent refetch issues
-  const { commentTree } = useComments({ 
+  useComments({ 
     taskId: task.taskId, 
     enabled: true 
   });
@@ -628,7 +627,10 @@ const TaskCard: React.FC<TaskCardProps> = ({
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
               <IconButton
                 size="small"
-                onClick={() => setShowComments(!showComments)}
+                onClick={() => {
+                  console.log('Comment button clicked, current showComments:', showComments);
+                  setShowComments(!showComments);
+                }}
                 sx={{
                   p: 0.5,
                   background: showComments 
@@ -783,17 +785,17 @@ const TaskCard: React.FC<TaskCardProps> = ({
         </Box>
 
         {/* Comments Section */}
-        <Collapse in={showComments}>
-          <Divider />
-          <Box p={2}>
-            {commentTree && (
+        {showComments && (
+          <>
+            <Divider />
+            <Box p={2}>
               <CommentTree
                 taskId={task.taskId}
-                maxDepth={3}
+                maxDepth={2}
               />
-            )}
-          </Box>
-        </Collapse>
+            </Box>
+          </>
+        )}
       </Card>
 
       {/* Image Preview Dialog */}

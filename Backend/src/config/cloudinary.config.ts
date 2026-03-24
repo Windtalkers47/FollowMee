@@ -67,39 +67,6 @@ export const uploadBase64Image = async (
 };
 
 /**
- * Check if a Cloudinary image exists and is accessible
- */
-export const validateCloudinaryImage = async (imageUrl: string): Promise<boolean> => {
-  try {
-    if (!imageUrl || !imageUrl.includes('cloudinary.com')) {
-      return false;
-    }
-
-    // Extract public ID from URL to verify it exists
-    const urlParts = imageUrl.split('/');
-    const uploadIndex = urlParts.indexOf('upload');
-    if (uploadIndex === -1) return false;
-    
-    const folderAndFile = urlParts.slice(uploadIndex + 2).join('/');
-    const publicId = folderAndFile.replace(/\.[^/.]+$/, ''); // Remove file extension
-
-    if (!publicId) {
-      return false;
-    }
-
-    // Use Cloudinary admin API to check if resource exists
-    const result = await cloudinary.api.resource(publicId, {
-      resource_type: 'image'
-    });
-    
-    return result && result.public_id === publicId;
-  } catch (error) {
-    console.error('Error validating Cloudinary image:', error);
-    return false;
-  }
-};
-
-/**
  * Delete an image from Cloudinary by its URL
  */
 export const deleteFromCloudinary = async (imageUrl: string): Promise<boolean> => {

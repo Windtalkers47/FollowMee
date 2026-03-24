@@ -164,7 +164,6 @@ export class UserController {
         if (user && user.userImageUrl) {
           try {
             await deleteFromCloudinary(user.userImageUrl);
-            console.log('User image deleted from Cloudinary');
           } catch (error) {
             console.error('Error deleting user image from Cloudinary:', error);
             // Continue even if deletion fails

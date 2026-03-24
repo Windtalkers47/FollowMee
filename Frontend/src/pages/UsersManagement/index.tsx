@@ -38,6 +38,7 @@ import {
 } from '@mui/icons-material';
 
 import { useUsersManagement, User, Role } from '../../hooks/useUsersManagement';
+import { ROLE_NAMES, normalizeRoleName } from '../../constants/roles';
 import Swal from 'sweetalert2';
 
 // Styled components
@@ -69,11 +70,11 @@ const StyledCard = styled(Card)(({ theme }) => ({
 
 const getRoleIcon = (role: string) => {
   switch (role) {
-    case 'SUPER_ADMIN':
+    case 'Superadmin':
       return <AdminIcon fontSize="small" />;
-    case 'ADMIN':
+    case 'Admin':
       return <SupervisorIcon fontSize="small" />;
-    case 'MODERATOR':
+    case 'Moderator':
       return <PersonAddIcon fontSize="small" />;
     default:
       return <PersonIcon fontSize="small" />;
@@ -82,11 +83,11 @@ const getRoleIcon = (role: string) => {
 
 const getRoleColor = (role: string) => {
   switch (role) {
-    case 'SUPER_ADMIN':
+    case 'Superadmin':
       return 'error';
-    case 'ADMIN':
+    case 'Admin':
       return 'warning';
-    case 'MODERATOR':
+    case 'Moderator':
       return 'info';
     default:
       return 'default';
@@ -141,7 +142,9 @@ const UsersPage = () => {
 
     try {
       // Find the role ID from the selected role name
-      const selectedRoleObj = roles.find(r => r.roleName === assignRoleDialog.selectedRole);
+      const normalizedSelectedRole = normalizeRoleName(assignRoleDialog.selectedRole);
+      const selectedRoleObj = roles.find(r => r.roleName === normalizedSelectedRole);
+      
       if (!selectedRoleObj) {
         await Swal.fire({
           icon: 'error',
@@ -169,7 +172,7 @@ const UsersPage = () => {
         await Swal.fire({
           icon: 'error',
           title: 'Assignment Failed',
-          text: 'Failed to assign the role. Please try again.',
+          text: 'Failed to assign role. Please try again.',
           customClass: {
             popup: 'swal2-error-dialog'
           }
@@ -180,7 +183,7 @@ const UsersPage = () => {
       await Swal.fire({
         icon: 'error',
         title: 'Error',
-        text: 'An error occurred while assigning the role.',
+        text: 'An error occurred while assigning role.',
         customClass: {
           popup: 'swal2-error-dialog'
         }

@@ -242,7 +242,9 @@ export class UserService {
    * Get all roles
    */
   async getAllRoles(): Promise<any[]> {
-    const roles = await this.roleRepository.find({ isActive: true });
+    const roles = await this.roleRepository.find({ isActive: true }, {
+      relations: ['rolePermissions', 'rolePermissions.permission']
+    });
     return roles.map(role => ({
       roleId: role.roleId,
       roleName: role.roleName,

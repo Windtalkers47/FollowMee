@@ -81,7 +81,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
 
   // Get current user to check role
   const currentUser = useAppSelector((state) => state.auth.user);
-  const isSuperAdmin = currentUser?.roles?.includes('SUPER_ADMIN') || false;
+  const isSuperAdmin = currentUser?.roles?.includes('Superadmin') || false;
 
   // Filter menu items based on user role
   const filteredMenuItems = menuItems.filter((item) => {

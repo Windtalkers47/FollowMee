@@ -6,6 +6,8 @@ import auditService from '../services/audit.service';
 import AppDataSource from '../config/database';
 import { User } from '../entities/User';
 import { UserSession } from '../entities/UserSession';
+import { Role } from '../entities/Role';
+import { UserRole } from '../entities/UserRole';
 import { In } from 'typeorm';
 import rateLimit from 'express-rate-limit';
 import * as jwt from 'jsonwebtoken';
@@ -34,6 +36,8 @@ class AuthController {
   private authService: AuthService;
   private userRepository = AppDataSource.getRepository(User);
   private sessionRepository = AppDataSource.getRepository(UserSession);
+  private roleRepository = AppDataSource.getRepository(Role);
+  private userRoleRepository = AppDataSource.getRepository(UserRole);
   private readonly JWT_SECRET: string;
   private readonly JWT_EXPIRES_IN = '15m';
   private readonly REFRESH_TOKEN_EXPIRES_IN_DAYS = 7;
@@ -93,13 +97,42 @@ class AuthController {
       user.userPassword = userPassword;
 
       // Save user to database
-      await this.userRepository.save(user);
+      const savedUser = await this.userRepository.save(user);
+
+      // Assign 'customer' role to the new user
+      try {
+        let customerRole = await this.roleRepository.findOne({ 
+          where: { roleName: 'Customer' } 
+        });
+
+        if (!customerRole) {
+          // Create Customer role if it doesn't exist
+          customerRole = this.roleRepository.create({
+            roleName: 'Customer',
+            description: 'Regular customer user',
+            roleLevel: 4,
+            isActive: true
+          });
+          customerRole = await this.roleRepository.save(customerRole);
+        }
+
+        // Assign Customer role to the new user
+        const userRole = this.userRoleRepository.create({
+          userId: savedUser.userId,
+          roleId: customerRole.roleId
+        });
+        await this.userRoleRepository.save(userRole);
+        console.log(`✓ Assigned Customer role to user ${email}`);
+      } catch (roleError) {
+        console.error('Error assigning Customer role to new user:', roleError);
+        // Continue with registration even if role assignment fails
+      }
 
       // Log the user in using auth service
       const result = await this.authService.login(email, userPassword, req, res);
 
       // Don't send back the password
-      const { userPassword: _, ...userWithoutPassword } = user;
+      const { userPassword: _, ...userWithoutPassword } = savedUser;
 
       return res.status(201).json({
         success: true,

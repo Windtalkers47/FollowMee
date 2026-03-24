@@ -74,9 +74,12 @@ export const TaskFormFields: React.FC<TaskFormFieldsProps> = ({
 
               <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
                 <FormControl sx={{ flex: 1, minWidth: 200 }}>
-                  <InputLabel>Assigned To</InputLabel>
+                  <InputLabel id="assigned-to-label">Assigned To</InputLabel>
                   <Select
+                    labelId="assigned-to-label"
+                    id="assigned-to-select"
                     value={formData.assignedTo || ''}
+                    label="Assigned To"
                     onChange={(e) => onInputChange('assignedTo', e.target.value || undefined)}
                     disabled={isSubmitting}
                   >
@@ -90,9 +93,12 @@ export const TaskFormFields: React.FC<TaskFormFieldsProps> = ({
                 </FormControl>
 
                 <FormControl sx={{ flex: 1, minWidth: 200 }}>
-                  <InputLabel>Status</InputLabel>
+                  <InputLabel id="status-label">Status</InputLabel>
                   <Select
+                    labelId="status-label"
+                    id="status-select"
                     value={formData.status}
+                    label="Status"
                     onChange={(e) => onInputChange('status', e.target.value)}
                     disabled={isSubmitting}
                   >

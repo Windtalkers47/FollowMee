@@ -11,11 +11,9 @@ import {
   Typography,
   Alert
 } from '@mui/material';
-import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
-import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
-import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { TaskImage, User } from '../../api/task.api';
 import { ImageUpload } from '../ImageUpload/ImageUpload';
+import { RangeCalendar } from '../RangeCalendar/RangeCalendar';
 
 interface TaskFormFieldsProps {
   formData: any;
@@ -36,10 +34,8 @@ export const TaskFormFields: React.FC<TaskFormFieldsProps> = ({
   onInputChange,
   onImagesChange
 }) => {
-
   return (
-    <LocalizationProvider dateAdapter={AdapterDateFns}>
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
         {/* Basic Information */}
         <Card elevation={0} variant="outlined">
           <CardContent>
@@ -112,20 +108,13 @@ export const TaskFormFields: React.FC<TaskFormFieldsProps> = ({
 
               <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
                 <Box sx={{ flex: 1, minWidth: 250 }}>
-                  <DateTimePicker
-                    label="Due Date"
-                    value={formData.dueDate}
-                    onChange={(date) => onInputChange('dueDate', date)}
+                  <RangeCalendar
+                    value={formData.dueDateRange || [null, null]}
+                    onChange={(range) => onInputChange('dueDateRange', range)}
                     disabled={isSubmitting}
-                    format="yyyy-MM-dd HH:mm"
-                    ampm={false}
-                    slotProps={{
-                      textField: {
-                        fullWidth: true,
-                        error: !!formErrors.dueDate,
-                        helperText: formErrors.dueDate
-                      }
-                    }}
+                    error={!!formErrors.dueDateRange}
+                    helperText={formErrors.dueDateRange}
+                    label="Due Date Range"
                   />
                 </Box>
               </Box>
@@ -160,6 +149,5 @@ export const TaskFormFields: React.FC<TaskFormFieldsProps> = ({
           </Alert>
         )}
       </Box>
-    </LocalizationProvider>
   );
 };

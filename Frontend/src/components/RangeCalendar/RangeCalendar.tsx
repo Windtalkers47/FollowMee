@@ -134,7 +134,7 @@ export const RangeCalendar: React.FC<RangeCalendarProps> = ({
                     ? 'rgba(255, 255, 255, 0.9)' 
                     : 'rgba(255, 255, 255, 0.4)',
                   background: isSelected 
-                    ? 'rgba(59, 130, 246, 0.5)' 
+                    ? 'linear-gradient(135deg, rgba(59, 130, 246, 0.6), rgba(147, 51, 234, 0.6))' 
                     : isInRange 
                     ? 'rgba(59, 130, 246, 0.2)' 
                     : isToday 
@@ -144,13 +144,20 @@ export const RangeCalendar: React.FC<RangeCalendarProps> = ({
                     : 'transparent',
                   border: isSelected ? '2px solid rgba(59, 130, 246, 0.8)' : 'none',
                   backdropFilter: 'blur(10px)',
-                  transition: 'all 0.2s ease',
+                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                   opacity: isPastDate ? 0.4 : 1,
+                  boxShadow: isSelected ? '0 4px 20px rgba(59, 130, 246, 0.3)' : 'none',
                   '&:hover': disabled || isPastDate ? {} : {
                     background: isSelected 
-                      ? 'rgba(59, 130, 246, 0.7)' 
+                      ? 'linear-gradient(135deg, rgba(59, 130, 246, 0.7), rgba(147, 51, 234, 0.7))' 
                       : 'rgba(255, 255, 255, 0.15)',
-                    transform: 'scale(1.05)'
+                    transform: 'scale(1.1)',
+                    boxShadow: '0 6px 25px rgba(59, 130, 246, 0.2)'
+                  },
+                  '@media (max-width: 600px)': {
+                    width: 44,
+                    height: 44,
+                    fontSize: '16px'
                   }
                 }}
               >
@@ -168,7 +175,8 @@ export const RangeCalendar: React.FC<RangeCalendarProps> = ({
   const renderYearPicker = () => {
     const currentYear = getYear(new Date());
     const years = [];
-    for (let i = currentYear - 50; i <= currentYear + 50; i++) {
+    // Only show current year and future years (up to 50 years ahead)
+    for (let i = currentYear; i <= currentYear + 50; i++) {
       years.push(i);
     }
     
@@ -184,11 +192,31 @@ export const RangeCalendar: React.FC<RangeCalendarProps> = ({
               }}
               sx={{
                 color: 'rgba(255, 255, 255, 0.9)',
-                background: year === getYear(currentMonth) ? 'rgba(59, 130, 246, 0.3)' : 'rgba(255, 255, 255, 0.05)',
-                backdropFilter: 'blur(10px)',
-                border: year === getYear(currentMonth) ? '1px solid rgba(59, 130, 246, 0.5)' : '1px solid rgba(255, 255, 255, 0.1)',
+                background: year === getYear(currentMonth) 
+                  ? 'linear-gradient(135deg, rgba(59, 130, 246, 0.4), rgba(147, 51, 234, 0.4))' 
+                  : 'rgba(255, 255, 255, 0.05)',
+                backdropFilter: 'blur(15px)',
+                border: year === getYear(currentMonth) 
+                  ? '1px solid rgba(59, 130, 246, 0.6)' 
+                  : '1px solid rgba(255, 255, 255, 0.1)',
+                borderRadius: '12px',
+                padding: '12px 16px',
+                fontWeight: year === getYear(currentMonth) ? 600 : 400,
+                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                boxShadow: year === getYear(currentMonth) 
+                  ? '0 4px 20px rgba(59, 130, 246, 0.3)' 
+                  : '0 2px 10px rgba(0, 0, 0, 0.1)',
                 '&:hover': {
-                  background: 'rgba(59, 130, 246, 0.2)'
+                  background: year === getYear(currentMonth)
+                    ? 'linear-gradient(135deg, rgba(59, 130, 246, 0.5), rgba(147, 51, 234, 0.5))'
+                    : 'rgba(255, 255, 255, 0.1)',
+                  transform: 'translateY(-2px)',
+                  boxShadow: '0 6px 25px rgba(59, 130, 246, 0.2)'
+                },
+                '@media (max-width: 600px)': {
+                  padding: '14px 12px',
+                  fontSize: '14px',
+                  borderRadius: '10px'
                 }
               }}
             >
@@ -220,29 +248,42 @@ export const RangeCalendar: React.FC<RangeCalendarProps> = ({
         sx={{
           position: 'relative',
           padding: '12px 16px',
-          borderRadius: '8px',
-          background: '#ffffff',
-          border: error ? '2px solid #f44336' : '2px solid #e0e0e0',
+          borderRadius: '16px',
+          background: 'rgba(255, 255, 255, 0.1)',
+          backdropFilter: 'blur(20px)',
+          border: error ? '2px solid rgba(244, 67, 54, 0.5)' : '2px solid rgba(255, 255, 255, 0.2)',
           cursor: disabled ? 'not-allowed' : 'pointer',
-          transition: 'all 0.2s ease',
+          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
           minHeight: '56px',
           display: 'flex',
           alignItems: 'center',
-          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.2)',
           '&:hover': disabled ? {} : {
-            background: '#f5f5f5',
-            border: '2px solid #1976d2',
-            boxShadow: '0 4px 8px rgba(0,0,0,0.15)'
+            background: 'rgba(255, 255, 255, 0.15)',
+            border: '2px solid rgba(59, 130, 246, 0.4)',
+            transform: 'translateY(-2px)',
+            boxShadow: '0 12px 40px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.3)'
+          },
+          '@media (max-width: 600px)': {
+            padding: '14px 18px',
+            minHeight: '52px',
+            borderRadius: '14px'
           }
         }}
       >
         <Stack direction="row" alignItems="center" spacing={1}>
-          <CalendarToday sx={{ color: '#1976d2', fontSize: 20 }} />
+          <CalendarToday sx={{ 
+            color: 'rgba(59, 130, 246, 0.8)', 
+            fontSize: 20,
+            filter: 'drop-shadow(0 2px 4px rgba(59, 130, 246, 0.3))'
+          }} />
           <Typography
             variant="body1"
             sx={{
-              color: '#333333',
-              flex: 1
+              color: 'rgba(255, 255, 255, 0.95)',
+              flex: 1,
+              fontWeight: 400,
+              textShadow: '0 1px 2px rgba(0, 0, 0, 0.1)'
             }}
           >
             {formatDisplayValue()}
@@ -254,7 +295,17 @@ export const RangeCalendar: React.FC<RangeCalendarProps> = ({
                 e.stopPropagation();
                 handleClear();
               }}
-              sx={{ color: '#666666' }}
+              sx={{ 
+                color: 'rgba(244, 67, 54, 0.8)',
+                background: 'rgba(255, 255, 255, 0.1)',
+                backdropFilter: 'blur(10px)',
+                borderRadius: '50%',
+                padding: '6px',
+                '&:hover': {
+                  background: 'rgba(244, 67, 54, 0.2)',
+                  color: 'rgba(244, 67, 54, 0.8)'
+                }
+              }}
             >
               <Close fontSize="small" />
             </IconButton>
@@ -283,13 +334,26 @@ export const RangeCalendar: React.FC<RangeCalendarProps> = ({
         PaperProps={{
           sx: {
             background: 'rgba(17, 24, 39, 0.95)',
-            backdropFilter: 'blur(20px)',
+            backdropFilter: 'blur(40px)',
             border: '1px solid rgba(255, 255, 255, 0.1)',
-            borderRadius: '16px'
+            borderRadius: '24px',
+            boxShadow: '0 25px 50px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
+            overflow: 'hidden',
+            '@media (max-width: 600px)': {
+              margin: '16px',
+              borderRadius: '20px',
+              maxHeight: '90vh'
+            }
           }
         }}
       >
-        <DialogContent sx={{ p: 3, background: 'transparent' }}>
+        <DialogContent sx={{ 
+          p: 3, 
+          background: 'transparent',
+          '@media (max-width: 600px)': {
+            p: 2
+          }
+        }}>
           <Stack spacing={3}>
             {/* Header */}
             <Stack direction="row" alignItems="center" justifyContent="space-between">
@@ -300,63 +364,146 @@ export const RangeCalendar: React.FC<RangeCalendarProps> = ({
               <Stack direction="row" spacing={1}>
                 <IconButton
                   onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
-                  sx={{ color: 'rgba(255, 255, 255, 0.7)' }}
+                  disabled={disabled}
+                  sx={{
+                    color: 'rgba(255, 255, 255, 0.8)',
+                    background: 'rgba(255, 255, 255, 0.1)',
+                    backdropFilter: 'blur(10px)',
+                    borderRadius: '50%',
+                    padding: '8px',
+                    '&:hover': {
+                      background: 'rgba(255, 255, 255, 0.2)',
+                      transform: 'scale(1.05)'
+                    },
+                    '&:disabled': {
+                      opacity: 0.3,
+                      color: 'rgba(255, 255, 255, 0.3)'
+                    },
+                    '@media (max-width: 600px)': {
+                      padding: '10px'
+                    }
+                  }}
                 >
                   <ChevronLeft />
                 </IconButton>
+                
                 <IconButton
                   onClick={() => setYearPickerOpen(!yearPickerOpen)}
-                  sx={{ color: 'rgba(255, 255, 255, 0.7)' }}
+                  disabled={disabled}
+                  sx={{
+                    color: 'rgba(255, 255, 255, 0.8)',
+                    background: 'rgba(59, 130, 246, 0.2)',
+                    backdropFilter: 'blur(10px)',
+                    borderRadius: '50%',
+                    padding: '8px',
+                    border: '1px solid rgba(59, 130, 246, 0.3)',
+                    '&:hover': {
+                      background: 'rgba(59, 130, 246, 0.3)',
+                      transform: 'scale(1.05)'
+                    },
+                    '&:disabled': {
+                      opacity: 0.3
+                    },
+                    '@media (max-width: 600px)': {
+                      padding: '10px'
+                    }
+                  }}
                 >
                   <CalendarToday />
                 </IconButton>
+                
                 <IconButton
                   onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
-                  sx={{ color: 'rgba(255, 255, 255, 0.7)' }}
+                  disabled={disabled}
+                  sx={{
+                    color: 'rgba(255, 255, 255, 0.8)',
+                    background: 'rgba(255, 255, 255, 0.1)',
+                    backdropFilter: 'blur(10px)',
+                    borderRadius: '50%',
+                    padding: '8px',
+                    '&:hover': {
+                      background: 'rgba(255, 255, 255, 0.2)',
+                      transform: 'scale(1.05)'
+                    },
+                    '&:disabled': {
+                      opacity: 0.3,
+                      color: 'rgba(255, 255, 255, 0.3)'
+                    },
+                    '@media (max-width: 600px)': {
+                      padding: '10px'
+                    }
+                  }}
                 >
                   <ChevronRight />
                 </IconButton>
               </Stack>
             </Stack>
 
-            {/* Year Picker */}
-            {yearPickerOpen && (
-              <Box sx={{ 
-                p: 2, 
-                background: 'rgba(255, 255, 255, 0.05)',
-                borderRadius: '12px',
-                backdropFilter: 'blur(10px)'
-              }}>
-                {renderYearPicker()}
-              </Box>
-            )}
+            {/* Calendar or Year Picker */}
+            <Box sx={{
+              background: 'rgba(255, 255, 255, 0.05)',
+              backdropFilter: 'blur(20px)',
+              borderRadius: '16px',
+              padding: '20px',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              '@media (max-width: 600px)': {
+                padding: '16px',
+                borderRadius: '12px'
+              }
+            }}>
+              {yearPickerOpen ? renderYearPicker() : renderCalendarDays()}
+            </Box>
 
-            {/* Calendar */}
-            {renderCalendarDays()}
-
-            {/* Actions */}
+            {/* Footer */}
             <Stack direction="row" spacing={2} justifyContent="flex-end">
               <Button
                 onClick={() => setOpen(false)}
                 sx={{
-                  color: 'rgba(255, 255, 255, 0.7)',
-                  borderColor: 'rgba(255, 255, 255, 0.2)'
+                  color: 'rgba(255, 255, 255, 0.8)',
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  backdropFilter: 'blur(10px)',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  borderRadius: '12px',
+                  padding: '10px 20px',
+                  fontWeight: 500,
+                  transition: 'all 0.3s ease',
+                  '&:hover': {
+                    background: 'rgba(255, 255, 255, 0.2)',
+                    transform: 'translateY(-1px)'
+                  },
+                  '@media (max-width: 600px)': {
+                    padding: '12px 16px',
+                    fontSize: '14px'
+                  }
                 }}
               >
                 Cancel
               </Button>
+              
               <Button
                 onClick={() => setOpen(false)}
-                variant="contained"
                 sx={{
-                  background: 'rgba(59, 130, 246, 0.8)',
+                  color: 'white',
+                  background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.8), rgba(147, 51, 234, 0.8))',
                   backdropFilter: 'blur(10px)',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  borderRadius: '12px',
+                  padding: '10px 20px',
+                  fontWeight: 600,
+                  boxShadow: '0 4px 20px rgba(59, 130, 246, 0.3)',
+                  transition: 'all 0.3s ease',
                   '&:hover': {
-                    background: 'rgba(59, 130, 246, 0.9)'
+                    background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.9), rgba(147, 51, 234, 0.9))',
+                    transform: 'translateY(-2px)',
+                    boxShadow: '0 6px 25px rgba(59, 130, 246, 0.4)'
+                  },
+                  '@media (max-width: 600px)': {
+                    padding: '12px 16px',
+                    fontSize: '14px'
                   }
                 }}
               >
-                Apply
+                Done
               </Button>
             </Stack>
           </Stack>

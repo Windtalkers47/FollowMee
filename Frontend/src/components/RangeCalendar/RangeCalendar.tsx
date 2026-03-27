@@ -134,25 +134,25 @@ export const RangeCalendar: React.FC<RangeCalendarProps> = ({
                     ? 'rgba(255, 255, 255, 0.9)' 
                     : 'rgba(255, 255, 255, 0.4)',
                   background: isSelected 
-                    ? 'linear-gradient(135deg, rgba(59, 130, 246, 0.6), rgba(147, 51, 234, 0.6))' 
+                    ? 'linear-gradient(135deg, rgba(34, 197, 94, 0.7), rgba(16, 185, 129, 0.7))' 
                     : isInRange 
-                    ? 'rgba(59, 130, 246, 0.2)' 
+                    ? 'rgba(34, 197, 94, 0.25)' 
                     : isToday 
                     ? 'rgba(255, 255, 255, 0.1)' 
                     : isPastDate
                     ? 'rgba(255, 255, 255, 0.02)'
                     : 'transparent',
-                  border: isSelected ? '2px solid rgba(59, 130, 246, 0.8)' : 'none',
+                  border: isSelected ? '2px solid rgba(34, 197, 94, 0.9)' : 'none',
                   backdropFilter: 'blur(10px)',
                   transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                   opacity: isPastDate ? 0.4 : 1,
-                  boxShadow: isSelected ? '0 4px 20px rgba(59, 130, 246, 0.3)' : 'none',
+                  boxShadow: isSelected ? '0 4px 20px rgba(34, 197, 94, 0.4)' : 'none',
                   '&:hover': disabled || isPastDate ? {} : {
                     background: isSelected 
-                      ? 'linear-gradient(135deg, rgba(59, 130, 246, 0.7), rgba(147, 51, 234, 0.7))' 
+                      ? 'linear-gradient(135deg, rgba(34, 197, 94, 0.8), rgba(16, 185, 129, 0.8))' 
                       : 'rgba(255, 255, 255, 0.15)',
                     transform: 'scale(1.1)',
-                    boxShadow: '0 6px 25px rgba(59, 130, 246, 0.2)'
+                    boxShadow: '0 6px 25px rgba(34, 197, 94, 0.3)'
                   },
                   '@media (max-width: 600px)': {
                     width: 44,
@@ -280,10 +280,10 @@ export const RangeCalendar: React.FC<RangeCalendarProps> = ({
           <Typography
             variant="body1"
             sx={{
-              color: 'rgba(255, 255, 255, 0.95)',
+              color: (value[0] || value[1]) ? '#1a1a1a' : 'rgba(0, 0, 0, 0.6)',
               flex: 1,
               fontWeight: 400,
-              textShadow: '0 1px 2px rgba(0, 0, 0, 0.1)'
+              textShadow: (value[0] || value[1]) ? 'none' : '0 1px 2px rgba(0, 0, 0, 0.1)'
             }}
           >
             {formatDisplayValue()}

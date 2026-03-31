@@ -14,6 +14,7 @@ import {
 import { TaskImage, User } from '../../api/task.api';
 import { ImageUpload } from '../ImageUpload/ImageUpload';
 import { RangeCalendar } from '../RangeCalendar/RangeCalendar';
+import { formatRelativeTime } from '../../utils/dateUtils';
 
 interface TaskFormFieldsProps {
   formData: any;
@@ -23,6 +24,7 @@ interface TaskFormFieldsProps {
   isSubmitting: boolean;
   onInputChange: (field: string, value: any) => void;
   onImagesChange: (images: TaskImage[]) => void;
+  bookedDates?: Date[]; // New prop for booked dates
 }
 
 export const TaskFormFields: React.FC<TaskFormFieldsProps> = ({
@@ -32,7 +34,8 @@ export const TaskFormFields: React.FC<TaskFormFieldsProps> = ({
   formErrors,
   isSubmitting,
   onInputChange,
-  onImagesChange
+  onImagesChange,
+  bookedDates = []
 }) => {
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
@@ -114,9 +117,38 @@ export const TaskFormFields: React.FC<TaskFormFieldsProps> = ({
                     disabled={isSubmitting}
                     error={!!formErrors.dueDateRange}
                     helperText={formErrors.dueDateRange}
-                    label="Due Date Range"
+                    label={formData.startDate && formData.endDate ? "Date Range" : "Due Date"}
+                    bookedDates={bookedDates}
                   />
                 </Box>
+              </Box>
+              
+              {/* Time Information */}
+              <Box sx={{ mt: 2, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                {formData.createdAt && (
+                  <Typography variant="caption" color="text.secondary" sx={{ 
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 0.5,
+                    padding: '4px 8px',
+                    borderRadius: '4px',
+                    backgroundColor: 'rgba(0, 0, 0, 0.04)'
+                  }}>
+                    🕐 Created: {formatRelativeTime(formData.createdAt)}
+                  </Typography>
+                )}
+                {formData.updatedAt && formData.updatedAt !== formData.createdAt && (
+                  <Typography variant="caption" color="text.secondary" sx={{ 
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 0.5,
+                    padding: '4px 8px',
+                    borderRadius: '4px',
+                    backgroundColor: 'rgba(0, 0, 0, 0.04)'
+                  }}>
+                    ✏️ Updated: {formatRelativeTime(formData.updatedAt)}
+                  </Typography>
+                )}
               </Box>
             </Box>
           </CardContent>

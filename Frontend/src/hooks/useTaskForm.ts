@@ -17,6 +17,9 @@ export const useTaskForm = ({ task, users, onSave }: UseTaskFormProps) => {
     description: '',
     assignedTo: undefined,
     dueDate: undefined,
+    startDate: undefined,
+    endDate: undefined,
+    dueDateRange: undefined,
     status: 'draft',
     images: []
   });
@@ -33,8 +36,17 @@ export const useTaskForm = ({ task, users, onSave }: UseTaskFormProps) => {
         description: task.description || '',
         assignedTo: task.assignedTo,
         dueDate: task.dueDate ? new Date(task.dueDate) : undefined,
+        startDate: task.startDate ? new Date(task.startDate) : undefined,
+        endDate: task.endDate ? new Date(task.endDate) : undefined,
+        dueDateRange: task.startDate && task.endDate 
+          ? [new Date(task.startDate), new Date(task.endDate)]
+          : task.dueDate 
+          ? [new Date(task.dueDate), new Date(task.dueDate)]
+          : undefined,
         status: task.status,
-        images: task.images || []
+        images: task.images || [],
+        createdAt: task.createdAt,
+        updatedAt: task.updatedAt
       });
       setImages(task.images || []);
     } else {
@@ -130,6 +142,9 @@ export const useTaskForm = ({ task, users, onSave }: UseTaskFormProps) => {
       description: '',
       assignedTo: undefined,
       dueDate: undefined,
+      startDate: undefined,
+      endDate: undefined,
+      dueDateRange: undefined,
       status: 'draft',
       images: []
     });

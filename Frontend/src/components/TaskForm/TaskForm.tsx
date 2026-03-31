@@ -22,6 +22,7 @@ interface TaskFormProps {
   open: boolean;
   onClose: () => void;
   onSave: (task: Task) => void;
+  bookedDates?: Date[]; // New prop for booked dates
 }
 
 export const TaskForm: React.FC<TaskFormProps> = ({
@@ -29,7 +30,8 @@ export const TaskForm: React.FC<TaskFormProps> = ({
   users,
   open,
   onClose,
-  onSave
+  onSave,
+  bookedDates = []
 }) => {
   const taskForm = useTaskForm({ task, users, onSave });
 
@@ -63,6 +65,7 @@ export const TaskForm: React.FC<TaskFormProps> = ({
           isSubmitting={taskForm.isSubmitting}
           onInputChange={taskForm.handleInputChange}
           onImagesChange={taskForm.handleImagesChange}
+          bookedDates={bookedDates}
         />
       </DialogContent>
 

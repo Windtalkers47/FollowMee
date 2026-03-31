@@ -29,7 +29,7 @@ import {
   Refresh as RefreshIcon
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { useAppSelector } from '../../store/store';
 import { taskApi, Task, CreateTaskData, UpdateTaskData } from '../../api/task.api';
 import { userApi, User } from '../../api/user.api';
@@ -223,6 +223,47 @@ const SchedulePage = () => {
     queryFn: userApi.getUsers,
   });
 
+  // Extract booked dates from existing tasks
+  const getBookedDates = (): Date[] => {
+    if (!tasksResponse?.tasks) return [];
+    
+    const dates: Date[] = [];
+    tasksResponse.tasks.forEach((task: Task) => {
+      // Handle date ranges
+      if (task.startDate && task.endDate) {
+        const start = parseISO(task.startDate);
+        const end = parseISO(task.endDate);
+        const current = new Date(start);
+        while (current <= end) {
+          dates.push(new Date(current));
+          current.setDate(current.getDate() + 1);
+        }
+      }
+      // Handle single due dates
+      else if (task.dueDate) {
+        dates.push(parseISO(task.dueDate));
+      }
+      // Fallback to createdAt for booking indication
+      else if (task.createdAt) {
+        dates.push(parseISO(task.createdAt));
+      }
+    });
+    
+    // Also include dates from the current editing task
+    if (editingTask) {
+      if (editingTask.startDate && editingTask.endDate) {
+        dates.push(parseISO(editingTask.startDate));
+        dates.push(parseISO(editingTask.endDate));
+      } else if (editingTask.dueDate) {
+        dates.push(parseISO(editingTask.dueDate));
+      }
+    }
+    
+    return dates;
+  };
+  
+  const bookedDates = getBookedDates();
+
   // Mutations
   const createTaskMutation = useMutation({
     mutationFn: (data: CreateTaskData) => taskApi.createTask(data),
@@ -393,7 +434,6 @@ const SchedulePage = () => {
                         setTaskDialogOpen(true);
                       }}
                       onDelete={handleDeleteTask}
-                      onStatusUpdate={handleStatusUpdate}
                       showActions={true}
                     />
                   </Grid>
@@ -409,19 +449,30 @@ const SchedulePage = () => {
         open={taskDialogOpen}
         task={editingTask}
         users={users || []}
+        bookedDates={bookedDates}
         onClose={() => {
           setTaskDialogOpen(false);
           setEditingTask(undefined);
         }}
-        onSave={async (taskData) => {
+        onSave={async (taskData: any) => {
           try {
+            // Handle date conversion for backend
+            const dataToSave = {
+              ...taskData,
+              // Handle date range
+              startDate: taskData.dueDateRange?.[0] || taskData.startDate || null,
+              endDate: taskData.dueDateRange?.[1] || taskData.endDate || null,
+              // Keep dueDate for backward compatibility (single date)
+              dueDate: (!taskData.dueDateRange?.[0] && !taskData.startDate) ? taskData.dueDate : null
+            };
+            
             if (editingTask) {
               await updateTaskMutation.mutateAsync({ 
                 taskId: editingTask.taskId, 
-                data: taskData as UpdateTaskData 
+                data: dataToSave as UpdateTaskData 
               });
             } else {
-              await createTaskMutation.mutateAsync(taskData as CreateTaskData);
+              await createTaskMutation.mutateAsync(dataToSave as CreateTaskData);
             }
             setTaskDialogOpen(false);
             setEditingTask(undefined);

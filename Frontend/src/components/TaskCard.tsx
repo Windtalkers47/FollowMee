@@ -358,8 +358,8 @@ const TaskCard: React.FC<TaskCardProps> = ({
           background: 'transparent'
         }}>
           <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 1 }}>
-            {/* Due Date */}
-            {task.dueDate && (
+            {/* Due Date / Date Range */}
+            {(task.startDate && task.endDate) ? (
               <Typography 
                 variant="caption" 
                 color="text.secondary" 
@@ -373,11 +373,35 @@ const TaskCard: React.FC<TaskCardProps> = ({
                   backdropFilter: 'blur(4px)',
                   WebkitBackdropFilter: 'blur(4px)',
                   fontSize: '0.7rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 0.5
                 }}
               >
-                Due {format(new Date(task.dueDate), 'MMM dd')}
+                📅 {format(new Date(task.startDate), 'MMM dd')} - {format(new Date(task.endDate), 'MMM dd')}
               </Typography>
-            )}
+            ) : task.dueDate ? (
+              <Typography 
+                variant="caption" 
+                color="text.secondary" 
+                fontWeight="500"
+                sx={{
+                  background: theme.palette.mode === 'dark'
+                    ? 'rgba(255, 255, 255, 0.1)'
+                    : 'rgba(255, 255, 255, 0.7)',
+                  padding: '2px 8px',
+                  borderRadius: 8,
+                  backdropFilter: 'blur(4px)',
+                  WebkitBackdropFilter: 'blur(4px)',
+                  fontSize: '0.7rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 0.5
+                }}
+              >
+                ⏰ Due {format(new Date(task.dueDate), 'MMM dd')}
+              </Typography>
+            ) : null}
 
             {/* Assigned To */}
             {task.assignedToUser && (

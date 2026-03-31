@@ -24,6 +24,7 @@ interface RangeCalendarProps {
   disabled?: boolean;
   error?: boolean;
   helperText?: string;
+  bookedDates?: Date[]; // New prop for booked/marked dates
 }
 
 export const RangeCalendar: React.FC<RangeCalendarProps> = ({
@@ -32,7 +33,8 @@ export const RangeCalendar: React.FC<RangeCalendarProps> = ({
   label = 'Select Date Range',
   disabled = false,
   error = false,
-  helperText
+  helperText,
+  bookedDates = []
 }) => {
   const [open, setOpen] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -113,6 +115,9 @@ export const RangeCalendar: React.FC<RangeCalendarProps> = ({
             const selectedDate = new Date(day);
             selectedDate.setHours(0, 0, 0, 0);
             const isPastDate = selectedDate < today;
+            
+            // Check if date is booked/marked
+            const isBooked = bookedDates.some(bookedDate => isSameDay(day, bookedDate));
             return (
               <Box
                 key={index}
@@ -137,12 +142,18 @@ export const RangeCalendar: React.FC<RangeCalendarProps> = ({
                     ? 'linear-gradient(135deg, rgba(34, 197, 94, 0.7), rgba(16, 185, 129, 0.7))' 
                     : isInRange 
                     ? 'rgba(34, 197, 94, 0.25)' 
+                    : isBooked
+                    ? 'rgba(34, 197, 94, 0.3)'
                     : isToday 
                     ? 'rgba(255, 255, 255, 0.1)' 
                     : isPastDate
                     ? 'rgba(255, 255, 255, 0.02)'
                     : 'transparent',
-                  border: isSelected ? '2px solid rgba(34, 197, 94, 0.9)' : 'none',
+                  border: isSelected 
+                    ? '2px solid rgba(34, 197, 94, 0.9)' 
+                    : isBooked
+                    ? '1px solid rgba(34, 197, 94, 0.5)'
+                    : 'none',
                   backdropFilter: 'blur(10px)',
                   transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                   opacity: isPastDate ? 0.4 : 1,

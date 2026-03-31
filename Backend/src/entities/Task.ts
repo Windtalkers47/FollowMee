@@ -33,6 +33,12 @@ export class Task {
   @Column({ name: 'dueDate', type: 'datetime', nullable: true })
   dueDate?: Date;
 
+  @Column({ name: 'startDate', type: 'datetime', nullable: true })
+  startDate?: Date;
+
+  @Column({ name: 'endDate', type: 'datetime', nullable: true })
+  endDate?: Date;
+
   @Column({
     name: 'status',
     type: 'enum',

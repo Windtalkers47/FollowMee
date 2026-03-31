@@ -16,6 +16,8 @@ export interface Task {
   assignedTo?: number;
   createdBy: number;
   dueDate?: string;
+  startDate?: string;
+  endDate?: string;
   status: 'draft' | 'upcoming' | 'past' | 'done';
   imageUrl?: string; // For backward compatibility - first image
   isActive: boolean;
@@ -123,9 +125,14 @@ export interface CreateTaskData {
   description?: string;
   assignedTo?: number;
   dueDate?: Date;
+  startDate?: Date;
+  endDate?: Date;
+  dueDateRange?: [Date, Date] | [null, null];
   imageUrl?: string; // Backward compatibility - single image
   images?: { imageUrl: string; imageOrder?: number }[]; // Multiple images
   status?: 'draft' | 'upcoming' | 'past' | 'done';
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface UpdateTaskData {
@@ -133,6 +140,8 @@ export interface UpdateTaskData {
   description?: string;
   assignedTo?: number;
   dueDate?: Date | string;
+  startDate?: Date | string;
+  endDate?: Date | string;
   imageUrl?: string; // Backward compatibility - single image
   images?: { imageUrl: string; imageOrder?: number }[]; // Multiple images
   status?: 'draft' | 'upcoming' | 'past' | 'done';

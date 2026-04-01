@@ -116,8 +116,11 @@ export const RangeCalendar: React.FC<RangeCalendarProps> = ({
             selectedDate.setHours(0, 0, 0, 0);
             const isPastDate = selectedDate < today;
             
-            // Check if date is booked/marked
+            // Check if date is booked/marked (from existing tasks)
             const isBooked = bookedDates.some(bookedDate => isSameDay(day, bookedDate));
+            // Check if date is in current selection
+            const isInCurrentSelection = (start && isSameDay(day, start)) || (end && isSameDay(day, end)) || (start && end && day > start && day < end);
+            
             return (
               <Box
                 key={index}
@@ -138,29 +141,29 @@ export const RangeCalendar: React.FC<RangeCalendarProps> = ({
                     : isCurrentMonth 
                     ? 'rgba(255, 255, 255, 0.9)' 
                     : 'rgba(255, 255, 255, 0.4)',
-                  background: isSelected 
-                    ? 'linear-gradient(135deg, rgba(34, 197, 94, 0.7), rgba(16, 185, 129, 0.7))' 
-                    : isInRange 
-                    ? 'rgba(34, 197, 94, 0.25)' 
-                    : isBooked
-                    ? 'rgba(34, 197, 94, 0.3)'
+                  background: isInCurrentSelection
+                    ? 'linear-gradient(135deg, rgba(34, 197, 94, 0.8), rgba(16, 185, 129, 0.8))' 
+                    : isBooked && !isInCurrentSelection
+                    ? 'rgba(34, 197, 94, 0.3)'  // Lighter green for booked but not selected
                     : isToday 
                     ? 'rgba(255, 255, 255, 0.1)' 
                     : isPastDate
                     ? 'rgba(255, 255, 255, 0.02)'
                     : 'transparent',
-                  border: isSelected 
-                    ? '2px solid rgba(34, 197, 94, 0.9)' 
-                    : isBooked
-                    ? '1px solid rgba(34, 197, 94, 0.5)'
+                  border: isInCurrentSelection
+                    ? '2px solid rgba(34, 197, 94, 1.0)' 
+                    : isBooked && !isInCurrentSelection
+                    ? '1px solid rgba(34, 197, 94, 0.6)'  // Thinner border for booked but not selected
                     : 'none',
                   backdropFilter: 'blur(10px)',
                   transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                   opacity: isPastDate ? 0.4 : 1,
-                  boxShadow: isSelected ? '0 4px 20px rgba(34, 197, 94, 0.4)' : 'none',
+                  boxShadow: isInCurrentSelection ? '0 4px 20px rgba(34, 197, 94, 0.4)' : 'none',
                   '&:hover': disabled || isPastDate ? {} : {
-                    background: isSelected 
-                      ? 'linear-gradient(135deg, rgba(34, 197, 94, 0.8), rgba(16, 185, 129, 0.8))' 
+                    background: isInCurrentSelection 
+                      ? 'linear-gradient(135deg, rgba(34, 197, 94, 0.9), rgba(16, 185, 129, 0.9))' 
+                      : isBooked && !isInCurrentSelection
+                      ? 'rgba(34, 197, 94, 0.5)'  // Hover effect for booked dates
                       : 'rgba(255, 255, 255, 0.15)',
                     transform: 'scale(1.1)',
                     boxShadow: '0 6px 25px rgba(34, 197, 94, 0.3)'
@@ -175,6 +178,21 @@ export const RangeCalendar: React.FC<RangeCalendarProps> = ({
                 <Typography variant="body2">
                   {format(day, 'd')}
                 </Typography>
+                {/* Add indicator for booked dates that are not selected */}
+                {isBooked && !isInCurrentSelection && (
+                  <Box
+                    sx={{
+                      position: 'absolute',
+                      top: 2,
+                      right: 2,
+                      width: 6,
+                      height: 6,
+                      borderRadius: '50%',
+                      backgroundColor: 'rgba(34, 197, 94, 0.8)',
+                      border: '1px solid rgba(255, 255, 255, 0.8)'
+                    }}
+                  />
+                )}
               </Box>
             );
           })}

@@ -8,6 +8,8 @@ export class TaskResponseDto {
   assignedTo?: number;
   createdBy!: number;
   dueDate?: Date;
+  startDate?: Date;
+  endDate?: Date;
   status!: 'draft' | 'upcoming' | 'past' | 'done';
   imageUrl?: string; // For backward compatibility - first image
   isActive!: boolean;

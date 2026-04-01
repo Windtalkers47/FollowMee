@@ -459,11 +459,12 @@ const SchedulePage = () => {
             // Handle date conversion for backend
             const dataToSave = {
               ...taskData,
-              // Handle date range
-              startDate: taskData.dueDateRange?.[0] || taskData.startDate || null,
-              endDate: taskData.dueDateRange?.[1] || taskData.endDate || null,
+              // Handle date range - convert Date objects to ISO strings
+              startDate: taskData.dueDateRange?.[0] ? taskData.dueDateRange[0].toISOString() : taskData.startDate || null,
+              endDate: taskData.dueDateRange?.[1] ? taskData.dueDateRange[1].toISOString() : taskData.endDate || null,
               // Keep dueDate for backward compatibility (single date)
-              dueDate: (!taskData.dueDateRange?.[0] && !taskData.startDate) ? taskData.dueDate : null
+              dueDate: (!taskData.dueDateRange?.[0] && !taskData.startDate) ? 
+                (taskData.dueDate instanceof Date ? taskData.dueDate.toISOString() : taskData.dueDate) : null
             };
             
             if (editingTask) {

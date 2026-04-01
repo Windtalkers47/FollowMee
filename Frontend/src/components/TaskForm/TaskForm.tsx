@@ -12,6 +12,7 @@ import {
   Save as SaveIcon,
   Cancel as CancelIcon
 } from '@mui/icons-material';
+import Swal from 'sweetalert2';
 import { Task, User } from '../../api/task.api';
 import { useTaskForm } from '../../hooks/useTaskForm';
 import { TaskFormFields } from './TaskFormFields';
@@ -36,9 +37,49 @@ export const TaskForm: React.FC<TaskFormProps> = ({
   const taskForm = useTaskForm({ task, users, onSave });
 
   const handleSubmit = async () => {
-    const success = await taskForm.handleSubmit();
-    if (success) {
+    try {
+      // Show loading
+      Swal.showLoading();
+      Swal.fire({
+        title: taskForm.isEditing ? 'Updating Task...' : 'Creating Task...',
+        text: 'Please wait...',
+        allowOutsideClick: false,
+        didOpen: () => {
+          Swal.showLoading();
+        }
+      });
+
+      // Call the async onSave function directly
+      const taskData = {
+        ...taskForm.formData,
+        images: taskForm.images.map(img => ({
+          imageUrl: img.imageUrl,
+          imageOrder: img.imageOrder
+        }))
+      };
+
+      await onSave(taskData as Task);
+      
+      // Show success message
+      await Swal.fire({
+        icon: 'success',
+        title: taskForm.isEditing ? 'Task Updated!' : 'Task Created!',
+        text: taskForm.isEditing 
+          ? 'Your task has been updated successfully.' 
+          : 'Your task has been created successfully.',
+        timer: 2000,
+        showConfirmButton: false
+      });
       onClose();
+    } catch (error) {
+      // Show error message
+      Swal.fire({
+        icon: 'error',
+        title: 'Operation Failed',
+        text: taskForm.isEditing 
+          ? 'Failed to update task. Please try again.' 
+          : 'Failed to create task. Please try again.',
+      });
     }
   };
 

@@ -35,6 +35,8 @@ export class TaskService {
     task.assignedTo = createTaskDto.assignedTo;
     task.createdBy = userId;
     task.dueDate = createTaskDto.dueDate ? new Date(createTaskDto.dueDate) : undefined;
+    task.startDate = createTaskDto.startDate ? new Date(createTaskDto.startDate) : undefined;
+    task.endDate = createTaskDto.endDate ? new Date(createTaskDto.endDate) : undefined;
     task.status = createTaskDto.status || 'draft';
     task.isActive = true;
 
@@ -174,6 +176,12 @@ export class TaskService {
     if (updateTaskDto.assignedTo !== undefined) task.assignedTo = updateTaskDto.assignedTo;
     if (updateTaskDto.dueDate !== undefined) {
       task.dueDate = updateTaskDto.dueDate ? new Date(updateTaskDto.dueDate) : undefined;
+    }
+    if (updateTaskDto.startDate !== undefined) {
+      task.startDate = updateTaskDto.startDate ? new Date(updateTaskDto.startDate) : undefined;
+    }
+    if (updateTaskDto.endDate !== undefined) {
+      task.endDate = updateTaskDto.endDate ? new Date(updateTaskDto.endDate) : undefined;
     }
     if (updateTaskDto.status !== undefined) task.status = updateTaskDto.status;
     if (updateTaskDto.isActive !== undefined) task.isActive = updateTaskDto.isActive;
@@ -349,6 +357,8 @@ export class TaskService {
       assignedTo: task.assignedTo,
       createdBy: task.createdBy,
       dueDate: task.dueDate,
+      startDate: task.startDate,
+      endDate: task.endDate,
       status: task.status,
       imageUrl: imageUrl, // Backward compatibility
       isActive: task.isActive,

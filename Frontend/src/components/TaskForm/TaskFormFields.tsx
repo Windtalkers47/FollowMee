@@ -117,7 +117,7 @@ export const TaskFormFields: React.FC<TaskFormFieldsProps> = ({
                     disabled={isSubmitting}
                     error={!!formErrors.dueDateRange}
                     helperText={formErrors.dueDateRange}
-                    label={formData.startDate && formData.endDate ? "Date Range" : "Due Date"}
+                    label={formData.dueDateRange && formData.dueDateRange[0] && formData.dueDateRange[1] ? "Date Range" : "Due Date"}
                     bookedDates={bookedDates}
                   />
                 </Box>

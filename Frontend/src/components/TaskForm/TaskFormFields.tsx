@@ -102,9 +102,11 @@ export const TaskFormFields: React.FC<TaskFormFieldsProps> = ({
                     disabled={isSubmitting}
                   >
                     <MenuItem value="draft">Draft</MenuItem>
-                    <MenuItem value="upcoming">Upcoming</MenuItem>
-                    <MenuItem value="past">Past</MenuItem>
+                    <MenuItem value="todo">To Do</MenuItem>
+                    <MenuItem value="in_progress">In Progress</MenuItem>
+                    <MenuItem value="review">Review</MenuItem>
                     <MenuItem value="done">Done</MenuItem>
+                    <MenuItem value="cancelled">Cancelled</MenuItem>
                   </Select>
                 </FormControl>
               </Box>

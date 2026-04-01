@@ -5,6 +5,11 @@ import { UserService } from '../services/user.service';
 declare global {
   namespace Express {
     interface Request {
+      user?: {
+        userId: number;
+        email: string;
+        roles: string[];
+      };
       userPermissions?: string[];
     }
   }

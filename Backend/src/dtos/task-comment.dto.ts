@@ -35,6 +35,7 @@ export class TaskCommentResponseDto {
   parentCommentId?: number;
   createdAt!: Date;
   isActive!: boolean;
+  deletedAt?: Date;
 
   user?: {
     userId: number;
@@ -54,14 +55,14 @@ export class TaskCommentResponseDto {
 export class CreateCommentReactionDto {
   @IsNotEmpty()
   @IsString()
-  reactionType!: 'like' | 'dislike' | 'love' | 'laugh' | 'angry';
+  reactionType!: 'like' | 'love' | 'laugh' | 'angry' | 'wow' | 'sad';
 }
 
 export class CommentReactionResponseDto {
   reactionId!: number;
   commentId!: number;
   userId!: number;
-  reactionType!: 'like' | 'dislike' | 'love' | 'laugh' | 'angry';
+  reactionType!: 'like' | 'love' | 'laugh' | 'angry' | 'wow' | 'sad';
   createdAt!: Date;
 
   user?: {

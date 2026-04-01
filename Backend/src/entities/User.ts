@@ -1,6 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, BeforeInsert, BeforeUpdate, OneToMany } from 'typeorm';
 import { IsEmail, IsNotEmpty, IsOptional } from 'class-validator';
-import * as bcrypt from 'bcrypt';
+import * as bcryptjs from 'bcryptjs';
 import { UserRole } from './UserRole';
 import { Task } from './Task';
 import { TaskLike } from './TaskLike';
@@ -50,9 +50,6 @@ export class User {
   @Column('datetime', { nullable: true })
   resetTokenExpires!: Date | null;
 
-  @Column('varchar', { length: 50, nullable: true })
-  role!: string | null;
-
   // Login attempt tracking
   @Column('int', { default: 0, select: false })
   loginAttempts!: number;
@@ -68,6 +65,9 @@ export class User {
 
   @Column('varchar', { length: 500, nullable: true })
   userImageUrl!: string | null;
+
+  @Column('datetime', { nullable: true })
+  deletedAt?: Date;
 
   // Relations
   @OneToMany(() => UserRole, userRole => userRole.user)
@@ -99,7 +99,8 @@ export class User {
       !this.userPassword.startsWith('$2a$') &&
       !this.userPassword.startsWith('$2b$')
     ) {
-      this.userPassword = await bcrypt.hash(this.userPassword, 10);
+      // Hash plain text password with bcrypt
+      this.userPassword = await bcryptjs.hash(this.userPassword, 10);
     }
   }
 
@@ -107,7 +108,7 @@ export class User {
   // Domain methods
   // -------------------------
   async verifyPassword(attempt: string): Promise<boolean> {
-    return bcrypt.compare(attempt, this.userPassword);
+    return bcryptjs.compare(attempt, this.userPassword);
   }
 
   get fullName(): string {

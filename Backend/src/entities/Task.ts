@@ -42,13 +42,19 @@ export class Task {
   @Column({
     name: 'status',
     type: 'enum',
-    enum: ['draft', 'upcoming', 'past', 'done'],
+    enum: ['draft', 'todo', 'in_progress', 'review', 'done', 'cancelled'],
     default: 'draft'
   })
-  status: 'draft' | 'upcoming' | 'past' | 'done' = 'draft';
+  status: 'draft' | 'todo' | 'in_progress' | 'review' | 'done' | 'cancelled' = 'draft';
+
+  @Column({ name: 'imageUrl', type: 'varchar', length: 512, nullable: true })
+  imageUrl?: string;
 
   @Column({ name: 'isActive', type: 'boolean', default: true })
   isActive: boolean = true;
+
+  @Column({ name: 'deletedAt', type: 'datetime', nullable: true })
+  deletedAt?: Date;
 
   @CreateDateColumn({ name: 'createdAt' })
   createdAt!: Date;

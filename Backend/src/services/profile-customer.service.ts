@@ -15,7 +15,10 @@ export class ProfileCustomerService {
     limit: number = 10
   ): Promise<[CustomerResponseDto[], number]> {
     const [customers, total] = await this.profileCustomerRepository.findWithPagination(page, limit);
-    const customerDtos = customers.map(c => new CustomerResponseDto(c));
+    const customerDtos = customers.map(c => new CustomerResponseDto({
+      ...c,
+      userId: c.userId ?? undefined
+    }));
     return [customerDtos, total];
   }
 
@@ -26,6 +29,9 @@ export class ProfileCustomerService {
    */
   async search(query: string): Promise<CustomerResponseDto[]> {
     const customers = await this.profileCustomerRepository.search(query);
-    return customers.map(c => new CustomerResponseDto(c));
+    return customers.map(c => new CustomerResponseDto({
+      ...c,
+      userId: c.userId ?? undefined
+    }));
   }
 }

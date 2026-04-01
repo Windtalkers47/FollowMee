@@ -1,10 +1,18 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index, ManyToOne, JoinColumn } from 'typeorm';
+import { User } from './User';
 
 @Entity('customers')
 @Index('IDX_customer_email', ['customerEmail'], { unique: true })
 export class Customer {
   @PrimaryGeneratedColumn('uuid', { name: 'customerId' })
   customerId!: string;
+
+  @Column({ name: 'userId', type: 'int', nullable: true })
+  userId!: number | null;
+
+  @ManyToOne(() => User, { onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'userId' })
+  user!: User | null;
 
   @Column({ name: 'customerName', type: 'varchar', length: 50, nullable: false })
   customerName!: string;
@@ -52,6 +60,9 @@ export class Customer {
     default: 'active'
   })
   status: 'active' | 'inactive' | 'canceled' = 'active';
+
+  @Column({ name: 'deletedAt', type: 'datetime', nullable: true })
+  deletedAt?: Date;
 
   @CreateDateColumn({ name: 'createdAt' })
   createdAt!: Date;

@@ -108,12 +108,13 @@ export class TaskRepository extends BaseRepository<Task> {
     return qb.orderBy('task.createdAt', 'DESC').getMany();
   }
 
-  async updateTaskStatus(taskId: string, status: 'draft' | 'upcoming' | 'past' | 'done'): Promise<void> {
+  async updateTaskStatus(taskId: string, status: 'draft' | 'todo' | 'in_progress' | 'review' | 'done' | 'cancelled'): Promise<void> {
     await this.repository.update(taskId, { status, updatedAt: new Date() });
   }
 
-  async softDelete(taskId: string): Promise<void> {
-    await this.repository.update(taskId, { isActive: false, updatedAt: new Date() });
+  async softDelete(taskId: string): Promise<boolean> {
+    const result = await this.update(taskId, { isActive: false, deletedAt: new Date() } as any);
+    return !!result;
   }
 
   async getCommentCount(taskId: string): Promise<number> {
@@ -161,7 +162,7 @@ export class TaskRepository extends BaseRepository<Task> {
     return this.repository
       .createQueryBuilder('task')
       .where('(task.dueDate < :now OR (task.endDate < :now AND task.endDate IS NOT NULL))', { now: new Date() })
-      .andWhere('task.status IN (:...statuses)', { statuses: ['draft', 'upcoming'] })
+      .andWhere('task.status IN (:...statuses)', { statuses: ['draft', 'todo', 'in_progress'] })
       .andWhere('task.isActive = :isActive', { isActive: true })
       .getMany();
   }

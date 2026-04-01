@@ -1,6 +1,10 @@
-import { IsEmail, IsBoolean, IsNotEmpty, IsOptional, IsString, MaxLength, IsBase64, IsEnum } from 'class-validator';
+import { IsEmail, IsBoolean, IsNotEmpty, IsOptional, IsString, MaxLength, IsBase64, IsEnum, IsNumber } from 'class-validator';
 
 export class CreateCustomerDto {
+  @IsOptional()
+  @IsNumber()
+  userId?: number;
+
   @IsString()
   @IsNotEmpty({ message: 'Customer name is required' })
   @MaxLength(50, { message: 'Customer name must be at most 50 characters' })

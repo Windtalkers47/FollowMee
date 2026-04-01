@@ -73,6 +73,13 @@ export class AuthService {
   }
 
   /**
+   * Verify password (plain text only)
+   */
+  private async verifyPassword(user: User, passwordAttempt: string): Promise<boolean> {
+    return await user.verifyPassword(passwordAttempt);
+  }
+
+  /**
    * Generate a JWT token for a user
    */
   private generateAccessToken(payload: TokenPayload): string {
@@ -176,7 +183,7 @@ export class AuthService {
       throw new Error('Account is deactivated');
     }
 
-    const isPasswordValid = await bcrypt.compare(password, user.userPassword);
+    const isPasswordValid = await this.verifyPassword(user, password);
     if (!isPasswordValid) {
       throw new Error('Invalid email or password');
     }

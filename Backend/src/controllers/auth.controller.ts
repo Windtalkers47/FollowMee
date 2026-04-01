@@ -20,18 +20,6 @@ const loginLimiter = rateLimit({
   skipSuccessfulRequests: true,
 });
 
-// Extend Express Request type to include user
-declare global {
-  namespace Express {
-    interface Request {
-      users?: {
-        userId: number;
-        email: string;
-      };
-    }
-  }
-}
-
 class AuthController {
   private authService: AuthService;
   private userRepository = AppDataSource.getRepository(User);
@@ -110,7 +98,7 @@ class AuthController {
           customerRole = this.roleRepository.create({
             roleName: 'Customer',
             description: 'Regular customer user',
-            roleLevel: 4,
+            roleLevel: 1,
             isActive: true
           });
           customerRole = await this.roleRepository.save(customerRole);

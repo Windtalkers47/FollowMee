@@ -104,10 +104,11 @@ export class TaskLikeService {
 
     const summary: TaskLikeSummaryDto = {
       like: 0,
-      dislike: 0,
       love: 0,
       laugh: 0,
       angry: 0,
+      wow: 0,
+      sad: 0,
       total: likes.length
     };
 

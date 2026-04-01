@@ -1,6 +1,7 @@
 import { apiConfig, handleResponse } from './config';
 
 interface CustomerData {
+  userId?: number;
   customerName: { value: string };
   customerLastName?: { value: string };
   customerEmail: { value: string };
@@ -31,6 +32,7 @@ const transformCustomerData = (data: any): any => {
     customerLine: data.customerLine ? { value: data.customerLine } : undefined,
     customerX: data.customerX ? { value: data.customerX } : undefined,
     customerAddress: data.customerAddress ? { value: data.customerAddress } : undefined,
+    userId: data.userId ? { value: data.userId } : undefined,
     isActive: data.isActive !== undefined ? data.isActive : true,
   };
 };

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
   Box,
   Typography,
@@ -9,10 +9,6 @@ import {
   Tabs,
   Tab,
   Grid,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   FormControl,
   InputLabel,
   Select,
@@ -31,13 +27,11 @@ import {
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format, parseISO } from 'date-fns';
 import { useAppSelector } from '../../store/store';
-import { taskApi, Task, CreateTaskData, UpdateTaskData } from '../../api/task.api';
-import { userApi, User } from '../../api/user.api';
+import { taskApi, Task, CreateTaskData, UpdateTaskData, TaskLikeSummary } from '../../api/task.api';
+import { userApi } from '../../api/user.api';
+import { likeApi } from '../../api/task.api';
 import TaskCard from '../../components/TaskCard';
 import { TaskForm } from '../../components/TaskForm/TaskForm';
-import { DatePicker } from '@mui/x-date-pickers/DatePicker';
-import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
-import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 
 /* ================== Types ================== */
 type TabPanelProps = {
@@ -46,7 +40,7 @@ type TabPanelProps = {
   value: number;
 };
 
-type TaskStatus = 'draft' | 'upcoming' | 'past' | 'done';
+type TaskStatus = 'draft' | 'todo' | 'in_progress' | 'review' | 'done' | 'cancelled';
 
 /* ================== TabPanel ================== */
 const TabPanel = ({ children, value, index }: TabPanelProps) => (
@@ -55,147 +49,7 @@ const TabPanel = ({ children, value, index }: TabPanelProps) => (
   </div>
 );
 
-/* ================== Task Form Dialog ================== */
-interface TaskFormDialogProps {
-  open: boolean;
-  onClose: () => void;
-  task?: Task;
-  onSubmit: (data: CreateTaskData | UpdateTaskData) => Promise<void>;
-  users: User[];
-  usersLoading: boolean;
-}
-
-const TaskFormDialog: React.FC<TaskFormDialogProps> = ({ open, onClose, task, onSubmit, users, usersLoading }) => {
-  const [formData, setFormData] = useState<CreateTaskData>({
-    title: '',
-    description: '',
-    assignedTo: undefined,
-    dueDate: undefined,
-    status: 'draft',
-  });
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    if (task) {
-      setFormData({
-        title: task.title,
-        description: task.description || '',
-        assignedTo: task.assignedTo,
-        dueDate: task.dueDate ? new Date(task.dueDate) : undefined,
-        status: task.status,
-      });
-    } else {
-      setFormData({
-        title: '',
-        description: '',
-        assignedTo: undefined,
-        dueDate: undefined,
-        status: 'draft',
-      });
-    }
-  }, [task]);
-
-  const handleSubmit = async () => {
-    if (!formData.title.trim()) return;
-
-    setLoading(true);
-    try {
-      const submitData = task ? formData : {
-        ...formData,
-        dueDate: formData.dueDate instanceof Date ? formData.dueDate.toISOString() : formData.dueDate
-      };
-      await onSubmit(submitData);
-      onClose();
-    } catch (error) {
-      console.error('Error saving task:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>{task ? 'Edit Task' : 'Create New Task'}</DialogTitle>
-      <DialogContent>
-        <Box sx={{ pt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <TextField
-            label="Title"
-            value={formData.title}
-            onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-            required
-            fullWidth
-          />
-
-          <TextField
-            label="Description"
-            value={formData.description}
-            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-            multiline
-            rows={3}
-            fullWidth
-          />
-
-          <FormControl fullWidth>
-            <InputLabel>Assign To</InputLabel>
-            <Select
-              value={formData.assignedTo || ''}
-              onChange={(e) => setFormData({ ...formData, assignedTo: e.target.value ? Number(e.target.value) : undefined })}
-              label="Assign To"
-              disabled={usersLoading}
-            >
-              <MenuItem value="">Unassigned</MenuItem>
-              {users.map((user) => (
-                <MenuItem key={user.userId} value={user.userId}>
-                  {user.userName} {user.userLastName}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-
-          <LocalizationProvider dateAdapter={AdapterDateFns}>
-            <DatePicker
-              label="Due Date"
-              value={formData.dueDate ? new Date(formData.dueDate) : null}
-              onChange={(date) => setFormData({ ...formData, dueDate: date || undefined })}
-              slotProps={{ textField: { fullWidth: true } }}
-            />
-          </LocalizationProvider>
-
-          <TextField
-            label="Image URL"
-            value={formData.imageUrl}
-            onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
-            fullWidth
-          />
-
-          {!task && (
-            <FormControl fullWidth>
-              <InputLabel>Status</InputLabel>
-              <Select
-                value={formData.status}
-                onChange={(e) => setFormData({ ...formData, status: e.target.value as TaskStatus })}
-                label="Status"
-              >
-                <MenuItem value="draft">Draft</MenuItem>
-                <MenuItem value="upcoming">Upcoming</MenuItem>
-              </Select>
-            </FormControl>
-          )}
-        </Box>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
-        <Button
-          onClick={handleSubmit}
-          variant="contained"
-          disabled={loading || !formData.title.trim()}
-        >
-          {loading ? <CircularProgress size={20} /> : (task ? 'Update' : 'Create')}
-        </Button>
-      </DialogActions>
-    </Dialog>
-  );
-};
+      {/* Task Form Dialog - Remove this since we're using TaskForm component */}
 
 /* ================== Page ================== */
 const SchedulePage = () => {
@@ -218,7 +72,7 @@ const SchedulePage = () => {
   });
 
   // Fetch users for assignment dropdown
-  const { data: users = [], isLoading: usersLoading } = useQuery({
+  const { data: users = [] } = useQuery({
     queryKey: ['users'],
     queryFn: userApi.getUsers,
   });
@@ -287,22 +141,59 @@ const SchedulePage = () => {
     },
   });
 
-  const handleCreateTask = async (data: CreateTaskData | UpdateTaskData) => {
-    await createTaskMutation.mutateAsync(data as CreateTaskData);
+  const likeTaskMutation = useMutation({
+    mutationFn: ({ taskId, likeType }: { taskId: string; likeType: 'like' | 'love' | 'laugh' | 'angry' | 'wow' | 'sad' }) =>
+      likeApi.createOrUpdateLike(taskId, { likeType }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+    },
+  });
+
+  const unlikeTaskMutation = useMutation({
+    mutationFn: likeApi.removeLike,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+    },
+  });
+
+  const markTaskDoneMutation = useMutation({
+    mutationFn: ({ taskId, data }: { taskId: string; data?: { completionNote?: string } }) =>
+      taskApi.markTaskAsDone(taskId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+    },
+  });
+
+  const markTaskUndoneMutation = useMutation({
+    mutationFn: taskApi.markTaskAsUndone,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+    },
+  });
+
+  const handleDeleteTask = (taskId: string) => {
+    deleteTaskMutation.mutate(taskId);
   };
 
-  const handleUpdateTask = async (data: CreateTaskData | UpdateTaskData) => {
-    if (editingTask) {
-      await updateTaskMutation.mutateAsync({ taskId: editingTask.taskId, data: data as UpdateTaskData });
-    }
+  const handleLikeTask = (taskId: string, likeType: 'like' | 'love' | 'laugh' | 'angry' | 'wow' | 'sad') => {
+    likeTaskMutation.mutate({ taskId, likeType });
   };
 
-  const handleDeleteTask = async (taskId: string) => {
-    await deleteTaskMutation.mutateAsync(taskId);
+  const handleUnlikeTask = (taskId: string) => {
+    unlikeTaskMutation.mutate(taskId);
   };
 
-  const handleStatusUpdate = async (taskId: string, status: TaskStatus) => {
-    await updateTaskMutation.mutateAsync({ taskId, data: { status } });
+  const handleCommentTask = (taskId: string, comment: string) => {
+    // Comment functionality would be handled here
+    console.log('Comment on task:', taskId, comment);
+  };
+
+  const handleMarkDone = (taskId: string) => {
+    markTaskDoneMutation.mutate({ taskId });
+  };
+
+  const handleMarkUndone = (taskId: string) => {
+    markTaskUndoneMutation.mutate(taskId);
   };
 
   const filteredTasks = tasksResponse?.tasks || [];
@@ -310,17 +201,21 @@ const SchedulePage = () => {
   const groupedTasks = {
     all: filteredTasks,
     draft: filteredTasks.filter(task => task.status === 'draft'),
-    upcoming: filteredTasks.filter(task => task.status === 'upcoming'),
-    past: filteredTasks.filter(task => task.status === 'past'),
+    todo: filteredTasks.filter(task => task.status === 'todo'),
+    in_progress: filteredTasks.filter(task => task.status === 'in_progress'),
+    review: filteredTasks.filter(task => task.status === 'review'),
     done: filteredTasks.filter(task => task.status === 'done'),
+    cancelled: filteredTasks.filter(task => task.status === 'cancelled'),
   };
 
   const tabs = [
     { label: 'All Tasks', key: 'all' as const },
     { label: 'Drafts', key: 'draft' as const },
-    { label: 'Upcoming', key: 'upcoming' as const },
-    { label: 'Past Due', key: 'past' as const },
+    { label: 'To Do', key: 'todo' as const },
+    { label: 'In Progress', key: 'in_progress' as const },
+    { label: 'Review', key: 'review' as const },
     { label: 'Done', key: 'done' as const },
+    { label: 'Cancelled', key: 'cancelled' as const },
   ];
 
   return (
@@ -367,9 +262,11 @@ const SchedulePage = () => {
               >
                 <MenuItem value="all">All Status</MenuItem>
                 <MenuItem value="draft">Draft</MenuItem>
-                <MenuItem value="upcoming">Upcoming</MenuItem>
-                <MenuItem value="past">Past Due</MenuItem>
+                <MenuItem value="todo">To Do</MenuItem>
+                <MenuItem value="in_progress">In Progress</MenuItem>
+                <MenuItem value="review">Review</MenuItem>
                 <MenuItem value="done">Done</MenuItem>
+                <MenuItem value="cancelled">Cancelled</MenuItem>
               </Select>
             </FormControl>
           </Grid>
@@ -424,20 +321,40 @@ const SchedulePage = () => {
                   </Box>
                 </Grid>
               ) : (
-                groupedTasks[tab.key].map((task) => (
-                  <Grid size={{ xs: 12, md: 6, lg: 4 }} key={task.taskId}>
-                    <TaskCard
-                      task={task}
-                      currentUserId={user?.userId || 0}
-                      onEdit={(task) => {
-                        setEditingTask(task);
-                        setTaskDialogOpen(true);
-                      }}
-                      onDelete={handleDeleteTask}
-                      showActions={true}
-                    />
-                  </Grid>
-                ))
+                groupedTasks[tab.key].map((task) => {
+                  // Get like summary for this task (would need to fetch this)
+                  const likeSummary: TaskLikeSummary = {
+                    like: task._count?.likes || 0,
+                    love: 0,
+                    laugh: 0,
+                    angry: 0,
+                    wow: 0,
+                    sad: 0,
+                    total: task._count?.likes || 0,
+                    userLike: undefined
+                  };
+
+                  return (
+                    <Grid size={{ xs: 12, md: 6, lg: 4 }} key={task.taskId}>
+                      <TaskCard
+                        task={task}
+                        likeSummary={likeSummary}
+                        currentUserId={user?.userId || 0}
+                        onEdit={(task) => {
+                          setEditingTask(task);
+                          setTaskDialogOpen(true);
+                        }}
+                        onDelete={handleDeleteTask}
+                        onLike={handleLikeTask}
+                        onUnlike={handleUnlikeTask}
+                        onComment={handleCommentTask}
+                        onMarkDone={handleMarkDone}
+                        onMarkUndone={handleMarkUndone}
+                        showActions={true}
+                      />
+                    </Grid>
+                  );
+                })
               )}
             </Grid>
           )}
@@ -479,6 +396,7 @@ const SchedulePage = () => {
             setEditingTask(undefined);
           } catch (error) {
             console.error('Error saving task:', error);
+            throw error; // Re-throw to let TaskForm handle the error display
           }
         }}
       />

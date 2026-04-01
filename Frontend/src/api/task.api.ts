@@ -18,7 +18,7 @@ export interface Task {
   dueDate?: string;
   startDate?: string;
   endDate?: string;
-  status: 'draft' | 'upcoming' | 'past' | 'done';
+  status: 'draft' | 'todo' | 'in_progress' | 'review' | 'done' | 'cancelled';
   imageUrl?: string; // For backward compatibility - first image
   isActive: boolean;
   createdAt: string;
@@ -65,7 +65,7 @@ export interface TaskCommentReaction {
   reactionId: number;
   commentId: number;
   userId: number;
-  reactionType: 'like' | 'dislike' | 'love' | 'laugh' | 'angry';
+  reactionType: 'like' | 'love' | 'laugh' | 'angry' | 'wow' | 'sad';
   createdAt: string;
   user: {
     userId: number;
@@ -101,7 +101,7 @@ export interface TaskLike {
   likeId: number;
   taskId: string;
   userId: number;
-  likeType: 'like' | 'love' | 'laugh' | 'angry';
+  likeType: 'like' | 'love' | 'laugh' | 'angry' | 'wow' | 'sad';
   createdAt: string;
   user: {
     userId: number;
@@ -115,9 +115,10 @@ export interface TaskLikeSummary {
   love: number;
   laugh: number;
   angry: number;
-  dislike: number;
+  wow: number;
+  sad: number;
   total: number;
-  userLike?: 'like' | 'love' | 'laugh' | 'angry' | 'dislike';
+  userLike?: 'like' | 'love' | 'laugh' | 'angry' | 'wow' | 'sad';
 }
 
 export interface CreateTaskData {
@@ -130,7 +131,7 @@ export interface CreateTaskData {
   dueDateRange?: [Date, Date] | [null, null];
   imageUrl?: string; // Backward compatibility - single image
   images?: { imageUrl: string; imageOrder?: number }[]; // Multiple images
-  status?: 'draft' | 'upcoming' | 'past' | 'done';
+  status?: 'draft' | 'todo' | 'in_progress' | 'review' | 'done' | 'cancelled';
   createdAt?: string;
   updatedAt?: string;
 }
@@ -144,7 +145,7 @@ export interface UpdateTaskData {
   endDate?: Date | string;
   imageUrl?: string; // Backward compatibility - single image
   images?: { imageUrl: string; imageOrder?: number }[]; // Multiple images
-  status?: 'draft' | 'upcoming' | 'past' | 'done';
+  status?: 'draft' | 'todo' | 'in_progress' | 'review' | 'done' | 'cancelled';
   isActive?: boolean;
 }
 
@@ -152,7 +153,7 @@ export interface TaskQueryParams {
   search?: string;
   clearSearch?: boolean;
   includeStats?: boolean;
-  status?: 'draft' | 'upcoming' | 'past' | 'done';
+  status?: 'draft' | 'todo' | 'in_progress' | 'review' | 'done' | 'cancelled';
   assignedTo?: number;
   createdBy?: number;
   page?: number;
@@ -199,7 +200,7 @@ export interface MarkTaskDoneResponse {
 }
 
 export interface CreateLikeData {
-  likeType: 'like' | 'love' | 'laugh' | 'angry' | 'dislike';
+  likeType: 'like' | 'love' | 'laugh' | 'angry' | 'wow' | 'sad';
 }
 
 // Task CRUD operations
@@ -413,7 +414,7 @@ export const commentApi = {
 // Comment reaction operations
 export const commentReactionApi = {
   // Create or update a reaction on a comment
-  createOrUpdateReaction: async (commentId: number, data: { reactionType: 'like' | 'dislike' | 'love' | 'laugh' | 'angry' }): Promise<TaskCommentReaction> => {
+  createOrUpdateReaction: async (commentId: number, data: { reactionType: 'like' | 'love' | 'laugh' | 'angry' | 'wow' | 'sad' }): Promise<TaskCommentReaction> => {
     const response = await axios.post(`${API_BASE_URL}/tasks/comments/${commentId}/reactions`, data, {
       withCredentials: true,
     });

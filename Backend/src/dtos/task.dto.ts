@@ -34,8 +34,8 @@ export class CreateTaskDto {
   images?: { imageUrl: string; imageOrder?: number }[]; // Multiple images
 
   @IsOptional()
-  @IsEnum(['draft', 'upcoming', 'past', 'done'])
-  status?: 'draft' | 'upcoming' | 'past' | 'done';
+  @IsEnum(['draft', 'todo', 'in_progress', 'review', 'done', 'cancelled'])
+  status?: 'draft' | 'todo' | 'in_progress' | 'review' | 'done' | 'cancelled';
 }
 
 export class UpdateTaskDto {
@@ -72,8 +72,8 @@ export class UpdateTaskDto {
   images?: { imageUrl: string; imageOrder?: number }[]; // Multiple images
 
   @IsOptional()
-  @IsEnum(['draft', 'upcoming', 'past', 'done'])
-  status?: 'draft' | 'upcoming' | 'past' | 'done';
+  @IsEnum(['draft', 'todo', 'in_progress', 'review', 'done', 'cancelled'])
+  status?: 'draft' | 'todo' | 'in_progress' | 'review' | 'done' | 'cancelled';
 
   @IsOptional()
   @IsBoolean()
@@ -100,8 +100,8 @@ export class TaskQueryDto {
   includeStats?: boolean; // Flag to include performance statistics
 
   @IsOptional()
-  @IsEnum(['draft', 'upcoming', 'past', 'done'])
-  status?: 'draft' | 'upcoming' | 'past' | 'done';
+  @IsEnum(['draft', 'todo', 'in_progress', 'review', 'done', 'cancelled'])
+  status?: 'draft' | 'todo' | 'in_progress' | 'review' | 'done' | 'cancelled';
 
   @IsOptional()
   assignedTo?: number;

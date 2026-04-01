@@ -22,7 +22,7 @@ export interface UseCommentsResult {
   
   // Optimistic actions
   addComment: (comment: string, parentCommentId?: number) => Promise<void>;
-  updateReaction: (commentId: number, reactionType: 'like' | 'dislike' | 'love' | 'laugh' | 'angry') => void;
+  updateReaction: (commentId: number, reactionType: 'like' | 'love' | 'laugh' | 'angry' | 'wow' | 'sad') => void;
   
   // Thread management
   collapsedThreads: Set<number>;
@@ -190,7 +190,7 @@ export function useComments({
   }, [taskId, refetch]);
 
   // Optimistic reaction update
-  const updateReaction = useCallback(async (commentId: number, reactionType: 'like' | 'dislike' | 'love' | 'laugh' | 'angry') => {
+  const updateReaction = useCallback(async (commentId: number, reactionType: 'like' | 'love' | 'laugh' | 'angry' | 'wow' | 'sad') => {
     try {
       // Find the comment in the current data to check existing reaction
       const findComment = (nodes: any[]): any => {

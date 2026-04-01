@@ -36,7 +36,7 @@ interface TaskCardProps {
   currentUserId: number;
   onEdit?: (task: Task) => void;
   onDelete?: (taskId: string) => void;
-  onLike?: (taskId: string, likeType: 'like' | 'love' | 'laugh' | 'angry' | 'dislike') => void;
+  onLike?: (taskId: string, likeType: 'like' | 'love' | 'laugh' | 'angry' | 'wow' | 'sad') => void;
   onUnlike?: (taskId: string) => void;
   onComment?: (taskId: string, comment: string) => void;
   onMarkDone?: (taskId: string) => void;
@@ -52,16 +52,20 @@ interface TaskCardProps {
 
 const statusColors: Record<Task['status'], 'default' | 'primary' | 'warning' | 'success'> = {
   draft: 'default',
-  upcoming: 'primary',
-  past: 'warning',
+  todo: 'primary',
+  in_progress: 'warning',
+  review: 'warning',
   done: 'success',
+  cancelled: 'default',
 } as const;
 
 const statusLabels: Record<Task['status'], string> = {
   draft: 'Draft',
-  upcoming: 'Upcoming',
-  past: 'Past Due',
+  todo: 'To Do',
+  in_progress: 'In Progress',
+  review: 'Review',
   done: 'Done',
+  cancelled: 'Cancelled',
 } as const;
 
 const TaskCard: React.FC<TaskCardProps> = ({
@@ -126,7 +130,8 @@ const TaskCard: React.FC<TaskCardProps> = ({
   const isLoved = likeSummary?.userLike === 'love';
   const isLaughed = likeSummary?.userLike === 'laugh';
   const isAngry = likeSummary?.userLike === 'angry';
-  const isDisliked = likeSummary?.userLike === 'dislike';
+  const isWowed = likeSummary?.userLike === 'wow';
+  const isSad = likeSummary?.userLike === 'sad';
 
   return (
     <>
@@ -495,25 +500,29 @@ const TaskCard: React.FC<TaskCardProps> = ({
                 p: 0.5,
                 background: isLiked 
                   ? theme.palette.mode === 'dark'
-                    ? 'rgba(25, 118, 210, 0.2)'
+                    ? 'rgba(76, 175, 80, 0.2)'
                     : 'rgba(25, 118, 210, 0.15)'
                   : theme.palette.mode === 'dark'
-                    ? 'rgba(255, 255, 255, 0.08)'
-                    : 'rgba(255, 255, 255, 0.6)',
-                backdropFilter: 'blur(8px)',
-                WebkitBackdropFilter: 'blur(8px)',
-                border: `1px solid ${theme.palette.mode === 'dark' 
-                  ? 'rgba(25, 118, 210, 0.3)' 
-                  : 'rgba(25, 118, 210, 0.4)'}`,
+                    ? 'rgba(220, 38, 38, 0.12)'
+                    : 'rgba(255, 255, 255, 0.08)',
                 '&:hover': {
                   background: isLiked 
                     ? theme.palette.mode === 'dark'
-                      ? 'rgba(25, 118, 210, 0.3)'
-                      : 'rgba(25, 118, 210, 0.25)'
+                      ? 'rgba(76, 175, 80, 0.25)'
+                      : 'rgba(25, 118, 210, 0.2)'
                     : theme.palette.mode === 'dark'
-                      ? 'rgba(255, 255, 255, 0.12)'
-                      : 'rgba(255, 255, 255, 0.8)',
-                }
+                      ? 'rgba(220, 38, 38, 0.15)'
+                      : 'rgba(255, 255, 255, 0.12)',
+                },
+                backdropFilter: 'blur(8px)',
+                WebkitBackdropFilter: 'blur(8px)',
+                border: `1px solid ${isLiked 
+                  ? theme.palette.mode === 'dark' 
+                    ? 'rgba(76, 175, 80, 0.3)' 
+                    : 'rgba(25, 118, 210, 0.4)' 
+                  : theme.palette.mode === 'dark' 
+                    ? 'rgba(220, 38, 38, 0.2)' 
+                    : 'rgba(255, 255, 255, 0.8)'}`,
               }}
             >
               <span>👍</span>
@@ -618,37 +627,70 @@ const TaskCard: React.FC<TaskCardProps> = ({
               <span>😠</span>
             </IconButton>
 
-            {/* Dislike Button */}
+            {/* Wow Button */}
             <IconButton
               size="small"
-              onClick={() => isDisliked ? onUnlike?.(task.taskId) : onLike?.(task.taskId, 'dislike')}
-              color={isDisliked ? 'default' : 'default'}
+              onClick={() => isWowed ? onUnlike?.(task.taskId) : onLike?.(task.taskId, 'wow')}
+              color={isWowed ? 'info' : 'default'}
               sx={{ 
                 p: 0.5,
-                background: isDisliked 
+                background: isWowed 
                   ? theme.palette.mode === 'dark'
-                    ? 'rgba(158, 158, 158, 0.2)'
-                    : 'rgba(158, 158, 158, 0.15)'
+                    ? 'rgba(59, 130, 246, 0.2)'
+                    : 'rgba(59, 130, 246, 0.15)'
                   : theme.palette.mode === 'dark'
                     ? 'rgba(255, 255, 255, 0.08)'
                     : 'rgba(255, 255, 255, 0.6)',
                 backdropFilter: 'blur(8px)',
                 WebkitBackdropFilter: 'blur(8px)',
                 border: `1px solid ${theme.palette.mode === 'dark' 
-                  ? 'rgba(158, 158, 158, 0.3)' 
-                  : 'rgba(158, 158, 158, 0.4)'}`,
+                  ? 'rgba(59, 130, 246, 0.3)' 
+                  : 'rgba(59, 130, 246, 0.4)'}`,
                 '&:hover': {
-                  background: isDisliked 
+                  background: isWowed 
                     ? theme.palette.mode === 'dark'
-                      ? 'rgba(158, 158, 158, 0.3)'
-                      : 'rgba(158, 158, 158, 0.25)'
+                      ? 'rgba(59, 130, 246, 0.3)'
+                      : 'rgba(59, 130, 246, 0.25)'
                     : theme.palette.mode === 'dark'
                       ? 'rgba(255, 255, 255, 0.12)'
                       : 'rgba(255, 255, 255, 0.8)',
                 }
               }}
             >
-              <span>👎</span>
+              <span>😮</span>
+            </IconButton>
+
+            {/* Sad Button */}
+            <IconButton
+              size="small"
+              onClick={() => isSad ? onUnlike?.(task.taskId) : onLike?.(task.taskId, 'sad')}
+              color={isSad ? 'secondary' : 'default'}
+              sx={{ 
+                p: 0.5,
+                background: isSad 
+                  ? theme.palette.mode === 'dark'
+                    ? 'rgba(156, 163, 175, 0.2)'
+                    : 'rgba(156, 163, 175, 0.15)'
+                  : theme.palette.mode === 'dark'
+                    ? 'rgba(255, 255, 255, 0.08)'
+                    : 'rgba(255, 255, 255, 0.6)',
+                backdropFilter: 'blur(8px)',
+                WebkitBackdropFilter: 'blur(8px)',
+                border: `1px solid ${theme.palette.mode === 'dark' 
+                  ? 'rgba(156, 163, 175, 0.3)' 
+                  : 'rgba(156, 163, 175, 0.4)'}`,
+                '&:hover': {
+                  background: isSad 
+                    ? theme.palette.mode === 'dark'
+                      ? 'rgba(156, 163, 175, 0.3)'
+                      : 'rgba(156, 163, 175, 0.25)'
+                    : theme.palette.mode === 'dark'
+                      ? 'rgba(255, 255, 255, 0.12)'
+                      : 'rgba(255, 255, 255, 0.8)',
+                }
+              }}
+            >
+              <span>😢</span>
             </IconButton>
 
             {/* Glass Comment Button */}
@@ -664,202 +706,95 @@ const TaskCard: React.FC<TaskCardProps> = ({
                   background: showComments 
                     ? theme.palette.mode === 'dark'
                       ? 'rgba(66, 66, 66, 0.2)'
-                      : 'rgba(66, 66, 66, 0.15)'
+                      : 'rgba(66, 66, 66, 0.08)'
                     : theme.palette.mode === 'dark'
-                      ? 'rgba(255, 255, 255, 0.08)'
+                      ? 'rgba(220, 38, 38, 0.12)'
                       : 'rgba(255, 255, 255, 0.6)',
                   backdropFilter: 'blur(8px)',
                   WebkitBackdropFilter: 'blur(8px)',
-                  border: `1px solid ${theme.palette.mode === 'dark' 
-                    ? 'rgba(66, 66, 66, 0.3)' 
-                    : 'rgba(66, 66, 66, 0.4)'}`,
+                  border: `1px solid ${showComments 
+                    ? theme.palette.mode === 'dark' 
+                      ? 'rgba(66, 66, 66, 0.3)' 
+                      : 'rgba(66, 66, 66, 0.4)' 
+                    : theme.palette.mode === 'dark' 
+                      ? 'rgba(220, 38, 38, 0.15)' 
+                      : 'rgba(255, 255, 255, 0.8)'}`,
                   '&:hover': {
                     background: showComments 
                       ? theme.palette.mode === 'dark'
-                        ? 'rgba(66, 66, 66, 0.3)'
-                        : 'rgba(66, 66, 66, 0.25)'
+                        ? 'rgba(66, 66, 66, 0.25)'
+                        : 'rgba(66, 66, 66, 0.2)'
                       : theme.palette.mode === 'dark'
-                        ? 'rgba(255, 255, 255, 0.12)'
-                        : 'rgba(255, 255, 255, 0.8)',
-                  }
+                        ? 'rgba(220, 38, 38, 0.15)'
+                        : 'rgba(255, 255, 255, 0.12)',
+                  },
                 }}
               >
-                <CommentIcon fontSize="small" />
+                <span>💬</span>
               </IconButton>
-              {(task._count?.comments || 0) > 0 && (
-                <Typography 
-                  variant="caption" 
-                  sx={{ 
-                    ml: 0.5,
-                    color: theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.8)' : 'rgba(0, 0, 0, 0.6)',
-                    fontWeight: 500,
-                    background: theme.palette.mode === 'dark'
-                      ? 'rgba(255, 255, 255, 0.1)'
-                      : 'rgba(255, 255, 255, 0.7)',
-                    padding: '2px 6px',
-                    borderRadius: 6,
-                    backdropFilter: 'blur(4px)',
-                    WebkitBackdropFilter: 'blur(4px)',
-                    border: `1px solid ${theme.palette.mode === 'dark' 
-                      ? 'rgba(255, 255, 255, 0.2)' 
-                      : 'rgba(255, 255, 255, 0.5)'}`,
-                  }}
-                >
-                  {task._count?.comments || 0}
-                </Typography>
-              )}
             </Box>
-
-            {/* Glass Reaction Count */}
-            {totalReactions > 0 && (
-              <Typography 
-                variant="caption" 
-                sx={{ 
-                  color: theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.7)' : 'rgba(0, 0, 0, 0.6)',
-                  fontWeight: 500,
-                  background: theme.palette.mode === 'dark'
-                    ? 'rgba(255, 255, 255, 0.1)'
-                    : 'rgba(255, 255, 255, 0.7)',
-                  padding: '2px 6px',
-                  borderRadius: 6,
-                  backdropFilter: 'blur(4px)',
-                  WebkitBackdropFilter: 'blur(4px)',
-                  border: `1px solid ${theme.palette.mode === 'dark' 
-                    ? 'rgba(255, 255, 255, 0.2)' 
-                    : 'rgba(255, 255, 255, 0.5)'}`,
-                  fontSize: '0.7rem',
-                }}
-              >
-                {totalReactions}
-              </Typography>
-            )}
-
-            <Box flex={1} />
-
-            {/* Glass Mark Done Button */}
-            {canUpdateStatus && task.status !== 'done' && (
-              <Button
-                size="small"
-                startIcon={<span>✓</span>}
-                onClick={() => onMarkDone?.(task.taskId)}
-                variant="contained"
-                color="success"
-                sx={{
-                  borderRadius: 15,
-                  textTransform: 'none',
-                  fontWeight: 600,
-                  px: 1.5,
-                  py: 0.5,
-                  fontSize: '0.75rem',
-                  background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                  boxShadow: '0 4px 12px rgba(16, 185, 129, 0.4)',
-                  backdropFilter: 'blur(8px)',
-                  WebkitBackdropFilter: 'blur(8px)',
-                  border: '1px solid rgba(255, 255, 255, 0.2)',
-                  '&:hover': {
-                    background: 'linear-gradient(135deg, #059669 0%, #047857 100%)',
-                    boxShadow: '0 6px 16px rgba(16, 185, 129, 0.5)',
-                    transform: 'translateY(-1px)',
-                  }
-                }}
-              >
-                Done
-              </Button>
-            )}
-
-            {/* Glass Mark Undone Button */}
-            {canUndone && task.status === 'done' && (
-              <Button
-                size="small"
-                startIcon={<span>↶</span>}
-                onClick={() => onMarkUndone?.(task.taskId)}
-                variant="contained"
-                color="warning"
-                sx={{
-                  borderRadius: 15,
-                  textTransform: 'none',
-                  fontWeight: 600,
-                  px: 1.5,
-                  py: 0.5,
-                  fontSize: '0.75rem',
-                  background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
-                  boxShadow: '0 4px 12px rgba(245, 158, 11, 0.4)',
-                  backdropFilter: 'blur(8px)',
-                  WebkitBackdropFilter: 'blur(8px)',
-                  border: '1px solid rgba(255, 255, 255, 0.2)',
-                  '&:hover': {
-                    background: 'linear-gradient(135deg, #d97706 0%, #b45309 100%)',
-                    boxShadow: '0 6px 16px rgba(245, 158, 11, 0.5)',
-                    transform: 'translateY(-1px)',
-                  }
-                }}
-              >
-                Undone
-              </Button>
-            )}
-
-            {/* Action Menu */}
-            {showActions && (canEdit || canDelete) && (
-              <Menu
-                anchorEl={anchorEl}
-                open={Boolean(anchorEl)}
-                onClose={handleMenuClose}
-                PaperProps={{
-                  sx: {
-                    background: theme.palette.mode === 'dark'
-                      ? 'rgba(255, 255, 255, 0.1)'
-                      : 'rgba(255, 255, 255, 0.95)',
-                    backdropFilter: 'blur(20px) saturate(180%)',
-                    WebkitBackdropFilter: 'blur(20px) saturate(180%)',
-                    border: `1px solid ${theme.palette.mode === 'dark' 
-                      ? 'rgba(255, 255, 255, 0.2)' 
-                      : 'rgba(255, 255, 255, 0.3)'}`,
-                    boxShadow: theme.palette.mode === 'dark'
-                      ? '0 8px 32px 0 rgba(0, 0, 0, 0.37)'
-                      : '0 8px 32px 0 rgba(31, 38, 135, 0.2)',
-                  }
-                }}
-              >
-                {canEdit && (
-                  <MenuItem onClick={() => { onEdit?.(task); handleMenuClose(); }}>
-                    <EditIcon fontSize="small" sx={{ mr: 1 }} />
-                    Edit
-                  </MenuItem>
-                )}
-                {canDelete && (
-                  <MenuItem onClick={async () => { 
-                    handleMenuClose();
-                    const confirmed = await showDeleteConfirm(`"${task.title}"`);
-                    if (confirmed) {
-                      onDelete?.(task.taskId);
-                    }
-                  }}>
-                    <DeleteIcon fontSize="small" sx={{ mr: 1 }} />
-                    Delete
-                  </MenuItem>
-                )}
-              </Menu>
-            )}
           </Stack>
         </Box>
-
-        {/* Comments Section */}
-        {showComments && (
-          <>
-            <Divider />
-            <Box p={2}>
-              <CommentTree
-                taskId={task.taskId}
-                maxDepth={2}
-              />
-            </Box>
-          </>
-        )}
       </Card>
 
+      {/* Menu */}
+      <Menu
+        anchorEl={anchorEl}
+        open={Boolean(anchorEl)}
+        onClose={handleMenuClose}
+      >
+        {canEdit && (
+          <MenuItem onClick={() => {
+            onEdit?.(task);
+            handleMenuClose();
+          }}>
+            <EditIcon fontSize="small" sx={{ mr: 1 }} />
+            Edit
+          </MenuItem>
+        )}
+        {canUpdateStatus && task.status !== 'done' && (
+          <MenuItem onClick={() => {
+            onMarkDone?.(task.taskId);
+            handleMenuClose();
+          }}>
+            Mark Done
+          </MenuItem>
+        )}
+        {canUndone && task.status === 'done' && (
+          <MenuItem onClick={() => {
+            onMarkUndone?.(task.taskId);
+            handleMenuClose();
+          }}>
+            Mark Undone
+          </MenuItem>
+        )}
+        {canDelete && (
+          <MenuItem onClick={() => {
+            showDeleteConfirm('this task').then((confirmed) => {
+              if (confirmed) {
+                onDelete?.(task.taskId);
+              }
+            });
+            handleMenuClose();
+          }}>
+            <DeleteIcon fontSize="small" sx={{ mr: 1 }} />
+            Delete
+          </MenuItem>
+        )}
+      </Menu>
+
+      {/* Comments Section */}
+      {showComments && (
+        <Box sx={{ mt: 2 }}>
+          <CommentTree 
+            taskId={task.taskId}
+          />
+        </Box>
+      )}
+
       {/* Image Preview Dialog */}
-      <Dialog
-        open={showImagePreview}
+      <Dialog 
+        open={showImagePreview} 
         onClose={() => setShowImagePreview(false)}
         maxWidth="md"
         fullWidth
@@ -873,9 +808,8 @@ const TaskCard: React.FC<TaskCardProps> = ({
               alt={task.title}
               sx={{
                 width: '100%',
-                maxHeight: 500,
-                objectFit: 'contain',
-                borderRadius: 1,
+                height: 'auto',
+                borderRadius: 2,
               }}
             />
           )}

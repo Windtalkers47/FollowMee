@@ -1,8 +1,9 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, Unique } from 'typeorm';
 import { User } from './User';
 import { Task } from './Task';
 
 @Entity('task_likes')
+@Unique(['taskId', 'userId'])
 export class TaskLike {
   @PrimaryGeneratedColumn()
   likeId!: number;
@@ -16,10 +17,10 @@ export class TaskLike {
   @Column({
     name: 'likeType',
     type: 'enum',
-    enum: ['like', 'dislike', 'love', 'laugh', 'angry'],
+    enum: ['like', 'love', 'laugh', 'angry', 'wow', 'sad'],
     nullable: false
   })
-  likeType!: 'like' | 'dislike' | 'love' | 'laugh' | 'angry';
+  likeType!: 'like' | 'love' | 'laugh' | 'angry' | 'wow' | 'sad';
 
   @CreateDateColumn({ name: 'createdAt' })
   createdAt!: Date;

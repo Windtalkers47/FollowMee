@@ -1,5 +1,6 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
 import { User } from './User';
+import { Task } from './Task';
 
 @Entity('task_images')
 export class TaskImage {
@@ -21,13 +22,18 @@ export class TaskImage {
   @Column({ name: 'isActive', type: 'boolean', default: true })
   isActive: boolean = true;
 
+  @Column({ name: 'deletedAt', type: 'datetime', nullable: true })
+  deletedAt?: Date;
+
   @CreateDateColumn({ name: 'createdAt' })
   createdAt!: Date;
 
   // Relations
-  @ManyToOne('Task', 'images', { onDelete: 'CASCADE' })
-  task!: any;
+  @ManyToOne(() => Task, task => task.images, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'taskId' })
+  task!: Task;
 
   @ManyToOne(() => User, user => user.taskImages)
+  @JoinColumn({ name: 'uploadedBy' })
   uploadedByUser!: User;
 }

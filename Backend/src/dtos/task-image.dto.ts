@@ -28,6 +28,7 @@ export class TaskImageResponseDto {
   uploadedBy!: number;
   createdAt!: Date;
   isActive!: boolean;
+  deletedAt?: Date;
 
   uploadedByUser?: {
     userId: number;

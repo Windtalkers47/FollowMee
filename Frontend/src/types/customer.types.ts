@@ -4,6 +4,7 @@ export type CustomerStatus = 'active' | 'inactive' | 'canceled' | 'all';
 // Base customer interface that matches the API response
 export interface CustomerData {
   customerId: string;
+  userId?: number | null;
   customerName: string;
   customerLastName: string | null;
   customerEmail: string;
@@ -30,6 +31,7 @@ export interface Customer extends CustomerData {
 
 // DTOs for creating and updating customers
 export interface CreateCustomerDto {
+  userId?: number;
   customerName: string;
   customerLastName?: string | null;
   customerEmail: string;

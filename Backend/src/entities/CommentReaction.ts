@@ -1,8 +1,9 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, JoinColumn, Unique } from 'typeorm';
 import { User } from './User';
 import { TaskComment } from './TaskComment';
 
 @Entity('comment_reactions')
+@Unique(['commentId', 'userId', 'reactionType'])
 export class CommentReaction {
   @PrimaryGeneratedColumn()
   reactionId!: number;
@@ -13,8 +14,13 @@ export class CommentReaction {
   @Column({ name: 'userId', type: 'int', nullable: false })
   userId!: number;
 
-  @Column({ name: 'reactionType', type: 'varchar', length: 20, nullable: false })
-  reactionType!: 'like' | 'dislike' | 'love' | 'laugh' | 'angry';
+  @Column({
+    name: 'reactionType',
+    type: 'enum',
+    enum: ['like', 'love', 'laugh', 'angry', 'wow', 'sad'],
+    nullable: false
+  })
+  reactionType!: 'like' | 'love' | 'laugh' | 'angry' | 'wow' | 'sad';
 
   @CreateDateColumn({ name: 'createdAt' })
   createdAt!: Date;

@@ -63,7 +63,7 @@ const TabPanel = ({ children, value, index }: TabPanelProps) => (
 interface TaskFeedCardProps {
   task: Task;
   likeSummary?: TaskLikeSummary;
-  onLike?: (taskId: string, likeType: 'like' | 'love' | 'laugh' | 'angry' | 'dislike') => void;
+  onLike?: (taskId: string, likeType: 'like' | 'love' | 'laugh' | 'angry') => void;
   onUnlike?: (taskId: string) => void;
   onComment?: (taskId: string, comment: string) => void;
   onMarkDone?: (taskId: string) => void;
@@ -153,7 +153,7 @@ const PostsPage = () => {
 
   // Mutations
   const likeMutation = useMutation({
-    mutationFn: ({ taskId, likeType }: { taskId: string; likeType: 'like' | 'love' | 'laugh' | 'angry' | 'dislike' }) =>
+    mutationFn: ({ taskId, likeType }: { taskId: string; likeType: 'like' | 'love' | 'laugh' | 'angry' }) =>
       likeApi.createOrUpdateLike(taskId, { likeType }),
     onSuccess: (_, { taskId }) => {
       fetchLikeSummary(taskId);
@@ -277,7 +277,7 @@ const PostsPage = () => {
     }
   };
 
-  const handleLike = async (taskId: string, likeType: 'like' | 'love' | 'laugh' | 'angry' | 'dislike') => {
+  const handleLike = async (taskId: string, likeType: 'like' | 'love' | 'laugh' | 'angry') => {
     await likeMutation.mutateAsync({ taskId, likeType });
   };
 

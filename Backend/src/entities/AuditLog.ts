@@ -13,11 +13,17 @@ export class AuditLog {
   @Column('int', { nullable: true })
   userId!: number | null;
 
+  @Column('varchar', { length: 50, nullable: true })
+  entityType!: string | null;
+
+  @Column('varchar', { length: 36, nullable: true })
+  entityId!: string | null;
+
   @Column('varchar', { length: 50 })
   action!: string;
 
   @Column('varchar', { length: 20 })
-  status!: 'SUCCESS' | 'FAILURE';
+  status!: string;
 
   @Column('varchar', { length: 45, nullable: true })
   ipAddress!: string | null;
@@ -28,16 +34,13 @@ export class AuditLog {
   @Column('text', { nullable: true })
   details!: string | null;
 
+  @Column('text', { nullable: true })
+  oldValue!: string | null;
+
+  @Column('text', { nullable: true })
+  newValue!: string | null;
+
   @CreateDateColumn({ type: 'timestamp' })
   createdAt!: Date;
-
-  getDetails(): Record<string, any> | null {
-    if (!this.details) return null;
-    try {
-      return JSON.parse(this.details);
-    } catch {
-      return null;
-    }
-  }
 }
 

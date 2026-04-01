@@ -266,7 +266,7 @@ export class TaskService {
     // Update overdue tasks to 'past'
     const overdueTasks = await this.customTaskRepository.findOverdueTasks();
     for (const task of overdueTasks) {
-      await this.customTaskRepository.updateTaskStatus(task.taskId, 'past');
+      await this.customTaskRepository.updateTaskStatus(task.taskId, 'cancelled');
     }
 
     // Update upcoming tasks that are now current (if needed)
@@ -324,7 +324,7 @@ export class TaskService {
     }
 
     // Update task status back to upcoming (or previous status)
-    await this.customTaskRepository.updateTaskStatus(taskId, 'upcoming');
+    await this.customTaskRepository.updateTaskStatus(taskId, 'todo');
 
     // Get the updated task with relations
     const updatedTask = await this.customTaskRepository.findTaskByIdWithRelations(taskId);

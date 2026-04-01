@@ -26,6 +26,9 @@ export class TaskComment {
   @Column({ name: 'isActive', type: 'boolean', default: true })
   isActive!: boolean;
 
+  @Column({ name: 'deletedAt', type: 'datetime', nullable: true })
+  deletedAt?: Date;
+
   @CreateDateColumn({ name: 'createdAt' })
   createdAt!: Date;
 

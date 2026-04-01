@@ -50,6 +50,11 @@ export abstract class BaseRepository<T extends ObjectLiteral> {
     return result.affected ? result.affected > 0 : false;
   }
 
+  async softDelete(id: number | string): Promise<boolean> {
+    const result = await this.update(id, { deletedAt: new Date() } as any);
+    return !!result;
+  }
+
   async count(where?: FindOptionsWhere<T>): Promise<number> {
     return where ? this.repository.count({ where }) : this.repository.count();
   }

@@ -41,7 +41,9 @@ export class CustomerRepository extends BaseRepository<Customer> {
    * @returns Array of active customers
    */
   async findActive(): Promise<Customer[]> {
-    return this.find({ isActive: true });
+    return this.repository.find({ 
+      where: { isActive: true, deletedAt: null as any }
+    });
   }
 
   /**
@@ -62,6 +64,7 @@ export class CustomerRepository extends BaseRepository<Customer> {
       .orWhere('customer.customerTikTok LIKE :query', { query: `%${query}%` })
       .orWhere('customer.customerLine LIKE :query', { query: `%${query}%` })
       .orWhere('customer.customerX LIKE :query', { query: `%${query}%` })
+      .orWhere('customer.userId LIKE :query', { query: `%${query}%` })
       .getMany();
   }
 
@@ -78,7 +81,8 @@ export class CustomerRepository extends BaseRepository<Customer> {
   ): Promise<[Customer[], number]> {
     const query = this.repository
       .createQueryBuilder('customer')
-      .orderBy('customer.createdAt', 'DESC');
+      .orderBy('customer.createdAt', 'DESC')
+      .andWhere('customer.deletedAt IS NULL');
 
     if (status === 'active') {
       query.andWhere('customer.isActive = :isActive', { isActive: true });

@@ -14,7 +14,10 @@ export class CustomerService {
       ? await this.customerRepository.find(undefined, { order: { createdAt: 'DESC' } })
       : await this.customerRepository.findActive();
 
-    return customers.map(c => new CustomerResponseDto(c));
+    return customers.map(c => new CustomerResponseDto({
+      ...c,
+      userId: c.userId ?? undefined
+    }));
   }
 
   async findOne(id: string): Promise<CustomerResponseDto> {
@@ -22,7 +25,10 @@ export class CustomerService {
     if (!customer) {
       throw new Error(`Customer with ID ${id} not found`);
     }
-    return new CustomerResponseDto(customer);
+    return new CustomerResponseDto({
+      ...customer,
+      userId: customer.userId ?? undefined
+    });
   }
 
   /**
@@ -74,7 +80,10 @@ export class CustomerService {
 
   async search(query: string): Promise<CustomerResponseDto[]> {
     const customers = await this.customerRepository.search(query);
-    return customers.map(c => new CustomerResponseDto(c));
+    return customers.map(c => new CustomerResponseDto({
+      ...c,
+      userId: c.userId ?? undefined
+    }));
   }
 
   /**
@@ -89,7 +98,10 @@ export class CustomerService {
     status?: 'active' | 'inactive' | 'canceled'
   ): Promise<[CustomerResponseDto[], number]> {
     const [customers, total] = await this.customerRepository.findWithPagination(page, limit, status);
-    const customerDtos = customers.map(c => new CustomerResponseDto(c));
+    const customerDtos = customers.map(c => new CustomerResponseDto({
+      ...c,
+      userId: c.userId ?? undefined
+    }));
     return [customerDtos, total];
   }
 
@@ -108,7 +120,10 @@ export class CustomerService {
     }
 
     const created = await this.customerRepository.create(customer);
-    return new CustomerResponseDto(created);
+    return new CustomerResponseDto({
+      ...created,
+      userId: created.userId ?? undefined
+    });
   }
 
   async update(
@@ -163,7 +178,10 @@ export class CustomerService {
       throw new Error('Failed to update customer');
     }
 
-    return new CustomerResponseDto(updated);
+    return new CustomerResponseDto({
+      ...updated,
+      userId: updated.userId ?? undefined
+    });
   }
 
   async remove(id: string): Promise<{ message: string }> {

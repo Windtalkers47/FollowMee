@@ -10,7 +10,7 @@ export class TaskResponseDto {
   dueDate?: Date;
   startDate?: Date;
   endDate?: Date;
-  status!: 'draft' | 'upcoming' | 'past' | 'done';
+  status!: 'draft' | 'todo' | 'in_progress' | 'review' | 'done' | 'cancelled';
   imageUrl?: string; // For backward compatibility - first image
   isActive!: boolean;
   createdAt!: Date;

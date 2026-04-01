@@ -5,6 +5,9 @@ export class CustomerResponseDto {
   customerId!: string;
 
   @Expose()
+  userId?: number;
+
+  @Expose()
   customerName!: string;
 
   @Expose()
@@ -42,6 +45,9 @@ export class CustomerResponseDto {
 
   @Expose()
   isActive!: boolean;
+
+  @Expose()
+  status!: 'active' | 'inactive' | 'canceled';
 
   @Expose()
   createdAt!: Date;

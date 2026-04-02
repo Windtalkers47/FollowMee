@@ -1,89 +1,62 @@
 import React from 'react';
 import { Avatar, Typography, IconButton, Box, Button, useTheme, TextField } from '@mui/material';
-import { Reply as ReplyIcon } from '@mui/icons-material';
 import { format } from 'date-fns';
 import { FlatCommentRow } from '../../utils/flattenCommentTreeForVirtualization';
 import { useCommentActionContext } from '../../contexts/index';
 import { useAppSelector } from '../../store/store';
 import { selectCurrentUser } from '../../store/slices/authSlice';
 
-// Custom MentionTextarea component with glass-morphism styling for @mentions
+// Simple textarea component for comment input
 const MentionTextarea: React.FC<{
   value: string;
   onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
   placeholder: string;
   theme: any;
 }> = ({ value, onChange, placeholder, theme }) => {
-  const renderText = (text: string) => {
-    const mentionRegex = /@(\w+\s*\w*)/g;
-    const parts = text.split(mentionRegex);
-    
-    return parts.map((part, index) => {
-      if (part && part.startsWith('@')) {
-        return (
-          <span
-            key={index}
-            style={{
-              background: theme.palette.mode === 'dark'
-                ? 'rgba(25, 118, 210, 0.3)'
-                : 'rgba(25, 118, 210, 0.2)',
-              color: theme.palette.mode === 'dark'
-                ? '#fff'
-                : '#fff',
-              padding: '3px 8px',
-              borderRadius: '6px',
-              margin: '0 2px',
-              backdropFilter: 'blur(6px)',
-              WebkitBackdropFilter: 'blur(6px)',
-              border: `1px solid ${theme.palette.mode === 'dark'
-                ? 'rgba(25, 118, 210, 0.5)'
-                : 'rgba(25, 118, 210, 0.4)'}`,
-              fontWeight: 600,
-              fontSize: '13px',
-              boxShadow: theme.palette.mode === 'dark'
-                ? '0 2px 8px rgba(25, 118, 210, 0.3)'
-                : '0 2px 8px rgba(25, 118, 210, 0.2)',
-            }}
-          >
-            {part}
-          </span>
-        );
-      }
-      return part;
-    });
-  };
-
   return (
-    <div
-      style={{
-        width: '100%',
-        padding: '8px 12px',
-        borderRadius: '8px',
-        background: theme.palette.mode === 'dark'
-          ? 'rgba(255, 255, 255, 0.08)'
-          : 'rgba(255, 255, 255, 0.9)',
-        backdropFilter: 'blur(8px)',
-        WebkitBackdropFilter: 'blur(8px)',
-        border: `1px solid ${theme.palette.mode === 'dark'
-          ? 'rgba(255, 255, 255, 0.15)'
-          : 'rgba(255, 255, 255, 0.4)'}`,
-        outline: 'none',
-        resize: 'vertical',
-        minHeight: '60px',
-        fontFamily: 'inherit',
-        lineHeight: '1.4',
-        fontSize: '14px',
-        color: theme.palette.mode === 'dark' ? '#fff' : 'rgba(0, 0, 0, 0.8)',
+    <TextField
+      multiline
+      fullWidth
+      minRows={2}
+      maxRows={6}
+      value={value}
+      onChange={onChange}
+      placeholder={placeholder}
+      variant="outlined"
+      size="small"
+      sx={{
+        '& .MuiOutlinedInput-root': {
+          backgroundColor: theme.palette.mode === 'dark'
+            ? 'rgba(255, 255, 255, 0.08)'
+            : 'rgba(255, 255, 255, 0.9)',
+          backdropFilter: 'blur(8px)',
+          WebkitBackdropFilter: 'blur(8px)',
+          border: `1px solid ${theme.palette.mode === 'dark'
+            ? 'rgba(255, 255, 255, 0.15)'
+            : 'rgba(255, 255, 255, 0.4)'}`,
+          borderRadius: '8px',
+          '& fieldset': {
+            borderColor: theme.palette.mode === 'dark'
+              ? 'rgba(255, 255, 255, 0.15)'
+              : 'rgba(255, 255, 255, 0.4)',
+          },
+          '&:hover fieldset': {
+            borderColor: theme.palette.mode === 'dark'
+              ? 'rgba(255, 255, 255, 0.25)'
+              : 'rgba(255, 255, 255, 0.6)',
+          },
+          '&.Mui-focused fieldset': {
+            borderColor: theme.palette.primary.main,
+          },
+        },
+        '& .MuiOutlinedInput-input': {
+          color: theme.palette.mode === 'dark' ? '#fff' : 'rgba(0, 0, 0, 0.8)',
+          fontSize: '14px',
+          lineHeight: '1.4',
+          fontFamily: 'inherit',
+        },
       }}
-      contentEditable
-      suppressContentEditableWarning={true}
-      onInput={(e: React.FormEvent<HTMLDivElement>) => {
-        const newText = e.currentTarget.textContent || '';
-        onChange({ target: { value: newText } } as React.ChangeEvent<HTMLTextAreaElement>);
-      }}
-    >
-      {value ? renderText(value) : <span style={{ color: 'gray' }}>{placeholder}</span>}
-    </div>
+    />
   );
 };
 
@@ -116,7 +89,11 @@ const YouTubeCommentNode: React.FC<YouTubeCommentNodeProps> = ({ row }) => {
   
   const displayUser = comment.comment.user || { userName: 'Unknown', userLastName: 'User', userId: 0, userImageUrl: undefined };
   const likeCount = comment.comment.reactions?.filter(r => r.reactionType === 'like').length || 0;
-  const dislikeCount = comment.comment.reactions?.filter(r => r.reactionType === 'dislike').length || 0;
+  const loveCount = comment.comment.reactions?.filter(r => r.reactionType === 'love').length || 0;
+  const laughCount = comment.comment.reactions?.filter(r => r.reactionType === 'laugh').length || 0;
+  const angryCount = comment.comment.reactions?.filter(r => r.reactionType === 'angry').length || 0;
+  const wowCount = comment.comment.reactions?.filter(r => r.reactionType === 'wow').length || 0;
+  const sadCount = comment.comment.reactions?.filter(r => r.reactionType === 'sad').length || 0;
 
   return (
     <Box sx={{ 
@@ -291,10 +268,10 @@ const YouTubeCommentNode: React.FC<YouTubeCommentNodeProps> = ({ row }) => {
               }
             }}
           >
-            {/* Like, Dislike, Reply, Collapse/Expand buttons */}
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              {/* Glass Like button */}
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            {/* Full Emotion Reactions - Like Love Laugh Angry Wow Sad */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
+              {/* Like */}
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.3 }}>
                 <IconButton
                   size="small"
                   onClick={() => updateReaction(comment.comment.commentId, 'like')}
@@ -302,97 +279,258 @@ const YouTubeCommentNode: React.FC<YouTubeCommentNodeProps> = ({ row }) => {
                     p: 0.5,
                     background: comment.comment.reactions?.some(r => r.reactionType === 'like' && r.userId === currentUser?.userId)
                       ? theme.palette.mode === 'dark'
-                        ? 'rgba(25, 118, 210, 0.2)'
+                        ? 'rgba(76, 175, 80, 0.2)'
                         : 'rgba(25, 118, 210, 0.15)'
                       : theme.palette.mode === 'dark'
-                        ? 'rgba(255, 255, 255, 0.08)'
-                        : 'rgba(255, 255, 255, 0.6)',
+                        ? 'rgba(220, 38, 38, 0.12)'
+                        : 'rgba(255, 255, 255, 0.08)',
                     backdropFilter: 'blur(8px)',
                     WebkitBackdropFilter: 'blur(8px)',
-                    border: `1px solid ${theme.palette.mode === 'dark' 
-                      ? 'rgba(25, 118, 210, 0.3)' 
-                      : 'rgba(25, 118, 210, 0.4)'}`,
+                    border: `1px solid ${comment.comment.reactions?.some(r => r.reactionType === 'like' && r.userId === currentUser?.userId)
+                      ? theme.palette.mode === 'dark' 
+                        ? 'rgba(76, 175, 80, 0.3)' 
+                        : 'rgba(25, 118, 210, 0.4)' 
+                      : theme.palette.mode === 'dark' 
+                        ? 'rgba(220, 38, 38, 0.2)' 
+                        : 'rgba(255, 255, 255, 0.8)'}`,
                     '&:hover': {
                       background: comment.comment.reactions?.some(r => r.reactionType === 'like' && r.userId === currentUser?.userId)
                         ? theme.palette.mode === 'dark'
-                          ? 'rgba(25, 118, 210, 0.3)'
-                          : 'rgba(25, 118, 210, 0.25)'
+                          ? 'rgba(76, 175, 80, 0.25)'
+                          : 'rgba(25, 118, 210, 0.2)'
                         : theme.palette.mode === 'dark'
-                          ? 'rgba(255, 255, 255, 0.12)'
-                          : 'rgba(255, 255, 255, 0.8)',
+                          ? 'rgba(220, 38, 38, 0.15)'
+                          : 'rgba(255, 255, 255, 0.12)',
                     }
                   }}
                 >
                   <span>👍</span>
                 </IconButton>
                 {likeCount > 0 && (
-                  <Typography 
-                    variant="caption" 
-                    sx={{ 
-                      fontSize: '12px',
-                      color: theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.8)' : 'rgba(0, 0, 0, 0.6)',
-                      fontWeight: 500,
-                      background: theme.palette.mode === 'dark'
-                        ? 'rgba(255, 255, 255, 0.1)'
-                        : 'rgba(255, 255, 255, 0.8)',
-                      px: 1,
-                      py: 0.25,
-                      borderRadius: 1,
-                      backdropFilter: 'blur(4px)',
-                      WebkitBackdropFilter: 'blur(4px)',
-                    }}
-                  >
+                  <Typography variant="caption" sx={{ fontSize: '11px', fontWeight: 500 }}>
                     {likeCount}
                   </Typography>
                 )}
               </Box>
 
-              {/* Dislike button */}
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              {/* Love */}
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.3 }}>
                 <IconButton
                   size="small"
-                  onClick={() => updateReaction(comment.comment.commentId, 'dislike')}
+                  onClick={() => updateReaction(comment.comment.commentId, 'love')}
                   sx={{ 
                     p: 0.5,
-                    background: comment.comment.reactions?.some(r => r.reactionType === 'dislike' && r.userId === currentUser?.userId)
+                    background: comment.comment.reactions?.some(r => r.reactionType === 'love' && r.userId === currentUser?.userId)
                       ? theme.palette.mode === 'dark'
-                        ? 'rgba(158, 158, 158, 0.2)'
-                        : 'rgba(158, 158, 158, 0.15)'
+                        ? 'rgba(239, 68, 68, 0.2)'
+                        : 'rgba(239, 68, 68, 0.15)'
                       : theme.palette.mode === 'dark'
                         ? 'rgba(255, 255, 255, 0.08)'
                         : 'rgba(255, 255, 255, 0.6)',
                     backdropFilter: 'blur(8px)',
                     WebkitBackdropFilter: 'blur(8px)',
-                    border: `1px solid ${theme.palette.mode === 'dark' 
-                      ? 'rgba(158, 158, 158, 0.3)' 
-                      : 'rgba(158, 158, 158, 0.4)'}`,
+                    border: `1px solid ${comment.comment.reactions?.some(r => r.reactionType === 'love' && r.userId === currentUser?.userId)
+                      ? theme.palette.mode === 'dark' 
+                        ? 'rgba(239, 68, 68, 0.3)' 
+                        : 'rgba(239, 68, 68, 0.4)' 
+                      : theme.palette.mode === 'dark' 
+                        ? 'rgba(220, 38, 38, 0.2)' 
+                        : 'rgba(255, 255, 255, 0.8)'}`,
                     '&:hover': {
-                      background: comment.comment.reactions?.some(r => r.reactionType === 'dislike' && r.userId === currentUser?.userId)
+                      background: comment.comment.reactions?.some(r => r.reactionType === 'love' && r.userId === currentUser?.userId)
                         ? theme.palette.mode === 'dark'
-                          ? 'rgba(158, 158, 158, 0.3)'
-                          : 'rgba(158, 158, 158, 0.25)'
+                          ? 'rgba(239, 68, 68, 0.3)'
+                          : 'rgba(239, 68, 68, 0.25)'
                         : theme.palette.mode === 'dark'
                           ? 'rgba(255, 255, 255, 0.12)'
                           : 'rgba(255, 255, 255, 0.8)',
                     }
                   }}
                 >
-                  <span>👎</span>
+                  <span>❤️</span>
                 </IconButton>
-                {dislikeCount > 0 && (
-                  <Typography 
-                    variant="caption" 
-                    sx={{ 
-                      fontSize: '12px',
-                      color: 'text.secondary',
-                      fontWeight: 500
-                    }}
-                  >
-                    {dislikeCount}
+                {loveCount > 0 && (
+                  <Typography variant="caption" sx={{ fontSize: '11px', fontWeight: 500 }}>
+                    {loveCount}
                   </Typography>
                 )}
               </Box>
 
+              {/* Laugh */}
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.3 }}>
+                <IconButton
+                  size="small"
+                  onClick={() => updateReaction(comment.comment.commentId, 'laugh')}
+                  sx={{ 
+                    p: 0.5,
+                    background: comment.comment.reactions?.some(r => r.reactionType === 'laugh' && r.userId === currentUser?.userId)
+                      ? theme.palette.mode === 'dark'
+                        ? 'rgba(245, 158, 11, 0.2)'
+                        : 'rgba(245, 158, 11, 0.15)'
+                      : theme.palette.mode === 'dark'
+                        ? 'rgba(255, 255, 255, 0.08)'
+                        : 'rgba(255, 255, 255, 0.6)',
+                    backdropFilter: 'blur(8px)',
+                    WebkitBackdropFilter: 'blur(8px)',
+                    border: `1px solid ${comment.comment.reactions?.some(r => r.reactionType === 'laugh' && r.userId === currentUser?.userId)
+                      ? theme.palette.mode === 'dark' 
+                        ? 'rgba(245, 158, 11, 0.3)' 
+                        : 'rgba(245, 158, 11, 0.4)' 
+                      : theme.palette.mode === 'dark' 
+                        ? 'rgba(220, 38, 38, 0.2)' 
+                        : 'rgba(255, 255, 255, 0.8)'}`,
+                    '&:hover': {
+                      background: comment.comment.reactions?.some(r => r.reactionType === 'laugh' && r.userId === currentUser?.userId)
+                        ? theme.palette.mode === 'dark'
+                          ? 'rgba(245, 158, 11, 0.3)'
+                          : 'rgba(245, 158, 11, 0.25)'
+                        : theme.palette.mode === 'dark'
+                          ? 'rgba(255, 255, 255, 0.12)'
+                          : 'rgba(255, 255, 255, 0.8)',
+                    }
+                  }}
+                >
+                  <span>😂</span>
+                </IconButton>
+                {laughCount > 0 && (
+                  <Typography variant="caption" sx={{ fontSize: '11px', fontWeight: 500 }}>
+                    {laughCount}
+                  </Typography>
+                )}
+              </Box>
+
+              {/* Angry */}
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.3 }}>
+                <IconButton
+                  size="small"
+                  onClick={() => updateReaction(comment.comment.commentId, 'angry')}
+                  sx={{ 
+                    p: 0.5,
+                    background: comment.comment.reactions?.some(r => r.reactionType === 'angry' && r.userId === currentUser?.userId)
+                      ? theme.palette.mode === 'dark'
+                        ? 'rgba(220, 38, 38, 0.2)'
+                        : 'rgba(220, 38, 38, 0.15)'
+                      : theme.palette.mode === 'dark'
+                        ? 'rgba(255, 255, 255, 0.08)'
+                        : 'rgba(255, 255, 255, 0.6)',
+                    backdropFilter: 'blur(8px)',
+                    WebkitBackdropFilter: 'blur(8px)',
+                    border: `1px solid ${comment.comment.reactions?.some(r => r.reactionType === 'angry' && r.userId === currentUser?.userId)
+                      ? theme.palette.mode === 'dark' 
+                        ? 'rgba(220, 38, 38, 0.3)' 
+                        : 'rgba(220, 38, 38, 0.4)' 
+                      : theme.palette.mode === 'dark' 
+                        ? 'rgba(220, 38, 38, 0.2)' 
+                        : 'rgba(255, 255, 255, 0.8)'}`,
+                    '&:hover': {
+                      background: comment.comment.reactions?.some(r => r.reactionType === 'angry' && r.userId === currentUser?.userId)
+                        ? theme.palette.mode === 'dark'
+                          ? 'rgba(220, 38, 38, 0.3)'
+                          : 'rgba(220, 38, 38, 0.25)'
+                        : theme.palette.mode === 'dark'
+                          ? 'rgba(255, 255, 255, 0.12)'
+                          : 'rgba(255, 255, 255, 0.8)',
+                    }
+                  }}
+                >
+                  <span>😠</span>
+                </IconButton>
+                {angryCount > 0 && (
+                  <Typography variant="caption" sx={{ fontSize: '11px', fontWeight: 500 }}>
+                    {angryCount}
+                  </Typography>
+                )}
+              </Box>
+
+              {/* Wow */}
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.3 }}>
+                <IconButton
+                  size="small"
+                  onClick={() => updateReaction(comment.comment.commentId, 'wow')}
+                  sx={{ 
+                    p: 0.5,
+                    background: comment.comment.reactions?.some(r => r.reactionType === 'wow' && r.userId === currentUser?.userId)
+                      ? theme.palette.mode === 'dark'
+                        ? 'rgba(59, 130, 246, 0.2)'
+                        : 'rgba(59, 130, 246, 0.15)'
+                      : theme.palette.mode === 'dark'
+                        ? 'rgba(255, 255, 255, 0.08)'
+                        : 'rgba(255, 255, 255, 0.6)',
+                    backdropFilter: 'blur(8px)',
+                    WebkitBackdropFilter: 'blur(8px)',
+                    border: `1px solid ${comment.comment.reactions?.some(r => r.reactionType === 'wow' && r.userId === currentUser?.userId)
+                      ? theme.palette.mode === 'dark' 
+                        ? 'rgba(59, 130, 246, 0.3)' 
+                        : 'rgba(59, 130, 246, 0.4)' 
+                      : theme.palette.mode === 'dark' 
+                        ? 'rgba(220, 38, 38, 0.2)' 
+                        : 'rgba(255, 255, 255, 0.8)'}`,
+                    '&:hover': {
+                      background: comment.comment.reactions?.some(r => r.reactionType === 'wow' && r.userId === currentUser?.userId)
+                        ? theme.palette.mode === 'dark'
+                          ? 'rgba(59, 130, 246, 0.3)'
+                          : 'rgba(59, 130, 246, 0.25)'
+                        : theme.palette.mode === 'dark'
+                          ? 'rgba(255, 255, 255, 0.12)'
+                          : 'rgba(255, 255, 255, 0.8)',
+                    }
+                  }}
+                >
+                  <span>😮</span>
+                </IconButton>
+                {wowCount > 0 && (
+                  <Typography variant="caption" sx={{ fontSize: '11px', fontWeight: 500 }}>
+                    {wowCount}
+                  </Typography>
+                )}
+              </Box>
+
+              {/* Sad */}
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.3 }}>
+                <IconButton
+                  size="small"
+                  onClick={() => updateReaction(comment.comment.commentId, 'sad')}
+                  sx={{ 
+                    p: 0.5,
+                    background: comment.comment.reactions?.some(r => r.reactionType === 'sad' && r.userId === currentUser?.userId)
+                      ? theme.palette.mode === 'dark'
+                        ? 'rgba(156, 163, 175, 0.2)'
+                        : 'rgba(156, 163, 175, 0.15)'
+                      : theme.palette.mode === 'dark'
+                        ? 'rgba(255, 255, 255, 0.08)'
+                        : 'rgba(255, 255, 255, 0.6)',
+                    backdropFilter: 'blur(8px)',
+                    WebkitBackdropFilter: 'blur(8px)',
+                    border: `1px solid ${comment.comment.reactions?.some(r => r.reactionType === 'sad' && r.userId === currentUser?.userId)
+                      ? theme.palette.mode === 'dark' 
+                        ? 'rgba(156, 163, 175, 0.3)' 
+                        : 'rgba(156, 163, 175, 0.4)' 
+                      : theme.palette.mode === 'dark' 
+                        ? 'rgba(220, 38, 38, 0.2)' 
+                        : 'rgba(255, 255, 255, 0.8)'}`,
+                    '&:hover': {
+                      background: comment.comment.reactions?.some(r => r.reactionType === 'sad' && r.userId === currentUser?.userId)
+                        ? theme.palette.mode === 'dark'
+                          ? 'rgba(156, 163, 175, 0.3)'
+                          : 'rgba(156, 163, 175, 0.25)'
+                        : theme.palette.mode === 'dark'
+                          ? 'rgba(255, 255, 255, 0.12)'
+                          : 'rgba(255, 255, 255, 0.8)',
+                    }
+                  }}
+                >
+                  <span>😢</span>
+                </IconButton>
+                {sadCount > 0 && (
+                  <Typography variant="caption" sx={{ fontSize: '11px', fontWeight: 500 }}>
+                    {sadCount}
+                  </Typography>
+                )}
+              </Box>
+            </Box>
+
+            {/* Action buttons - Reply, Collapse/Expand, Edit, Delete */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, ml: 2, flexWrap: 'wrap' }}>
               {/* Reply button */}
               <Button
                 size="small"
@@ -504,7 +642,9 @@ const YouTubeCommentNode: React.FC<YouTubeCommentNodeProps> = ({ row }) => {
                   Replying will tag @{displayUser.userName} {displayUser.userLastName} instead of creating a nested reply
                 </Typography>
               )}
-              <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'flex-start' }}>
+              
+              {/* Emotion Reaction Bar - Like The Thread */}
+                            <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'flex-start' }}>
                 <Avatar 
                   src={currentUser?.userImageUrl || undefined}
                   imgProps={{ crossOrigin: 'anonymous' }}

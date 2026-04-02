@@ -63,7 +63,7 @@ const TabPanel = ({ children, value, index }: TabPanelProps) => (
 interface TaskFeedCardProps {
   task: Task;
   likeSummary?: TaskLikeSummary;
-  onLike?: (taskId: string, likeType: 'like' | 'love' | 'laugh' | 'angry') => void;
+  onLike?: (taskId: string, likeType: 'like' | 'love' | 'laugh' | 'angry' | 'wow' | 'sad') => void;
   onUnlike?: (taskId: string) => void;
   onComment?: (taskId: string, comment: string) => void;
   onMarkDone?: (taskId: string) => void;
@@ -153,7 +153,7 @@ const PostsPage = () => {
 
   // Mutations
   const likeMutation = useMutation({
-    mutationFn: ({ taskId, likeType }: { taskId: string; likeType: 'like' | 'love' | 'laugh' | 'angry' }) =>
+    mutationFn: ({ taskId, likeType }: { taskId: string; likeType: 'like' | 'love' | 'laugh' | 'angry' | 'wow' | 'sad' }) =>
       likeApi.createOrUpdateLike(taskId, { likeType }),
     onSuccess: (_, { taskId }) => {
       fetchLikeSummary(taskId);
@@ -277,7 +277,7 @@ const PostsPage = () => {
     }
   };
 
-  const handleLike = async (taskId: string, likeType: 'like' | 'love' | 'laugh' | 'angry') => {
+  const handleLike = async (taskId: string, likeType: 'like' | 'love' | 'laugh' | 'angry' | 'wow' | 'sad') => {
     await likeMutation.mutateAsync({ taskId, likeType });
   };
 
@@ -613,7 +613,7 @@ const PostsPage = () => {
       >
         <DialogTitle sx={{ textAlign: 'center', pb: 1 }}>
           <DoneIcon color="success" sx={{ fontSize: 48, mb: 1 }} />
-          <Typography variant="h5" color="success.main" fontWeight="bold">
+          <Typography variant="h6" color="success.main" fontWeight="bold" component="div">
             Task Completed! 🎉
           </Typography>
         </DialogTitle>
@@ -673,7 +673,7 @@ const PostsPage = () => {
       >
         <DialogTitle sx={{ textAlign: 'center', pb: 1 }}>
           <Typography sx={{ fontSize: 48, mb: 1 }}>💪</Typography>
-          <Typography variant="h5" color="warning.main" fontWeight="bold">
+          <Typography variant="h6" color="warning.main" fontWeight="bold" component="div">
             Task Reopened! 🔄
           </Typography>
         </DialogTitle>

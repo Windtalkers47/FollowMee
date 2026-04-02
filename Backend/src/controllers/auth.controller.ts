@@ -59,60 +59,106 @@ class AuthController {
         });
       }
 
-      const { email, userPassword, userName, userLastName, userPhone1 } = req.body;
+      const { email, userPassword, userName, userLastName, userPhone1, selectedRole } = req.body;
 
-      // Check if user already exists
+      // Check if user already exists (active or inactive)
       const existingUser = await this.userRepository.findOne({ 
         where: { userEmail: email } 
       });
 
-      if (existingUser) {
+      if (existingUser && existingUser.isActive) {
         return res.status(400).json({
           success: false,
           message: 'Email already in use'
         });
       }
 
-      // Create new user
-      const user = new User();
-      user.userEmail = email;
-      user.userName = userName;
-      user.userLastName = userLastName || '';
-      user.userPhone1 = userPhone1 || '';
-      user.isActive = true;
+      let user: User;
       
-      // Set the password - it will be hashed by the User entity's @BeforeInsert hook
-      user.userPassword = userPassword;
+      if (existingUser && !existingUser.isActive) {
+        // Reactivate existing inactive user
+        user = existingUser;
+        user.userName = userName;
+        user.userLastName = userLastName || '';
+        user.userPhone1 = userPhone1 || '';
+        user.isActive = true;
+        user.userPassword = userPassword; // Will be hashed by @BeforeUpdate hook
+      } else {
+        // Create new user
+        user = new User();
+        user.userEmail = email;
+        user.userName = userName;
+        user.userLastName = userLastName || '';
+        user.userPhone1 = userPhone1 || '';
+        user.isActive = true;
+        user.userPassword = userPassword; // Will be hashed by @BeforeInsert hook
+      }
 
       // Save user to database
       const savedUser = await this.userRepository.save(user);
 
-      // Assign 'customer' role to the new user
+      // Assign role based on user selection with SuperAdmin limit
       try {
-        let customerRole = await this.roleRepository.findOne({ 
-          where: { roleName: 'Customer' } 
-        });
+        let targetRole = selectedRole || 'Moderator'; // Default to Moderator if not selected
 
-        if (!customerRole) {
-          // Create Customer role if it doesn't exist
-          customerRole = this.roleRepository.create({
-            roleName: 'Customer',
-            description: 'Regular customer user',
-            roleLevel: 1,
-            isActive: true
-          });
-          customerRole = await this.roleRepository.save(customerRole);
+        // Check if SuperAdmin is already taken
+        if (targetRole === 'Superadmin') {
+          const existingSuperadmin = await this.userRepository
+            .createQueryBuilder('user')
+            .leftJoin('user_roles', 'ur', 'ur.userId = user.userId')
+            .leftJoin('roles', 'r', 'r.roleId = ur.roleId')
+            .where('r.roleName = :roleName', { roleName: 'Superadmin' })
+            .getOne();
+
+          if (existingSuperadmin) {
+            targetRole = 'Admin'; // Fallback to Admin if SuperAdmin taken
+          }
         }
 
-        // Assign Customer role to the new user
+        let role = await this.roleRepository.findOne({ 
+          where: { roleName: targetRole } 
+        });
+
+        if (!role) {
+          // Create role if it doesn't exist
+          const roleConfigs = {
+            'Superadmin': { 
+              description: '🔥 Super Administrator - Complete system control. Can manage everything including users, roles, permissions, and all system settings. Only one allowed.', 
+              roleLevel: 999 
+            },
+            'Admin': { 
+              description: '⚙️ Administrator - Can manage users, customers, tasks, and system settings. Cannot manage roles or permissions.', 
+              roleLevel: 100 
+            },
+            'Moderator': { 
+              description: '🛡️ Moderator - Can view and moderate users, customers, and tasks. Perfect for content moderation and basic user management.', 
+              roleLevel: 50 
+            },
+            'Customer': { 
+              description: '👤 Customer - Regular user access. Can view and manage their own profile and basic features.', 
+              roleLevel: 1 
+            }
+          };
+
+          const config = roleConfigs[targetRole] || roleConfigs['Moderator'];
+          role = this.roleRepository.create({
+            roleName: targetRole,
+            description: config.description,
+            roleLevel: config.roleLevel,
+            isActive: true
+          });
+          role = await this.roleRepository.save(role);
+        }
+
+        // Assign role to new user
         const userRole = this.userRoleRepository.create({
           userId: savedUser.userId,
-          roleId: customerRole.roleId
+          roleId: role.roleId
         });
         await this.userRoleRepository.save(userRole);
-        console.log(`✓ Assigned Customer role to user ${email}`);
+        console.log(`✓ Assigned ${targetRole} role to user ${email}`);
       } catch (roleError) {
-        console.error('Error assigning Customer role to new user:', roleError);
+        console.error('Error assigning role to new user:', roleError);
         // Continue with registration even if role assignment fails
       }
 
@@ -122,10 +168,12 @@ class AuthController {
       // Don't send back the password
       const { userPassword: _, ...userWithoutPassword } = savedUser;
 
+      const isReactivation = existingUser && !existingUser.isActive;
+      
       return res.status(201).json({
         success: true,
         data: userWithoutPassword,
-        message: 'Registration successful'
+        message: isReactivation ? 'Account reactivated successfully' : 'Registration successful'
       });
     } catch (error: any) {
       console.error('Registration error:', error);

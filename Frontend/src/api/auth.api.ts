@@ -1,5 +1,6 @@
 import { apiConfig, handleResponse } from './config';
 import type { LoginResponse, ApiResponse } from '../types/api.types';
+import { encryptRequestData, decryptResponseData } from '../utils/requestEncryption';
 
 // --------------------
 // Types
@@ -10,6 +11,7 @@ export interface RegisterCredentials {
   userLastName: string;
   userPassword: string;
   userPhone1?: string;
+  selectedRole?: string;
 }
 
 export interface LoginCredentials {
@@ -39,23 +41,32 @@ const authApi = {
   /**
    * Register a new user
    */
-  register: async (credentials: RegisterCredentials): Promise<ApiResponse<{ success: boolean }>> => {
+  register: async (credentials: RegisterCredentials): Promise<ApiResponse<{ success: boolean; data?: any }>> => {
+    // Encrypt sensitive data for development
+    const encryptedData = encryptRequestData(credentials);
+    
     const response = await fetch(`${apiConfig.baseURL}/auth/register`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         ...apiConfig.headers,
       },
-      body: JSON.stringify(credentials),
+      body: JSON.stringify(encryptedData),
     });
 
-    return handleResponse<{ success: boolean }>(response);
+    const result = handleResponse<ApiResponse<{ success: boolean; data?: any }>>(response);
+    
+    // Decrypt response if it was encrypted
+    return decryptResponseData(result);
   },
 
   /**
    * Login with email & password
    */
   login: async (credentials: LoginCredentials): Promise<ApiResponse<LoginResponse['user']>> => {
+    // Encrypt sensitive data for development
+    const encryptedData = encryptRequestData(credentials);
+    
     const response = await fetch(`${apiConfig.baseURL}/auth/login`, {
       method: 'POST',
       headers: {
@@ -63,10 +74,13 @@ const authApi = {
         ...apiConfig.headers,
       },
       credentials: 'include',
-      body: JSON.stringify(credentials),
+      body: JSON.stringify(encryptedData),
     });
 
-    return handleResponse<ApiResponse<LoginResponse['user']>>(response);
+    const result = handleResponse<ApiResponse<LoginResponse['user']>>(response);
+    
+    // Decrypt response if it was encrypted
+    return decryptResponseData(result);
   },
 
   /**
@@ -75,16 +89,22 @@ const authApi = {
   forgotPassword: async (
     email: string
   ): Promise<ApiResponse<ForgotPasswordResponse>> => {
+    // Encrypt sensitive data for development
+    const encryptedData = encryptRequestData({ email });
+    
     const response = await fetch(`${apiConfig.baseURL}/auth/forgot-password`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         ...apiConfig.headers,
       },
-      body: JSON.stringify({ email }),
+      body: JSON.stringify(encryptedData),
     });
 
-    return handleResponse<ApiResponse<ForgotPasswordResponse>>(response);
+    const result = handleResponse<ApiResponse<ForgotPasswordResponse>>(response);
+    
+    // Decrypt response if it was encrypted
+    return decryptResponseData(result);
   },
 
   /**
@@ -93,16 +113,22 @@ const authApi = {
   resetPassword: async (
     data: ResetPasswordData
   ): Promise<ApiResponse<{ success: boolean }>> => {
+    // Encrypt sensitive data for development
+    const encryptedData = encryptRequestData(data);
+    
     const response = await fetch(`${apiConfig.baseURL}/auth/reset-password`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         ...apiConfig.headers,
       },
-      body: JSON.stringify(data),
+      body: JSON.stringify(encryptedData),
     });
 
-    return handleResponse<ApiResponse<{ success: boolean }>>(response);
+    const result = handleResponse<ApiResponse<{ success: boolean }>>(response);
+    
+    // Decrypt response if it was encrypted
+    return decryptResponseData(result);
   },
 
   /**

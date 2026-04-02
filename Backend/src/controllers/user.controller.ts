@@ -4,9 +4,23 @@ import { CreateUserDto } from '../dtos/create-user.dto';
 import { UpdateUserDto } from '../dtos/update-user.dto';
 import { UserResponseDto } from '../dtos/user-response.dto';
 import { uploadBase64Image, deleteFromCloudinary } from '../config/cloudinary.config';
+import AppDataSource from '../config/database';
+import { User } from '../entities/User';
 
 export class UserController {
   constructor(private readonly userService: UserService) {}
+
+  private userRepository = AppDataSource.getRepository(User);
+
+  /**
+   * Check if user is active
+   */
+  private async checkUserActive(userId: number): Promise<boolean> {
+    const user = await this.userRepository.findOne({ 
+      where: { userId, isActive: true } 
+    });
+    return !!user;
+  }
 
   /**
    * Get all users
@@ -30,6 +44,14 @@ export class UserController {
         res.status(401).json({ message: 'User not authenticated' });
         return;
       }
+
+      // Check if user is active
+      const isUserActive = await this.checkUserActive(userId);
+      if (!isUserActive) {
+        res.status(403).json({ message: 'User account is not active' });
+        return;
+      }
+
       const user = await this.userService.getUserById(userId);
       res.status(200).json({ success: true, data: user });
     } catch (error) {
@@ -95,6 +117,13 @@ export class UserController {
       const userId = req.user?.userId;
       if (!userId) {
         res.status(401).json({ message: 'User not authenticated' });
+        return;
+      }
+
+      // Check if user is active
+      const isUserActive = await this.checkUserActive(userId);
+      if (!isUserActive) {
+        res.status(403).json({ message: 'User account is not active' });
         return;
       }
       
@@ -223,6 +252,13 @@ export class UserController {
         res.status(401).json({ message: 'User not authenticated' });
         return;
       }
+
+      // Check if user is active
+      const isUserActive = await this.checkUserActive(userId);
+      if (!isUserActive) {
+        res.status(403).json({ message: 'User account is not active' });
+        return;
+      }
       const { currentPassword, newPassword } = req.body;
       await this.userService.changePassword(userId, currentPassword, newPassword);
       res.status(200).json({ 
@@ -242,6 +278,13 @@ export class UserController {
       const userId = req.user?.userId;
       if (!userId) {
         res.status(401).json({ message: 'User not authenticated' });
+        return;
+      }
+
+      // Check if user is active
+      const isUserActive = await this.checkUserActive(userId);
+      if (!isUserActive) {
+        res.status(403).json({ message: 'User account is not active' });
         return;
       }
       
@@ -298,6 +341,13 @@ export class UserController {
       const userId = req.user?.userId;
       if (!userId) {
         res.status(401).json({ message: 'User not authenticated' });
+        return;
+      }
+
+      // Check if user is active
+      const isUserActive = await this.checkUserActive(userId);
+      if (!isUserActive) {
+        res.status(403).json({ message: 'User account is not active' });
         return;
       }
 

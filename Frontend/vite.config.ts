@@ -27,7 +27,20 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     emptyOutDir: true,
+    // Security: Minify and obfuscate in production
+    minify: 'terser',
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom'],
+        },
+      },
+    },
   },
   clearScreen: false,
-  logLevel: 'info',
+  logLevel: process.env.NODE_ENV === 'production' ? 'error' : 'info',
+  // Security: Disable source maps in production
+  define: {
+    __DEV__: JSON.stringify(process.env.NODE_ENV !== 'production'),
+  },
 });

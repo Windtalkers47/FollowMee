@@ -3,9 +3,23 @@ import { TaskService } from '../services/task.service';
 import { CreateTaskDto, UpdateTaskDto, TaskQueryDto, MarkTaskDoneDto } from '../dtos/task.dto';
 import { TaskResponseDto, TaskListResponseDto } from '../dtos/task-response.dto';
 import { CloudinaryUtil } from '../utils/cloudinary.util';
+import AppDataSource from '../config/database';
+import { User } from '../entities/User';
 
 export class TaskController {
   constructor(private readonly taskService: TaskService) {}
+
+  private userRepository = AppDataSource.getRepository(User);
+
+  /**
+   * Check if user is active
+   */
+  private async checkUserActive(userId: number): Promise<boolean> {
+    const user = await this.userRepository.findOne({ 
+      where: { userId, isActive: true } 
+    });
+    return !!user;
+  }
 
   async createTask(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
@@ -15,6 +29,14 @@ export class TaskController {
         res.status(401).json({ message: 'User not authenticated' });
         return;
       }
+
+      // Check if user is active
+      const isUserActive = await this.checkUserActive(userId);
+      if (!isUserActive) {
+        res.status(403).json({ message: 'User account is not active' });
+        return;
+      }
+
       const result = await this.taskService.createTask(createTaskDto, userId);
       res.status(201).json({ success: true, data: result });
     } catch (error) {
@@ -39,6 +61,14 @@ export class TaskController {
         res.status(401).json({ message: 'User not authenticated' });
         return;
       }
+
+      // Check if user is active
+      const isUserActive = await this.checkUserActive(userId);
+      if (!isUserActive) {
+        res.status(403).json({ message: 'User account is not active' });
+        return;
+      }
+
       const result = await this.taskService.getUserTasks(userId);
       res.status(200).json({ success: true, data: result });
     } catch (error) {
@@ -53,6 +83,14 @@ export class TaskController {
         res.status(401).json({ message: 'User not authenticated' });
         return;
       }
+
+      // Check if user is active
+      const isUserActive = await this.checkUserActive(userId);
+      if (!isUserActive) {
+        res.status(403).json({ message: 'User account is not active' });
+        return;
+      }
+
       const result = await this.taskService.getUserTasks(userId, false);
       res.status(200).json({ success: true, data: result });
     } catch (error) {
@@ -79,6 +117,14 @@ export class TaskController {
         res.status(401).json({ message: 'User not authenticated' });
         return;
       }
+
+      // Check if user is active
+      const isUserActive = await this.checkUserActive(userId);
+      if (!isUserActive) {
+        res.status(403).json({ message: 'User account is not active' });
+        return;
+      }
+
       const result = await this.taskService.updateTask(taskId, updateTaskDto, userId);
       res.status(200).json({ success: true, data: result });
     } catch (error) {
@@ -94,6 +140,14 @@ export class TaskController {
         res.status(401).json({ message: 'User not authenticated' });
         return;
       }
+
+      // Check if user is active
+      const isUserActive = await this.checkUserActive(userId);
+      if (!isUserActive) {
+        res.status(403).json({ message: 'User account is not active' });
+        return;
+      }
+
       await this.taskService.deleteTask(taskId, userId);
       res.status(200).json({ success: true, message: 'Task deleted successfully' });
     } catch (error) {
@@ -108,6 +162,13 @@ export class TaskController {
       
       if (!userId) {
         res.status(401).json({ message: 'User not authenticated' });
+        return;
+      }
+
+      // Check if user is active
+      const isUserActive = await this.checkUserActive(userId);
+      if (!isUserActive) {
+        res.status(403).json({ message: 'User account is not active' });
         return;
       }
 
@@ -140,6 +201,13 @@ export class TaskController {
       
       if (!userId) {
         res.status(401).json({ message: 'User not authenticated' });
+        return;
+      }
+
+      // Check if user is active
+      const isUserActive = await this.checkUserActive(userId);
+      if (!isUserActive) {
+        res.status(403).json({ message: 'User account is not active' });
         return;
       }
 
@@ -279,6 +347,13 @@ export class TaskController {
         return;
       }
 
+      // Check if user is active
+      const isUserActive = await this.checkUserActive(userId);
+      if (!isUserActive) {
+        res.status(403).json({ message: 'User account is not active' });
+        return;
+      }
+
       const result = await this.taskService.markTaskAsDone(taskId, userId, markTaskDoneDto);
       
       // Get user's updated rank
@@ -306,6 +381,13 @@ export class TaskController {
         return;
       }
 
+      // Check if user is active
+      const isUserActive = await this.checkUserActive(userId);
+      if (!isUserActive) {
+        res.status(403).json({ message: 'User account is not active' });
+        return;
+      }
+
       const result = await this.taskService.markTaskAsUndone(taskId, userId);
       
       // Get user's updated rank
@@ -329,6 +411,13 @@ export class TaskController {
       
       if (!userId) {
         res.status(401).json({ message: 'User not authenticated' });
+        return;
+      }
+
+      // Check if user is active
+      const isUserActive = await this.checkUserActive(userId);
+      if (!isUserActive) {
+        res.status(403).json({ message: 'User account is not active' });
         return;
       }
 

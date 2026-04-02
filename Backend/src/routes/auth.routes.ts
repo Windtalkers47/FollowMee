@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.middleware';
+import { decryptRequestMiddleware } from '../middleware/requestDecryption.middleware';
 import AuthController from '../controllers/auth.controller';
 import { body } from 'express-validator';
 
@@ -8,6 +9,7 @@ const router = Router();
 // Public routes
 router.post(
   '/register',
+  decryptRequestMiddleware,
   [
     body('email').isEmail().withMessage('Please provide a valid email'),
     body('userPassword').isLength({ min: 6 }).withMessage('Password must be at least 6 characters long'),
@@ -19,6 +21,7 @@ router.post(
 
 router.post(
   '/login',
+  decryptRequestMiddleware,
   [
     body('email').isEmail().withMessage('Please provide a valid email'),
     body('password').exists().withMessage('Password is required')
@@ -31,8 +34,8 @@ router.get('/me', authenticateToken, AuthController.getCurrentUser);
 router.post('/logout', authenticateToken, AuthController.logout);
 
 // Password reset routes
-router.post('/forgot-password', AuthController.requestPasswordReset);
-router.post('/reset-password', AuthController.resetPassword);
-router.put('/update-password', authenticateToken, AuthController.updatePassword);
+router.post('/forgot-password', decryptRequestMiddleware, AuthController.requestPasswordReset);
+router.post('/reset-password', decryptRequestMiddleware, AuthController.resetPassword);
+router.put('/update-password', authenticateToken, decryptRequestMiddleware, AuthController.updatePassword);
 
 export default router;

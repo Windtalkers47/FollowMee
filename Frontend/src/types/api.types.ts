@@ -6,6 +6,7 @@ export interface ApiResponse<T> {
     status?: number;
   };
   success: boolean;
+  message?: string; // Add message field for responses like registration
 }
 
 export interface LoginResponse {

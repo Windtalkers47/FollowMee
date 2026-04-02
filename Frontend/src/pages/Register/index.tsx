@@ -3,6 +3,7 @@ import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import { useAppDispatch } from '../../store/store';
 import { loginUser } from '../../store/slices/authSlice';
 import authApi, { LoginCredentials, RegisterCredentials } from '../../api/auth.api';
+import RoleSelector from '../../components/RoleSelector';
 import {
   Container,
   Box,
@@ -27,6 +28,7 @@ const Register = () => {
     password: '',
     confirmPassword: '',
     userPhone1: '',
+    selectedRole: 'Moderator', // Default to Moderator
   });
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -50,7 +52,8 @@ const Register = () => {
         text: 'Passwords do not match',
         customClass: {
           popup: 'swal2-error-dialog'
-        }
+        },
+        html: true
       });
       return false;
     }
@@ -61,7 +64,8 @@ const Register = () => {
         text: 'Password must be at least 8 characters long',
         customClass: {
           popup: 'swal2-error-dialog'
-        }
+        },
+        html: true
       });
       return false;
     }
@@ -72,7 +76,8 @@ const Register = () => {
         text: 'Please enter a valid email address',
         customClass: {
           popup: 'swal2-error-dialog'
-        }
+        },
+        html: true
       });
       return false;
     }
@@ -83,7 +88,8 @@ const Register = () => {
         text: 'Please enter your full name',
         customClass: {
           popup: 'swal2-error-dialog'
-        }
+        },
+        html: true
       });
       return false;
     }
@@ -98,16 +104,41 @@ const Register = () => {
     try {
       setIsLoading(true);
       
+      // Show loading
+      Swal.showLoading();
+      
       // Register the user
       const registrationData: RegisterCredentials = {
         email: formData.email,
         userName: formData.userName,
         userLastName: formData.userLastName,
         userPassword: formData.password,
-        userPhone1: formData.userPhone1 || undefined
+        userPhone1: formData.userPhone1 || undefined,
+        selectedRole: formData.selectedRole
       };
       
-      await authApi.register(registrationData);
+      const response = await authApi.register(registrationData);
+      
+      // Hide loading
+      Swal.hideLoading();
+      
+      // Check if it was a reactivation or new registration
+      const isReactivation = response.success && response.message === 'Account reactivated successfully';
+      
+      // Show appropriate success message
+      await Swal.fire({
+        icon: 'success',
+        title: isReactivation ? 'Welcome Back!' : 'Registration Successful',
+        text: isReactivation 
+          ? 'Your account has been reactivated successfully. Redirecting to dashboard...'
+          : 'Your account has been created successfully. Redirecting to dashboard...',
+        timer: 2000,
+        timerProgressBar: true,
+        customClass: {
+          popup: 'swal2-success-dialog'
+        },
+        html: true
+      });
 
       // Automatically log in the user after registration
       const loginCredentials: LoginCredentials = {
@@ -121,29 +152,29 @@ const Register = () => {
       
       // Check if login was successful
       if (loginUser.fulfilled.match(resultAction)) {
-        await Swal.fire({
-          icon: 'success',
-          title: 'Registration Successful!',
-          text: 'Your account has been created successfully. Redirecting to dashboard...',
-          timer: 2000,
-          timerProgressBar: true,
-          customClass: {
-            popup: 'swal2-success-dialog'
-          }
-        });
-        
         // Redirect to dashboard on successful registration and login
         navigate('/dashboard');
       }
     } catch (error: any) {
       console.error('Registration error:', error);
+      
+      // Hide loading
+      Swal.hideLoading();
+      
+      // Show detailed error message
+      const errorMessage = error.response?.data?.message || 'Registration failed. Please try again.';
+      const isDuplicateEmail = errorMessage.includes('Duplicate entry') || errorMessage.includes('already in use');
+      
       await Swal.fire({
         icon: 'error',
-        title: 'Registration Failed',
-        text: error.response?.data?.message || 'Registration failed. Please try again.',
+        title: isDuplicateEmail ? 'Email Already Exists' : 'Registration Failed',
+        text: isDuplicateEmail 
+          ? 'This email address is already registered. If you previously had an account, it may have been deactivated. Please try logging in instead.'
+          : errorMessage,
         customClass: {
           popup: 'swal2-error-dialog'
-        }
+        },
+        html: true
       });
     } finally {
       setIsLoading(false);
@@ -261,6 +292,12 @@ const Register = () => {
               autoComplete="email"
               value={formData.email}
               onChange={handleChange}
+              disabled={isLoading}
+            />
+            
+            <RoleSelector
+              value={formData.selectedRole}
+              onChange={(value) => setFormData(prev => ({ ...prev, selectedRole: value }))}
               disabled={isLoading}
             />
             

@@ -728,6 +728,76 @@ const TaskCard: React.FC<TaskCardProps> = ({
               </IconButton>
             </Box>
           </Stack>
+
+          {/* Glass Mark Done/Undone Buttons - Positioned at Bottom Right */}
+          <Box sx={{ 
+            position: 'absolute',
+            bottom: 8,
+            right: 8,
+            display: 'flex',
+            gap: 0.5,
+            zIndex: 10
+          }}>
+            {canUpdateStatus && task.status !== 'done' && (
+              <Button
+                size="small"
+                startIcon={<span>✓</span>}
+                onClick={() => onMarkDone?.(task.taskId)}
+                variant="contained"
+                color="success"
+                sx={{
+                  borderRadius: 15,
+                  textTransform: 'none',
+                  fontWeight: 600,
+                  px: 1.5,
+                  py: 0.5,
+                  fontSize: '0.75rem',
+                  background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                  boxShadow: '0 4px 12px rgba(16, 185, 129, 0.4)',
+                  backdropFilter: 'blur(8px)',
+                  WebkitBackdropFilter: 'blur(8px)',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  '&:hover': {
+                    background: 'linear-gradient(135deg, #059669 0%, #047857 100%)',
+                    boxShadow: '0 6px 16px rgba(16, 185, 129, 0.5)',
+                    transform: 'translateY(-1px)',
+                  }
+                }}
+              >
+                Done
+              </Button>
+            )}
+
+            {canUndone && task.status === 'done' && (
+              <Button
+                size="small"
+                startIcon={<span>↶</span>}
+                onClick={() => onMarkUndone?.(task.taskId)}
+                variant="contained"
+                color="warning"
+                sx={{
+                  borderRadius: 15,
+                  textTransform: 'none',
+                  fontWeight: 600,
+                  px: 1.5,
+                  py: 0.5,
+                  fontSize: '0.75rem',
+                  background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                  boxShadow: '0 4px 12px rgba(245, 158, 11, 0.4)',
+                  backdropFilter: 'blur(8px)',
+                  WebkitBackdropFilter: 'blur(8px)',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  '&:hover': {
+                    background: 'linear-gradient(135deg, #d97706 0%, #b45309 100%)',
+                    boxShadow: '0 6px 16px rgba(245, 158, 11, 0.5)',
+                    transform: 'translateY(-1px)',
+                  }
+                }}
+              >
+                Undone
+              </Button>
+            )}
+          </Box>
         </Box>
       </Card>
 

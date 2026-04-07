@@ -150,15 +150,41 @@ class AuthController {
           role = await this.roleRepository.save(role);
         }
 
-        // Assign role to new user
+        // For reactivated users, remove all existing roles and assign the new one
+        // For new users, just assign the role
+        if (existingUser && !existingUser.isActive) {
+          // Remove all existing roles for reactivated user
+          await this.userRoleRepository
+            .createQueryBuilder()
+            .delete()
+            .where('userId = :userId', { userId: savedUser.userId })
+            .execute();
+        } else {
+          // For new users or already active users, also ensure only one role
+          // This handles edge cases where user might have existing roles
+          const existingRoles = await this.userRoleRepository
+            .createQueryBuilder()
+            .select('COUNT(*)')
+            .where('userId = :userId', { userId: savedUser.userId })
+            .getRawOne();
+          
+          if (parseInt(existingRoles['COUNT(*)']) > 0) {
+            // Remove all existing roles to ensure clean state
+            await this.userRoleRepository
+              .createQueryBuilder()
+              .delete()
+              .where('userId = :userId', { userId: savedUser.userId })
+              .execute();
+          }
+        }
+
+        // Assign the new role
         const userRole = this.userRoleRepository.create({
           userId: savedUser.userId,
           roleId: role.roleId
         });
         await this.userRoleRepository.save(userRole);
-        console.log(`✓ Assigned ${targetRole} role to user ${email}`);
       } catch (roleError) {
-        console.error('Error assigning role to new user:', roleError);
         // Continue with registration even if role assignment fails
       }
 

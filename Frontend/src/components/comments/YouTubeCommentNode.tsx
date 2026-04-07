@@ -1,10 +1,11 @@
 import React from 'react';
-import { Avatar, Typography, IconButton, Box, Button, useTheme, TextField } from '@mui/material';
+import { Typography, IconButton, Box, Button, useTheme, TextField } from '@mui/material';
 import { format } from 'date-fns';
 import { FlatCommentRow } from '../../utils/flattenCommentTreeForVirtualization';
 import { useCommentActionContext } from '../../contexts/index';
 import { useAppSelector } from '../../store/store';
 import { selectCurrentUser } from '../../store/slices/authSlice';
+import SmartAvatar from '../SmartAvatar';
 
 // Simple textarea component for comment input
 const MentionTextarea: React.FC<{
@@ -87,7 +88,9 @@ const YouTubeCommentNode: React.FC<YouTubeCommentNodeProps> = ({ row }) => {
   const finalBlur = 20;
   const finalBorderOpacity = 0.3;
   
-  const displayUser = comment.comment.user || { userName: 'Unknown', userLastName: 'User', userId: 0, userImageUrl: undefined };
+  const displayUser = isOwner && currentUser 
+    ? currentUser 
+    : comment.comment.user || { userName: 'Unknown', userLastName: 'User', userId: 0, userImageUrl: undefined };
   const likeCount = comment.comment.reactions?.filter(r => r.reactionType === 'like').length || 0;
   const loveCount = comment.comment.reactions?.filter(r => r.reactionType === 'love').length || 0;
   const laughCount = comment.comment.reactions?.filter(r => r.reactionType === 'laugh').length || 0;
@@ -115,29 +118,11 @@ const YouTubeCommentNode: React.FC<YouTubeCommentNodeProps> = ({ row }) => {
         }
       }}>
         {/* Glass Avatar */}
-        <Avatar 
-          src={displayUser?.userImageUrl}
-          imgProps={{ crossOrigin: 'anonymous' }}
-          onError={(e) => {
-            const target = e.target as HTMLImageElement;
-            if (target) target.src = '';
-          }}
-          sx={{ 
-            width: 32, 
-            height: 32,
-            flexShrink: 0,
-            border: `2px solid ${theme.palette.mode === 'dark' 
-              ? 'rgba(255, 255, 255, 0.3)' 
-              : 'rgba(255, 255, 255, 0.8)'}`,
-            boxShadow: theme.palette.mode === 'dark'
-              ? '0 4px 12px rgba(0, 0, 0, 0.4)'
-              : '0 4px 12px rgba(31, 38, 135, 0.2)',
-            backdropFilter: 'blur(8px)',
-            WebkitBackdropFilter: 'blur(8px)',
-          }}
-        >
-          {(!displayUser?.userImageUrl || displayUser.userImageUrl === '') && displayUser?.userName?.[0]}
-        </Avatar>
+        <SmartAvatar 
+          user={displayUser}
+          avatarVariant="glass"
+          size={32}
+        />
 
         {/* Comment content */}
         <Box sx={{ flex: 1, minWidth: 0 }}>
@@ -645,30 +630,19 @@ const YouTubeCommentNode: React.FC<YouTubeCommentNodeProps> = ({ row }) => {
               
               {/* Emotion Reaction Bar - Like The Thread */}
                             <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'flex-start' }}>
-                <Avatar 
-                  src={currentUser?.userImageUrl || undefined}
-                  imgProps={{ crossOrigin: 'anonymous' }}
-                  onError={(e: React.SyntheticEvent<HTMLImageElement, Event>) => {
-                    const target = e.target as HTMLImageElement;
-                    if (target) target.src = '';
-                  }}
-                  sx={{ 
-                    width: 32, 
-                    height: 32,
-                    flexShrink: 0,
-                    border: `2px solid ${theme.palette.mode === 'dark' 
+                <SmartAvatar 
+                  user={currentUser}
+                  avatarVariant="glass"
+                  size={16}
+                  sx={{
+                    border: `1px solid ${theme.palette.mode === 'dark' 
                       ? 'rgba(255, 255, 255, 0.3)' 
                       : 'rgba(255, 255, 255, 0.8)'}`,
                     boxShadow: theme.palette.mode === 'dark'
-                      ? '0 4px 12px rgba(0, 0, 0, 0.4)'
-                      : '0 4px 12px rgba(31, 38, 135, 0.2)',
-                    backdropFilter: 'blur(8px)',
-                    WebkitBackdropFilter: 'blur(8px)',
+                      ? '0 2px 6px rgba(0, 0, 0, 0.3)'
+                      : '0 2px 6px rgba(31, 38, 135, 0.2)',
                   }}
-                >
-                  {(!currentUser?.userImageUrl || currentUser?.userImageUrl === '') && 
-                    `${currentUser?.userName?.[0] || 'U'}${currentUser?.userLastName?.[0] || ''}`}
-                </Avatar>
+                />
                 <Box sx={{ flex: 1 }}>
                   <MentionTextarea
                     value={getReplyText(comment.comment.commentId)}

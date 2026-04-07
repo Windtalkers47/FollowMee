@@ -131,6 +131,10 @@ export class UserService {
     }
 
     await this.userRepository.markAsInactive(id);
+    
+    // Remove all user roles when deactivating user (but keep user record for history)
+    await this.userRoleRepository.removeAllRolesFromUser(id);
+    
     return { message: 'User deactivated successfully' };
   }
 

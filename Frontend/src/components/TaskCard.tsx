@@ -29,6 +29,7 @@ import { format, formatDistanceToNow } from 'date-fns';
 import { Task, TaskLikeSummary } from '../../src/api/task.api';
 import { CommentTree } from './comments';
 import { useComments } from '../hooks/useComments';
+import SmartAvatar from './SmartAvatar';
 
 interface TaskCardProps {
   task: Task;
@@ -428,16 +429,11 @@ const TaskCard: React.FC<TaskCardProps> = ({
                 >
                   Assigned to
                 </Typography>
-                <Avatar
-                  src={task.assignedToUser.userImageUrl}
-                  imgProps={{ crossOrigin: 'anonymous' }}
-                  onError={(e) => {
-                    const target = e.target as HTMLImageElement;
-                    if (target) target.src = '';
-                  }}
-                  sx={{ 
-                    width: 16, 
-                    height: 16,
+                <SmartAvatar
+                  user={task.assignedToUser}
+                  avatarVariant="glass"
+                  size={16}
+                  sx={{
                     border: `1px solid ${theme.palette.mode === 'dark' 
                       ? 'rgba(255, 255, 255, 0.3)' 
                       : 'rgba(255, 255, 255, 0.8)'}`,
@@ -445,9 +441,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
                       ? '0 2px 6px rgba(0, 0, 0, 0.3)'
                       : '0 2px 6px rgba(31, 38, 135, 0.2)',
                   }}
-                >
-                  {(!task.assignedToUser.userImageUrl || task.assignedToUser.userImageUrl === '') && task.assignedToUser.userName?.[0]}
-                </Avatar>
+                />
                 <Typography 
                   variant="caption" 
                   color="text.secondary" 

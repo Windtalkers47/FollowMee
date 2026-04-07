@@ -5,6 +5,7 @@ import { ThemeToggle } from '../components/ThemeToggle';
 import { logout, updateUser } from '../store/slices/authSlice';
 import { userApi } from '../api/user.api';
 import Swal from 'sweetalert2';
+import SmartAvatar from '../components/SmartAvatar';
 
 import {
   Box,
@@ -530,24 +531,11 @@ const MainLayout = ({ children }: MainLayoutProps) => {
               },
             }}
           >
-            <Avatar
-              src={currentUser?.userImageUrl || undefined}
-              imgProps={{ crossOrigin: 'anonymous' }}
-              onError={(e: any) => {
-                const target = e.target as HTMLImageElement;
-                if (target) target.src = '';
-              }}
-              sx={{
-                width: 32,
-                height: 32,
-                bgcolor: currentUser?.userImageUrl ? 'transparent' : theme.palette.primary.main,
-                color: currentUser?.userImageUrl ? 'transparent' : theme.palette.primary.contrastText,
-                border: `2px solid ${theme.palette.mode === 'light' ? '#fff' : theme.palette.background.paper}`,
-                boxShadow: theme.shadows[1],
-              }}
-            >
-              {(!currentUser?.userImageUrl || currentUser.userImageUrl === '') && (currentUser?.userName?.[0]?.toUpperCase() || currentUser?.fullName?.[0]?.toUpperCase() || 'U')}
-            </Avatar>
+            <SmartAvatar
+              user={currentUser}
+              avatarVariant="main"
+              size={32}
+            />
             <Box>
               <Typography 
                 variant="subtitle2" 

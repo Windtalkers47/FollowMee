@@ -8,7 +8,8 @@ import {
   Box,
   Chip,
   Typography,
-  Alert
+  Alert,
+  useTheme
 } from '@mui/material';
 
 interface RoleOption {
@@ -25,13 +26,21 @@ interface RoleSelectorProps {
   onChange: (value: string) => void;
   error?: string;
   disabled?: boolean;
+  roleCounts?: {
+    Customer: number;
+    Moderator: number;
+    Admin: number;
+    Superadmin: number;
+  };
+  showCounts?: boolean;
+  currentUserRole?: string;
 }
 
 const roleOptions: RoleOption[] = [
   {
     value: 'Customer',
     label: 'Customer',
-    description: '👤 Regular user access. Can view and manage their own profile and basic features.',
+    description: 'Regular user access. Can view and manage their own profile and basic features.',
     level: 1,
     color: '#4CAF50',
     icon: '👤'
@@ -39,7 +48,7 @@ const roleOptions: RoleOption[] = [
   {
     value: 'Moderator',
     label: 'Moderator',
-    description: '🛡️ Can view and moderate users, customers, and tasks. Perfect for content moderation and basic user management.',
+    description: 'Can view and moderate users, customers, and tasks. Perfect for content moderation and basic user management.',
     level: 50,
     color: '#FF9800',
     icon: '🛡️'
@@ -47,7 +56,7 @@ const roleOptions: RoleOption[] = [
   {
     value: 'Admin',
     label: 'Administrator',
-    description: '⚙️ Can manage users, customers, tasks, and system settings. Cannot manage roles or permissions.',
+    description: 'Can manage users, customers, tasks, and system settings. Cannot manage roles or permissions.',
     level: 100,
     color: '#2196F3',
     icon: '⚙️'
@@ -55,7 +64,7 @@ const roleOptions: RoleOption[] = [
   {
     value: 'Superadmin',
     label: 'Super Administrator',
-    description: '🔥 Complete system control. Can manage everything including users, roles, permissions, and all system settings. Only one allowed.',
+    description: 'Complete system control. Can manage everything including users, roles, permissions, and all system settings. Only one allowed.',
     level: 999,
     color: '#F44336',
     icon: '🔥'
@@ -66,17 +75,19 @@ const RoleSelector: React.FC<RoleSelectorProps> = ({
   value,
   onChange,
   error,
-  disabled = false
+  disabled = false,
+  roleCounts = { Customer: 0, Moderator: 0, Admin: 0, Superadmin: 0 },
+  showCounts = false,
+  currentUserRole = ''
 }) => {
+  const theme = useTheme();
   const [superadminTaken, setSuperadminTaken] = useState(false);
 
-  // Check if SuperAdmin is already taken (this would come from an API call)
+  // Check if SuperAdmin is already taken
   useEffect(() => {
-    // This would be an API call to check if SuperAdmin exists
-    // For now, we'll assume it's available
-    // TODO: Add API endpoint to check SuperAdmin availability
-    setSuperadminTaken(false);
-  }, []);
+    const isTaken = roleCounts.Superadmin >= 1 && currentUserRole !== 'Superadmin';
+    setSuperadminTaken(isTaken);
+  }, [roleCounts.Superadmin, currentUserRole]);
 
   const handleChange = (event: any) => {
     onChange(event.target.value);
@@ -90,9 +101,11 @@ const RoleSelector: React.FC<RoleSelectorProps> = ({
   return (
     <Box>
       {superadminTaken && (
-        <Alert severity="info" sx={{ mb: 2 }}>
+        <Alert severity="warning" sx={{ mb: 2 }}>
           <Typography variant="body2">
-            🔥 Super Administrator role is already taken. You can select Administrator instead.
+            Super Administrator role is already assigned to {roleCounts.Superadmin} user(s). 
+            Only one Super Admin is allowed in the system. You're may choose Admin instead.
+            {currentUserRole === 'Superadmin' && ' You can keep your current role or choose a different one.'}
           </Typography>
         </Alert>
       )}
@@ -121,24 +134,49 @@ const RoleSelector: React.FC<RoleSelectorProps> = ({
             ) : '';
           }}
         >
-          {availableRoles.map((role) => (
-            <MenuItem key={role.value} value={role.value}>
-              <Box>
-                <Box display="flex" alignItems="center" gap={1} mb={1}>
-                  <Typography variant="h6">{role.icon}</Typography>
-                  <Typography variant="subtitle1" fontWeight="bold" color={role.color}>
-                    {role.label}
-                  </Typography>
+          {availableRoles.map((role) => {
+            const count = roleCounts[role.value as keyof typeof roleCounts] || 0;
+            const isSuperAdmin = role.value === 'Superadmin';
+            const isDisabled = isSuperAdmin && superadminTaken && currentUserRole !== 'Superadmin';
+            
+            return (
+              <MenuItem 
+                key={role.value} 
+                value={role.value}
+                disabled={isDisabled}
+              >
+                <Box display="flex" alignItems="center" gap={1} justifyContent="space-between" width="100%">
+                  <Box display="flex" alignItems="center" gap={1} flex={1}>
+                    <Typography variant="h6">{role.icon}</Typography>
+                    <Box flex={1}>
+                      <Typography variant="subtitle1" fontWeight="bold" sx={{ 
+                        color: role.color,
+                        textShadow: theme.palette.mode === 'dark' ? '0 1px 2px rgba(0,0,0,0.3)' : 'none'
+                      }}>
+                        {role.label}
+                        {isDisabled && (
+                          <Typography component="span" variant="caption" color="error.main" sx={{ ml: 1, fontWeight: 600 }}>
+                            (Already assigned)
+                          </Typography>
+                        )}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, fontWeight: 400 }}>
+                        {role.description}
+                      </Typography>
+                    </Box>
+                  </Box>
+                  {showCounts && (
+                    <Chip 
+                      label={isSuperAdmin ? `${count}/1` : count} 
+                      size="small" 
+                      color={isSuperAdmin ? (superadminTaken ? "error" : "success") : "primary"}
+                      variant="outlined"
+                    />
+                  )}
                 </Box>
-                <Typography variant="body2" color="textSecondary" sx={{ mb: 1 }}>
-                  {role.description}
-                </Typography>
-                {/* <Typography variant="caption" color="textSecondary">
-                  Permission Level: {role.level}
-                </Typography> */}
-              </Box>
-            </MenuItem>
-          ))}
+              </MenuItem>
+            );
+          })}
         </Select>
         {error && (
           <FormHelperText error>{error}</FormHelperText>

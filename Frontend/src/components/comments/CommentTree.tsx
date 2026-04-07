@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Typography, Avatar, IconButton, useTheme } from '@mui/material';
+import { Box, Typography, IconButton, useTheme } from '@mui/material';
 import { CommentDataContext, CommentActionContext } from '../../contexts';
 import { Send as SendIcon } from '@mui/icons-material';
 import { useComments } from '../../hooks/useComments';
@@ -7,6 +7,7 @@ import { flattenCommentTree } from '../../utils/flattenCommentTreeForVirtualizat
 import { useAppSelector } from '../../store/store';
 import { selectCurrentUser } from '../../store/slices/authSlice';
 import YouTubeThreadedRow from './YouTubeThreadedRow';
+import SmartAvatar from '../SmartAvatar';
 
 interface CommentTreeProps {
   taskId: string;
@@ -128,29 +129,11 @@ const CommentTreeComponent: React.FC<CommentTreeProps> = ({
                 Add a comment
               </Typography>
               <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'flex-end' }}>
-                <Avatar 
-                  src={currentUser?.userImageUrl || undefined}
-                  imgProps={{ crossOrigin: 'anonymous' }}
-                  onError={(e: React.SyntheticEvent<HTMLImageElement, Event>) => {
-                    const target = e.target as HTMLImageElement;
-                    if (target) target.src = '';
-                  }}
-                  sx={{ 
-                    width: 32, 
-                    height: 32,
-                    border: `2px solid ${theme.palette.mode === 'dark' 
-                      ? 'rgba(255, 255, 255, 0.3)' 
-                      : 'rgba(255, 255, 255, 0.8)'}`,
-                    boxShadow: theme.palette.mode === 'dark'
-                      ? '0 4px 12px rgba(0, 0, 0, 0.4)'
-                      : '0 4px 12px rgba(31, 38, 135, 0.2)',
-                    backdropFilter: 'blur(8px)',
-                    WebkitBackdropFilter: 'blur(8px)',
-                  }}
-                >
-                  {(!currentUser?.userImageUrl || currentUser?.userImageUrl === '') && 
-                    `${currentUser?.userName?.[0] || 'U'}${currentUser?.userLastName?.[0] || ''}`}
-                </Avatar>
+                <SmartAvatar 
+                  user={currentUser}
+                  avatarVariant="glass"
+                  size={32}
+                />
                 <Box flex={1}>
                   <input
                     type="text"
@@ -266,29 +249,11 @@ const CommentTreeComponent: React.FC<CommentTreeProps> = ({
             Add a comment
           </Typography>
           <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'flex-end' }}>
-            <Avatar 
-              src={currentUser?.userImageUrl || undefined}
-              imgProps={{ crossOrigin: 'anonymous' }}
-              onError={(e: React.SyntheticEvent<HTMLImageElement, Event>) => {
-                const target = e.target as HTMLImageElement;
-                if (target) target.src = '';
-              }}
-              sx={{ 
-                width: 32, 
-                height: 32,
-                border: `2px solid ${theme.palette.mode === 'dark' 
-                  ? 'rgba(255, 255, 255, 0.3)' 
-                  : 'rgba(255, 255, 255, 0.8)'}`,
-                boxShadow: theme.palette.mode === 'dark'
-                  ? '0 4px 12px rgba(0, 0, 0, 0.4)'
-                  : '0 4px 12px rgba(31, 38, 135, 0.2)',
-                backdropFilter: 'blur(8px)',
-                WebkitBackdropFilter: 'blur(8px)',
-              }}
-            >
-              {(!currentUser?.userImageUrl || currentUser?.userImageUrl === '') && 
-                `${currentUser?.userName?.[0] || 'U'}${currentUser?.userLastName?.[0] || ''}`}
-            </Avatar>
+            <SmartAvatar 
+              user={currentUser}
+              avatarVariant="glass"
+              size={32}
+            />
             <Box flex={1}>
               <input
                 type="text"

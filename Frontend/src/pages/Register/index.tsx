@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import { useAppDispatch } from '../../store/store';
 import { loginUser } from '../../store/slices/authSlice';
@@ -33,8 +33,55 @@ const Register = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [roleCounts, setRoleCounts] = useState({
+    Customer: 0,
+    Moderator: 0,
+    Admin: 0,
+    Superadmin: 0
+  });
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
+
+  // Fetch role counts on component mount
+  useEffect(() => {
+    const fetchRoleCounts = async () => {
+      try {
+        const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+        const response = await fetch(`${API_BASE_URL}/user-management/users`, {
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          if (result.success) {
+            const counts = {
+              Customer: 0,
+              Moderator: 0,
+              Admin: 0,
+              Superadmin: 0
+            };
+
+            result.data.forEach((user: any) => {
+              user.roles.forEach((role: string) => {
+                if (counts.hasOwnProperty(role)) {
+                  counts[role as keyof typeof counts]++;
+                }
+              });
+            });
+
+            setRoleCounts(counts);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching role counts:', error);
+      }
+    };
+
+    fetchRoleCounts();
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -137,7 +184,7 @@ const Register = () => {
         customClass: {
           popup: 'swal2-success-dialog'
         },
-        html: true
+        // html: true
       });
 
       // Automatically log in the user after registration
@@ -299,6 +346,9 @@ const Register = () => {
               value={formData.selectedRole}
               onChange={(value) => setFormData(prev => ({ ...prev, selectedRole: value }))}
               disabled={isLoading}
+              roleCounts={roleCounts}
+              showCounts={true}
+              currentUserRole=""
             />
             
             <TextField

@@ -86,11 +86,11 @@ const getRoleColor = (role: string) => {
     case 'Superadmin':
       return 'error';
     case 'Admin':
-      return 'warning';
+      return 'primary';
     case 'Moderator':
-      return 'info';
+      return 'warning';
     default:
-      return 'default';
+      return 'success';
   }
 };
 
@@ -106,6 +106,31 @@ const UsersPage = () => {
     removeRoleFromUser,
     deleteUser
   } = useUsersManagement();
+
+  // Calculate role counts
+  const getRoleCounts = () => {
+    const counts = {
+      'Superadmin': 0,
+      'Admin': 0,
+      'Moderator': 0,
+      'Customer': 0
+    };
+
+    users.forEach(user => {
+      user.roles.forEach(role => {
+        if (counts.hasOwnProperty(role)) {
+          counts[role as keyof typeof counts]++;
+        }
+      });
+    });
+
+    return counts;
+  };
+
+  const roleCounts = getRoleCounts();
+
+  // Check if Super Admin is already taken
+  const isSuperAdminTaken = roleCounts.Superadmin >= 1;
 
   const [assignRoleDialog, setAssignRoleDialog] = useState<{
     open: boolean;
@@ -141,8 +166,21 @@ const UsersPage = () => {
     if (!assignRoleDialog.user || !assignRoleDialog.selectedRole) return;
 
     try {
-      // Find the role ID from the selected role name
+      // Check if trying to assign Super Admin when it's already taken
       const normalizedSelectedRole = normalizeRoleName(assignRoleDialog.selectedRole);
+      if (normalizedSelectedRole === 'Superadmin' && isSuperAdminTaken && assignRoleDialog.selectedRole !== "SUPER_ADMIN") {
+        await Swal.fire({
+          icon: 'warning',
+          title: 'Super Admin Already Assigned',
+          text: 'There can only be one Super Admin in the system. Please remove the existing Super Admin role before assigning a new one.',
+          customClass: {
+            popup: 'swal2-warning-dialog'
+          }
+        });
+        return;
+      }
+
+      // Find the role ID from the selected role name
       const selectedRoleObj = roles.find(r => r.roleName === normalizedSelectedRole);
       
       if (!selectedRoleObj) {
@@ -191,7 +229,7 @@ const UsersPage = () => {
     }
 
     handleAssignRoleClose();
-  }, [assignRoleDialog, roles, assignRoleToUser, handleAssignRoleClose]);
+  }, [assignRoleDialog, roles, assignRoleToUser, handleAssignRoleClose, isSuperAdminTaken]);
 
   const handleRoleChange = useCallback((role: string) => {
     setAssignRoleDialog(prev => ({
@@ -391,28 +429,106 @@ const UsersPage = () => {
                 label="Role"
                 onChange={(e) => handleRoleChange(e.target.value)}
               >
-                <MenuItem value="SUPER_ADMIN">
-                  <Box display="flex" alignItems="center" gap={1}>
-                    <AdminIcon fontSize="small" />
-                    Super Admin
+                <MenuItem 
+                  value="SUPER_ADMIN"
+                  disabled={isSuperAdminTaken && assignRoleDialog.selectedRole !== "SUPER_ADMIN"}
+                >
+                  <Box display="flex" alignItems="center" gap={1} justifyContent="space-between" width="100%">
+                    <Box display="flex" alignItems="center" gap={1}>
+                      <AdminIcon fontSize="small" />
+                      <Box>
+                        <Typography variant="body2" sx={{ 
+                          color: '#F44336',
+                          fontWeight: 'bold',
+                          textShadow: theme.palette.mode === 'dark' ? '0 1px 2px rgba(0,0,0,0.3)' : 'none'
+                        }}>
+                          Super Admin
+                          {isSuperAdminTaken && (
+                            <Typography component="span" variant="caption" color="error.main" sx={{ ml: 1, fontWeight: 600 }}>
+                              (Already assigned)
+                            </Typography>
+                          )}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary" display="block">
+                          🔥 Complete system control. Only one allowed.
+                        </Typography>
+                      </Box>
+                    </Box>
+                    <Chip 
+                      label={`${roleCounts.Superadmin}/1`} 
+                      size="small" 
+                      color={isSuperAdminTaken ? "error" : "success"}
+                      variant="outlined"
+                    />
                   </Box>
                 </MenuItem>
                 <MenuItem value="ADMIN">
-                  <Box display="flex" alignItems="center" gap={1}>
-                    <SupervisorIcon fontSize="small" />
-                    Admin
+                  <Box display="flex" alignItems="center" gap={1} justifyContent="space-between" width="100%">
+                    <Box display="flex" alignItems="center" gap={1}>
+                      <SupervisorIcon fontSize="small" />
+                      <Box>
+                        <Typography variant="body2" sx={{ 
+                          color: '#2196F3',
+                          fontWeight: 'bold',
+                          textShadow: theme.palette.mode === 'dark' ? '0 1px 2px rgba(0,0,0,0.3)' : 'none'
+                        }}>Admin</Typography>
+                        <Typography variant="caption" color="text.secondary" display="block">
+                          ⚙️ Can manage users, customers, tasks, and system settings.
+                        </Typography>
+                      </Box>
+                    </Box>
+                    <Chip 
+                      label={roleCounts.Admin} 
+                      size="small" 
+                      color="primary"
+                      variant="outlined"
+                    />
                   </Box>
                 </MenuItem>
                 <MenuItem value="MODERATOR">
-                  <Box display="flex" alignItems="center" gap={1}>
-                    <PersonAddIcon fontSize="small" />
-                    Moderator
+                  <Box display="flex" alignItems="center" gap={1} justifyContent="space-between" width="100%">
+                    <Box display="flex" alignItems="center" gap={1}>
+                      <PersonAddIcon fontSize="small" />
+                      <Box>
+                        <Typography variant="body2" sx={{ 
+                          color: '#FF9800',
+                          fontWeight: 'bold',
+                          textShadow: theme.palette.mode === 'dark' ? '0 1px 2px rgba(0,0,0,0.3)' : 'none'
+                        }}>Moderator</Typography>
+                        <Typography variant="caption" color="text.secondary" display="block">
+                          🛡️ Can view and moderate users, customers, and tasks.
+                        </Typography>
+                      </Box>
+                    </Box>
+                    <Chip 
+                      label={roleCounts.Moderator} 
+                      size="small" 
+                      color="warning"
+                      variant="outlined"
+                    />
                   </Box>
                 </MenuItem>
                 <MenuItem value="CUSTOMER">
-                  <Box display="flex" alignItems="center" gap={1}>
-                    <PersonIcon fontSize="small" />
-                    Customer
+                  <Box display="flex" alignItems="center" gap={1} justifyContent="space-between" width="100%">
+                    <Box display="flex" alignItems="center" gap={1}>
+                      <PersonIcon fontSize="small" />
+                      <Box>
+                        <Typography variant="body2" sx={{ 
+                          color: '#4CAF50',
+                          fontWeight: 'bold',
+                          textShadow: theme.palette.mode === 'dark' ? '0 1px 2px rgba(0,0,0,0.3)' : 'none'
+                        }}>Customer</Typography>
+                        <Typography variant="caption" color="text.secondary" display="block">
+                          👤 Regular user access with basic features.
+                        </Typography>
+                      </Box>
+                    </Box>
+                    <Chip 
+                      label={roleCounts.Customer} 
+                      size="small" 
+                      color="default"
+                      variant="outlined"
+                    />
                   </Box>
                 </MenuItem>
               </Select>

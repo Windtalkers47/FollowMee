@@ -77,41 +77,26 @@ const SchedulePage = () => {
     queryFn: userApi.getUsers,
   });
 
-  // Extract booked dates from existing tasks
+  // Extract dates only for current task being edited
   const getBookedDates = (): Date[] => {
-    if (!tasksResponse?.tasks) return [];
-    
     const dates: Date[] = [];
-    tasksResponse.tasks.forEach((task: Task) => {
-      // Handle date ranges
-      if (task.startDate && task.endDate) {
-        const start = parseISO(task.startDate);
-        const end = parseISO(task.endDate);
+    
+    // Only include dates from current editing task
+    // For new tasks (editingTask is undefined), return empty array
+    if (editingTask) {
+      if (editingTask.startDate && editingTask.endDate) {
+        const start = parseISO(editingTask.startDate);
+        const end = parseISO(editingTask.endDate);
         const current = new Date(start);
         while (current <= end) {
           dates.push(new Date(current));
           current.setDate(current.getDate() + 1);
         }
-      }
-      // Handle single due dates
-      else if (task.dueDate) {
-        dates.push(parseISO(task.dueDate));
-      }
-      // Fallback to createdAt for booking indication
-      else if (task.createdAt) {
-        dates.push(parseISO(task.createdAt));
-      }
-    });
-    
-    // Also include dates from the current editing task
-    if (editingTask) {
-      if (editingTask.startDate && editingTask.endDate) {
-        dates.push(parseISO(editingTask.startDate));
-        dates.push(parseISO(editingTask.endDate));
       } else if (editingTask.dueDate) {
         dates.push(parseISO(editingTask.dueDate));
       }
     }
+    // For new tasks, calendar will be empty (no green highlighting)
     
     return dates;
   };

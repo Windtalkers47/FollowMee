@@ -1,36 +1,33 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
   Button,
   TextField,
   InputAdornment,
-  Chip,
-  Tabs,
-  Tab,
   Grid,
+  CircularProgress,
+  Alert,
   FormControl,
   InputLabel,
   Select,
   MenuItem,
-  CircularProgress,
-  Alert,
   Fab,
-  Snackbar
+  useTheme
 } from '@mui/material';
 import {
   Search as SearchIcon,
-  FilterList as FilterListIcon,
   Add as AddIcon,
   Refresh as RefreshIcon
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format, parseISO } from 'date-fns';
 import { useAppSelector } from '../../store/store';
+import Swal from 'sweetalert2';
 import { taskApi, Task, CreateTaskData, UpdateTaskData, TaskLikeSummary } from '../../api/task.api';
 import { userApi } from '../../api/user.api';
 import { likeApi } from '../../api/task.api';
-import TaskCard from '../../components/TaskCard';
+import { ScheduleTaskCard } from '../../components/ScheduleTaskCard';
 import { TaskForm } from '../../components/TaskForm/TaskForm';
 
 /* ================== Types ================== */
@@ -53,14 +50,31 @@ const TabPanel = ({ children, value, index }: TabPanelProps) => (
 
 /* ================== Page ================== */
 const SchedulePage = () => {
+  const theme = useTheme();
   const [activeTab, setActiveTab] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<TaskStatus | 'all'>('all');
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | undefined>();
+  const [taskLikeSummaries, setTaskLikeSummaries] = useState<Record<string, TaskLikeSummary>>({});
 
   const { user } = useAppSelector((state) => state.auth);
   const queryClient = useQueryClient();
+
+  // Theme-aware colors
+  const isDarkMode = theme.palette.mode === 'dark';
+  const glassBgColor = isDarkMode 
+    ? 'rgba(255, 255, 255, 0.08)' 
+    : 'rgba(255, 255, 255, 0.7)';
+  const glassBorderColor = isDarkMode 
+    ? 'rgba(255, 255, 255, 0.15)' 
+    : 'rgba(0, 0, 0, 0.1)';
+  const defaultTextColor = isDarkMode 
+    ? 'rgba(255, 255, 255, 0.9)' 
+    : 'rgba(0, 0, 0, 0.8)';
+  const mutedTextColor = isDarkMode 
+    ? 'rgba(255, 255, 255, 0.7)' 
+    : 'rgba(0, 0, 0, 0.6)';
 
   // Fetch tasks
   const { data: tasksResponse, isLoading, error, refetch } = useQuery({
@@ -150,9 +164,34 @@ const SchedulePage = () => {
   });
 
   const markTaskUndoneMutation = useMutation({
-    mutationFn: taskApi.markTaskAsUndone,
+    mutationFn: (taskId: string) => taskApi.markTaskAsUndone(taskId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      refetch();
+    },
+  });
+
+  const approveTaskMutation = useMutation({
+    mutationFn: (taskId: string) => taskApi.approveTask(taskId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      refetch();
+    },
+  });
+
+  const startProgressMutation = useMutation({
+    mutationFn: (taskId: string) => taskApi.startProgress(taskId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      refetch();
+    },
+  });
+
+  const cancelTaskMutation = useMutation({
+    mutationFn: (taskId: string) => taskApi.cancelTask(taskId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      refetch();
     },
   });
 
@@ -181,6 +220,182 @@ const SchedulePage = () => {
     markTaskUndoneMutation.mutate(taskId);
   };
 
+  const handleApproveTask = async (taskId: string) => {
+    const result = await Swal.fire({
+      title: 'Approve Task',
+      text: 'Are you sure you want to approve this task? This will mark it as completed.',
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#10b981',
+      // confirmButtonColor: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+      cancelButtonColor: '#d32f2f',
+      confirmButtonText: 'Yes, approve it!',
+      cancelButtonText: 'Cancel',
+      reverseButtons: true,
+      showLoaderOnConfirm: true,
+      preConfirm: () => {
+        Swal.showLoading();
+        return approveTaskMutation.mutateAsync(taskId);
+      }
+    });
+
+    if (result.isConfirmed) {
+      await Swal.fire({
+        title: 'Approved!',
+        text: 'Task has been approved successfully.',
+        icon: 'success',
+        timer: 2000,
+        showConfirmButton: false
+      });
+    }
+  };
+
+  const handleRejectTask = async (taskId: string) => {
+    const result = await Swal.fire({
+      title: 'Reject Task',
+      text: 'Are you sure you want to reject this task? This will send it back to the assignee.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#f44336',
+      cancelButtonColor: '#757575',
+      confirmButtonText: 'Yes, reject it!',
+      cancelButtonText: 'Cancel',
+      reverseButtons: true,
+      showLoaderOnConfirm: true,
+      preConfirm: () => {
+        Swal.showLoading();
+        return markTaskUndoneMutation.mutateAsync(taskId);
+      }
+    });
+
+    if (result.isConfirmed) {
+      await Swal.fire({
+        title: 'Rejected!',
+        text: 'Task has been rejected and sent back.',
+        icon: 'success',
+        timer: 2000,
+        showConfirmButton: false
+      });
+    }
+  };
+
+  const handleUndoTask = async (taskId: string) => {
+    const result = await Swal.fire({
+      title: 'Reopen Task?',
+      text: 'Are you sure you want to reopen this completed task? This will move it back to progress.',
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#ff9800',
+      cancelButtonColor: '#757575',
+      confirmButtonText: 'Yes, reopen it!',
+      cancelButtonText: 'Cancel',
+      reverseButtons: true,
+      showLoaderOnConfirm: true,
+      preConfirm: () => {
+        Swal.showLoading();
+        return markTaskUndoneMutation.mutateAsync(taskId);
+      }
+    });
+
+    if (result.isConfirmed) {
+      await Swal.fire({
+        title: 'Task Reopened! ',
+        html: `
+          <div style="text-align: center;">
+            <p>No worries! The task has been reopened for improvement.</p>
+            <div style="margin: 20px 0; padding: 16px; background: #fff3cd; border: 2px solid #ffc107; border-radius: 8px;">
+              <h4 style="margin: 0 0 8px 0; color: #f57c00;">💡 Take your time and do your best!</h4>
+              <p style="margin: 0; color: #666;">You've got this! Every setback is a setup for a comeback!</p>
+            </div>
+          </div>
+        `,
+        icon: 'info',
+        confirmButtonText: 'Got it!',
+        confirmButtonColor: '#ff9800',
+        timer: 2000,
+        showConfirmButton: true
+      });
+    }
+  };
+
+  const handleCancelTask = async (taskId: string) => {
+    const result = await Swal.fire({
+      title: 'Cancel Task?',
+      text: 'Are you sure you want to cancel this task? This will move it to the cancelled tab.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ff9800',
+      cancelButtonColor: '#757575',
+      confirmButtonText: 'Yes, cancel it!',
+      cancelButtonText: 'No, keep it',
+      reverseButtons: true,
+      showLoaderOnConfirm: true,
+      preConfirm: () => {
+        Swal.showLoading();
+        return cancelTaskMutation.mutateAsync(taskId);
+      }
+    });
+
+    if (result.isConfirmed) {
+      await Swal.fire({
+        title: 'Task Cancelled',
+        text: 'The task has been moved to cancelled.',
+        icon: 'info',
+        timer: 2000,
+        showConfirmButton: false
+      });
+    }
+  };
+
+  const handleStartProgress = async (taskId: string) => {
+    const result = await Swal.fire({
+      title: 'Start Working?',
+      text: 'Ready to start working on this task? Let\'s do this! ',
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#ff9800',
+      cancelButtonColor: '#757575',
+      confirmButtonText: 'Let\'s go! ',
+      cancelButtonText: 'Not yet',
+      reverseButtons: true,
+      showLoaderOnConfirm: true,
+      preConfirm: () => {
+        Swal.showLoading();
+        return startProgressMutation.mutateAsync(taskId);
+      }
+    });
+
+    if (result.isConfirmed) {
+      await Swal.fire({
+        title: 'Let\'s Get Started! ',
+        html: `
+          <div style="text-align: center;">
+            <p>Awesome! You're now working on this task. </p>
+            <div style="margin: 20px 0; padding: 16px; background: #e3f2fd; border: 2px solid #2196f3; border-radius: 8px;">
+              <h4 style="margin: 0 0 8px 0; color: #1976d2;"> You've got this! </h4>
+              <p style="margin: 0; color: #666;">Time to make some progress! </p>
+            </div>
+          </div>
+        `,
+        icon: 'success',
+        confirmButtonText: 'Working on it!',
+        confirmButtonColor: '#2196f3',
+        timer: 3000,
+        showConfirmButton: true
+      });
+    }
+  };
+
+  // Fetch like summaries for tasks
+  const fetchLikeSummary = async (taskId: string) => {
+    try {
+      const summary = await likeApi.getTaskLikeSummary(taskId);
+      setTaskLikeSummaries(prev => ({ ...prev, [taskId]: summary }));
+    } catch (error) {
+      console.error('Error fetching like summary:', error);
+    }
+  };
+
   const filteredTasks = tasksResponse?.tasks || [];
 
   const groupedTasks = {
@@ -193,41 +408,112 @@ const SchedulePage = () => {
     cancelled: filteredTasks.filter(task => task.status === 'cancelled'),
   };
 
+  // Load like summaries for visible tasks
+  useEffect(() => {
+    filteredTasks?.forEach(task => {
+      if (!taskLikeSummaries[task.taskId]) {
+        fetchLikeSummary(task.taskId);
+      }
+    });
+  }, [filteredTasks, taskLikeSummaries]);
+
   const tabs = [
-    { label: 'All Tasks', key: 'all' as const },
-    { label: 'Drafts', key: 'draft' as const },
-    { label: 'To Do', key: 'todo' as const },
-    { label: 'In Progress', key: 'in_progress' as const },
-    { label: 'Review', key: 'review' as const },
-    { label: 'Done', key: 'done' as const },
-    { label: 'Cancelled', key: 'cancelled' as const },
+    { 
+      label: 'All Tasks', 
+      key: 'all' as const,
+      color: '#757575' // Gray for all
+    },
+    { 
+      label: 'Drafts', 
+      key: 'draft' as const,
+      color: '#9e9e9e' // Gray for draft
+    },
+    { 
+      label: 'To Do', 
+      key: 'todo' as const,
+      color: '#2196f3' // Blue for todo
+    },
+    { 
+      label: 'In Progress', 
+      key: 'in_progress' as const,
+      color: '#ff9800' // Orange for in progress
+    },
+    { 
+      label: 'Review', 
+      key: 'review' as const,
+      color: '#9c27b0' // Purple for review
+    },
+    { 
+      label: 'Done', 
+      key: 'done' as const,
+      color: '#4caf50' // Green for done
+    },
+    { 
+      label: 'Cancelled', 
+      key: 'cancelled' as const,
+      color: '#f44336' // Red for cancelled
+    },
   ];
 
   return (
-    <Box sx={{ width: '100%' }}>
+    <Box sx={{ 
+      width: '100%',
+      maxWidth: '100vw',
+      overflow: 'hidden'
+    }}>
       {/* Header */}
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Typography variant="h4" fontWeight="bold">
+      <Box 
+        display="flex" 
+        justifyContent="space-between" 
+        alignItems="center" 
+        mb={3}
+        sx={{
+          px: { xs: 2, sm: 3, md: 4 },
+          flexDirection: { xs: 'column', sm: 'row' },
+          gap: { xs: 2, sm: 0 }
+        }}
+      >
+        <Typography 
+          variant="h4" 
+          fontWeight="bold"
+          sx={{
+            fontSize: { xs: '1.75rem', sm: '2.125rem', md: '2.5rem' }
+          }}
+        >
           Task Management
         </Typography>
         <Button
           startIcon={<AddIcon />}
           variant="contained"
           onClick={() => setTaskDialogOpen(true)}
+          sx={{
+            px: { xs: 3, sm: 4 },
+            py: { xs: 1.5, sm: 2 }
+          }}
         >
           Create Task
         </Button>
       </Box>
 
       {/* Search and Filters */}
-      <Box sx={{ mb: 3 }}>
-        <Grid container spacing={2}>
-          <Grid size={{ xs: 12, md: 6 }}>
+      <Box 
+        sx={{ 
+          mb: 3,
+          px: { xs: 2, sm: 3, md: 4 }
+        }}
+      >
+        <Grid container spacing={{ xs: 2, sm: 3 }}>
+          <Grid size={{ xs: 12, md: 6, lg: 7 }}>
             <TextField
               fullWidth
               placeholder="Search tasks..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              sx={{
+                '& .MuiInputBase-root': {
+                  fontSize: { xs: '0.875rem', sm: '1rem' }
+                }
+              }}
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
@@ -237,13 +523,18 @@ const SchedulePage = () => {
               }}
             />
           </Grid>
-          <Grid size={{ xs: 12, md: 3 }}>
+          <Grid size={{ xs: 12, sm: 6, md: 3, lg: 2.5 }}>
             <FormControl fullWidth>
               <InputLabel>Status Filter</InputLabel>
               <Select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value as TaskStatus | 'all')}
                 label="Status Filter"
+                sx={{
+                  '& .MuiSelect-select': {
+                    fontSize: { xs: '0.875rem', sm: '1rem' }
+                  }
+                }}
               >
                 <MenuItem value="all">All Status</MenuItem>
                 <MenuItem value="draft">Draft</MenuItem>
@@ -255,12 +546,16 @@ const SchedulePage = () => {
               </Select>
             </FormControl>
           </Grid>
-          <Grid size={{ xs: 12, md: 3 }}>
+          <Grid size={{ xs: 12, sm: 6, md: 3, lg: 2.5 }}>
             <Button
               fullWidth
               startIcon={<RefreshIcon />}
               onClick={() => refetch()}
               disabled={isLoading}
+              sx={{
+                fontSize: { xs: '0.875rem', sm: '1rem' },
+                py: { xs: 1.5, sm: 2 }
+              }}
             >
               Refresh
             </Button>
@@ -269,21 +564,118 @@ const SchedulePage = () => {
       </Box>
 
       {/* Status Tabs */}
-      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
-        <Tabs value={activeTab} onChange={(_, newValue) => setActiveTab(newValue)}>
-          {tabs.map((tab, index) => (
-            <Tab
-              key={tab.key}
-              label={`${tab.label} (${groupedTasks[tab.key].length})`}
-              {...{ id: `task-tab-${index}`, 'aria-controls': `task-tabpanel-${index}` }}
-            />
-          ))}
-        </Tabs>
+      <Box 
+        sx={{ 
+          mb: 3,
+          px: { xs: 2, sm: 3, md: 4 }
+        }}
+      >
+        <Box 
+          sx={{
+            display: 'flex',
+            gap: 1,
+            p: 1.5,
+            background: glassBgColor,
+            backdropFilter: 'blur(20px)',
+            borderRadius: 3,
+            border: `1px solid ${glassBorderColor}`,
+            flexWrap: 'wrap',
+            overflowX: 'auto'
+          }}
+        >
+          {tabs.map((tab, index) => {
+            const isActive = activeTab === index;
+            const taskCount = groupedTasks[tab.key].length;
+            
+            return (
+              <Button
+                key={tab.key}
+                onClick={() => setActiveTab(index)}
+                sx={{
+                  px: 2.5,
+                  py: 1.5,
+                  borderRadius: 2,
+                  fontSize: { xs: '0.875rem', sm: '1rem', md: '1.125rem' },
+                  fontWeight: isActive ? 700 : 500,
+                  background: isActive 
+                    ? `${tab.color}CC` // Semi-transparent color when active
+                    : `${tab.color}15`, // Very transparent when inactive
+                  color: isActive 
+                    ? 'white' 
+                    : defaultTextColor,
+                  border: `2px solid ${isActive ? tab.color : `${tab.color}40`}`,
+                  backdropFilter: 'blur(10px)',
+                  transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                  minWidth: 'fit-content',
+                  textTransform: 'none',
+                  position: 'relative',
+                  overflow: 'hidden',
+                  '&:hover': {
+                    background: isActive 
+                      ? `${tab.color}E6` // More opaque on hover
+                      : `${tab.color}25`, // Slightly more opaque on hover
+                    borderColor: tab.color,
+                    transform: 'translateY(-1px)',
+                    boxShadow: `0 4px 20px ${tab.color}40`,
+                    color: isActive 
+                      ? 'white' 
+                      : tab.color,
+                  },
+                  '&:active': {
+                    transform: 'translateY(0)'
+                  },
+                  '&::before': {
+                    content: '""',
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    height: '100%',
+                    background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.3), transparent)',
+                    opacity: isActive ? 1 : 0,
+                    transition: 'opacity 0.2s ease'
+                  }
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, position: 'relative', zIndex: 1 }}>
+                  <Typography variant="inherit" sx={{ lineHeight: 1 }}>
+                    {tab.label}
+                  </Typography>
+                  <Box 
+                    sx={{
+                      px: 1,
+                      py: 0.25,
+                      borderRadius: 1,
+                      fontSize: '0.75rem',
+                      background: isActive 
+                        ? 'rgba(255, 255, 255, 0.3)' 
+                        : `${tab.color}30`,
+                      color: isActive 
+                        ? 'white' 
+                        : tab.color,
+                      fontWeight: 700,
+                      minWidth: '24px',
+                      textAlign: 'center'
+                    }}
+                  >
+                    {taskCount}
+                  </Box>
+                </Box>
+              </Button>
+            );
+          })}
+        </Box>
       </Box>
 
       {/* Error Display */}
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
+        <Alert 
+          severity="error" 
+          sx={{ 
+            mb: 2,
+            mx: { xs: 2, sm: 3, md: 4 }
+          }}
+        >
           Failed to load tasks. Please try again.
         </Alert>
       )}
@@ -296,52 +688,61 @@ const SchedulePage = () => {
               <CircularProgress />
             </Box>
           ) : (
-            <Grid container spacing={2}>
+            <Box>
               {groupedTasks[tab.key].length === 0 ? (
-                <Grid size={{ xs: 12 }}>
-                  <Box textAlign="center" py={4}>
-                    <Typography variant="h6" color="text.secondary">
-                      No {tab.label.toLowerCase()} found
-                    </Typography>
-                  </Box>
-                </Grid>
+                <Box textAlign="center" py={8}>
+                  <Typography variant="h6" color="text.secondary" sx={{ mb: 2 }}>
+                    No {tab.label.toLowerCase()} found
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {tab.key === 'all' && 'Try adjusting filters or create a new task'}
+                    {tab.key === 'draft' && 'Drafts are tasks you\'re still working on'}
+                    {tab.key === 'todo' && 'Tasks ready to be started'}
+                    {tab.key === 'in_progress' && 'Tasks currently being worked on'}
+                    {tab.key === 'review' && 'Tasks waiting for approval'}
+                    {tab.key === 'done' && 'Completed tasks - great work!'}
+                    {tab.key === 'cancelled' && 'Cancelled tasks'}
+                  </Typography>
+                </Box>
               ) : (
-                groupedTasks[tab.key].map((task) => {
-                  // Get like summary for this task (would need to fetch this)
-                  const likeSummary: TaskLikeSummary = {
-                    like: task._count?.likes || 0,
-                    love: 0,
-                    laugh: 0,
-                    angry: 0,
-                    wow: 0,
-                    sad: 0,
-                    total: task._count?.likes || 0,
-                    userLike: undefined
-                  };
-
-                  return (
-                    <Grid size={{ xs: 12, md: 6, lg: 4 }} key={task.taskId}>
-                      <TaskCard
-                        task={task}
-                        likeSummary={likeSummary}
-                        currentUserId={user?.userId || 0}
-                        onEdit={(task) => {
-                          setEditingTask(task);
-                          setTaskDialogOpen(true);
-                        }}
-                        onDelete={handleDeleteTask}
-                        onLike={handleLikeTask}
-                        onUnlike={handleUnlikeTask}
-                        onComment={handleCommentTask}
-                        onMarkDone={handleMarkDone}
-                        onMarkUndone={handleMarkUndone}
-                        showActions={true}
-                      />
-                    </Grid>
-                  );
-                })
+                <Box sx={{ px: { xs: 2, sm: 3, md: 4 } }}>
+                  <Grid container spacing={{ xs: 2, sm: 3, md: 3 }}>
+                    {groupedTasks[tab.key].map((task) => (
+                      <Grid 
+                        size={{ 
+                          xs: 12,      // Mobile: full width
+                          sm: 6,       // Tablet: 2 columns
+                          md: 4,       // Desktop: 3 columns
+                          lg: 3,       // Large: 4 columns
+                          xl: 2.4      // Extra large: 5 columns
+                        }} 
+                        key={task.taskId}
+                      >
+                        <ScheduleTaskCard
+                          task={task}
+                          likeSummary={taskLikeSummaries[task.taskId]}
+                          currentUserId={user?.userId || 0}
+                          onEdit={(task: Task) => {
+                            setEditingTask(task);
+                            setTaskDialogOpen(true);
+                          }}
+                          onDelete={handleDeleteTask}
+                          onComment={handleCommentTask}
+                          onMarkDone={handleMarkDone}
+                          onMarkUndone={handleMarkUndone}
+                          onUndo={handleUndoTask}
+                          onApprove={handleApproveTask}
+                          onReject={handleRejectTask}
+                          onCancel={handleCancelTask}
+                          onStartProgress={handleStartProgress}
+                          showActions={true}
+                        />
+                      </Grid>
+                    ))}
+                  </Grid>
+                </Box>
               )}
-            </Grid>
+            </Box>
           )}
         </TabPanel>
       ))}

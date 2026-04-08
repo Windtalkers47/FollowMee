@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useAppSelector } from '../store/store';
-import { showDeleteConfirm } from '../utils/toast';
+import Swal from 'sweetalert2';
 import {
   Card,
   Typography,
@@ -18,6 +18,7 @@ import {
   Stack,
   Divider,
   useTheme,
+  useMediaQuery,
 } from '@mui/material';
 import {
   MoreVert as MoreVertIcon,
@@ -43,6 +44,8 @@ interface TaskCardProps {
   onMarkDone?: (taskId: string) => void;
   onMarkUndone?: (taskId: string) => void;
   onApproveTask?: (taskId: string) => void;
+  onStartProgress?: (taskId: string) => void;
+  onCancel?: (taskId: string) => void;
   showActions?: boolean;
   compact?: boolean;
   // Liquid Glass UI Controls
@@ -82,6 +85,8 @@ const TaskCard: React.FC<TaskCardProps> = ({
   onMarkDone,
   onMarkUndone,
   onApproveTask,
+  onStartProgress,
+  onCancel,
   showActions = true,
   compact = false,
   // Liquid Glass UI Controls with defaults
@@ -95,6 +100,12 @@ const TaskCard: React.FC<TaskCardProps> = ({
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [showComments, setShowComments] = useState(false);
   const [showImagePreview, setShowImagePreview] = useState(false);
+  
+  // Mobile swipe detection
+  const swipeRef = useRef<HTMLDivElement>(null);
+  const [touchStart, setTouchStart] = useState<number | null>(null);
+  const [touchEnd, setTouchEnd] = useState<number | null>(null);
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   // Liquid Glass UI Style Presets
   const glassPresets = {
@@ -126,6 +137,33 @@ const TaskCard: React.FC<TaskCardProps> = ({
   const canDelete = task.createdBy === currentUserId;
   const canUpdateStatus = task.assignedTo === currentUserId || task.createdBy === currentUserId;
   const canUndone = task.createdBy === currentUserId || task.assignedTo === currentUserId;
+  const canStartProgress = task.assignedTo === currentUserId && task.status === 'todo';
+  const canCancel = (task.createdBy === currentUserId || task.assignedTo === currentUserId) && 
+    (task.status === 'draft' || task.status === 'todo' || task.status === 'in_progress');
+
+  // Swipe handlers
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setTouchEnd(null);
+    setTouchStart(e.targetTouches[0].clientX);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    setTouchEnd(e.targetTouches[0].clientX);
+  };
+
+  const handleTouchEnd = () => {
+    if (!touchStart || !touchEnd) return;
+    
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance < -50; // Swipe right (negative distance)
+    
+    if (isLeftSwipe && canStartProgress && onStartProgress) {
+      onStartProgress(task.taskId);
+    }
+    
+    setTouchStart(null);
+    setTouchEnd(null);
+  };
 
   // Calculate engagement metrics
   const totalReactions = likeSummary?.total || 0;
@@ -731,6 +769,64 @@ const TaskCard: React.FC<TaskCardProps> = ({
             </Box>
           </Stack>
 
+          {/* Swipe to Start Progress - Only for todo tasks assigned to current user */}
+          {canStartProgress && onStartProgress && (
+            <Box
+              ref={swipeRef}
+              sx={{
+                position: 'absolute',
+                bottom: 60,
+                left: 16,
+                right: 16,
+                p: 1,
+                background: theme.palette.mode === 'dark'
+                  ? 'linear-gradient(90deg, rgba(33, 150, 243, 0.15), rgba(33, 150, 243, 0.08))'
+                  : 'linear-gradient(90deg, rgba(33, 150, 243, 0.15), rgba(33, 150, 243, 0.08))',
+                border: `1px dashed ${theme.palette.mode === 'dark' ? 'rgba(33, 150, 243, 0.4)' : 'rgba(33, 150, 243, 0.5)'}`,
+                borderRadius: 2,
+                cursor: isMobile ? 'default' : 'pointer',
+                transition: 'all 0.3s ease',
+                overflow: 'hidden',
+                backdropFilter: 'blur(8px)',
+                WebkitBackdropFilter: 'blur(8px)',
+                userSelect: 'none',
+                WebkitUserSelect: 'none',
+                touchAction: 'pan-y',
+                '&:hover': !isMobile ? {
+                  background: theme.palette.mode === 'dark'
+                    ? 'linear-gradient(90deg, rgba(33, 150, 243, 0.25), rgba(33, 150, 243, 0.15))'
+                    : 'linear-gradient(90deg, rgba(33, 150, 243, 0.25), rgba(33, 150, 243, 0.15))',
+                  borderColor: theme.palette.mode === 'dark' ? 'rgba(33, 150, 243, 0.6)' : 'rgba(33, 150, 243, 0.7)',
+                  transform: 'translateX(4px)',
+                } : {},
+                '&::before': {
+                  content: isMobile ? '"Swipe right to start working  »"' : '"Click to start working  »"',
+                  position: 'absolute',
+                  top: '50%',
+                  left: '50%',
+                  transform: 'translate(-50%, -50%)',
+                  color: theme.palette.mode === 'dark' ? 'rgba(33, 150, 243, 0.9)' : 'rgba(33, 150, 243, 0.95)',
+                  fontSize: '0.7rem',
+                  fontWeight: 500,
+                  whiteSpace: 'nowrap',
+                  pointerEvents: 'none',
+                },
+                '&:active': !isMobile ? {
+                  transform: 'translateX(8px)',
+                  background: theme.palette.mode === 'dark'
+                    ? 'linear-gradient(90deg, rgba(33, 150, 243, 0.35), rgba(33, 150, 243, 0.25))'
+                    : 'linear-gradient(90deg, rgba(33, 150, 243, 0.35), rgba(33, 150, 243, 0.25))',
+                } : {}
+              }}
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
+              onClick={!isMobile ? () => onStartProgress(task.taskId) : undefined}
+            >
+              <Box sx={{ height: 32 }} />
+            </Box>
+          )}
+
           {/* Glass Mark Done/Undone Buttons - Positioned at Bottom Right */}
           <Box sx={{ 
             position: 'absolute',
@@ -900,8 +996,18 @@ const TaskCard: React.FC<TaskCardProps> = ({
         )}
         {canDelete && (
           <MenuItem onClick={() => {
-            showDeleteConfirm('this task').then((confirmed) => {
-              if (confirmed) {
+            Swal.fire({
+              title: 'Are you sure?',
+              text: 'You won\'t be able to revert this task!',
+              icon: 'warning',
+              showCancelButton: true,
+              confirmButtonColor: '#d33',
+              cancelButtonColor: '#6c757d',
+              confirmButtonText: 'Yes, delete it!',
+              cancelButtonText: 'Cancel',
+              reverseButtons: true
+            }).then((result) => {
+              if (result.isConfirmed) {
                 onDelete?.(task.taskId);
               }
             });

@@ -70,6 +70,8 @@ interface TaskFeedCardProps {
   onMarkDone?: (taskId: string) => void;
   onMarkUndone?: (taskId: string) => void;
   onApproveTask?: (taskId: string) => void;
+  onStartProgress?: (taskId: string) => void;
+  onCancel?: (taskId: string) => void;
 }
 
 const TaskFeedCard: React.FC<TaskFeedCardProps> = ({
@@ -81,6 +83,8 @@ const TaskFeedCard: React.FC<TaskFeedCardProps> = ({
   onMarkDone,
   onMarkUndone,
   onApproveTask,
+  onStartProgress,
+  onCancel,
 }) => {
   const { user } = useAppSelector((state) => state.auth);
 
@@ -95,6 +99,8 @@ const TaskFeedCard: React.FC<TaskFeedCardProps> = ({
       onMarkDone={onMarkDone}
       onMarkUndone={onMarkUndone}
       onApproveTask={onApproveTask}
+      onStartProgress={onStartProgress}
+      onCancel={onCancel}
       showActions={false} // Hide edit/delete actions in feed
       compact={false} // Use full width for better social media feel
     />
@@ -223,6 +229,30 @@ const PostsPage = () => {
     },
   });
 
+  // Start progress mutation (for todo to in_progress)
+  const startProgressMutation = useMutation({
+    mutationFn: (taskId: string) => taskApi.startProgress(taskId),
+    onSuccess: () => {
+      // Invalidate queries to refresh data
+      queryClient.invalidateQueries({ queryKey: ['all-tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['assigned-tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['top-performers'] });
+      queryClient.invalidateQueries({ queryKey: ['user-rank'] });
+    },
+  });
+
+  // Cancel task mutation (for active status to cancelled)
+  const cancelTaskMutation = useMutation({
+    mutationFn: (taskId: string) => taskApi.cancelTask(taskId),
+    onSuccess: () => {
+      // Invalidate queries to refresh data
+      queryClient.invalidateQueries({ queryKey: ['all-tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['assigned-tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['top-performers'] });
+      queryClient.invalidateQueries({ queryKey: ['user-rank'] });
+    },
+  });
+
   // Approve task mutation (for creators to approve from review to done)
   const approveTaskMutation = useMutation({
     mutationFn: (taskId: string) => taskApi.approveTask(taskId),
@@ -337,20 +367,98 @@ const PostsPage = () => {
   };
 
   const handleApproveTask = async (taskId: string) => {
-    // Show confirmation dialog for approval
+    // Show const handleApproveTask = async (taskId: string) => {
     const result = await Swal.fire({
-      title: 'Approve Task?',
-      text: 'This will mark the task as completed and update the assignee\'s rank.',
+      title: 'Approve Task',
+      text: 'Are you sure you want to approve this task? This will mark it as completed.',
       icon: 'question',
       showCancelButton: true,
-      confirmButtonColor: '#10b981',
-      cancelButtonColor: '#6c757d',
-      confirmButtonText: 'Yes, approve',
-      cancelButtonText: 'Cancel'
+      confirmButtonColor: '#4caf50',
+      cancelButtonColor: '#d32f2f',
+      confirmButtonText: 'Yes, approve it!',
+      cancelButtonText: 'Cancel',
+      reverseButtons: true,
+      preConfirm: () => {
+        return markTaskDoneMutation.mutateAsync({ taskId });
+      }
     });
-    
+
     if (result.isConfirmed) {
-      await approveTaskMutation.mutateAsync(taskId);
+      await Swal.fire({
+        title: 'Approved!',
+        text: 'Task has been approved successfully.',
+        icon: 'success',
+        timer: 2000,
+        showConfirmButton: false
+      });
+    }
+  };
+
+  const handleStartProgress = async (taskId: string) => {
+    const result = await Swal.fire({
+      title: 'Start Working?',
+      text: 'Ready to start working on this task? Let\'s do this! ',
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#ff9800',
+      cancelButtonColor: '#757575',
+      confirmButtonText: 'Let\'s go! ',
+      cancelButtonText: 'Not yet',
+      reverseButtons: true,
+      showLoaderOnConfirm: true,
+      preConfirm: () => {
+        Swal.showLoading();
+        return startProgressMutation.mutateAsync(taskId);
+      }
+    });
+
+    if (result.isConfirmed) {
+      await Swal.fire({
+        title: 'Let\'s Get Started! ',
+        html: `
+          <div style="text-align: center;">
+            <p>Awesome! You're now working on this task. </p>
+            <div style="margin: 20px 0; padding: 16px; background: #e3f2fd; border: 2px solid #2196f3; border-radius: 8px;">
+              <h4 style="margin: 0 0 8px 0; color: #1976d2;"> You've got this! </h4>
+              <p style="margin: 0; color: #666;">Time to make some progress! </p>
+            </div>
+          </div>
+        `,
+        icon: 'success',
+        confirmButtonText: 'Working on it!',
+        confirmButtonColor: '#2196f3',
+        timer: 3000,
+        showConfirmButton: true
+      });
+    }
+  };
+
+  const handleCancelTask = async (taskId: string) => {
+    const result = await Swal.fire({
+      title: 'Cancel Task?',
+      text: 'Are you sure you want to cancel this task? This will move it to the cancelled tab.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ff9800',
+      cancelButtonColor: '#757575',
+      confirmButtonText: 'Yes, cancel it!',
+      cancelButtonText: 'No, keep it',
+      reverseButtons: true,
+      showLoaderOnConfirm: true,
+      preConfirm: () => {
+        Swal.showLoading();
+        return cancelTaskMutation.mutateAsync(taskId);
+      }
+    });
+
+    if (result.isConfirmed) {
+      await Swal.fire({
+        title: 'Task Cancelled',
+        text: 'The task has been moved to cancelled.',
+        icon: 'info',
+        timer: 2000,
+        showConfirmButton: false
+      });
     }
   };
 

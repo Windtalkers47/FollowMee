@@ -34,6 +34,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAppSelector } from '../../store/store';
 import { taskApi, likeApi, commentApi, Task, TaskLikeSummary, UserRank } from '../../api/task.api';
 import TaskCard from '../../components/TaskCard';
+import Swal from 'sweetalert2';
 
 /* ================== Types ================== */
 type TabPanelProps = {
@@ -68,6 +69,7 @@ interface TaskFeedCardProps {
   onComment?: (taskId: string, comment: string) => void;
   onMarkDone?: (taskId: string) => void;
   onMarkUndone?: (taskId: string) => void;
+  onApproveTask?: (taskId: string) => void;
 }
 
 const TaskFeedCard: React.FC<TaskFeedCardProps> = ({
@@ -78,6 +80,7 @@ const TaskFeedCard: React.FC<TaskFeedCardProps> = ({
   onComment,
   onMarkDone,
   onMarkUndone,
+  onApproveTask,
 }) => {
   const { user } = useAppSelector((state) => state.auth);
 
@@ -91,6 +94,7 @@ const TaskFeedCard: React.FC<TaskFeedCardProps> = ({
       onComment={onComment}
       onMarkDone={onMarkDone}
       onMarkUndone={onMarkUndone}
+      onApproveTask={onApproveTask}
       showActions={false} // Hide edit/delete actions in feed
       compact={false} // Use full width for better social media feel
     />
@@ -181,14 +185,19 @@ const PostsPage = () => {
     },
   });
 
-  // Mark task as done mutation
+  // Mark task as done mutation (now actually submits for review)
   const markTaskDoneMutation = useMutation({
     mutationFn: ({ taskId, data }: { taskId: string; data?: { completionNote?: string } }) =>
       taskApi.markTaskAsDone(taskId, data),
     onSuccess: (response) => {
-      // Show success dialog
-      setDoneTaskData({ task: response.task, newRank: response.userRank });
-      setDoneDialogOpen(true);
+      // Show submit for review dialog instead of completion dialog
+      Swal.fire({
+        icon: 'success',
+        title: 'Task Submitted for Review! ',
+        text: `"${response.task.title}" has been submitted for review. The task creator will review and approve it.`,
+        confirmButtonColor: '#3b82f6',
+        confirmButtonText: 'Got it!'
+      });
       
       // Invalidate queries to refresh data
       queryClient.invalidateQueries({ queryKey: ['all-tasks'] });
@@ -205,6 +214,22 @@ const PostsPage = () => {
       // Show undone dialog
       setUndoneTaskData({ task: response.task, newRank: response.userRank });
       setUndoneDialogOpen(true);
+      
+      // Invalidate queries to refresh data
+      queryClient.invalidateQueries({ queryKey: ['all-tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['assigned-tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['top-performers'] });
+      queryClient.invalidateQueries({ queryKey: ['user-rank'] });
+    },
+  });
+
+  // Approve task mutation (for creators to approve from review to done)
+  const approveTaskMutation = useMutation({
+    mutationFn: (taskId: string) => taskApi.approveTask(taskId),
+    onSuccess: (response) => {
+      // Show success dialog - ONLY when task is actually approved to done
+      setDoneTaskData({ task: response.task, newRank: response.userRank });
+      setDoneDialogOpen(true);
       
       // Invalidate queries to refresh data
       queryClient.invalidateQueries({ queryKey: ['all-tasks'] });
@@ -294,7 +319,39 @@ const PostsPage = () => {
   };
 
   const handleMarkTaskUndone = async (taskId: string) => {
-    await markTaskUndoneMutation.mutateAsync(taskId);
+    // Show confirmation dialog for undo/reject
+    const result = await Swal.fire({
+      title: 'Are you sure?',
+      text: 'This will move the task back to To Do. The assignee will need to work on it again.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#f59e0b',
+      cancelButtonColor: '#6c757d',
+      confirmButtonText: 'Yes, undo it',
+      cancelButtonText: 'Cancel'
+    });
+    
+    if (result.isConfirmed) {
+      await markTaskUndoneMutation.mutateAsync(taskId);
+    }
+  };
+
+  const handleApproveTask = async (taskId: string) => {
+    // Show confirmation dialog for approval
+    const result = await Swal.fire({
+      title: 'Approve Task?',
+      text: 'This will mark the task as completed and update the assignee\'s rank.',
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#10b981',
+      cancelButtonColor: '#6c757d',
+      confirmButtonText: 'Yes, approve',
+      cancelButtonText: 'Cancel'
+    });
+    
+    if (result.isConfirmed) {
+      await approveTaskMutation.mutateAsync(taskId);
+    }
   };
 
   const handleCloseDoneDialog = () => {
@@ -552,6 +609,7 @@ const PostsPage = () => {
                     onComment={handleComment}
                     onMarkDone={handleMarkTaskDone}
                     onMarkUndone={handleMarkTaskUndone}
+                    onApproveTask={handleApproveTask}
                   />
                 </Grid>
               ))
@@ -594,6 +652,7 @@ const PostsPage = () => {
                     onComment={handleComment}
                     onMarkDone={handleMarkTaskDone}
                     onMarkUndone={handleMarkTaskUndone}
+                    onApproveTask={handleApproveTask}
                   />
                 </Grid>
               ))

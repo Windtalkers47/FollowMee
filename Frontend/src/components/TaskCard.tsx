@@ -42,6 +42,7 @@ interface TaskCardProps {
   onComment?: (taskId: string, comment: string) => void;
   onMarkDone?: (taskId: string) => void;
   onMarkUndone?: (taskId: string) => void;
+  onApproveTask?: (taskId: string) => void;
   showActions?: boolean;
   compact?: boolean;
   // Liquid Glass UI Controls
@@ -80,6 +81,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
   onComment,
   onMarkDone,
   onMarkUndone,
+  onApproveTask,
   showActions = true,
   compact = false,
   // Liquid Glass UI Controls with defaults
@@ -738,11 +740,43 @@ const TaskCard: React.FC<TaskCardProps> = ({
             gap: 0.5,
             zIndex: 10
           }}>
-            {canUpdateStatus && task.status !== 'done' && (
+            {/* For assignee: Mark as Review (instead of Done) */}
+            {canUpdateStatus && task.status !== 'review' && task.status !== 'done' && (
               <Button
                 size="small"
-                startIcon={<span>✓</span>}
+                startIcon={<span>×</span>}
                 onClick={() => onMarkDone?.(task.taskId)}
+                variant="contained"
+                color="primary"
+                sx={{
+                  borderRadius: 15,
+                  textTransform: 'none',
+                  fontWeight: 600,
+                  px: 1.5,
+                  py: 0.5,
+                  fontSize: '0.75rem',
+                  background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+                  boxShadow: '0 4px 12px rgba(59, 130, 246, 0.4)',
+                  backdropFilter: 'blur(8px)',
+                  WebkitBackdropFilter: 'blur(8px)',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  '&:hover': {
+                    background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+                    boxShadow: '0 6px 16px rgba(59, 130, 246, 0.5)',
+                    transform: 'translateY(-1px)',
+                  }
+                }}
+              >
+                Submit for Review
+              </Button>
+            )}
+
+            {/* For creator: Approve task from Review to Done */}
+            {task.createdBy === currentUserId && task.status === 'review' && (
+              <Button
+                size="small"
+                startIcon={<span>×</span>}
+                onClick={() => onApproveTask?.(task.taskId)}
                 variant="contained"
                 color="success"
                 sx={{
@@ -764,14 +798,15 @@ const TaskCard: React.FC<TaskCardProps> = ({
                   }
                 }}
               >
-                Done
+                Approve
               </Button>
             )}
 
-            {canUndone && task.status === 'done' && (
+            {/* For creator: Reject task from Review to To Do */}
+            {task.createdBy === currentUserId && task.status === 'review' && (
               <Button
                 size="small"
-                startIcon={<span>↶</span>}
+                startIcon={<span>×</span>}
                 onClick={() => onMarkUndone?.(task.taskId)}
                 variant="contained"
                 color="warning"
@@ -794,7 +829,38 @@ const TaskCard: React.FC<TaskCardProps> = ({
                   }
                 }}
               >
-                Undone
+                Reject
+              </Button>
+            )}
+
+            {/* For undo completed tasks */}
+            {canUndone && task.status === 'done' && (
+              <Button
+                size="small"
+                startIcon={<span>×</span>}
+                onClick={() => onMarkUndone?.(task.taskId)}
+                variant="contained"
+                color="warning"
+                sx={{
+                  borderRadius: 15,
+                  textTransform: 'none',
+                  fontWeight: 600,
+                  px: 1.5,
+                  py: 0.5,
+                  fontSize: '0.75rem',
+                  background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                  boxShadow: '0 4px 12px rgba(245, 158, 11, 0.4)',
+                  backdropFilter: 'blur(8px)',
+                  WebkitBackdropFilter: 'blur(8px)',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  '&:hover': {
+                    background: 'linear-gradient(135deg, #d97706 0%, #b45309 100%)',
+                    boxShadow: '0 6px 16px rgba(245, 158, 11, 0.5)',
+                    transform: 'translateY(-1px)',
+                  }
+                }}
+              >
+                Undo
               </Button>
             )}
           </Box>

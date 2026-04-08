@@ -361,6 +361,14 @@ export const taskApi = {
     });
     return response.data.data;
   },
+
+  // Approve task (from review to done)
+  approveTask: async (taskId: string): Promise<MarkTaskDoneResponse> => {
+    const response = await axios.put(`${API_BASE_URL}/tasks/${taskId}/approve`, {}, {
+      withCredentials: true,
+    });
+    return response.data.data;
+  },
 };
 
 // Comment operations

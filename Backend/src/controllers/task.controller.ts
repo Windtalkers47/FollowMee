@@ -405,6 +405,40 @@ export class TaskController {
     }
   }
 
+  async approveTask(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { taskId } = req.params;
+      const userId = req.user?.userId;
+      
+      if (!userId) {
+        res.status(401).json({ message: 'User not authenticated' });
+        return;
+      }
+
+      // Check if user is active
+      const isUserActive = await this.checkUserActive(userId);
+      if (!isUserActive) {
+        res.status(403).json({ message: 'User account is not active' });
+        return;
+      }
+
+      const result = await this.taskService.approveTask(taskId, userId);
+      
+      // Get user's updated rank (the assignee's rank should be updated)
+      const userRank = await this.taskService.getUserRank(result.assignedTo || userId);
+      
+      res.status(200).json({ 
+        success: true, 
+        data: {
+          task: result,
+          userRank: userRank
+        }
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   async getUserRank(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = req.user?.userId;

@@ -289,13 +289,13 @@ export class TaskService {
       throw new ForbiddenException('You can only mark tasks as done if you are the owner or assigned user');
     }
 
-    // Check if task is already done
-    if (task.status === 'done') {
-      throw new ForbiddenException('Task is already marked as done');
+    // Check if task is already done or in review
+    if (task.status === 'done' || task.status === 'review') {
+      throw new ForbiddenException('Task is already marked as done or in review');
     }
 
-    // Update task status to done
-    await this.customTaskRepository.updateTaskStatus(taskId, 'done');
+    // Update task status to review (not done)
+    await this.customTaskRepository.updateTaskStatus(taskId, 'review');
 
     // Get the updated task with relations
     const updatedTask = await this.customTaskRepository.findTaskByIdWithRelations(taskId);
@@ -313,18 +313,53 @@ export class TaskService {
       throw new NotFoundException('Task not found');
     }
 
-    // Check if user can undo this task (owner or assigned user)
-    if (task.createdBy !== userId && task.assignedTo !== userId) {
+    // Check if user can undo this task (only owner can reject from review)
+    if (task.status === 'review' && task.createdBy !== userId) {
+      throw new ForbiddenException('Only task creator can reject a task in review');
+    }
+
+    // Check if user can undo this task (owner or assigned user for done tasks)
+    if (task.status === 'done' && task.createdBy !== userId && task.assignedTo !== userId) {
       throw new ForbiddenException('You can only undo tasks if you are the owner or assigned user');
     }
 
-    // Check if task is not done
-    if (task.status !== 'done') {
-      throw new ForbiddenException('Task is not marked as done');
+    // Check if task is in review or done
+    if (task.status !== 'review' && task.status !== 'done') {
+      throw new ForbiddenException('Task is not in review or done status');
     }
 
-    // Update task status back to upcoming (or previous status)
+    // Update task status back to todo
     await this.customTaskRepository.updateTaskStatus(taskId, 'todo');
+
+    // Get the updated task with relations
+    const updatedTask = await this.customTaskRepository.findTaskByIdWithRelations(taskId);
+    if (!updatedTask) {
+      throw new NotFoundException('Failed to retrieve updated task');
+    }
+
+    return this.mapToResponseDto(updatedTask);
+  }
+
+  // New method for creator to approve task from review to done
+  async approveTask(taskId: string, userId: number): Promise<TaskResponseDto> {
+    const task = await this.customTaskRepository.findById(taskId);
+
+    if (!task) {
+      throw new NotFoundException('Task not found');
+    }
+
+    // Only creator can approve tasks
+    if (task.createdBy !== userId) {
+      throw new ForbiddenException('Only task creator can approve tasks');
+    }
+
+    // Check if task is in review
+    if (task.status !== 'review') {
+      throw new ForbiddenException('Task is not in review status');
+    }
+
+    // Update task status to done
+    await this.customTaskRepository.updateTaskStatus(taskId, 'done');
 
     // Get the updated task with relations
     const updatedTask = await this.customTaskRepository.findTaskByIdWithRelations(taskId);

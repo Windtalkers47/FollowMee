@@ -44,6 +44,9 @@ router.put('/:taskId/mark-done', (req, res, next) => taskController.markTaskAsDo
 // Mark task as undone
 router.put('/:taskId/mark-undone', (req, res, next) => taskController.markTaskAsUndone(req, res, next));
 
+// Approve task (from review to done)
+router.put('/:taskId/approve', (req, res, next) => taskController.approveTask(req, res, next));
+
 // Get a specific task by ID
 router.get('/:taskId', (req, res, next) => taskController.getTaskById(req, res, next));
 

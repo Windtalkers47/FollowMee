@@ -165,9 +165,17 @@ export class TaskService {
       throw new NotFoundException('Task not found');
     }
 
-    // Check if user can update this task (only creator can update their own tasks)
-    if (task.createdBy !== userId) {
+    // Check if user can update this task
+    // For status updates: allow both creator and assigned user
+    // For other updates: only allow creator
+    const isStatusOnlyUpdate = Object.keys(updateTaskDto).length === 1 && updateTaskDto.status !== undefined;
+    
+    if (!isStatusOnlyUpdate && task.createdBy !== userId) {
       throw new ForbiddenException('You can only update tasks you created');
+    }
+    
+    if (isStatusOnlyUpdate && task.createdBy !== userId && task.assignedTo !== userId) {
+      throw new ForbiddenException('You can only update task status if you are the creator or assigned user');
     }
 
     // Update fields

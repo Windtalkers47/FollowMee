@@ -179,21 +179,7 @@ const SchedulePage = () => {
     },
   });
 
-  const startProgressMutation = useMutation({
-    mutationFn: (taskId: string) => taskApi.startProgress(taskId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tasks'] });
-      refetch();
-    },
-  });
-
-  const cancelTaskMutation = useMutation({
-    mutationFn: (taskId: string) => taskApi.cancelTask(taskId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tasks'] });
-      refetch();
-    },
-  });
+  // Note: Using updateTaskMutation for status changes since specific endpoints don't exist yet
 
   const handleDeleteTask = (taskId: string) => {
     deleteTaskMutation.mutate(taskId);
@@ -332,7 +318,10 @@ const SchedulePage = () => {
       showLoaderOnConfirm: true,
       preConfirm: () => {
         Swal.showLoading();
-        return cancelTaskMutation.mutateAsync(taskId);
+        return updateTaskMutation.mutateAsync({ 
+          taskId, 
+          data: { status: 'cancelled' as const } 
+        });
       }
     });
 
@@ -361,7 +350,10 @@ const SchedulePage = () => {
       showLoaderOnConfirm: true,
       preConfirm: () => {
         Swal.showLoading();
-        return startProgressMutation.mutateAsync(taskId);
+        return updateTaskMutation.mutateAsync({ 
+          taskId, 
+          data: { status: 'in_progress' as const } 
+        });
       }
     });
 

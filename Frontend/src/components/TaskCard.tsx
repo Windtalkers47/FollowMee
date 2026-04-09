@@ -774,10 +774,8 @@ const TaskCard: React.FC<TaskCardProps> = ({
             <Box
               ref={swipeRef}
               sx={{
-                position: 'absolute',
-                bottom: 60,
-                left: 16,
-                right: 16,
+                mt: 1.5,
+                mb: 1,
                 p: 1,
                 background: theme.palette.mode === 'dark'
                   ? 'linear-gradient(90deg, rgba(33, 150, 243, 0.15), rgba(33, 150, 243, 0.08))'
@@ -792,6 +790,11 @@ const TaskCard: React.FC<TaskCardProps> = ({
                 userSelect: 'none',
                 WebkitUserSelect: 'none',
                 touchAction: 'pan-y',
+                height: 40,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                position: 'relative',
                 '&:hover': !isMobile ? {
                   background: theme.palette.mode === 'dark'
                     ? 'linear-gradient(90deg, rgba(33, 150, 243, 0.25), rgba(33, 150, 243, 0.15))'
@@ -801,15 +804,10 @@ const TaskCard: React.FC<TaskCardProps> = ({
                 } : {},
                 '&::before': {
                   content: isMobile ? '"Swipe right to start working  »"' : '"Click to start working  »"',
-                  position: 'absolute',
-                  top: '50%',
-                  left: '50%',
-                  transform: 'translate(-50%, -50%)',
                   color: theme.palette.mode === 'dark' ? 'rgba(33, 150, 243, 0.9)' : 'rgba(33, 150, 243, 0.95)',
-                  fontSize: '0.7rem',
-                  fontWeight: 500,
+                  fontSize: '0.75rem',
+                  fontWeight: 600,
                   whiteSpace: 'nowrap',
-                  pointerEvents: 'none',
                 },
                 '&:active': !isMobile ? {
                   transform: 'translateX(8px)',
@@ -822,9 +820,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
               onTouchMove={handleTouchMove}
               onTouchEnd={handleTouchEnd}
               onClick={!isMobile ? () => onStartProgress(task.taskId) : undefined}
-            >
-              <Box sx={{ height: 32 }} />
-            </Box>
+            />
           )}
 
           {/* Glass Mark Done/Undone Buttons - Positioned at Bottom Right */}
@@ -836,8 +832,8 @@ const TaskCard: React.FC<TaskCardProps> = ({
             gap: 0.5,
             zIndex: 10
           }}>
-            {/* For assignee: Mark as Review (instead of Done) */}
-            {canUpdateStatus && task.status !== 'review' && task.status !== 'done' && (
+            {/* For assignee: Mark as Review (instead of Done) - Only when task is in progress */}
+            {canUpdateStatus && task.status === 'in_progress' && (
               <Button
                 size="small"
                 startIcon={<span>×</span>}

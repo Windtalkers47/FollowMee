@@ -32,7 +32,7 @@ import {
 import { TransitionProps } from '@mui/material/transitions';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAppSelector } from '../../store/store';
-import { taskApi, likeApi, commentApi, Task, TaskLikeSummary, UserRank } from '../../api/task.api';
+import { taskApi, likeApi, commentApi, Task, TaskLikeSummary, UserRank, UpdateTaskData } from '../../api/task.api';
 import TaskCard from '../../components/TaskCard';
 import Swal from 'sweetalert2';
 
@@ -229,21 +229,10 @@ const PostsPage = () => {
     },
   });
 
-  // Start progress mutation (for todo to in_progress)
-  const startProgressMutation = useMutation({
-    mutationFn: (taskId: string) => taskApi.startProgress(taskId),
-    onSuccess: () => {
-      // Invalidate queries to refresh data
-      queryClient.invalidateQueries({ queryKey: ['all-tasks'] });
-      queryClient.invalidateQueries({ queryKey: ['assigned-tasks'] });
-      queryClient.invalidateQueries({ queryKey: ['top-performers'] });
-      queryClient.invalidateQueries({ queryKey: ['user-rank'] });
-    },
-  });
-
-  // Cancel task mutation (for active status to cancelled)
-  const cancelTaskMutation = useMutation({
-    mutationFn: (taskId: string) => taskApi.cancelTask(taskId),
+  // Update task mutation (for status changes like start progress, cancel)
+  const updateTaskMutation = useMutation({
+    mutationFn: ({ taskId, data }: { taskId: string; data: UpdateTaskData }) =>
+      taskApi.updateTask(taskId, data),
     onSuccess: () => {
       // Invalidate queries to refresh data
       queryClient.invalidateQueries({ queryKey: ['all-tasks'] });
@@ -408,7 +397,10 @@ const PostsPage = () => {
       showLoaderOnConfirm: true,
       preConfirm: () => {
         Swal.showLoading();
-        return startProgressMutation.mutateAsync(taskId);
+        return updateTaskMutation.mutateAsync({ 
+          taskId, 
+          data: { status: 'in_progress' as const } 
+        });
       }
     });
 
@@ -427,7 +419,7 @@ const PostsPage = () => {
         icon: 'success',
         confirmButtonText: 'Working on it!',
         confirmButtonColor: '#2196f3',
-        timer: 3000,
+        timer: 2000,
         showConfirmButton: true
       });
     }
@@ -447,7 +439,10 @@ const PostsPage = () => {
       showLoaderOnConfirm: true,
       preConfirm: () => {
         Swal.showLoading();
-        return cancelTaskMutation.mutateAsync(taskId);
+        return updateTaskMutation.mutateAsync({ 
+          taskId, 
+          data: { status: 'cancelled' as const } 
+        });
       }
     });
 
@@ -718,6 +713,8 @@ const PostsPage = () => {
                     onMarkDone={handleMarkTaskDone}
                     onMarkUndone={handleMarkTaskUndone}
                     onApproveTask={handleApproveTask}
+                    onStartProgress={handleStartProgress}
+                    onCancel={handleCancelTask}
                   />
                 </Grid>
               ))

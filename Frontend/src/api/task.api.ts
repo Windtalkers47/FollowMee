@@ -370,22 +370,7 @@ export const taskApi = {
     return response.data.data;
   },
 
-  // Start progress (from todo to in_progress)
-  startProgress: async (taskId: string): Promise<MarkTaskDoneResponse> => {
-    const response = await axios.put(`${API_BASE_URL}/tasks/${taskId}/start-progress`, {}, {
-      withCredentials: true,
-    });
-    return response.data.data;
-  },
-
-  // Cancel task (from active status to cancelled)
-  cancelTask: async (taskId: string): Promise<MarkTaskDoneResponse> => {
-    const response = await axios.put(`${API_BASE_URL}/tasks/${taskId}/cancel`, {}, {
-      withCredentials: true,
-    });
-    return response.data.data;
-  },
-};
+  };
 
 // Comment operations
 export const commentApi = {

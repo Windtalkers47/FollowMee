@@ -46,6 +46,7 @@ interface TaskCardProps {
   onApproveTask?: (taskId: string) => void;
   onStartProgress?: (taskId: string) => void;
   onCancel?: (taskId: string) => void;
+  onUpdateTaskStatus?: (taskId: string, status: Task['status']) => void;
   showActions?: boolean;
   compact?: boolean;
   // Liquid Glass UI Controls
@@ -87,6 +88,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
   onApproveTask,
   onStartProgress,
   onCancel,
+  onUpdateTaskStatus,
   showActions = true,
   compact = false,
   // Liquid Glass UI Controls with defaults
@@ -974,7 +976,40 @@ const TaskCard: React.FC<TaskCardProps> = ({
             Edit
           </MenuItem>
         )}
-        {canUpdateStatus && task.status !== 'done' && (
+        {task.status === 'draft' && task.createdBy === currentUserId && (
+          <MenuItem onClick={() => {
+            // Update task status from draft to todo
+            onUpdateTaskStatus?.(task.taskId, 'todo');
+            handleMenuClose();
+          }}>
+            <span style={{ marginRight: '8px' }}>»</span>
+            Move to Todo
+          </MenuItem>
+        )}
+        {canCancel && (
+          <MenuItem onClick={() => {
+            Swal.fire({
+              title: 'Cancel Task?',
+              text: 'Are you sure you want to cancel this task?',
+              icon: 'warning',
+              showCancelButton: true,
+              confirmButtonColor: '#f44336',
+              cancelButtonColor: '#757575',
+              confirmButtonText: 'Yes, cancel it!',
+              cancelButtonText: 'No, keep it',
+              reverseButtons: true
+            }).then((result) => {
+              if (result.isConfirmed) {
+                onCancel?.(task.taskId);
+              }
+            });
+            handleMenuClose();
+          }}>
+            <span style={{ marginRight: '8px' }}>×</span>
+            Cancel
+          </MenuItem>
+        )}
+        {canUpdateStatus && task.status !== 'done' && task.status !== 'draft' && (
           <MenuItem onClick={() => {
             onMarkDone?.(task.taskId);
             handleMenuClose();

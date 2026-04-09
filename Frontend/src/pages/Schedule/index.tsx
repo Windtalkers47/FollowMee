@@ -336,6 +336,40 @@ const SchedulePage = () => {
     }
   };
 
+  const handleUpdateTaskStatus = async (taskId: string, status: Task['status']) => {
+    try {
+      await updateTaskMutation.mutateAsync({ 
+        taskId, 
+        data: { status } 
+      });
+      
+      const statusMessages = {
+        'todo': 'Task moved to To Do',
+        'in_progress': 'Task started',
+        'review': 'Task submitted for review',
+        'done': 'Task completed',
+        'cancelled': 'Task cancelled',
+        'draft': 'Task moved to Draft'
+      };
+      
+      await Swal.fire({
+        title: 'Status Updated',
+        text: statusMessages[status] || 'Task status updated',
+        icon: 'success',
+        timer: 2000,
+        showConfirmButton: false
+      });
+    } catch (error) {
+      await Swal.fire({
+        title: 'Error',
+        text: 'Failed to update task status',
+        icon: 'error',
+        timer: 2000,
+        showConfirmButton: false
+      });
+    }
+  };
+
   const handleStartProgress = async (taskId: string) => {
     const result = await Swal.fire({
       title: 'Start Working?',
@@ -727,6 +761,7 @@ const SchedulePage = () => {
                           onReject={handleRejectTask}
                           onCancel={handleCancelTask}
                           onStartProgress={handleStartProgress}
+                          onUpdateTaskStatus={handleUpdateTaskStatus}
                           showActions={true}
                         />
                       </Grid>

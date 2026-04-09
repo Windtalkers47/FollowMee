@@ -41,6 +41,7 @@ interface ScheduleTaskCardProps {
   onReject?: (taskId: string) => void;
   onCancel?: (taskId: string) => void;
   onStartProgress?: (taskId: string) => void;
+  onUpdateTaskStatus?: (taskId: string, status: Task['status']) => void;
   showActions?: boolean;
 }
 
@@ -101,6 +102,7 @@ export const ScheduleTaskCard: React.FC<ScheduleTaskCardProps> = ({
   onReject,
   onCancel,
   onStartProgress,
+  onUpdateTaskStatus,
   showActions = true
 }) => {
   const theme = useTheme();
@@ -147,6 +149,7 @@ export const ScheduleTaskCard: React.FC<ScheduleTaskCardProps> = ({
   const commentCount = 0; // Default to 0 since commentCount doesn't exist in Task type
 
   // Determine action buttons based on status and user role
+  const canEdit = task.createdBy === currentUserId; // Owner can edit tasks in any status
   const canMarkDone = task.assignedTo === currentUserId && (task.status === 'todo' || task.status === 'in_progress');
   const canApprove = task.createdBy === currentUserId && task.status === 'review';
   const canReject = task.createdBy === currentUserId && task.status === 'review';
@@ -549,22 +552,43 @@ export const ScheduleTaskCard: React.FC<ScheduleTaskCardProps> = ({
           }
         }}
       >
-        <MenuItem
-          onClick={() => {
-            onEdit(task);
-            handleMenuClose();
-          }}
-          sx={{
-            color: textColor,
-            fontSize: '0.875rem',
-            '&:hover': {
-              background: isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.04)'
-            }
-          }}
-        >
-          <EditIcon sx={{ mr: 1, fontSize: 18 }} />
-          Edit
-        </MenuItem>
+        {canEdit && (
+          <MenuItem
+            onClick={() => {
+              onEdit(task);
+              handleMenuClose();
+            }}
+            sx={{
+              color: textColor,
+              fontSize: '0.875rem',
+              '&:hover': {
+                background: isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.04)'
+              }
+            }}
+          >
+            <EditIcon sx={{ mr: 1, fontSize: 18 }} />
+            Edit
+          </MenuItem>
+        )}
+        
+        {task.status === 'draft' && task.createdBy === currentUserId && onUpdateTaskStatus && (
+          <MenuItem
+            onClick={() => {
+              onUpdateTaskStatus(task.taskId, 'todo');
+              handleMenuClose();
+            }}
+            sx={{
+              color: '#2196f3',
+              fontSize: '0.875rem',
+              '&:hover': {
+                background: isDarkMode ? 'rgba(33, 150, 243, 0.1)' : 'rgba(33, 150, 243, 0.04)'
+                }
+              }}
+          >
+            <Typography sx={{ mr: 1, fontSize: 18 }}>»</Typography>
+            Move to Todo
+          </MenuItem>
+        )}
         
         {canCancel && onCancel && (
           <MenuItem

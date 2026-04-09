@@ -72,6 +72,7 @@ interface TaskFeedCardProps {
   onApproveTask?: (taskId: string) => void;
   onStartProgress?: (taskId: string) => void;
   onCancel?: (taskId: string) => void;
+  onUpdateTaskStatus?: (taskId: string, status: Task['status']) => void;
 }
 
 const TaskFeedCard: React.FC<TaskFeedCardProps> = ({
@@ -85,6 +86,7 @@ const TaskFeedCard: React.FC<TaskFeedCardProps> = ({
   onApproveTask,
   onStartProgress,
   onCancel,
+  onUpdateTaskStatus,
 }) => {
   const { user } = useAppSelector((state) => state.auth);
 
@@ -101,6 +103,7 @@ const TaskFeedCard: React.FC<TaskFeedCardProps> = ({
       onApproveTask={onApproveTask}
       onStartProgress={onStartProgress}
       onCancel={onCancel}
+      onUpdateTaskStatus={onUpdateTaskStatus}
       showActions={false} // Hide edit/delete actions in feed
       compact={false} // Use full width for better social media feel
     />
@@ -457,6 +460,40 @@ const PostsPage = () => {
     }
   };
 
+  const handleUpdateTaskStatus = async (taskId: string, status: Task['status']) => {
+    try {
+      await updateTaskMutation.mutateAsync({ 
+        taskId, 
+        data: { status } 
+      });
+      
+      const statusMessages = {
+        'todo': 'Task moved to To Do',
+        'in_progress': 'Task started',
+        'review': 'Task submitted for review',
+        'done': 'Task completed',
+        'cancelled': 'Task cancelled',
+        'draft': 'Task moved to Draft'
+      };
+      
+      await Swal.fire({
+        title: 'Status Updated',
+        text: statusMessages[status] || 'Task status updated',
+        icon: 'success',
+        timer: 2000,
+        showConfirmButton: false
+      });
+    } catch (error) {
+      await Swal.fire({
+        title: 'Error',
+        text: 'Failed to update task status',
+        icon: 'error',
+        timer: 2000,
+        showConfirmButton: false
+      });
+    }
+  };
+
   const handleCloseDoneDialog = () => {
     setDoneDialogOpen(false);
     setDoneTaskData(null);
@@ -715,6 +752,7 @@ const PostsPage = () => {
                     onApproveTask={handleApproveTask}
                     onStartProgress={handleStartProgress}
                     onCancel={handleCancelTask}
+                    onUpdateTaskStatus={handleUpdateTaskStatus}
                   />
                 </Grid>
               ))
@@ -758,6 +796,7 @@ const PostsPage = () => {
                     onMarkDone={handleMarkTaskDone}
                     onMarkUndone={handleMarkTaskUndone}
                     onApproveTask={handleApproveTask}
+                    onUpdateTaskStatus={handleUpdateTaskStatus}
                   />
                 </Grid>
               ))

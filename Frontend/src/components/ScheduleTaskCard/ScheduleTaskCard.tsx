@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import {
   Box,
   Typography,
@@ -24,6 +24,7 @@ import {
 } from '@mui/icons-material';
 import { parseISO, isPast, isToday, isTomorrow } from 'date-fns';
 import { Task, TaskLikeSummary } from '../../api/task.api';
+import { getTaskPermissions } from '../../permissions/taskPermissions';
 
 interface ScheduleTaskCardProps {
   task: Task;
@@ -42,7 +43,6 @@ interface ScheduleTaskCardProps {
   onCancel?: (taskId: string) => void;
   onStartProgress?: (taskId: string) => void;
   onUpdateTaskStatus?: (taskId: string, status: Task['status']) => void;
-  showActions?: boolean;
 }
 
 const getStatusColor = (status: string) => {
@@ -102,8 +102,7 @@ export const ScheduleTaskCard: React.FC<ScheduleTaskCardProps> = ({
   onReject,
   onCancel,
   onStartProgress,
-  onUpdateTaskStatus,
-  showActions = true
+  onUpdateTaskStatus
 }) => {
   const theme = useTheme();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
@@ -148,15 +147,15 @@ export const ScheduleTaskCard: React.FC<ScheduleTaskCardProps> = ({
   const totalLikes = likeSummary ? Object.values(likeSummary).reduce((sum, count) => sum + count, 0) : 0;
   const commentCount = 0; // Default to 0 since commentCount doesn't exist in Task type
 
-  // Determine action buttons based on status and user role
-  const canEdit = task.createdBy === currentUserId; // Owner can edit tasks in any status
-  const canMarkDone = task.assignedTo === currentUserId && (task.status === 'todo' || task.status === 'in_progress');
-  const canApprove = task.createdBy === currentUserId && task.status === 'review';
-  const canReject = task.createdBy === currentUserId && task.status === 'review';
-  const canUndo = (task.createdBy === currentUserId || task.assignedTo === currentUserId) && task.status === 'done';
-  const canCancel = (task.createdBy === currentUserId || task.assignedTo === currentUserId) && 
-    (task.status === 'draft' || task.status === 'todo' || task.status === 'in_progress');
-  const canStartProgress = task.assignedTo === currentUserId && task.status === 'todo';
+  // Compute permissions for menu item disabling
+  const permissions = useMemo(() => 
+    getTaskPermissions({
+      userId: currentUserId,
+      task,
+    }),
+    [currentUserId, task]
+  );
+
 
   // Swipe handlers
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -172,9 +171,10 @@ export const ScheduleTaskCard: React.FC<ScheduleTaskCardProps> = ({
     if (!touchStart || !touchEnd) return;
     
     const distance = touchStart - touchEnd;
-    const isLeftSwipe = distance < -50; // Swipe right (negative distance)
+    const minSwipeDistance = 80; // Increased threshold for better UX
+    const isLeftSwipe = distance < -minSwipeDistance; // Swipe right (negative distance)
     
-    if (isLeftSwipe && canStartProgress && onStartProgress) {
+    if (isLeftSwipe && permissions.canStart && onStartProgress) {
       onStartProgress(task.taskId);
     }
     
@@ -228,8 +228,15 @@ export const ScheduleTaskCard: React.FC<ScheduleTaskCardProps> = ({
       onMouseLeave={() => setIsHovered(false)}
     >
       {/* Header */}
-      <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 1.5 }}>
-        <Box sx={{ flex: 1, mr: 1 }}>
+      <Box sx={{ 
+        display: 'flex', 
+        alignItems: 'flex-start', 
+        justifyContent: 'space-between', 
+        mb: 1.5,
+        gap: 1
+      }}>
+        {/* Title and Description */}
+        <Box sx={{ flex: 1, minWidth: 0 }}>
           <Typography 
             variant="h6" 
             sx={{ 
@@ -265,8 +272,8 @@ export const ScheduleTaskCard: React.FC<ScheduleTaskCardProps> = ({
           )}
         </Box>
 
-        {/* Status and Menu */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        {/* Status Chip */}
+        <Box sx={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
           <Chip
             label={getStatusLabel(task.status)}
             size="small"
@@ -274,27 +281,39 @@ export const ScheduleTaskCard: React.FC<ScheduleTaskCardProps> = ({
               background: getStatusColor(task.status),
               color: 'white',
               fontSize: '0.75rem',
-              fontWeight: 500,
-              height: 24
+              fontWeight: 600,
+              height: 26,
+              px: 1,
+              backdropFilter: 'blur(10px)',
+              boxShadow: `0 2px 8px ${getStatusColor(task.status)}40`
             }}
           />
-          
-          {showActions && (
-            <IconButton
-              size="small"
-              onClick={handleMenuOpen}
-              sx={{
-                color: iconColor,
-                '&:hover': {
-                  color: textColor,
-                  background: isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'
-                }
-              }}
-            >
-              <MoreVertIcon fontSize="small" />
-            </IconButton>
-          )}
         </Box>
+        
+        {/* Menu Button */}
+        <IconButton
+          size="small"
+          onClick={handleMenuOpen}
+          sx={{
+            color: iconColor,
+            p: 0.75,
+            backdropFilter: 'blur(10px)',
+            background: 'rgba(255, 255, 255, 0.05)',
+            borderRadius: 1.5,
+            border: `1px solid ${isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'}`,
+            transition: 'all 0.2s ease',
+            '&:hover': {
+              color: textColor,
+              background: isDarkMode ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.08)',
+              transform: 'scale(1.05)',
+              boxShadow: isDarkMode 
+                ? '0 4px 12px rgba(255, 255, 255, 0.1)' 
+                : '0 4px 12px rgba(0, 0, 0, 0.1)'
+            }
+          }}
+        >
+          <MoreVertIcon fontSize="small" />
+        </IconButton>
       </Box>
 
       {/* Task Details */}
@@ -349,7 +368,7 @@ export const ScheduleTaskCard: React.FC<ScheduleTaskCardProps> = ({
       </Box>
 
       {/* Swipe to Start Progress - Only for todo tasks assigned to current user */}
-      {canStartProgress && onStartProgress && (
+      {permissions.canStart && onStartProgress && (
         <Box
           ref={swipeRef}
           sx={{
@@ -396,14 +415,14 @@ export const ScheduleTaskCard: React.FC<ScheduleTaskCardProps> = ({
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
-          onClick={!isMobile ? () => onStartProgress(task.taskId) : undefined}
+          onClick={!isMobile ? () => onStartProgress?.(task.taskId) : undefined}
         >
-          <Box sx={{ height: 40 }} />
+          <Box sx={{ flex: 1, minWidth: 0 }} />
         </Box>
       )}
 
       {/* Action Buttons */}
-      {(canMarkDone || canApprove || canReject || canUndo) && (
+      {(permissions.canSubmit || permissions.canApprove || permissions.canReject || permissions.canUndo) && (
         <Box 
           className="action-buttons"
           sx={{
@@ -415,11 +434,11 @@ export const ScheduleTaskCard: React.FC<ScheduleTaskCardProps> = ({
             mt: 1.5
           }}
         >
-          {canMarkDone && onMarkDone && (
+          {permissions.canSubmit && onMarkDone && (
             <Button
               size="small"
               startIcon={<span>✓</span>}
-              onClick={() => onMarkDone(task.taskId)}
+              onClick={() => onMarkDone?.(task.taskId)}
               variant="contained"
               sx={{
                 borderRadius: 15,
@@ -444,11 +463,11 @@ export const ScheduleTaskCard: React.FC<ScheduleTaskCardProps> = ({
             </Button>
           )}
           
-          {canApprove && onApprove && (
+          {permissions.canApprove && onApprove && (
             <Button
               size="small"
               startIcon={<span>×</span>}
-              onClick={() => onApprove(task.taskId)}
+              onClick={() => onApprove?.(task.taskId)}
               variant="contained"
               sx={{
                 borderRadius: 15,
@@ -473,11 +492,11 @@ export const ScheduleTaskCard: React.FC<ScheduleTaskCardProps> = ({
             </Button>
           )}
           
-          {canReject && onReject && (
+          {permissions.canReject && onReject && (
             <Button
               size="small"
               startIcon={<span>×</span>}
-              onClick={() => onReject(task.taskId)}
+              onClick={() => onReject?.(task.taskId)}
               variant="contained"
               sx={{
                 borderRadius: 15,
@@ -502,11 +521,11 @@ export const ScheduleTaskCard: React.FC<ScheduleTaskCardProps> = ({
             </Button>
           )}
           
-          {canUndo && onUndo && (
+          {permissions.canUndo && onUndo && (
             <Button
               size="small"
               startIcon={<span>↺</span>}
-              onClick={() => onUndo(task.taskId)}
+              onClick={() => onUndo?.(task.taskId)}
               variant="contained"
               sx={{
                 borderRadius: 15,
@@ -552,31 +571,31 @@ export const ScheduleTaskCard: React.FC<ScheduleTaskCardProps> = ({
           }
         }}
       >
-        {canEdit && (
-          <MenuItem
-            onClick={() => {
-              onEdit(task);
-              handleMenuClose();
-            }}
-            sx={{
-              color: textColor,
-              fontSize: '0.875rem',
-              '&:hover': {
-                background: isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.04)'
-              }
-            }}
-          >
-            <EditIcon sx={{ mr: 1, fontSize: 18 }} />
-            Edit
-          </MenuItem>
-        )}
+        <MenuItem
+          onClick={() => {
+            onEdit(task);
+            handleMenuClose();
+          }}
+          disabled={!permissions.canEdit}
+          sx={{
+            color: textColor,
+            fontSize: '0.875rem',
+            '&:hover': {
+              background: isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.04)'
+            }
+          }}
+        >
+          <EditIcon sx={{ mr: 1, fontSize: 18 }} />
+          Edit
+        </MenuItem>
         
-        {task.status === 'draft' && task.createdBy === currentUserId && onUpdateTaskStatus && (
+        {task.status === 'draft' && onUpdateTaskStatus && (
           <MenuItem
             onClick={() => {
-              onUpdateTaskStatus(task.taskId, 'todo');
+              onUpdateTaskStatus?.(task.taskId, 'todo');
               handleMenuClose();
             }}
+            disabled={!permissions.canEdit}
             sx={{
               color: '#2196f3',
               fontSize: '0.875rem',
@@ -590,30 +609,30 @@ export const ScheduleTaskCard: React.FC<ScheduleTaskCardProps> = ({
           </MenuItem>
         )}
         
-        {canCancel && onCancel && (
-          <MenuItem
-            onClick={() => {
-              onCancel(task.taskId);
-              handleMenuClose();
-            }}
-            sx={{
-              color: '#ff9800',
-              fontSize: '0.875rem',
-              '&:hover': {
-                background: 'rgba(255, 152, 0, 0.08)'
-              }
-            }}
-          >
-            <Typography sx={{ mr: 1, fontSize: 18 }}>×</Typography>
-            Cancel Task
-          </MenuItem>
-        )}
+        <MenuItem
+          onClick={() => {
+            onCancel?.(task.taskId);
+            handleMenuClose();
+          }}
+          disabled={!permissions.canCancel || !onCancel}
+          sx={{
+            color: '#ff9800',
+            fontSize: '0.875rem',
+            '&:hover': {
+              background: 'rgba(255, 152, 0, 0.08)'
+            }
+          }}
+        >
+          <Typography sx={{ mr: 1, fontSize: 18 }}>×</Typography>
+          Cancel Task
+        </MenuItem>
         
         <MenuItem
           onClick={() => {
-            onDelete(task.taskId);
+            onDelete?.(task.taskId);
             handleMenuClose();
           }}
+          disabled={!permissions.canDelete}
           sx={{
             color: '#f44336',
             fontSize: '0.875rem',
@@ -630,4 +649,6 @@ export const ScheduleTaskCard: React.FC<ScheduleTaskCardProps> = ({
   );
 };
 
-export default ScheduleTaskCard;
+const ScheduleTaskCardMemo = ScheduleTaskCard;
+
+export default React.memo(ScheduleTaskCardMemo);

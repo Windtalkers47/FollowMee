@@ -35,6 +35,7 @@ import { useAppSelector } from '../../store/store';
 import { taskApi, likeApi, commentApi, Task, TaskLikeSummary, UserRank, UpdateTaskData } from '../../api/task.api';
 import TaskCard from '../../components/TaskCard';
 import Swal from 'sweetalert2';
+import { getTaskPermissions, hasAnyPermission } from '../../permissions/taskPermissions';
 
 /* ================== Types ================== */
 type TabPanelProps = {
@@ -90,11 +91,19 @@ const TaskFeedCard: React.FC<TaskFeedCardProps> = ({
 }) => {
   const { user } = useAppSelector((state) => state.auth);
 
+  const permissions = getTaskPermissions({
+    userId: user?.userId || 0,
+    task,
+  });
+
+  const showActions = hasAnyPermission(permissions);
+
   return (
     <TaskCard
       task={task}
       likeSummary={likeSummary}
       currentUserId={user?.userId || 0}
+      permissions={permissions}
       onLike={onLike}
       onUnlike={onUnlike}
       onComment={onComment}
@@ -104,7 +113,7 @@ const TaskFeedCard: React.FC<TaskFeedCardProps> = ({
       onStartProgress={onStartProgress}
       onCancel={onCancel}
       onUpdateTaskStatus={onUpdateTaskStatus}
-      showActions={false} // Hide edit/delete actions in feed
+      showActions={showActions}
       compact={false} // Use full width for better social media feel
     />
   );

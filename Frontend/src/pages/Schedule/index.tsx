@@ -762,7 +762,6 @@ const SchedulePage = () => {
                           onCancel={handleCancelTask}
                           onStartProgress={handleStartProgress}
                           onUpdateTaskStatus={handleUpdateTaskStatus}
-                          showActions={true}
                         />
                       </Grid>
                     ))}

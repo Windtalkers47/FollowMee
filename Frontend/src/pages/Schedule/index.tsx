@@ -27,7 +27,7 @@ import Swal from 'sweetalert2';
 import { taskApi, Task, CreateTaskData, UpdateTaskData, TaskLikeSummary } from '../../api/task.api';
 import { userApi } from '../../api/user.api';
 import { likeApi } from '../../api/task.api';
-import { ScheduleTaskCard } from '../../components/ScheduleTaskCard';
+import ScheduleTaskCard from '../../components/ScheduleTaskCard';
 import { TaskForm } from '../../components/TaskForm/TaskForm';
 
 /* ================== Types ================== */

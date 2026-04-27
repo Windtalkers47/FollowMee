@@ -1183,28 +1183,30 @@ const ScheduleTaskCard: React.FC<Props> = ({
           </MenuItem>
         )}
 
-        <MenuItem
-          onClick={() => {
-            onCancel?.(task.taskId);
-            setAnchorEl(null);
-          }}
-          disabled={!permissions.canCancel || !onCancel}
-          sx={{
-            fontSize: '0.875rem',
-            color: '#FF9500',
-            '&:hover': {
-              background: isDark
-                ? 'rgba(255, 159, 10, 0.1)'
-                : 'rgba(255, 159, 10, 0.08)',
-            },
-            '&.Mui-disabled': {
-              opacity: 0.4,
-            }
-          }}
-        >
-          <CancelIcon fontSize="small" sx={{ mr: 1.5 }} />
-          Cancel Task
-        </MenuItem>
+        {task.status !== 'cancelled' && onCancel && (
+          <MenuItem
+            onClick={() => {
+              onCancel?.(task.taskId);
+              setAnchorEl(null);
+            }}
+            disabled={!permissions.canCancel}
+            sx={{
+              fontSize: '0.875rem',
+              color: '#FF9500',
+              '&:hover': {
+                background: isDark
+                  ? 'rgba(255, 159, 10, 0.1)'
+                  : 'rgba(255, 159, 10, 0.08)',
+              },
+              '&.Mui-disabled': {
+                opacity: 0.4,
+              }
+            }}
+          >
+            <CancelIcon fontSize="small" sx={{ mr: 1.5 }} />
+            Cancel Task
+          </MenuItem>
+        )}
 
         <MenuItem
           onClick={async () => {

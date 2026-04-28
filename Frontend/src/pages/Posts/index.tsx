@@ -33,9 +33,12 @@ import { TransitionProps } from '@mui/material/transitions';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAppSelector } from '../../store/store';
 import { taskApi, likeApi, commentApi, Task, TaskLikeSummary, UserRank, UpdateTaskData } from '../../api/task.api';
+import { userApi } from '../../api/user.api';
 import TaskCard from '../../components/TaskCard';
+import { TaskForm } from '../../components/TaskForm/TaskForm';
 import Swal from 'sweetalert2';
 import { getTaskPermissions, hasAnyPermission } from '../../permissions/taskPermissions';
+import { getBookedDates } from '../../utils/dateUtils';
 
 /* ================== Types ================== */
 type TabPanelProps = {
@@ -65,6 +68,7 @@ const TabPanel = ({ children, value, index }: TabPanelProps) => (
 interface TaskFeedCardProps {
   task: Task;
   likeSummary?: TaskLikeSummary;
+  onEdit?: (task: Task) => void;
   onLike?: (taskId: string, likeType: 'like' | 'love' | 'laugh' | 'angry' | 'wow' | 'sad') => void;
   onUnlike?: (taskId: string) => void;
   onComment?: (taskId: string, comment: string) => void;
@@ -79,6 +83,7 @@ interface TaskFeedCardProps {
 const TaskFeedCard: React.FC<TaskFeedCardProps> = ({
   task,
   likeSummary,
+  onEdit,
   onLike,
   onUnlike,
   onComment,
@@ -104,6 +109,7 @@ const TaskFeedCard: React.FC<TaskFeedCardProps> = ({
       likeSummary={likeSummary}
       currentUserId={user?.userId || 0}
       permissions={permissions}
+      onEdit={onEdit}
       onLike={onLike}
       onUnlike={onUnlike}
       onComment={onComment}
@@ -131,12 +137,14 @@ const PostsPage = () => {
   const [doneTaskData, setDoneTaskData] = useState<{ task: Task; newRank: UserRank } | null>(null);
   const [undoneDialogOpen, setUndoneDialogOpen] = useState(false);
   const [undoneTaskData, setUndoneTaskData] = useState<{ task: Task; newRank: UserRank } | null>(null);
+  const [taskDialogOpen, setTaskDialogOpen] = useState(false);
+  const [editingTask, setEditingTask] = useState<Task | undefined>();
 
   const { user } = useAppSelector((state) => state.auth);
   const queryClient = useQueryClient();
 
   // Fetch assigned tasks
-  const { data: assignedTasks, isLoading: tasksLoading, error: tasksError, refetch: refetchTasks } = useQuery({
+  const { data: assignedTasks, isLoading: tasksLoading, error: tasksError } = useQuery({
     queryKey: ['assigned-tasks', user?.userId],
     queryFn: () => taskApi.getTasksAssignedToMe(),
     enabled: !!user?.userId,
@@ -159,6 +167,12 @@ const PostsPage = () => {
     queryKey: ['user-rank', user?.userId],
     queryFn: () => taskApi.getMyRank(),
     enabled: !!user?.userId,
+  });
+
+  // Fetch users for assignment dropdown
+  const { data: users = [] } = useQuery({
+    queryKey: ['users'],
+    queryFn: userApi.getUsers,
   });
 
   // Fetch tasks with search - only when explicitly searching
@@ -203,21 +217,18 @@ const PostsPage = () => {
     },
   });
 
-  // Mark task as done mutation (now actually submits for review)
+  // Mark task as done mutation (submits for review)
   const markTaskDoneMutation = useMutation({
     mutationFn: ({ taskId, data }: { taskId: string; data?: { completionNote?: string } }) =>
       taskApi.markTaskAsDone(taskId, data),
     onSuccess: (response) => {
-      // Show submit for review dialog instead of completion dialog
       Swal.fire({
         icon: 'success',
-        title: 'Task Submitted for Review! ',
+        title: 'Task Submitted for Review!',
         text: `"${response.task.title}" has been submitted for review. The task creator will review and approve it.`,
         confirmButtonColor: '#3b82f6',
         confirmButtonText: 'Got it!'
       });
-      
-      // Invalidate queries to refresh data
       queryClient.invalidateQueries({ queryKey: ['all-tasks'] });
       queryClient.invalidateQueries({ queryKey: ['assigned-tasks'] });
       queryClient.invalidateQueries({ queryKey: ['top-performers'] });
@@ -225,15 +236,12 @@ const PostsPage = () => {
     },
   });
 
-  // Mark task as undone mutation
+  // Mark task as undone mutation (rejects from review or undoes done)
   const markTaskUndoneMutation = useMutation({
     mutationFn: (taskId: string) => taskApi.markTaskAsUndone(taskId),
     onSuccess: (response) => {
-      // Show undone dialog
       setUndoneTaskData({ task: response.task, newRank: response.userRank });
       setUndoneDialogOpen(true);
-      
-      // Invalidate queries to refresh data
       queryClient.invalidateQueries({ queryKey: ['all-tasks'] });
       queryClient.invalidateQueries({ queryKey: ['assigned-tasks'] });
       queryClient.invalidateQueries({ queryKey: ['top-performers'] });
@@ -246,7 +254,6 @@ const PostsPage = () => {
     mutationFn: ({ taskId, data }: { taskId: string; data: UpdateTaskData }) =>
       taskApi.updateTask(taskId, data),
     onSuccess: () => {
-      // Invalidate queries to refresh data
       queryClient.invalidateQueries({ queryKey: ['all-tasks'] });
       queryClient.invalidateQueries({ queryKey: ['assigned-tasks'] });
       queryClient.invalidateQueries({ queryKey: ['top-performers'] });
@@ -261,12 +268,21 @@ const PostsPage = () => {
       // Show success dialog - ONLY when task is actually approved to done
       setDoneTaskData({ task: response.task, newRank: response.userRank });
       setDoneDialogOpen(true);
-      
+
       // Invalidate queries to refresh data
       queryClient.invalidateQueries({ queryKey: ['all-tasks'] });
       queryClient.invalidateQueries({ queryKey: ['assigned-tasks'] });
       queryClient.invalidateQueries({ queryKey: ['top-performers'] });
       queryClient.invalidateQueries({ queryKey: ['user-rank'] });
+    },
+  });
+
+  // Create task mutation
+  const createTaskMutation = useMutation({
+    mutationFn: (data: any) => taskApi.createTask(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['all-tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['assigned-tasks'] });
     },
   });
 
@@ -350,7 +366,6 @@ const PostsPage = () => {
   };
 
   const handleMarkTaskUndone = async (taskId: string) => {
-    // Show confirmation dialog for undo/reject
     const result = await Swal.fire({
       title: 'Are you sure?',
       text: 'This will move the task back to To Do. The assignee will need to work on it again.',
@@ -361,14 +376,12 @@ const PostsPage = () => {
       confirmButtonText: 'Yes, undo it',
       cancelButtonText: 'Cancel'
     });
-    
     if (result.isConfirmed) {
       await markTaskUndoneMutation.mutateAsync(taskId);
     }
   };
 
   const handleApproveTask = async (taskId: string) => {
-    // Show const handleApproveTask = async (taskId: string) => {
     const result = await Swal.fire({
       title: 'Approve Task',
       text: 'Are you sure you want to approve this task? This will mark it as completed.',
@@ -379,8 +392,10 @@ const PostsPage = () => {
       confirmButtonText: 'Yes, approve it!',
       cancelButtonText: 'Cancel',
       reverseButtons: true,
+      showLoaderOnConfirm: true,
       preConfirm: () => {
-        return markTaskDoneMutation.mutateAsync({ taskId });
+        Swal.showLoading();
+        return approveTaskMutation.mutateAsync(taskId);
       }
     });
 
@@ -512,6 +527,13 @@ const PostsPage = () => {
     setUndoneDialogOpen(false);
     setUndoneTaskData(null);
   };
+
+  const handleEditTask = (task: Task) => {
+    setEditingTask(task);
+    setTaskDialogOpen(true);
+  };
+
+  const bookedDates = getBookedDates(editingTask);
 
   const assignedTasksList = assignedTasks || [];
   const completedTasksList = isSearching ? (searchResults?.tasks || []) : (allTasksResponse?.tasks || []);
@@ -753,6 +775,7 @@ const PostsPage = () => {
                   <TaskFeedCard
                     task={task}
                     likeSummary={taskLikeSummaries[task.taskId]}
+                    onEdit={handleEditTask}
                     onLike={handleLike}
                     onUnlike={handleUnlike}
                     onComment={handleComment}
@@ -799,6 +822,7 @@ const PostsPage = () => {
                   <TaskFeedCard
                     task={task}
                     likeSummary={taskLikeSummaries[task.taskId]}
+                    onEdit={handleEditTask}
                     onLike={handleLike}
                     onUnlike={handleUnlike}
                     onComment={handleComment}
@@ -936,6 +960,46 @@ const PostsPage = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Task Form */}
+      <TaskForm
+        open={taskDialogOpen}
+        task={editingTask}
+        users={users || []}
+        bookedDates={bookedDates}
+        onClose={() => {
+          setTaskDialogOpen(false);
+          setEditingTask(undefined);
+        }}
+        onSave={async (taskData: any) => {
+          try {
+            // Handle date conversion for backend
+            const dataToSave = {
+              ...taskData,
+              // Handle date range - convert Date objects to ISO strings
+              startDate: taskData.dueDateRange?.[0] ? taskData.dueDateRange[0].toISOString() : taskData.startDate || null,
+              endDate: taskData.dueDateRange?.[1] ? taskData.dueDateRange[1].toISOString() : taskData.endDate || null,
+              // Keep dueDate for backward compatibility (single date)
+              dueDate: (!taskData.dueDateRange?.[0] && !taskData.startDate) ?
+                (taskData.dueDate instanceof Date ? taskData.dueDate.toISOString() : taskData.dueDate) : null
+            };
+
+            if (editingTask) {
+              await updateTaskMutation.mutateAsync({
+                taskId: editingTask.taskId,
+                data: dataToSave as UpdateTaskData
+              });
+            } else {
+              await createTaskMutation.mutateAsync(dataToSave as any);
+            }
+            setTaskDialogOpen(false);
+            setEditingTask(undefined);
+          } catch (error) {
+            console.error('Error saving task:', error);
+            throw error; // Re-throw to let TaskForm handle the error display
+          }
+        }}
+      />
     </Box>
   );
 };

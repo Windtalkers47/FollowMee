@@ -211,8 +211,6 @@ const TaskCard: React.FC<TaskCardProps> = ({
         onEdit={onEdit}
         onDelete={onDelete}
         onCancel={onCancel}
-        onMarkDone={onMarkDone}
-        onMarkUndone={onMarkUndone}
         onUpdateTaskStatus={onUpdateTaskStatus}
       />
 

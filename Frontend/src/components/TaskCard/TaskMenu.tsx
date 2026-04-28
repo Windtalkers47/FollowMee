@@ -1,8 +1,9 @@
 import React from 'react';
-import { Menu, MenuItem } from '@mui/material';
+import { Menu, MenuItem, Typography, useTheme } from '@mui/material';
 import {
   Edit as EditIcon,
   Delete as DeleteIcon,
+  Cancel as CancelIcon,
 } from '@mui/icons-material';
 import Swal from 'sweetalert2';
 import { Task } from '../../api/task.api';
@@ -16,8 +17,6 @@ interface TaskMenuProps {
   onEdit?: (task: Task) => void;
   onDelete?: (taskId: string) => void;
   onCancel?: (taskId: string) => void;
-  onMarkDone?: (taskId: string) => void;
-  onMarkUndone?: (taskId: string) => void;
   onUpdateTaskStatus?: (taskId: string, status: Task['status']) => void;
 }
 
@@ -29,10 +28,10 @@ const TaskMenu: React.FC<TaskMenuProps> = ({
   onEdit,
   onDelete,
   onCancel,
-  onMarkDone,
-  onMarkUndone,
   onUpdateTaskStatus,
 }) => {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
   const handleEdit = () => {
     onEdit?.(task);
     onMenuClose();
@@ -62,16 +61,6 @@ const TaskMenu: React.FC<TaskMenuProps> = ({
     onMenuClose();
   };
 
-  const handleMarkDone = () => {
-    onMarkDone?.(task.taskId);
-    onMenuClose();
-  };
-
-  const handleMarkUndone = () => {
-    onMarkUndone?.(task.taskId);
-    onMenuClose();
-  };
-
   const handleDelete = () => {
     Swal.fire({
       title: 'Are you sure?',
@@ -96,33 +85,107 @@ const TaskMenu: React.FC<TaskMenuProps> = ({
       anchorEl={anchorEl}
       open={Boolean(anchorEl)}
       onClose={onMenuClose}
+      MenuListProps={{
+        'aria-labelledby': 'more-button',
+      }}
+      PaperProps={{
+        sx: {
+          borderRadius: 2,
+          background: isDark
+            ? 'rgba(255, 255, 255, 0.1)'
+            : 'rgba(255, 255, 255, 0.8)',
+          backdropFilter: 'blur(20px) saturate(180%)',
+          WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+          border: isDark
+            ? '1px solid rgba(255, 255, 255, 0.15)'
+            : '1px solid rgba(0, 0, 0, 0.08)',
+          boxShadow: isDark
+            ? '0 4px 20px rgba(0,0,0,0.5)'
+            : '0 4px 20px rgba(0,0,0,0.1)',
+        }
+      }}
     >
-      <MenuItem onClick={handleEdit} disabled={!permissions.canEdit}>
-        <EditIcon fontSize="small" sx={{ mr: 1 }} />
+      <MenuItem
+        onClick={handleEdit}
+        disabled={!permissions.canEdit}
+        sx={{
+          fontSize: '0.875rem',
+          color: isDark ? '#fff' : '#000',
+          '&:hover': {
+            background: isDark
+              ? 'rgba(255, 255, 255, 0.08)'
+              : 'rgba(0, 0, 0, 0.04)',
+          },
+          '&.Mui-disabled': {
+            opacity: 0.4,
+          }
+        }}
+      >
+        <EditIcon fontSize="small" sx={{ mr: 1.5 }} />
         Edit
       </MenuItem>
+
       {task.status === 'draft' && (
-        <MenuItem onClick={handleMoveToTodo} disabled={!permissions.canEdit}>
-          <span style={{ marginRight: '8px' }}>»</span>
+        <MenuItem
+          onClick={handleMoveToTodo}
+          disabled={!permissions.canEdit}
+          sx={{
+            fontSize: '0.875rem',
+            color: '#0A84FF',
+            '&:hover': {
+              background: isDark
+                ? 'rgba(10, 132, 255, 0.1)'
+                : 'rgba(10, 132, 255, 0.08)',
+            },
+            '&.Mui-disabled': {
+              opacity: 0.4,
+            }
+          }}
+        >
+          <Typography sx={{ mr: 1.5, fontSize: 16 }}>→</Typography>
           Move to Todo
         </MenuItem>
       )}
-      <MenuItem onClick={handleCancel} disabled={!permissions.canCancel}>
-        <span style={{ marginRight: '8px' }}>×</span>
-        Cancel
-      </MenuItem>
-      {task.status !== 'done' && task.status !== 'draft' && (
-        <MenuItem onClick={handleMarkDone} disabled={!permissions.canSubmit}>
-          Mark Done
+
+      {task.status !== 'cancelled' && (
+        <MenuItem
+          onClick={handleCancel}
+          disabled={!permissions.canCancel}
+          sx={{
+            fontSize: '0.875rem',
+            color: '#FF9500',
+            '&:hover': {
+              background: isDark
+                ? 'rgba(255, 159, 10, 0.1)'
+                : 'rgba(255, 159, 10, 0.08)',
+            },
+            '&.Mui-disabled': {
+              opacity: 0.4,
+            }
+          }}
+        >
+          <CancelIcon fontSize="small" sx={{ mr: 1.5 }} />
+          Cancel Task
         </MenuItem>
       )}
-      {task.status === 'done' && (
-        <MenuItem onClick={handleMarkUndone} disabled={!permissions.canUndo}>
-          Mark Undone
-        </MenuItem>
-      )}
-      <MenuItem onClick={handleDelete} disabled={!permissions.canDelete}>
-        <DeleteIcon fontSize="small" sx={{ mr: 1 }} />
+
+      <MenuItem
+        onClick={handleDelete}
+        disabled={!permissions.canDelete}
+        sx={{
+          fontSize: '0.875rem',
+          color: '#FF3B30',
+          '&:hover': {
+            background: isDark
+              ? 'rgba(255, 59, 48, 0.1)'
+              : 'rgba(255, 59, 48, 0.08)',
+          },
+          '&.Mui-disabled': {
+            opacity: 0.4,
+          }
+        }}
+      >
+        <DeleteIcon fontSize="small" sx={{ mr: 1.5 }} />
         Delete
       </MenuItem>
     </Menu>

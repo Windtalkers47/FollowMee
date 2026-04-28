@@ -21,7 +21,6 @@ import {
   Refresh as RefreshIcon
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { format, parseISO } from 'date-fns';
 import { useAppSelector } from '../../store/store';
 import Swal from 'sweetalert2';
 import { taskApi, Task, CreateTaskData, UpdateTaskData, TaskLikeSummary } from '../../api/task.api';
@@ -29,6 +28,7 @@ import { userApi } from '../../api/user.api';
 import { likeApi } from '../../api/task.api';
 import ScheduleTaskCard from '../../components/ScheduleTaskCard';
 import { TaskForm } from '../../components/TaskForm/TaskForm';
+import { getBookedDates } from '../../utils/dateUtils';
 
 /* ================== Types ================== */
 type TabPanelProps = {
@@ -92,30 +92,7 @@ const SchedulePage = () => {
   });
 
   // Extract dates only for current task being edited
-  const getBookedDates = (): Date[] => {
-    const dates: Date[] = [];
-    
-    // Only include dates from current editing task
-    // For new tasks (editingTask is undefined), return empty array
-    if (editingTask) {
-      if (editingTask.startDate && editingTask.endDate) {
-        const start = parseISO(editingTask.startDate);
-        const end = parseISO(editingTask.endDate);
-        const current = new Date(start);
-        while (current <= end) {
-          dates.push(new Date(current));
-          current.setDate(current.getDate() + 1);
-        }
-      } else if (editingTask.dueDate) {
-        dates.push(parseISO(editingTask.dueDate));
-      }
-    }
-    // For new tasks, calendar will be empty (no green highlighting)
-    
-    return dates;
-  };
-  
-  const bookedDates = getBookedDates();
+  const bookedDates = getBookedDates(editingTask);
 
   // Mutations
   const createTaskMutation = useMutation({

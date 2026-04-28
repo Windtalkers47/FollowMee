@@ -14,6 +14,10 @@ import { TaskImage } from '../entities/TaskImage';
 import { TaskComment } from '../entities/TaskComment';
 import { TaskLike } from '../entities/TaskLike';
 import { CommentReaction } from '../entities/CommentReaction';
+import { Notification } from '../entities/Notification';
+import { NotificationRecipient } from '../entities/NotificationRecipient';
+import { NotificationGroupActor } from '../entities/NotificationGroupActor';
+import { UserNotificationSettings } from '../entities/UserNotificationSettings';
 
 dotenv.config();
 
@@ -46,6 +50,10 @@ const dataSourceOptions: DataSourceOptions = {
     TaskComment,
     TaskLike,
     CommentReaction,
+    Notification,
+    NotificationRecipient,
+    NotificationGroupActor,
+    UserNotificationSettings,
     // Other entities will be loaded automatically by the glob pattern
     path.join(__dirname, '../entities/**/*.entity{.ts,.js}')
   ],

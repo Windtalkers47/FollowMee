@@ -6,6 +6,8 @@ import { logout, updateUser } from '../store/slices/authSlice';
 import { userApi } from '../api/user.api';
 import Swal from 'sweetalert2';
 import SmartAvatar from '../components/SmartAvatar';
+import NotificationBell from '../components/NotificationBell/NotificationBell';
+import NotificationDropdown from '../components/NotificationDropdown/NotificationDropdown';
 
 import {
   Box,
@@ -22,8 +24,6 @@ import {
   ListItemText,
   useTheme,
   Avatar,
-  Tooltip,
-  Badge,
   Menu,
   MenuItem,
   Dialog,
@@ -43,7 +43,6 @@ import {
   Schedule,
   Settings,
   Logout,
-  Notifications,
   ChevronLeft,
   ChevronRight,
   Home,
@@ -98,7 +97,6 @@ const MainLayout = ({ children }: MainLayoutProps) => {
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
-  const [isRemovingImage, setIsRemovingImage] = useState(false);
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
   const [profileData, setProfileData] = useState({
     userName: currentUser?.userName || '',
@@ -483,33 +481,10 @@ const MainLayout = ({ children }: MainLayoutProps) => {
 
           <ThemeToggle />
 
-          <Tooltip title="Notifications">
-            <IconButton 
-              sx={{ 
-                ml: 2,
-                bgcolor: 'transparent',
-                color: theme.palette.text.primary,
-                border: `1px solid ${theme.palette.divider}`,
-                '&:hover': {
-                  bgcolor: theme.palette.action.hover,
-                },
-                transition: 'all 0.2s ease-in-out',
-              }}
-            >
-              <Badge 
-                badgeContent={3} 
-                color="error" 
-                overlap="circular"
-                sx={{
-                  '& .MuiBadge-badge': {
-                    border: `2px solid ${theme.palette.background.paper}`,
-                  },
-                }}
-              >
-                <Notifications />
-              </Badge>
-            </IconButton>
-          </Tooltip>
+          <Box sx={{ position: 'relative' }}>
+            <NotificationBell />
+            <NotificationDropdown />
+          </Box>
 
           {/* Profile */}
           <Box
@@ -671,7 +646,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
                   size="small"
                   sx={{ mb: 1 }}
                   startIcon={isUploadingImage ? <CircularProgress size={16} /> : <CloudUpload />}
-                  disabled={isUploadingImage || isRemovingImage}
+                  disabled={isUploadingImage}
                 >
                   {isUploadingImage ? 'Processing...' : 'Upload Image'}
                   <input

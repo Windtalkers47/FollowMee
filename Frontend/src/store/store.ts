@@ -2,11 +2,13 @@ import { configureStore } from '@reduxjs/toolkit';
 import { TypedUseSelectorHook, useDispatch, useSelector } from 'react-redux';
 import authReducer from './slices/authSlice';
 import customerReducer from './slices/customerSlice';
+import notificationReducer from './slices/notificationSlice';
 
 const store = configureStore({
   reducer: {
     auth: authReducer,
     customer: customerReducer,
+    notifications: notificationReducer,
     // Add other reducers here
   },
   devTools: process.env.NODE_ENV !== 'production',

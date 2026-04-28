@@ -6,6 +6,7 @@ import { Task } from '../entities/Task';
 import { User } from '../entities/User';
 import { CreateTaskLikeDto, UpdateTaskLikeDto } from '../dtos/task-like.dto';
 import { TaskLikeResponseDto, TaskLikeSummaryDto } from '../dtos/task-like.dto';
+import { NotificationHelper } from '../utils/notification.util';
 
 @Injectable()
 export class TaskLikeService {
@@ -57,18 +58,28 @@ export class TaskLikeService {
       like.likeType = createLikeDto.likeType;
 
       const savedLike = await this.taskLikeRepository.save(like);
-      
+
+      // Send notification to task creator if liker is not the creator
+      if (task.createdBy !== userId) {
+        NotificationHelper.notifyTaskLike(
+          task.title,
+          `/posts/${taskId}`,
+          userId,
+          [task.createdBy]
+        );
+      }
+
       // Fetch user data separately
       const user = await this.taskRepository.manager.getRepository(User).findOne({
         where: { userId: savedLike.userId },
         select: ['userId', 'userName', 'userLastName', 'userImageUrl', 'userEmail']
       });
-      
+
       const likeWithUser = {
         ...savedLike,
         user
       };
-      
+
       return this.mapToResponseDto(likeWithUser as any);
     }
   }

@@ -3,11 +3,11 @@ import { Routes, Route, Navigate, useLocation, Outlet } from 'react-router-dom';
 import { Box, CircularProgress } from '@mui/material';
 import { useAppDispatch, useAppSelector } from './store/store';
 import { restoreSession, clearAuth } from './store/slices/authSlice';
+import { connectWebSocket, disconnectWebSocket } from './store/slices/notificationSlice';
 import MainLayout from './layouts/MainLayout';
 import { API_BASE_URL } from './api/config';
 
 // Lazy load pages
-const LandingPage = React.lazy(() => import('./pages/Landing'));
 const LoginPage = React.lazy(() => import('./pages/Login'));
 const RegisterPage = React.lazy(() => import('./pages/Register'));
 const ForgotPasswordPage = React.lazy(() => import('./pages/ForgotPassword'));
@@ -61,6 +61,8 @@ const App = () => {
     isAuthenticated: state.auth.isAuthenticated,
   }));
 
+  const currentUser = useAppSelector((state) => state.auth.user);
+
   /* Restore session once */
   useEffect(() => {
     const restoreAuthSession = async () => {
@@ -96,6 +98,15 @@ const App = () => {
 
     restoreAuthSession();
   }, [dispatch]);
+
+  /* Connect/disconnect WebSocket based on auth state */
+  useEffect(() => {
+    if (isAuthenticated && currentUser?.userId) {
+      dispatch(connectWebSocket(currentUser.userId));
+    } else {
+      dispatch(disconnectWebSocket());
+    }
+  }, [isAuthenticated, currentUser?.userId, dispatch]);
 
   if (checkingSession) {
     return <LoadingSpinner />;
@@ -138,7 +149,16 @@ const App = () => {
         <Suspense fallback={<LoadingSpinner />}>
           <Routes location={location}>
           {/* Public */}
-          <Route index element={<LandingPage />} />
+          <Route
+            index
+            element={
+              isAuthenticated ? (
+                <Navigate to="/dashboard" replace />
+              ) : (
+                <Navigate to="/login" replace />
+              )
+            }
+          />
           <Route
             path="/login"
             element={

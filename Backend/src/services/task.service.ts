@@ -8,6 +8,7 @@ import { TaskResponseDto, TaskListResponseDto } from '../dtos/task-response.dto'
 import { User } from '../entities/User';
 import { TaskImageService } from './task-image.service';
 import { CloudinaryUtil } from '../utils/cloudinary.util';
+import { NotificationHelper } from '../utils/notification.util';
 import AppDataSource from '../config/database';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -41,7 +42,17 @@ export class TaskService {
     task.isActive = true;
 
     const savedTask = await this.taskRepository.save(task);
-    
+
+    // Send notification if task is assigned to someone
+    if (savedTask.assignedTo && savedTask.assignedTo !== userId) {
+      NotificationHelper.notifyTaskAssigned(
+        savedTask.title,
+        `/posts/${savedTask.taskId}`,
+        userId,
+        [savedTask.assignedTo]
+      );
+    }
+
     // Handle images from request - convert to task images
     if (createTaskDto.images && createTaskDto.images.length > 0) {
       // Multiple images
@@ -181,7 +192,20 @@ export class TaskService {
     // Update fields
     if (updateTaskDto.title !== undefined) task.title = updateTaskDto.title;
     if (updateTaskDto.description !== undefined) task.description = updateTaskDto.description;
-    if (updateTaskDto.assignedTo !== undefined) task.assignedTo = updateTaskDto.assignedTo;
+    if (updateTaskDto.assignedTo !== undefined) {
+      const oldAssignedTo = task.assignedTo;
+      task.assignedTo = updateTaskDto.assignedTo;
+
+      // Send notification if assignment changed and new assignee is different from current user
+      if (task.assignedTo && task.assignedTo !== oldAssignedTo && task.assignedTo !== userId) {
+        NotificationHelper.notifyTaskAssigned(
+          task.title,
+          `/posts/${task.taskId}`,
+          userId,
+          [task.assignedTo]
+        );
+      }
+    }
     if (updateTaskDto.dueDate !== undefined) {
       task.dueDate = updateTaskDto.dueDate ? new Date(updateTaskDto.dueDate) : undefined;
     }

@@ -6,13 +6,37 @@ import {
   Switch,
   FormControlLabel,
   Alert,
+  CircularProgress,
 } from '@mui/material';
-import { Settings as SettingsIcon } from '@mui/icons-material';
+import { Settings as SettingsIcon, Notifications as NotificationsIcon } from '@mui/icons-material';
 import { useLiquidGlass } from '../../contexts/LiquidGlassContext';
 import LiquidGlassSettings from '../../components/LiquidGlassSettings';
+import { useAppDispatch, useAppSelector } from '../../store/store';
+import {
+  selectSettings,
+  selectSettingsLoading,
+  fetchSettings,
+  updateSettings,
+} from '../../store/slices/notificationSlice';
+import { useEffect } from 'react';
 
 const SettingsPage = () => {
   const { isLiquidGlassEnabled, toggleLiquidGlass, liquidGlassSettings, updateLiquidGlassSettings } = useLiquidGlass();
+
+  // Notification settings
+  const dispatch = useAppDispatch();
+  const notificationSettings = useAppSelector(selectSettings);
+  const settingsLoading = useAppSelector(selectSettingsLoading);
+
+  useEffect(() => {
+    dispatch(fetchSettings());
+  }, [dispatch]);
+
+  const handleNotificationSettingChange = (setting: string, value: boolean) => {
+    if (notificationSettings) {
+      dispatch(updateSettings({ [setting]: value }));
+    }
+  };
 
   return (
     <Box sx={{ width: '100%', maxWidth: 1200, mx: 'auto', p: 3 }}>
@@ -87,6 +111,145 @@ const SettingsPage = () => {
           />
         </Paper>
       )}
+
+      {/* Notification Settings */}
+      <Paper sx={{ p: 3, mb: 3 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+          <NotificationsIcon sx={{ fontSize: 24, color: 'primary.main' }} />
+          <Typography variant="h6" fontWeight={600}>
+            Notification Settings
+          </Typography>
+        </Box>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+          Choose which notifications you want to receive and how they're delivered.
+        </Typography>
+
+        {settingsLoading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+            <CircularProgress size={24} />
+          </Box>
+        ) : notificationSettings ? (
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {/* Task Notifications */}
+            <Divider sx={{ my: 1 }} />
+            <Typography variant="subtitle2" fontWeight={600} color="text.primary">
+              Task Notifications
+            </Typography>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={notificationSettings.notifyTaskAssigned}
+                  onChange={(e) => handleNotificationSettingChange('notifyTaskAssigned', e.target.checked)}
+                  color="primary"
+                />
+              }
+              label="Task assigned to me"
+            />
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={notificationSettings.notifyTaskComment}
+                  onChange={(e) => handleNotificationSettingChange('notifyTaskComment', e.target.checked)}
+                  color="primary"
+                />
+              }
+              label="Comments on my tasks"
+            />
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={notificationSettings.notifyTaskLike}
+                  onChange={(e) => handleNotificationSettingChange('notifyTaskLike', e.target.checked)}
+                  color="primary"
+                />
+              }
+              label="Likes on my tasks"
+            />
+
+            {/* Social Notifications */}
+            <Divider sx={{ my: 1 }} />
+            <Typography variant="subtitle2" fontWeight={600} color="text.primary">
+              Social Notifications
+            </Typography>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={notificationSettings.notifyCommentReply}
+                  onChange={(e) => handleNotificationSettingChange('notifyCommentReply', e.target.checked)}
+                  color="primary"
+                />
+              }
+              label="Replies to my comments"
+            />
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={notificationSettings.notifyCommentReaction}
+                  onChange={(e) => handleNotificationSettingChange('notifyCommentReaction', e.target.checked)}
+                  color="primary"
+                />
+              }
+              label="Reactions to my comments"
+            />
+
+            {/* System Notifications */}
+            <Divider sx={{ my: 1 }} />
+            <Typography variant="subtitle2" fontWeight={600} color="text.primary">
+              System Notifications
+            </Typography>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={notificationSettings.notifySystemAlert}
+                  onChange={(e) => handleNotificationSettingChange('notifySystemAlert', e.target.checked)}
+                  color="primary"
+                />
+              }
+              label="System alerts and announcements"
+            />
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={notificationSettings.notifyRoleChanged}
+                  onChange={(e) => handleNotificationSettingChange('notifyRoleChanged', e.target.checked)}
+                  color="primary"
+                />
+              }
+              label="Role changes"
+            />
+
+            {/* Delivery Methods */}
+            <Divider sx={{ my: 1 }} />
+            <Typography variant="subtitle2" fontWeight={600} color="text.primary">
+              Delivery Methods
+            </Typography>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={notificationSettings.pushEnabled}
+                  onChange={(e) => handleNotificationSettingChange('pushEnabled', e.target.checked)}
+                  color="primary"
+                />
+              }
+              label="Push notifications (in-app)"
+            />
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={notificationSettings.emailEnabled}
+                  onChange={(e) => handleNotificationSettingChange('emailEnabled', e.target.checked)}
+                  color="primary"
+                />
+              }
+              label="Email notifications"
+            />
+          </Box>
+        ) : (
+          <Typography variant="body2" color="text.secondary">
+            Unable to load notification settings.
+          </Typography>
+        )}
+      </Paper>
 
       {/* Other Settings Sections */}
       <Paper sx={{ p: 3 }}>

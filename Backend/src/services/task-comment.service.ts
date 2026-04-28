@@ -8,6 +8,7 @@ import { CommentReaction } from '../entities/CommentReaction';
 import { CreateTaskCommentDto, UpdateTaskCommentDto } from '../dtos/task-comment.dto';
 import { TaskCommentResponseDto } from '../dtos/task-comment.dto';
 import { CloudinaryUtil } from '../utils/cloudinary.util';
+import { NotificationHelper } from '../utils/notification.util';
 
 @Injectable()
 export class TaskCommentService {
@@ -51,7 +52,42 @@ export class TaskCommentService {
     comment.parentCommentId = createCommentDto.parentCommentId;
 
     const savedComment = await this.taskCommentRepository.save(comment);
-    
+
+    // Send notifications
+    const recipientUserIds: number[] = [];
+
+    // Notify task creator if commenter is not the creator
+    if (task.createdBy !== userId) {
+      recipientUserIds.push(task.createdBy);
+    }
+
+    // If it's a reply, notify parent comment author
+    if (createCommentDto.parentCommentId) {
+      const parentComment = await this.taskCommentRepository.findOne({
+        where: { commentId: createCommentDto.parentCommentId }
+      });
+      if (parentComment && parentComment.userId !== userId && !recipientUserIds.includes(parentComment.userId)) {
+        recipientUserIds.push(parentComment.userId);
+        // Use reply notification type
+        NotificationHelper.notifyCommentReply(
+          task.title,
+          `/posts/${taskId}`,
+          userId,
+          [parentComment.userId]
+        );
+      }
+    }
+
+    // Send task comment notification (for task creator)
+    if (recipientUserIds.length > 0 && !createCommentDto.parentCommentId) {
+      NotificationHelper.notifyTaskComment(
+        task.title,
+        `/posts/${taskId}`,
+        userId,
+        recipientUserIds
+      );
+    }
+
     return this.getCommentWithRelations(savedComment.commentId);
   }
 

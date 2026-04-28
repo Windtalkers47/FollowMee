@@ -8,6 +8,11 @@ import dataSource from './config/database';
 import dotenv from 'dotenv';
 import { logger } from './utils/logger';
 import { processObjectDates } from './utils/date.utils';
+import { NotificationHelper } from './utils/notification.util';
+import { NotificationService } from './services/notification.service';
+import { webSocketService } from './services/websocket.service';
+import { createServer } from 'http';
+import { Server as SocketIOServer } from 'socket.io';
 
 // Import routes
 import authRoutes from './routes/auth.routes';
@@ -20,6 +25,7 @@ import taskImageRoutes from './routes/task-image.routes';
 import taskCommentRoutes from './routes/task-comment.routes';
 import taskLikeRoutes from './routes/task-like.routes';
 import commentReactionRoutes from './routes/comment-reaction.routes';
+import notificationRoutes from './routes/notification.routes';
 
 // Load environment variables
 dotenv.config();
@@ -41,12 +47,16 @@ class App {
     try {
       // Initialize database first
       await this.initializeDatabase();
-      
+
+      // Initialize notification helper
+      const notificationService = new NotificationService(this.database);
+      NotificationHelper.initialize(notificationService);
+
       // Then set up other middleware and routes
       this.initializeMiddlewares();
       this.initializeRoutes();
       this.initializeErrorHandling();
-      
+
       logger.info('Application initialized successfully');
     } catch (error) {
       const errorMessage = error instanceof Error ? error : new Error('Unknown error during initialization');
@@ -160,6 +170,9 @@ class App {
     this.app.use('/api/tasks/:taskId/likes', taskLikeRoutes);
     this.app.use('/api/tasks/comments', commentReactionRoutes);
 
+    // Notification routes
+    this.app.use('/api/notifications', notificationRoutes);
+
     // 404 handler
     this.app.use((req: Request, res: Response) => {
       res.status(404).json({ message: 'Not Found' });
@@ -198,15 +211,29 @@ class App {
 
   public async start(): Promise<void> {
     try {
-      // Initialize database connection first
-      await this.initializeDatabase();
-      
+      // Create HTTP server
+      const httpServer = createServer(this.app);
+
+      // Initialize Socket.io
+      const io = new SocketIOServer(httpServer, {
+        cors: {
+          origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+          credentials: true,
+        },
+      });
+
+      // Initialize WebSocket service
+      webSocketService.initialize(io);
+
+      logger.info('WebSocket service initialized');
+
       // Start the server
       return new Promise((resolve) => {
-        this.app.listen(this.port, () => {
+        httpServer.listen(this.port, () => {
           const ip = this.getIpAddress();
           logger.info(`Server is running on http://${ip}:${this.port}`);
           logger.info(`API Documentation: http://${ip}:${this.port}/api-docs`);
+          logger.info(`WebSocket server is running on ws://${ip}:${this.port}`);
           resolve();
         });
       });

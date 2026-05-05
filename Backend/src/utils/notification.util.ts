@@ -111,13 +111,14 @@ export class NotificationHelper {
     taskTitle: string,
     taskUrl: string,
     actorUserId: number,
-    recipientUserIds: number[]
+    recipientUserIds: number[],
+    parentCommentId?: number
   ): Promise<void> {
     await this.createNotification({
       notificationType: NotificationType.COMMENT_REPLY,
       actorUserId,
-      entityType: 'comment',
-      entityId: taskUrl.split('/').pop() || '',
+      entityType: 'comment_reply',
+      entityId: parentCommentId ? `${taskUrl.split('/').pop()}-${parentCommentId}` : taskUrl.split('/').pop() || '',
       title: 'Comment Reply',
       message: `Someone replied to your comment on "${taskTitle}"`,
       actionUrl: taskUrl,

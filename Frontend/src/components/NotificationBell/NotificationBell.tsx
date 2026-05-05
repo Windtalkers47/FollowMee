@@ -41,11 +41,12 @@ const NotificationBell = ({ onDropdownToggle }: NotificationBellProps) => {
       onClick={handleClick}
       sx={{
         position: 'relative',
-        color: theme.palette.mode === 'dark' ? 'text.primary' : 'text.primary',
+        color: theme.palette.mode === 'dark' ? 'text.primary' : '#64748b',
         '&:hover': {
           backgroundColor: theme.palette.mode === 'dark'
             ? 'rgba(255, 255, 255, 0.1)'
-            : 'rgba(0, 0, 0, 0.05)',
+            : 'rgba(0, 0, 0, 0.04)',
+          color: theme.palette.mode === 'dark' ? 'text.primary' : '#334155',
         },
       }}
     >
@@ -60,6 +61,7 @@ const NotificationBell = ({ onDropdownToggle }: NotificationBellProps) => {
             fontSize: '0.7rem',
             height: '18px',
             minWidth: '18px',
+            boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)',
           },
         }}
       >

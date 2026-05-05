@@ -72,10 +72,10 @@ const NotificationDropdown = () => {
         borderRadius: 2,
         boxShadow: theme.palette.mode === 'dark'
           ? '0 8px 32px rgba(0, 0, 0, 0.5)'
-          : '0 8px 32px rgba(0, 0, 0, 0.15)',
+          : '0 8px 32px rgba(0, 0, 0, 0.25)',
         border: theme.palette.mode === 'dark'
-          ? '1px solid rgba(255, 255, 255, 0.1)'
-          : '1px solid rgba(0, 0, 0, 0.1)',
+          ? '1px solid rgba(255, 255, 255, 0.15)'
+          : '1px solid rgba(0, 0, 0, 0.15)',
         overflow: 'hidden',
         zIndex: 9999,
       }}
@@ -87,10 +87,15 @@ const NotificationDropdown = () => {
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
+          backgroundColor: theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : '#f1f5f9',
           borderBottom: `1px solid ${theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'}`,
         }}
       >
-        <Typography variant="h6" fontWeight={600}>
+        <Typography 
+          variant="h6" 
+          fontWeight={600}
+          sx={{ color: theme.palette.mode === 'dark' ? 'text.primary' : '#1e293b' }}
+        >
           Notifications
           {unreadCount > 0 && (
             <Typography
@@ -115,7 +120,10 @@ const NotificationDropdown = () => {
             size="small"
             startIcon={<CheckCircle />}
             onClick={handleMarkAllAsRead}
-            sx={{ textTransform: 'none' }}
+            sx={{ 
+              textTransform: 'none',
+              color: theme.palette.mode === 'dark' ? 'text.primary' : '#64748b',
+            }}
           >
             Mark all read
           </Button>
@@ -145,7 +153,10 @@ const NotificationDropdown = () => {
           </Box>
         ) : notifications.length === 0 ? (
           <Box sx={{ p: 4, textAlign: 'center' }}>
-            <Typography variant="body2" color="text.secondary">
+            <Typography 
+              variant="body2" 
+              sx={{ color: theme.palette.mode === 'dark' ? 'text.secondary' : '#64748b' }}
+            >
               No notifications yet
             </Typography>
           </Box>
@@ -167,7 +178,10 @@ const NotificationDropdown = () => {
         <>
           <Divider />
           <Box sx={{ p: 1.5, textAlign: 'center' }}>
-            <Typography variant="caption" color="text.secondary">
+            <Typography 
+              variant="caption" 
+              sx={{ color: theme.palette.mode === 'dark' ? 'text.secondary' : '#64748b' }}
+            >
               Showing {notifications.length} notifications
             </Typography>
           </Box>

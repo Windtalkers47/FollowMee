@@ -130,22 +130,30 @@ const NotificationItem = ({ recipient, onMarkAsRead, onDelete, onArchive }: Noti
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',
+              color: theme.palette.mode === 'dark' ? 'text.primary' : '#1e293b',
             }}
           >
             {notification.title}
           </Typography>
-          <Typography variant="caption" color="text.secondary" sx={{ ml: 1, flexShrink: 0 }}>
+          <Typography 
+            variant="caption" 
+            sx={{ 
+              ml: 1, 
+              flexShrink: 0,
+              color: theme.palette.mode === 'dark' ? 'text.secondary' : '#64748b',
+            }}
+          >
             {formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true })}
           </Typography>
         </Box>
         <Typography
           variant="body2"
-          color="text.secondary"
           sx={{
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
             mb: 0.5,
+            color: theme.palette.mode === 'dark' ? 'text.secondary' : '#64748b',
           }}
         >
           {notification.message}

@@ -56,35 +56,56 @@ export class TaskCommentService {
     // Send notifications
     const recipientUserIds: number[] = [];
 
-    // Notify task creator if commenter is not the creator
-    if (task.createdBy !== userId) {
-      recipientUserIds.push(task.createdBy);
-    }
-
     // If it's a reply, notify parent comment author
     if (createCommentDto.parentCommentId) {
       const parentComment = await this.taskCommentRepository.findOne({
         where: { commentId: createCommentDto.parentCommentId }
       });
-      if (parentComment && parentComment.userId !== userId && !recipientUserIds.includes(parentComment.userId)) {
-        recipientUserIds.push(parentComment.userId);
-        // Use reply notification type
-        NotificationHelper.notifyCommentReply(
-          task.title,
-          `/posts/${taskId}`,
-          userId,
-          [parentComment.userId]
-        );
+      
+      if (parentComment) {
+        // Notify immediate parent comment author
+        if (parentComment.userId !== userId) {
+          recipientUserIds.push(parentComment.userId);
+          // Use reply notification type with parent comment ID for unique grouping
+          NotificationHelper.notifyCommentReply(
+            task.title,
+            `/posts/${taskId}`,
+            userId,
+            [parentComment.userId],
+            createCommentDto.parentCommentId
+          );
+        }
+
+        // If parent comment is also a reply (nested), also notify the root comment author
+        if (parentComment.parentCommentId) {
+          const rootComment = await this.taskCommentRepository.findOne({
+            where: { commentId: parentComment.parentCommentId }
+          });
+          
+          if (rootComment && rootComment.userId !== userId && !recipientUserIds.includes(rootComment.userId)) {
+            recipientUserIds.push(rootComment.userId);
+            // Send separate notification for root comment author
+            NotificationHelper.notifyCommentReply(
+              task.title,
+              `/posts/${taskId}`,
+              userId,
+              [rootComment.userId],
+              rootComment.commentId
+            );
+          }
+        }
       }
     }
 
-    // Send task comment notification (for task creator)
-    if (recipientUserIds.length > 0 && !createCommentDto.parentCommentId) {
+    // Notify task creator if commenter is not the creator
+    if (task.createdBy !== userId && !recipientUserIds.includes(task.createdBy)) {
+      recipientUserIds.push(task.createdBy);
+      // Send task comment notification (for task creator)
       NotificationHelper.notifyTaskComment(
         task.title,
         `/posts/${taskId}`,
         userId,
-        recipientUserIds
+        [task.createdBy]
       );
     }
 

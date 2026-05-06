@@ -190,8 +190,12 @@ export class CustomerService {
       throw new Error(`Customer with ID ${id} not found`);
     }
 
-    await this.customerRepository.deactivate(id);
-    return { message: 'Customer deactivated successfully' };
+    // Soft delete by setting deletedAt and isActive to false
+    await this.customerRepository.update(id, {
+      deletedAt: new Date(),
+      isActive: false
+    });
+    return { message: 'Customer deleted successfully' };
   }
 
   /**

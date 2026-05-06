@@ -300,19 +300,24 @@ const CustomerPage = () => {
         result = await createCustomer(payload);
       }
   
+      // Close the loading dialog
+      Swal.close();
+  
       // Check if the result indicates a failure
       if (result && !result.success) {
+        // Always show Swal error dialog for clear feedback
+        await Swal.fire({
+          icon: 'error',
+          title: 'Operation Failed',
+          text: result.message || 'An error occurred',
+          confirmButtonColor: '#d33',
+        });
+        
+        // Also set field error for email-specific errors
         if (result.message?.toLowerCase().includes('email')) {
           setFormApiError({
             field: 'customerEmail',
             message: result.message,
-          });
-        } else {
-          await Swal.fire({
-            icon: 'error',
-            title: 'Error',
-            text: result.message || 'An error occurred',
-            confirmButtonColor: '#d33',
           });
         }
         return;
@@ -401,6 +406,7 @@ const CustomerPage = () => {
           customerAddress: editingCustomer.customerAddress || undefined,
         } : undefined}
         apiError={formApiError}
+        onClearApiError={() => setFormApiError(null)}
       />
 
       <Box sx={{ maxWidth: 1400, mx: 'auto' }}>
@@ -916,19 +922,19 @@ const CustomerPage = () => {
             >
               Mark Inactive
             </Button>
-            <Button 
-              size="small" 
+            <Button
+              size="small"
               variant="contained"
               startIcon={<CancelIcon />}
-              sx={{ 
-                bgcolor: '#dc3545', 
+              sx={{
+                bgcolor: '#000000',
                 color: 'white',
                 fontWeight: 600,
                 px: 2,
-                '&:hover': { 
-                  bgcolor: '#c82333',
+                '&:hover': {
+                  bgcolor: '#333333',
                   transform: 'translateY(-1px)',
-                  boxShadow: '0 4px 8px rgba(220, 53, 69, 0.3)'
+                  boxShadow: '0 4px 8px rgba(0, 0, 0, 0.3)'
                 }
               }}
               onClick={async () => {
@@ -937,11 +943,11 @@ const CustomerPage = () => {
                   text: `Are you sure you want to mark ${selected.length} customer(s) as canceled?`,
                   icon: 'warning',
                   showCancelButton: true,
-                  confirmButtonColor: '#dc3545',
+                  confirmButtonColor: '#000000',
                   cancelButtonColor: '#6c757d',
                   confirmButtonText: 'Yes, mark as canceled'
                 });
-                
+
                 if (result.isConfirmed) {
                   try {
                     for (const customerId of selected) {
@@ -977,15 +983,89 @@ const CustomerPage = () => {
             >
               Mark Canceled
             </Button>
-            <Button 
-              size="small" 
-              variant="text" 
-              sx={{ 
+            <Button
+              size="small"
+              variant="contained"
+              startIcon={<BlockIcon />}
+              sx={{
+                bgcolor: '#dc3545',
+                color: 'white',
+                fontWeight: 600,
+                px: 2,
+                '&:hover': {
+                  bgcolor: '#c82333',
+                  transform: 'translateY(-1px)',
+                  boxShadow: '0 4px 8px rgba(220, 53, 69, 0.3)'
+                }
+              }}
+              onClick={async () => {
+                const result = await Swal.fire({
+                  title: 'Delete Customers',
+                  text: `Are you sure you want to delete ${selected.length} customer(s)? This action cannot be undone and will also delete their profile images.`,
+                  icon: 'warning',
+                  showCancelButton: true,
+                  confirmButtonColor: '#dc3545',
+                  cancelButtonColor: '#6c757d',
+                  confirmButtonText: 'Yes, delete',
+                  cancelButtonText: 'Cancel',
+                });
+
+                if (result.isConfirmed) {
+                  try {
+                    let successCount = 0;
+                    let failCount = 0;
+
+                    for (const customerId of selected) {
+                      const deleteResult = await deleteCustomer(customerId);
+                      if (deleteResult.success) {
+                        successCount++;
+                      } else {
+                        failCount++;
+                      }
+                    }
+
+                    if (failCount === 0) {
+                      await Swal.fire({
+                        icon: 'success',
+                        title: 'Deleted',
+                        text: `${successCount} customer(s) deleted successfully`,
+                        timer: 2000,
+                        timerProgressBar: true,
+                        showConfirmButton: false,
+                      });
+                    } else {
+                      await Swal.fire({
+                        icon: 'warning',
+                        title: 'Partial Success',
+                        text: `${successCount} deleted, ${failCount} failed`,
+                        confirmButtonColor: '#d33',
+                      });
+                    }
+
+                    setSelected([]);
+                    refetch();
+                  } catch (error) {
+                    await Swal.fire({
+                      icon: 'error',
+                      title: 'Error',
+                      text: 'Failed to delete customers',
+                      confirmButtonColor: '#d33'
+                    });
+                  }
+                }
+              }}
+            >
+              Delete
+            </Button>
+            <Button
+              size="small"
+              variant="text"
+              sx={{
                 color: 'white',
                 borderColor: 'rgba(255,255,255,0.5)',
                 borderWidth: 1,
                 borderStyle: 'solid',
-                '&:hover': { 
+                '&:hover': {
                   bgcolor: 'rgba(255,255,255,0.1)',
                   borderColor: 'white'
                 }
@@ -1437,13 +1517,13 @@ const CustomerPage = () => {
         status={selectedMember?.status as 'active' | 'inactive' | 'canceled' | undefined}
         onAction={async (action) => {
           if (!selectedMember) return;
-          
+
           try {
             switch (action) {
               case 'update':
                 handleOpenForm(selectedMember);
                 break;
-                
+
               case 'setActive':
               case 'setInactive':
               case 'setCanceled': {
@@ -1464,7 +1544,7 @@ const CustomerPage = () => {
                   status,
                   isActive: status === 'active'
                 };
-                
+
                 await updateCustomer(selectedMember.customerId, updateData);
                 await Swal.fire({
                   icon: 'success',
@@ -1477,7 +1557,43 @@ const CustomerPage = () => {
                 refetch(); // Refresh the list to show updated status
                 break;
               }
-                
+
+              case 'delete': {
+                const result = await Swal.fire({
+                  title: 'Delete Customer',
+                  text: `Are you sure you want to delete ${selectedMember.fullName || selectedMember.customerName}? This action cannot be undone.`,
+                  icon: 'warning',
+                  showCancelButton: true,
+                  confirmButtonColor: '#d33',
+                  cancelButtonColor: '#6c757d',
+                  confirmButtonText: 'Yes, delete',
+                  cancelButtonText: 'Cancel',
+                });
+
+                if (result.isConfirmed) {
+                  const deleteResult = await deleteCustomer(selectedMember.customerId);
+                  if (deleteResult.success) {
+                    await Swal.fire({
+                      icon: 'success',
+                      title: 'Deleted',
+                      text: 'Customer has been deleted successfully',
+                      timer: 2000,
+                      timerProgressBar: true,
+                      showConfirmButton: false,
+                    });
+                    refetch();
+                  } else {
+                    await Swal.fire({
+                      icon: 'error',
+                      title: 'Error',
+                      text: deleteResult.message || 'Failed to delete customer',
+                      confirmButtonColor: '#d33',
+                    });
+                  }
+                }
+                break;
+              }
+
               case 'report':
                 await Swal.fire({
                   icon: 'info',
@@ -1488,7 +1604,7 @@ const CustomerPage = () => {
                   showConfirmButton: false,
                 });
                 break;
-                
+
               default:
                 console.log('Action not handled:', action);
             }
@@ -1496,8 +1612,8 @@ const CustomerPage = () => {
             console.error('Error handling action:', error);
             await Swal.fire({
               icon: 'error',
-              title: 'Update Failed',
-              text: 'Failed to update customer status',
+              title: 'Action Failed',
+              text: 'Failed to perform the requested action',
               confirmButtonColor: '#d33',
             });
           } finally {

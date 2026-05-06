@@ -6,7 +6,6 @@ import {
   ListItemText,
   Divider,
   Typography,
-  Box,
 } from '@mui/material';
 import {
   Edit as EditIcon,
@@ -14,9 +13,7 @@ import {
   PauseCircle as InactiveIcon,
   Cancel as CancelIcon,
   Flag as FlagIcon,
-  Person as PersonIcon,
-  Message as MessageIcon,
-  GroupAdd as GroupAddIcon,
+  Delete as DeleteIcon,
 } from '@mui/icons-material';
 
 type CustomerStatus = 'active' | 'inactive' | 'canceled';
@@ -87,6 +84,13 @@ const getStatusMenuItems = (status?: CustomerStatus): MenuItemType[] => {
 
   const otherItems: MenuItemType[] = [
     {
+      label: 'Delete Customer',
+      icon: <DeleteIcon fontSize="small" />,
+      action: 'delete',
+      color: 'error',
+      dividerBefore: true,
+    },
+    {
       label: 'Report',
       icon: <FlagIcon fontSize="small" color="warning" />,
       action: 'report',
@@ -155,7 +159,7 @@ const ActionMenu: React.FC<ActionMenuProps> = ({
         },
       }}
     >
-      {menuItemsToShow.flatMap((item, index) => {
+      {menuItemsToShow.flatMap((item) => {
         const elements = [];
         
         if (item.dividerBefore) {

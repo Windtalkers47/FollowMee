@@ -104,7 +104,8 @@ const apiRequest = async <T>(
   }
 
   if (!response.ok) {
-    throw new Error(json?.message || response.statusText);
+    // Use the specific error message if available, otherwise fall back to message or statusText
+    throw new Error(json?.error || json?.message || response.statusText);
   }
 
   return json as T;

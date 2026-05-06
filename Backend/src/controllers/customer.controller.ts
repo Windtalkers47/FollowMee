@@ -192,6 +192,16 @@ export class CustomerController {
     } catch (error: unknown) {
       console.error('Error creating customer:', error);
       const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+      
+      // Handle duplicate email error specifically
+      if (errorMessage.includes('email already exists') || errorMessage.includes('duplicate')) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'Failed to create customer',
+          error: errorMessage
+        });
+      }
+      
       return res.status(500).json({ 
         success: false, 
         message: 'Failed to create customer',
@@ -267,6 +277,16 @@ export class CustomerController {
     } catch (error: unknown) {
       console.error('Error updating customer:', error);
       const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+      
+      // Handle duplicate email error specifically
+      if (errorMessage.includes('email already exists') || errorMessage.includes('duplicate')) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'Failed to update customer',
+          error: errorMessage
+        });
+      }
+      
       return res.status(500).json({ 
         success: false, 
         message: 'Failed to update customer',
@@ -396,6 +416,27 @@ export class CustomerController {
   async deleteCustomer(req: Request, res: Response) {
     try {
       const { id } = req.params;
+      
+      // Find the customer first to get the image URL
+      const customer = await this.customerService.findOne(id);
+      if (!customer) {
+        return res.status(404).json({ 
+          success: false, 
+          message: 'Customer not found' 
+        });
+      }
+
+      // Delete the image from Cloudinary if it exists
+      if (customer.customerImageUrl) {
+        try {
+          await deleteFromCloudinary(customer.customerImageUrl);
+        } catch (error) {
+          console.error('Error deleting image from Cloudinary:', error);
+          // Continue even if deletion fails to ensure the customer is deleted
+        }
+      }
+
+      // Delete the customer
       const result = await this.customerService.remove(id);
       
       if (!result) {

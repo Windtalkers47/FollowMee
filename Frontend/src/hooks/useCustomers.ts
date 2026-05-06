@@ -99,7 +99,25 @@ export const useCustomers = () => {
         dispatch(fetchStatusStats());
         return { success: true, data: result };
       } catch (err: any) {
-        return { success: false, message: err.message || 'Create failed' };
+        // Parse error message to provide user-friendly feedback
+        let errorMessage = 'Failed to create customer';
+        
+        // Extract error message from various possible formats
+        const errorDetails = err?.error || err?.message || err;
+        
+        if (typeof errorDetails === 'string') {
+          if (errorDetails.includes('email already exists') || errorDetails.includes('duplicate')) {
+            errorMessage = 'This email is already registered. Please use a different email address.';
+          } else if (errorDetails.includes('customerEmail')) {
+            errorMessage = 'Invalid email address. Please check and try again.';
+          } else if (errorDetails.includes('customerName')) {
+            errorMessage = 'Invalid name. Please check and try again.';
+          } else {
+            errorMessage = errorDetails;
+          }
+        }
+        
+        return { success: false, message: errorMessage };
       }
     },
     [dispatch]
@@ -112,7 +130,23 @@ export const useCustomers = () => {
         dispatch(fetchStatusStats());
         return { success: true, data: result };
       } catch (err: any) {
-        return { success: false, message: err.message || 'Update failed' };
+        // Parse error message to provide user-friendly feedback
+        let errorMessage = 'Failed to update customer';
+        
+        // Extract error message from various possible formats
+        const errorDetails = err?.error || err?.message || err;
+        
+        if (typeof errorDetails === 'string') {
+          if (errorDetails.includes('email already exists') || errorDetails.includes('duplicate')) {
+            errorMessage = 'This email is already registered. Please use a different email address.';
+          } else if (errorDetails.includes('customerEmail')) {
+            errorMessage = 'Invalid email address. Please check and try again.';
+          } else {
+            errorMessage = errorDetails;
+          }
+        }
+        
+        return { success: false, message: errorMessage };
       }
     },
     [dispatch]

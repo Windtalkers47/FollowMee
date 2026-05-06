@@ -114,6 +114,7 @@ interface CustomerFormProps {
   onSubmit: (data: CustomerFormData) => Promise<void>;
   initialData?: Partial<CustomerFormData>;
   apiError?: ApiError | null;
+  onClearApiError?: () => void;
 }
 
 const ImagePreview = styled('div')(({ theme }) => ({
@@ -186,6 +187,7 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
   onSubmit,
   initialData = { isActive: true },
   apiError,
+  onClearApiError,
 }) => {
   const [imagePreview, setImagePreview] = useState<string | null>(
     initialData?.customerImageUrl || null
@@ -406,97 +408,67 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
 
   // Handle form submission with proper type safety
   const onSubmitForm = async (formData: FormValues) => {
-    try {
-      // Show loading state for form submission
-      if (selectedFile || formData.removeImage) {
-        Swal.fire({
-          title: formData.removeImage ? 'Removing Image...' : 'Uploading Image...',
-          text: formData.removeImage ? 'Please wait while we remove your image' : 'Please wait while we upload your image',
-          icon: 'info',
-          allowOutsideClick: false,
-          allowEscapeKey: false,
-          showConfirmButton: false,
-          didOpen: () => {
-            Swal.showLoading();
-          }
-        });
+    // Show loading state for form submission
+    Swal.fire({
+      title: initialData?.customerId ? 'Updating Customer...' : 'Creating Customer...',
+      text: 'Please wait while we process your request',
+      icon: 'info',
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      showConfirmButton: false,
+      didOpen: () => {
+        Swal.showLoading();
       }
+    });
 
-      // Create a new object with all form values
-      const submitData: any = {
-        customerName: formData.customerName,
-        customerEmail: formData.customerEmail,
-        isActive: formData.isActive ?? true,
-      };
+    // Create a new object with all form values
+    const submitData: any = {
+      customerName: formData.customerName,
+      customerEmail: formData.customerEmail,
+      isActive: formData.isActive ?? true,
+    };
 
-      // Add optional fields
-      const optionalFields = [
-        'customerId', 'customerLastName', 'customerPhone1', 'customerPhone2',
-        'customerFacebook', 'customerInstagram', 'customerTikTok', 
-        'customerLine', 'customerX', 'customerAddress'
-      ];
-      
-      optionalFields.forEach(field => {
-        if (formData[field as keyof FormValues]) {
-          submitData[field] = formData[field as keyof FormValues];
-        }
-      });
-
-      // Add removeImage flag if set
-      if (formData.removeImage) {
-        submitData.removeImage = true;
+    // Add optional fields
+    const optionalFields = [
+      'customerId', 'customerLastName', 'customerPhone1', 'customerPhone2',
+      'customerFacebook', 'customerInstagram', 'customerTikTok', 
+      'customerLine', 'customerX', 'customerAddress'
+    ];
+    
+    optionalFields.forEach(field => {
+      if (formData[field as keyof FormValues]) {
+        submitData[field] = formData[field as keyof FormValues];
       }
+    });
 
-      // Handle image upload
-      if (selectedFile) {
-        try {
-          setIsProcessingImage(true);
-          // Convert to base64
-          const base64Image = await fileToBase64(selectedFile);
-          submitData.base64Image = base64Image;
-        } catch (error) {
-          console.error('Error processing image:', error);
-          setUploadError('Failed to process the image. Please try again.');
-          Swal.close();
-          return;
-        } finally {
-          setIsProcessingImage(false);
-        }
-      } else if (formData.customerImageUrl && !formData.customerImageUrl.startsWith('blob:')) {
-        submitData.customerImageUrl = formData.customerImageUrl;
-      } else {
-        // Explicitly set customerImageUrl to null when image is removed
-        submitData.customerImageUrl = null;
-      }
-
-      await onSubmit(submitData);
-
-      // Close loading and show success
-      if (selectedFile || formData.removeImage) {
-        Swal.close();
-        Swal.fire({
-          icon: 'success',
-          title: formData.removeImage ? 'Image Removed Successfully!' : 'Image Uploaded Successfully!',
-          text: formData.removeImage 
-            ? 'Your image has been removed and will not be displayed.' 
-            : 'Your image has been uploaded successfully!',
-          timer: 2000,
-          showConfirmButton: false,
-          position: 'top-end',
-          toast: true
-        });
-      }
-    } catch (error) {
-      console.error('Error submitting form:', error);
-      setUploadError('Failed to submit form. Please try again.');
-      Swal.close();
-      Swal.fire({
-        icon: 'error',
-        title: 'Operation Failed',
-        text: 'Failed to complete the operation. Please try again.',
-      });
-      throw error; // Re-throw to allow parent component to handle error
+    // Add removeImage flag if set
+    if (formData.removeImage) {
+      submitData.removeImage = true;
     }
+
+    // Handle image upload
+    if (selectedFile) {
+      try {
+        setIsProcessingImage(true);
+        // Convert to base64
+        const base64Image = await fileToBase64(selectedFile);
+        submitData.base64Image = base64Image;
+      } catch (error) {
+        console.error('Error processing image:', error);
+        setUploadError('Failed to process the image. Please try again.');
+        Swal.close();
+        return;
+      } finally {
+        setIsProcessingImage(false);
+      }
+    } else if (formData.customerImageUrl && !formData.customerImageUrl.startsWith('blob:')) {
+      submitData.customerImageUrl = formData.customerImageUrl;
+    } else {
+      // Explicitly set customerImageUrl to null when image is removed
+      submitData.customerImageUrl = null;
+    }
+
+    await onSubmit(submitData);
   };
 
   const defaultValues = React.useMemo<FormValues>(
@@ -548,8 +520,6 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
         type: 'manual',
         message: apiError.message,
       });
-  
-      setTimeout(() => setValue(apiError.field, '', { shouldValidate: true }), 100);
     }
   }, [apiError, setError, setValue]);
   
@@ -756,6 +726,13 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
                         required
                         error={!!error || apiError?.field === 'customerEmail'}
                         helperText={emailError}
+                        onChange={(e) => {
+                          field.onChange(e);
+                          // Clear API error when user starts typing
+                          if (apiError?.field === 'customerEmail' && onClearApiError) {
+                            onClearApiError();
+                          }
+                        }}
                       />
                     );
                   }}

@@ -83,7 +83,8 @@ export class UserController {
       const createUserDto = userData as CreateUserDto;
       
       // Create the user first
-      let user = await this.userService.createUser(createUserDto);
+      let result = await this.userService.createUser(createUserDto);
+      let user = result.user;
       
       // If there's a userImageUrl, upload it and update the user
       if (userImageUrl) {
@@ -99,12 +100,29 @@ export class UserController {
         }
       }
       
+      const message = result.reactivated 
+        ? 'User reactivated successfully' + (userImageUrl ? ' with image' : '')
+        : 'User created successfully' + (userImageUrl ? ' with image' : '');
+      
       res.status(201).json({ 
         success: true, 
         data: user,
-        message: 'User created successfully' + (userImageUrl ? ' with image' : '')
+        message
       });
-    } catch (error) {
+    } catch (error: unknown) {
+      console.error('Error creating user:', error);
+      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+      
+      // Handle duplicate email or name error specifically
+      if (errorMessage.includes('email already exists') || errorMessage.includes('duplicate') || errorMessage.includes('name already exists') || errorMessage.includes('Email already in use')) {
+        res.status(400).json({ 
+          success: false, 
+          message: 'Failed to create user',
+          error: errorMessage
+        });
+        return;
+      }
+      
       next(error);
     }
   }

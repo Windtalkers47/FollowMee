@@ -197,7 +197,7 @@ const CustomerPage = () => {
 
   const handleChangeRowsPerPage = (e: React.ChangeEvent<HTMLInputElement>) => {
     handlePageSizeChange(parseInt(e.target.value, 10));
-    handlePageChange(1);
+    // handlePageSizeChange already calls setPage(1) and refetch internally
   };
 
   const handleSelectAllClick = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -596,26 +596,23 @@ const CustomerPage = () => {
         onSearchChange={(value) => {
           setSearchInput(value);
           if (value.trim() === '') {
+            // handleFilterChange already calls setPage(1) and refetch internally
             handleFilterChange({ search: '' });
-            handlePageSizeChange(25);
-            handlePageChange(1);
           }
         }}
         onSearch={(value) => {
           if (!value || value.trim() === '') {
             setSearchInput('');
+            // handleFilterChange already calls setPage(1) and refetch internally
             handleFilterChange({ search: '' });
-            handlePageSizeChange(25);
-            handlePageChange(1);
           } else {
             handleFilterChange({ search: value });
           }
         }}
         onClear={() => {
           setSearchInput('');
+          // handleFilterChange already calls setPage(1) and refetch internally
           handleFilterChange({ search: '' });
-          handlePageSizeChange(25);
-          handlePageChange(1);
         }}
         onRefresh={refetch}
         searchPlaceholder="Search customers..."
@@ -645,7 +642,6 @@ const CustomerPage = () => {
                 3: 'canceled'
               } as const;
               
-              handlePageChange(1);
               handleFilterChange({ 
                 status: statusMap[newValue as keyof typeof statusMap] as CustomerStatus | 'all',
                 search: filter.search 

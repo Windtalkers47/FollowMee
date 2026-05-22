@@ -27,22 +27,21 @@ export const useCustomers = () => {
   } = useAppSelector((state) => state.customer);
 
   // ===============================
-  // Load customers and status stats
+  // Initial load - fetch data once on mount
   // ===============================
-  const loadData = useCallback(() => {
-    dispatch(fetchCustomers({ 
-      page, 
-      limit: pageSize, 
-      status: filter.status === 'all' ? undefined : filter.status,
-      search: filter.search 
-    }));
-    dispatch(fetchStatusStats());
-  }, [dispatch, page, pageSize, filter.status, filter.search]);
-
-  // Initial load
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    // Fetch data only once when component mounts
+    const params = {
+      page: 1,
+      limit: pageSize,
+      status: undefined, // Start with 'all' customers
+      search: ''
+    };
+    
+    dispatch(fetchCustomers(params));
+    dispatch(fetchStatusStats());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ===============================
   // Pagination and filtering
@@ -50,16 +49,30 @@ export const useCustomers = () => {
   const handlePageChange = useCallback(
     (newPage: number) => {
       dispatch(setPage(newPage));
+      // Refetch data when page changes
+      dispatch(fetchCustomers({ 
+        page: newPage, 
+        limit: pageSize, 
+        status: filter.status === 'all' ? undefined : filter.status,
+        search: filter.search 
+      }));
     },
-    [dispatch]
+    [dispatch, pageSize, filter.status, filter.search]
   );
 
   const handlePageSizeChange = useCallback(
     (newSize: number) => {
       dispatch(setPageSize(newSize));
       dispatch(setPage(1));
+      // Refetch data when page size changes
+      dispatch(fetchCustomers({ 
+        page: 1, 
+        limit: newSize, 
+        status: filter.status === 'all' ? undefined : filter.status,
+        search: filter.search 
+      }));
     },
-    [dispatch]
+    [dispatch, filter.status, filter.search]
   );
 
   const handleFilterChange = useCallback((newFilter: { status?: CustomerStatus | 'all'; search?: string }) => {
@@ -67,7 +80,14 @@ export const useCustomers = () => {
     dispatch(setFilter(updatedFilter));
     // Reset to first page when filters change
     dispatch(setPage(1));
-  }, [dispatch, filter]);
+    // Refetch data when filter changes
+    dispatch(fetchCustomers({ 
+      page: 1, 
+      limit: pageSize, 
+      status: updatedFilter.status === 'all' ? undefined : updatedFilter.status,
+      search: updatedFilter.search 
+    }));
+  }, [dispatch, pageSize, filter.status, filter.search]);
 
   // ===============================
   // Refetch data
@@ -81,13 +101,7 @@ export const useCustomers = () => {
     };
     
     dispatch(fetchCustomers(params));
-    dispatch(fetchStatusStats());
   }, [dispatch, page, pageSize, filter.status, filter.search]);
-
-  // Initial fetch
-  useEffect(() => {
-    refetch();
-  }, [refetch]);
 
   // ===============================
   // CRUD
@@ -108,6 +122,8 @@ export const useCustomers = () => {
         if (typeof errorDetails === 'string') {
           if (errorDetails.includes('email already exists') || errorDetails.includes('duplicate')) {
             errorMessage = 'This email is already registered. Please use a different email address.';
+          } else if (errorDetails.includes('name already exists')) {
+            errorMessage = 'This name is already registered. Please use a different name.';
           } else if (errorDetails.includes('customerEmail')) {
             errorMessage = 'Invalid email address. Please check and try again.';
           } else if (errorDetails.includes('customerName')) {
@@ -137,8 +153,10 @@ export const useCustomers = () => {
         const errorDetails = err?.error || err?.message || err;
         
         if (typeof errorDetails === 'string') {
-          if (errorDetails.includes('email already exists') || errorDetails.includes('duplicate')) {
+          if (errorDetails.includes('email already exists') || errorDetails.includes('duplicate') || errorDetails.includes('Email is already in use')) {
             errorMessage = 'This email is already registered. Please use a different email address.';
+          } else if (errorDetails.includes('name already exists')) {
+            errorMessage = 'This name is already registered. Please use a different name.';
           } else if (errorDetails.includes('customerEmail')) {
             errorMessage = 'Invalid email address. Please check and try again.';
           } else {
@@ -174,14 +192,7 @@ export const useCustomers = () => {
     return statusData?.count || 0;
   }, [statusStats]);
   
-  // Debug log to check the status stats
-  useEffect(() => {
-  }, [statusStats, getStatusCount]);
 
-  // Refetch data when page or pageSize changes
-  useEffect(() => {
-    refetch();
-  }, [page, pageSize, refetch]);
 
   return {
     customers,

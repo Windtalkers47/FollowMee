@@ -168,7 +168,8 @@ export class CustomerController {
       }
       
       // Create the customer first
-      let customer = await this.customerService.create(createCustomerDto);
+      let result = await this.customerService.create(createCustomerDto);
+      let customer = result.customer;
       
       // If there's a base64 image, upload it and update the customer
       if (base64Image) {
@@ -184,17 +185,21 @@ export class CustomerController {
         }
       }
       
+      const message = result.reactivated 
+        ? 'Customer reactivated successfully' + (base64Image ? ' with image' : '')
+        : 'Customer created successfully' + (base64Image ? ' with image' : '');
+      
       return res.status(201).json({ 
         success: true, 
         data: customer,
-        message: 'Customer created successfully' + (base64Image ? ' with image' : '')
+        message
       });
     } catch (error: unknown) {
       console.error('Error creating customer:', error);
       const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
       
-      // Handle duplicate email error specifically
-      if (errorMessage.includes('email already exists') || errorMessage.includes('duplicate')) {
+      // Handle duplicate email or name error specifically
+      if (errorMessage.includes('email already exists') || errorMessage.includes('duplicate') || errorMessage.includes('name already exists')) {
         return res.status(400).json({ 
           success: false, 
           message: 'Failed to create customer',
@@ -278,8 +283,8 @@ export class CustomerController {
       console.error('Error updating customer:', error);
       const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
       
-      // Handle duplicate email error specifically
-      if (errorMessage.includes('email already exists') || errorMessage.includes('duplicate')) {
+      // Handle duplicate email or name error specifically
+      if (errorMessage.includes('email already exists') || errorMessage.includes('duplicate') || errorMessage.includes('name already exists') || errorMessage.includes('Email is already in use')) {
         return res.status(400).json({ 
           success: false, 
           message: 'Failed to update customer',

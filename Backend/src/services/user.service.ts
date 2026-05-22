@@ -54,21 +54,63 @@ export class UserService {
   /**
    * Create a new user
    */
-  async createUser(userData: CreateUserDto): Promise<UserResponseDto> {
-    // Check if user with email already exists
-    const existingUser = await this.userRepository.findByEmail(userData.userEmail);
-    if (existingUser) {
+  async createUser(userData: CreateUserDto): Promise<{ user: UserResponseDto; reactivated: boolean }> {
+    // Check for active user with same email
+    const activeByEmail = await this.userRepository.findByEmail(userData.userEmail, false, true);
+    if (activeByEmail) {
       throw new Error('User with this email already exists');
     }
 
-    // Create new user
+    // Check for active user with same name
+    const activeByName = await this.userRepository.findByName(userData.userName, userData.userLastName, true);
+    if (activeByName) {
+      throw new Error('User with this name already exists');
+    }
+
+    // Check for inactive user with same email - reactivate if found
+    const inactiveByEmail = await this.userRepository.findByEmail(userData.userEmail, false, false);
+    if (inactiveByEmail && !inactiveByEmail.isActive) {
+      const user = await this.reactivateUser(inactiveByEmail.userId, userData);
+      return { user, reactivated: true };
+    }
+
+    // Check for inactive user with same name - reactivate if found
+    const inactiveByName = await this.userRepository.findByName(userData.userName, userData.userLastName, false);
+    if (inactiveByName && !inactiveByName.isActive) {
+      const user = await this.reactivateUser(inactiveByName.userId, userData);
+      return { user, reactivated: true };
+    }
+
+    // No existing user, create new
     const user = new User();
     Object.assign(user, userData);
     
     // Save will trigger the @BeforeInsert hook to hash the password
     const createdUser = await this.userRepository.create(user);
     
-    return new UserResponseDto(createdUser);
+    return { user: new UserResponseDto(createdUser), reactivated: false };
+  }
+
+  /**
+   * Reactivate an inactive user with new data
+   */
+  private async reactivateUser(id: number, userData: CreateUserDto): Promise<UserResponseDto> {
+    const user = await this.userRepository.findOne({ userId: id });
+    if (!user) {
+      throw new Error(`User with ID ${id} not found`);
+    }
+
+    // Update user with new data
+    Object.assign(user, userData);
+    user.isActive = true;
+    user.deletedAt = undefined;
+    user.updatedAt = new Date();
+
+    const updated = await this.userRepository.update(id, user);
+    if (!updated) {
+      throw new Error(`Failed to reactivate user with ID ${id}`);
+    }
+    return new UserResponseDto(updated);
   }
 
   /**
@@ -83,11 +125,27 @@ export class UserService {
       throw new Error('User not found');
     }
 
-    // Check if email is being updated and if it's already in use
+    // Check if email is being updated and if it's already in use by an active user
     if (userData.userEmail && userData.userEmail !== user.userEmail) {
-      const existingUser = await this.userRepository.findByEmail(userData.userEmail);
-      if (existingUser) {
+      const activeByEmail = await this.userRepository.findByEmail(userData.userEmail, false, true);
+      if (activeByEmail) {
         throw new Error('Email already in use');
+      }
+    }
+
+    // Check if name is being updated and if it's already in use by an active user
+    if (
+      userData.userName &&
+      (userData.userName !== user.userName ||
+       (userData.userLastName !== undefined && userData.userLastName !== user.userLastName))
+    ) {
+      const activeByName = await this.userRepository.findByName(
+        userData.userName,
+        userData.userLastName,
+        true
+      );
+      if (activeByName && activeByName.userId !== id) {
+        throw new Error('User with this name already exists');
       }
     }
 

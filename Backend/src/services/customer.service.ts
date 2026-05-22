@@ -105,12 +105,34 @@ export class CustomerService {
     return [customerDtos, total];
   }
 
-  async create(dto: CreateCustomerDto): Promise<CustomerResponseDto> {
-    const existing = await this.customerRepository.findByEmail(dto.customerEmail);
-    if (existing) {
+  async create(dto: CreateCustomerDto): Promise<{ customer: CustomerResponseDto; reactivated: boolean }> {
+    // Check for active customer with same email
+    const activeByEmail = await this.customerRepository.findByEmail(dto.customerEmail, true);
+    if (activeByEmail) {
       throw new Error('A customer with this email already exists');
     }
 
+    // Check for active customer with same name
+    const activeByName = await this.customerRepository.findByName(dto.customerName, dto.customerLastName, true);
+    if (activeByName) {
+      throw new Error('A customer with this name already exists');
+    }
+
+    // Check for inactive customer with same email - reactivate if found
+    const inactiveByEmail = await this.customerRepository.findByEmail(dto.customerEmail, false);
+    if (inactiveByEmail && !inactiveByEmail.isActive) {
+      const customer = await this.reactivateCustomer(inactiveByEmail.customerId, dto);
+      return { customer, reactivated: true };
+    }
+
+    // Check for inactive customer with same name - reactivate if found
+    const inactiveByName = await this.customerRepository.findByName(dto.customerName, dto.customerLastName, false);
+    if (inactiveByName && !inactiveByName.isActive) {
+      const customer = await this.reactivateCustomer(inactiveByName.customerId, dto);
+      return { customer, reactivated: true };
+    }
+
+    // No existing customer, create new
     const customer = new Customer();
     Object.assign(customer, dto);
     
@@ -120,9 +142,35 @@ export class CustomerService {
     }
 
     const created = await this.customerRepository.create(customer);
-    return new CustomerResponseDto({
+    const customerDto = new CustomerResponseDto({
       ...created,
       userId: created.userId ?? undefined
+    });
+    return { customer: customerDto, reactivated: false };
+  }
+
+  /**
+   * Reactivate an inactive customer with new data
+   */
+  private async reactivateCustomer(id: string, dto: CreateCustomerDto): Promise<CustomerResponseDto> {
+    const customer = await this.customerRepository.findOne({ customerId: id });
+    if (!customer) {
+      throw new Error(`Customer with ID ${id} not found`);
+    }
+
+    // Update customer with new data
+    Object.assign(customer, dto);
+    customer.isActive = true;
+    customer.deletedAt = undefined;
+    customer.updatedAt = new Date();
+
+    const updated = await this.customerRepository.update(id, customer);
+    if (!updated) {
+      throw new Error(`Failed to reactivate customer with ID ${id}`);
+    }
+    return new CustomerResponseDto({
+      ...updated,
+      userId: updated.userId ?? undefined
     });
   }
 
@@ -135,16 +183,33 @@ export class CustomerService {
       throw new Error(`Customer with ID ${id} not found`);
     }
 
-    // Check if email is being updated and if it's already in use
+    // Check if email is being updated and if it's already in use by an active customer
     if (
       updateData.customerEmail &&
       updateData.customerEmail !== customer.customerEmail
     ) {
-      const existing = await this.customerRepository.findByEmail(
-        updateData.customerEmail
+      const activeByEmail = await this.customerRepository.findByEmail(
+        updateData.customerEmail,
+        true
       );
-      if (existing) {
+      if (activeByEmail) {
         throw new Error('Email is already in use');
+      }
+    }
+
+    // Check if name is being updated and if it's already in use by an active customer
+    if (
+      updateData.customerName &&
+      (updateData.customerName !== customer.customerName ||
+       (updateData.customerLastName !== undefined && updateData.customerLastName !== customer.customerLastName))
+    ) {
+      const activeByName = await this.customerRepository.findByName(
+        updateData.customerName,
+        updateData.customerLastName,
+        true
+      );
+      if (activeByName && activeByName.customerId !== id) {
+        throw new Error('A customer with this name already exists');
       }
     }
 

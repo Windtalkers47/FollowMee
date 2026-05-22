@@ -90,8 +90,7 @@ export const fetchStatusStats = createAsyncThunk<StatusStats, void, { rejectValu
 
 export const fetchCustomers = createAsyncThunk(
   'customers/fetchCustomers',
-  async (params: FetchCustomersParams = {}, { getState, dispatch, rejectWithValue }) => {
-    dispatch(fetchStatusStats());
+  async (params: FetchCustomersParams = {}, { getState, rejectWithValue }) => {
     try {
       const state = getState() as RootState;
       const customer = state.customer;
@@ -100,11 +99,10 @@ export const fetchCustomers = createAsyncThunk(
       const limit = params.limit ?? customer.pageSize;
       const search = params.search ?? customer.filter.search;
 
+      // Convert 'all' to undefined for backend (backend doesn't recognize 'all')
       const status =
         params.status && params.status !== 'all'
           ? params.status
-          : customer.filter.status !== 'all'
-          ? customer.filter.status
           : undefined;
 
       const response = await customerApi.getCustomers(

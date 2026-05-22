@@ -209,8 +209,8 @@ const Register = () => {
       Swal.hideLoading();
       
       // Show detailed error message
-      const errorMessage = error.response?.data?.message || 'Registration failed. Please try again.';
-      const isDuplicateEmail = errorMessage.includes('Duplicate entry') || errorMessage.includes('already in use');
+      const errorMessage = error.message || 'Registration failed. Please try again.';
+      const isDuplicateEmail = errorMessage.includes('Duplicate entry') || errorMessage.includes('already in use') || errorMessage.includes('Email already in use');
       
       await Swal.fire({
         icon: 'error',
@@ -221,7 +221,6 @@ const Register = () => {
         customClass: {
           popup: 'swal2-error-dialog'
         },
-        html: true
       });
     } finally {
       setIsLoading(false);

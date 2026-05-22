@@ -7,17 +7,34 @@ export class UserRepository extends BaseRepository<User> {
     super(User);
   }
 
-  async findByEmail(email: string, selectPassword: boolean = false): Promise<User | null> {
+  async findByEmail(email: string, selectPassword: boolean = false, activeOnly: boolean = false): Promise<User | null> {
     const options: FindOneOptions<User> = {
       where: { userEmail: email } as FindOptionsWhere<User>,
       select: ['userId', 'userEmail', 'userName', 'userLastName', 'userImageUrl', 'isActive', 'createdAt']
     };
+
+    if (activeOnly) {
+      (options.where as any).isActive = true;
+    }
 
     if (selectPassword) {
       (options.select as string[]).push('userPassword', 'userPasswordHash');
     }
 
     return this.repository.findOne(options);
+  }
+
+  async findByName(firstName: string, lastName?: string, activeOnly: boolean = false): Promise<User | null> {
+    const where: any = { userName: firstName };
+    if (lastName) {
+      where.userLastName = lastName;
+    }
+    if (activeOnly) {
+      where.isActive = true;
+    }
+    return this.repository.findOne({ 
+      where 
+    } as FindOneOptions<User>);
   }
 
   async updatePassword(userId: number, newPassword: string): Promise<boolean> {

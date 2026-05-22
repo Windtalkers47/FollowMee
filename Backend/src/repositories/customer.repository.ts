@@ -15,11 +15,36 @@ export class CustomerRepository extends BaseRepository<Customer> {
   /**
    * Find customer by email
    * @param email Customer's email
+   * @param activeOnly If true, only return active customers
    * @returns Customer if found, null otherwise
    */
-  async findByEmail(email: string): Promise<Customer | null> {
+  async findByEmail(email: string, activeOnly: boolean = false): Promise<Customer | null> {
+    const where: any = { customerEmail: email };
+    if (activeOnly) {
+      where.isActive = true;
+    }
     return this.repository.findOne({ 
-      where: { customerEmail: email } 
+      where 
+    } as FindOneOptions<Customer>);
+  }
+
+  /**
+   * Find customer by name (first name + last name combination)
+   * @param firstName Customer's first name
+   * @param lastName Customer's last name (optional)
+   * @param activeOnly If true, only return active customers
+   * @returns Customer if found, null otherwise
+   */
+  async findByName(firstName: string, lastName?: string, activeOnly: boolean = false): Promise<Customer | null> {
+    const where: any = { customerName: firstName };
+    if (lastName) {
+      where.customerLastName = lastName;
+    }
+    if (activeOnly) {
+      where.isActive = true;
+    }
+    return this.repository.findOne({ 
+      where 
     } as FindOneOptions<Customer>);
   }
 
@@ -79,19 +104,29 @@ export class CustomerRepository extends BaseRepository<Customer> {
     limit: number, 
     status?: 'active' | 'inactive' | 'canceled'
   ): Promise<[Customer[], number]> {
+    console.log('=== findWithPagination called ===', { page, limit, status });
+    
     const query = this.repository
       .createQueryBuilder('customer')
-      .orderBy('customer.createdAt', 'DESC')
-      .andWhere('customer.deletedAt IS NULL');
+      .orderBy('customer.createdAt', 'DESC');
 
-    if (status === 'active') {
-      query.andWhere('customer.isActive = :isActive', { isActive: true });
-    } else if (status) {
-      query.andWhere('customer.status = :status', { status });
+    // Only filter by deletedAt when status is specified
+    // When status is undefined, return ALL customers including soft-deleted ones
+    if (status) {
+      query.andWhere('customer.deletedAt IS NULL');
+      
+      if (status === 'active') {
+        console.log('Filtering by active status');
+        query.andWhere('customer.isActive = :isActive', { isActive: true });
+      } else if (status === 'inactive' || status === 'canceled') {
+        // For inactive or canceled, filter by status
+        console.log('Filtering by status:', status);
+        query.andWhere('customer.status = :status', { status });
+      }
     } else {
-      // Default to active customers if no status is specified
-      query.andWhere('customer.isActive = :isActive', { isActive: true });
+      console.log('No status filter - returning ALL customers (including soft-deleted)');
     }
+    // When status is undefined or 'all', return all customers without filtering
 
     const [customers, total] = await query
       .skip((page - 1) * limit)

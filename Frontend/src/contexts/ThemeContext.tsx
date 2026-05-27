@@ -1,7 +1,8 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react';
 import { ThemeProvider as MuiThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { useLiquidGlass } from './LiquidGlassContext';
+import { gradientPresets, GradientPresetKey } from '../styles/liquidGlassStyles';
 
 type ThemeMode = 'light' | 'dark';
 
@@ -39,27 +40,67 @@ export const CustomThemeProvider = ({ children }: { children: React.ReactNode })
     [mode]
   );
 
+  // Get colors based on theme preset with safe access
+  const getThemeColors = useCallback(() => {
+    const presetKey = liquidGlassSettings?.gradientPreset || 'classicBluePurple';
+    const preset = gradientPresets[presetKey as keyof typeof gradientPresets];
+    
+    // Fallback to default colors if preset not found
+    if (!preset) {
+      return {
+        primary: '#4a6cf7',
+        secondary: '#a64dff',
+        backgroundGradient: mode === 'light' 
+          ? 'linear-gradient(135deg, rgba(102, 126, 234, 0.25), rgba(118, 75, 162, 0.25))'
+          : 'linear-gradient(135deg, rgba(102, 126, 234, 0.35), rgba(118, 75, 162, 0.35))',
+      };
+    }
+    
+    return {
+      primary: preset.primary || '#4a6cf7',
+      secondary: preset.secondary || '#a64dff',
+      backgroundGradient: mode === 'light' ? preset.light : preset.dark,
+    };
+  }, [liquidGlassSettings?.gradientPreset, mode]);
+
+  // Helper function to adjust color brightness
+  const adjustColorBrightness = (hex: string, percent: number): string => {
+    const num = parseInt(hex.replace('#', ''), 16);
+    const amt = Math.round(2.55 * percent);
+    const R = (num >> 16) + amt;
+    const G = (num >> 8 & 0x00FF) + amt;
+    const B = (num & 0x0000FF) + amt;
+    return '#' + (
+      0x1000000 +
+      (R < 255 ? (R < 1 ? 0 : R) : 255) * 0x10000 +
+      (G < 255 ? (G < 1 ? 0 : G) : 255) * 0x100 +
+      (B < 255 ? (B < 1 ? 0 : B) : 255)
+    ).toString(16).slice(1);
+  };
+
   const theme = useMemo(() => {
     if (isLiquidGlassEnabled) {
-      // Enhanced Liquid Glass Theme - respects current mode
+      const colors = getThemeColors();
+      
+      // Enhanced Liquid Glass Theme - respects current mode and theme preset
       return createTheme({
         palette: {
           mode,
           primary: {
-            main: mode === 'light' ? '#4a6cf7' : '#7f9bff',
-            light: mode === 'light' ? '#7f9bff' : '#a8c0ff',
-            dark: mode === 'light' ? '#0041c3' : '#5d7dff',
+            main: colors.primary,
+            light: mode === 'light' ? adjustColorBrightness(colors.primary, 20) : adjustColorBrightness(colors.primary, -20),
+            dark: mode === 'light' ? adjustColorBrightness(colors.primary, -20) : adjustColorBrightness(colors.primary, -40),
             contrastText: '#ffffff',
           },
           secondary: {
-            main: mode === 'light' ? '#a64dff' : '#c27dff',
-            light: mode === 'light' ? '#dc7dff' : '#e8b3ff',
-            dark: mode === 'light' ? '#7200ca' : '#8a2be2',
+            main: colors.secondary,
+            light: mode === 'light' ? adjustColorBrightness(colors.secondary, 20) : adjustColorBrightness(colors.secondary, -20),
+            dark: mode === 'light' ? adjustColorBrightness(colors.secondary, -20) : adjustColorBrightness(colors.secondary, -40),
             contrastText: '#ffffff',
           },
           background: {
             default: mode === 'light' 
-              ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+              ? colors.backgroundGradient
               : 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)',
             paper: mode === 'light' 
               ? 'rgba(255, 255, 255, 0.08)'
@@ -236,20 +277,22 @@ export const CustomThemeProvider = ({ children }: { children: React.ReactNode })
       });
     }
 
+    const colors = getThemeColors();
+
     // Regular theme
     return createTheme({
       palette: {
         mode,
         primary: {
-          main: mode === 'light' ? '#4a6cf7' : '#7f9bff',
-          light: mode === 'light' ? '#7f9bff' : '#a8c0ff',
-          dark: mode === 'light' ? '#0041c3' : '#5d7dff',
+          main: colors.primary,
+          light: mode === 'light' ? adjustColorBrightness(colors.primary, 20) : adjustColorBrightness(colors.primary, -20),
+          dark: mode === 'light' ? adjustColorBrightness(colors.primary, -20) : adjustColorBrightness(colors.primary, -40),
           contrastText: '#ffffff',
         },
         secondary: {
-          main: mode === 'light' ? '#a64dff' : '#c27dff',
-          light: mode === 'light' ? '#dc7dff' : '#e8b3ff',
-          dark: mode === 'light' ? '#7200ca' : '#8a2be2',
+          main: colors.secondary,
+          light: mode === 'light' ? adjustColorBrightness(colors.secondary, 20) : adjustColorBrightness(colors.secondary, -20),
+          dark: mode === 'light' ? adjustColorBrightness(colors.secondary, -20) : adjustColorBrightness(colors.secondary, -40),
           contrastText: '#ffffff',
         },
         background: {

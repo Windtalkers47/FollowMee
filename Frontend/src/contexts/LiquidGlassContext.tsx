@@ -1,11 +1,19 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
+// Import gradient preset types from liquidGlassStyles
+import { GradientPresetKey } from '../styles/liquidGlassStyles';
+
 interface LiquidGlassSettings {
   glassOpacity: number;
   showBorders: boolean;
   blurIntensity: number;
   glassStyle: 'subtle' | 'medium' | 'bold';
   contrastLevel: number;
+  // New properties for enhanced Liquid Glass UI
+  gradientPreset: GradientPresetKey;
+  reduceTransparency: boolean;
+  increaseContrast: boolean;
+  addBorders: boolean;
 }
 
 interface LiquidGlassContextType {
@@ -21,6 +29,11 @@ const defaultSettings: LiquidGlassSettings = {
   blurIntensity: 20,
   glassStyle: 'medium',
   contrastLevel: 0.8,
+  // New default values
+  gradientPreset: 'classicBluePurple',
+  reduceTransparency: false,
+  increaseContrast: false,
+  addBorders: true,
 };
 
 const LiquidGlassContext = createContext<LiquidGlassContextType>({

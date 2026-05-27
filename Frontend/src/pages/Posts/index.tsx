@@ -18,15 +18,28 @@ import {
   DialogContent,
   DialogActions,
   Slide,
+  Switch,
+  FormControlLabel,
+  FormGroup,
+  Paper,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
 } from '@mui/material';
+import {
+  Settings as SettingsIcon,
+  Palette as PaletteIcon,
+  Contrast as ContrastIcon,
+  BlurOn as BlurIcon,
+  BorderAll as BorderAllIcon,
+  ExpandMore as ExpandMoreIcon,
+  ExpandLess as ExpandLessIcon,
+} from '@mui/icons-material';
 import {
   Search as SearchIcon,
   Clear as ClearIcon,
   EmojiEvents as TrophyIcon,
-  ThumbUp as LikeIcon,
-  Favorite as LoveIcon,
-  SentimentVerySatisfied as LaughIcon,
-  ThumbDown as AngryIcon,
   CheckCircle as DoneIcon,
 } from '@mui/icons-material';
 import { TransitionProps } from '@mui/material/transitions';
@@ -39,6 +52,16 @@ import { TaskForm } from '../../components/TaskForm/TaskForm';
 import Swal from 'sweetalert2';
 import { getTaskPermissions, hasAnyPermission } from '../../permissions/taskPermissions';
 import { getBookedDates } from '../../utils/dateUtils';
+import { useLiquidGlass } from '../../contexts/LiquidGlassContext';
+import {
+  gradientPresets,
+  type GradientPresetKey,
+  getGlassCardStyles,
+  getGlassInputStyles,
+  getGlassButtonStyles,
+  getSegmentedControlStyles,
+  getTextColorStyles,
+} from '../../styles/liquidGlassStyles';
 
 /* ================== Types ================== */
 type TabPanelProps = {
@@ -139,6 +162,26 @@ const PostsPage = () => {
   const [undoneTaskData, setUndoneTaskData] = useState<{ task: Task; newRank: UserRank } | null>(null);
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | undefined>();
+  
+  // Liquid Glass UI Settings
+  const { isLiquidGlassEnabled, liquidGlassSettings, updateLiquidGlassSettings } = useLiquidGlass();
+  
+  // Detect dark mode from theme - fallback to false if theme state doesn't exist
+  const isDarkMode = false; // Can be extended when theme state is available
+  
+  // Safe gradient preset access with default fallback
+  const currentGradientPreset = liquidGlassSettings?.gradientPreset || 'classicBluePurple';
+  
+  // Get safe preset with fallback
+  const getCurrentPreset = () => {
+    const preset = gradientPresets[currentGradientPreset as keyof typeof gradientPresets];
+    return preset || gradientPresets.classicBluePurple;
+  };
+  const currentPreset = getCurrentPreset();
+  
+  // Get text colors based on settings
+  const getTextColor = (variant: 'primary' | 'secondary' | 'tertiary' = 'primary') => 
+    getTextColorStyles(isDarkMode, liquidGlassSettings?.increaseContrast || false, variant);
 
   const { user } = useAppSelector((state) => state.auth);
   const queryClient = useQueryClient();
@@ -545,24 +588,66 @@ const PostsPage = () => {
 
   return (
     <Box sx={{ width: '100%' }}>
-      {/* Clean Header */}
-      <Box mb={4}>
-        <Typography variant="h3" fontWeight="bold" gutterBottom>
+      {/* Note: Liquid Glass Settings moved to Settings page */}
+
+      {/* Header */}
+      <Box
+        sx={{
+          mb: 4,
+          p: 3,
+          borderRadius: 3,
+          background: isDarkMode 
+            ? `linear-gradient(135deg, rgba(28, 28, 30, 0.8), rgba(44, 44, 46, 0.8))`
+            : `linear-gradient(135deg, rgba(242, 242, 247, 0.8), rgba(255, 255, 255, 0.8))`,
+          backdropFilter: `blur(${liquidGlassSettings.blurIntensity}px)`,
+          WebkitBackdropFilter: `blur(${liquidGlassSettings.blurIntensity}px)`,
+          border: liquidGlassSettings.addBorders ? '1px solid rgba(255, 255, 255, 0.1)' : 'none',
+          boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)',
+        }}
+      >
+        <Typography 
+          variant="h3" 
+          fontWeight="bold" 
+          gutterBottom
+          sx={{ color: getTextColor('primary') }}
+        >
           Posts & Competition
         </Typography>
         <Chip 
           label={`${assignedTasksList.filter(t => t.status === 'done').length} Completed Tasks`}
-          color="success"
           size="small"
+          sx={{
+            bgcolor: '#10b981',
+            color: '#ffffff',
+            fontWeight: 600,
+            '& .MuiChip-label': {
+              color: '#ffffff',
+              fontWeight: 600,
+            },
+            '&:hover': {
+              bgcolor: '#1b5e20',
+            }
+          }}
         />
       </Box>
 
-      {/* Top Performers Section */}
+      {/* Top Performers Section - Liquid Glass */}
       {topPerformers.length > 0 && (
         <Box sx={{ mb: 4 }}>
           <Box display="flex" alignItems="center" gap={1} mb={2}>
-            <TrophyIcon color="primary" />
-            <Typography variant="h6">Top Performers</Typography>
+            <TrophyIcon 
+              sx={{ 
+                color: isDarkMode ? '#FFD700' : '#4a6cf7',
+                fontSize: 28 
+              }} 
+            />
+            <Typography 
+              variant="h6" 
+              fontWeight="bold"
+              sx={{ color: getTextColor('primary') }}
+            >
+              Top Performers
+            </Typography>
           </Box>
           
           <Grid container spacing={2}>
@@ -570,33 +655,69 @@ const PostsPage = () => {
               <Grid size={{ xs: 12, sm: 6, md: 4 }} key={performer.userId}>
                 <Box
                   sx={{
-                    p: 2,
-                    border: 1,
-                    borderColor: 'divider',
-                    borderRadius: 2,
+                    p: 2.5,
                     display: 'flex',
                     alignItems: 'center',
                     gap: 2,
-                    bgcolor: index === 0 ? 'primary.50' : 'background.paper',
-                    transition: 'all 0.2s ease',
+                    borderRadius: 2,
+                    background: currentPreset.light,
+                    backdropFilter: `blur(${liquidGlassSettings.blurIntensity}px)`,
+                    WebkitBackdropFilter: `blur(${liquidGlassSettings.blurIntensity}px)`,
+                    backgroundColor: isDarkMode 
+                      ? `rgba(28, 28, 30, ${liquidGlassSettings.glassOpacity})` 
+                      : `rgba(255, 255, 255, ${liquidGlassSettings.glassOpacity})`,
+                    border: liquidGlassSettings.addBorders 
+                      ? `1px solid ${isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'}` 
+                      : 'none',
+                    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)',
+                    borderTop: index === 0 
+                      ? '3px solid #FFD700' 
+                      : index === 1 
+                        ? '3px solid #C0C0C0' 
+                        : index === 2 
+                          ? '3px solid #CD7F32' 
+                          : 'none',
+                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                     '&:hover': {
-                      transform: 'translateY(-2px)',
-                      boxShadow: 2
+                      transform: 'translateY(-6px)',
+                      boxShadow: '0 16px 40px rgba(0, 0, 0, 0.15)',
                     }
                   }}
                 >
                   <Typography 
                     variant="h4" 
-                    color={index === 0 ? 'primary.main' : 'text.secondary'}
                     fontWeight="bold"
+                    sx={{
+                      background: index === 0 
+                        ? 'linear-gradient(135deg, #FFD700, #FFA500)' 
+                        : index === 1 
+                          ? 'linear-gradient(135deg, #C0C0C0, #E8E8E8)'
+                          : index === 2
+                            ? 'linear-gradient(135deg, #CD7F32, #E4A07B)'
+                            : getTextColor('secondary'),
+                      WebkitBackgroundClip: 'text',
+                      WebkitTextFillColor: index < 3 ? 'text' : getTextColor('secondary'),
+                    }}
                   >
                     #{index + 1}
                   </Typography>
-                  <Box flex={1}>
-                    <Typography variant="subtitle1" fontWeight="medium">
+                  <Box flex={1} minWidth={0}>
+                    <Typography 
+                      variant="subtitle1" 
+                      fontWeight="medium"
+                      sx={{ 
+                        color: getTextColor('primary'),
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis'
+                      }}
+                    >
                       {performer.userName} {performer.userLastName}
                     </Typography>
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography 
+                      variant="body2" 
+                      sx={{ color: getTextColor('secondary') }}
+                    >
                       {performer.completedTasks} completed tasks
                     </Typography>
                   </Box>
@@ -607,11 +728,14 @@ const PostsPage = () => {
         </Box>
       )}
 
+      {/* Top Performers Loading State - Liquid Glass */}
       {!topPerformers.length && !topPerformersData && (
         <Box sx={{ mb: 4 }}>
           <Box display="flex" alignItems="center" gap={1} mb={2}>
-            <TrophyIcon color="primary" />
-            <Typography variant="h6">Top Performers</Typography>
+            <TrophyIcon sx={{ color: isDarkMode ? '#FFD700' : '#4a6cf7', fontSize: 28 }} />
+            <Typography variant="h6" fontWeight="bold" sx={{ color: getTextColor('primary') }}>
+              Top Performers
+            </Typography>
           </Box>
           <Grid container spacing={2}>
             {[1, 2, 3].map((index) => (
@@ -619,21 +743,28 @@ const PostsPage = () => {
                 <Box
                   sx={{
                     p: 2,
-                    border: 1,
-                    borderColor: 'divider',
-                    borderRadius: 2,
                     display: 'flex',
                     alignItems: 'center',
                     gap: 2,
-                    bgcolor: 'background.paper',
+                    borderRadius: 2,
+                    background: currentPreset.light,
+                    backdropFilter: `blur(${liquidGlassSettings.blurIntensity}px)`,
+                    WebkitBackdropFilter: `blur(${liquidGlassSettings.blurIntensity}px)`,
+                    backgroundColor: isDarkMode 
+                      ? `rgba(28, 28, 30, ${liquidGlassSettings.glassOpacity})` 
+                      : `rgba(255, 255, 255, ${liquidGlassSettings.glassOpacity})`,
+                    border: liquidGlassSettings.addBorders 
+                      ? `1px solid ${isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'}` 
+                      : 'none',
+                    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)',
                   }}
                 >
-                  <CircularProgress size={32} />
+                  <CircularProgress size={28} />
                   <Box flex={1}>
-                    <Typography variant="subtitle1" fontWeight="medium">
+                    <Typography variant="subtitle1" fontWeight="medium" sx={{ color: getTextColor('primary') }}>
                       Loading...
                     </Typography>
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography variant="body2" sx={{ color: getTextColor('secondary') }}>
                       Calculating scores...
                     </Typography>
                   </Box>
@@ -644,44 +775,97 @@ const PostsPage = () => {
         </Box>
       )}
 
-      {/* Current User's Rank */}
+      {/* Current User's Rank - Liquid Glass */}
       {userRank && (
         <Box sx={{ mb: 4 }}>
           <Box display="flex" alignItems="center" gap={1} mb={2}>
-            <TrophyIcon color="secondary" />
-            <Typography variant="h6">Your Performance</Typography>
+            <TrophyIcon 
+              sx={{ 
+                color: isDarkMode ? '#a64dff' : '#a64dff',
+                fontSize: 28 
+              }} 
+            />
+            <Typography 
+              variant="h6" 
+              fontWeight="bold"
+              sx={{ color: getTextColor('primary') }}
+            >
+              Your Performance
+            </Typography>
           </Box>
           <Box
             sx={{
-              p: 3,
-              border: 2,
-              borderColor: 'secondary.main',
-              borderRadius: 2,
-              bgcolor: 'secondary.50',
+              p: 4,
               textAlign: 'center',
+              borderRadius: 3,
+              background: currentPreset.light,
+              backdropFilter: `blur(${liquidGlassSettings.blurIntensity}px)`,
+              WebkitBackdropFilter: `blur(${liquidGlassSettings.blurIntensity}px)`,
+              backgroundColor: isDarkMode 
+                ? `rgba(28, 28, 30, ${liquidGlassSettings.glassOpacity})` 
+                : `rgba(255, 255, 255, ${liquidGlassSettings.glassOpacity})`,
+              border: liquidGlassSettings.addBorders 
+                ? `1px solid ${isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'}` 
+                : 'none',
+              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.15)',
+              position: 'relative',
+              overflow: 'hidden',
+              '&::before': {
+                content: '""',
+                position: 'absolute',
+                top: 0,
+                left: -50,
+                width: 200,
+                height: 200,
+                background: 'radial-gradient(circle, rgba(166, 77, 255, 0.15) 0%, transparent 70%)',
+                pointerEvents: 'none',
+              }
             }}
           >
-            <Typography variant="h3" color="secondary.main" fontWeight="bold">
+            <Typography 
+              variant="h3" 
+              fontWeight="bold"
+              sx={{
+                background: 'linear-gradient(135deg, #a64dff, #dc7bff)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                backgroundClip: 'text',
+              }}
+            >
               #{userRank.rank}
             </Typography>
-            <Typography variant="h6" color="text.secondary" mb={1}>
+            <Typography 
+              variant="h6" 
+              mb={1}
+              sx={{ color: getTextColor('primary') }}
+            >
               {user?.userName} {user?.userLastName}
             </Typography>
-            <Typography variant="body1" color="text.secondary">
+            <Typography 
+              variant="body1" 
+              sx={{ color: getTextColor('secondary') }}
+            >
               {userRank.completedTasks} completed tasks out of {userRank.totalUsers} competitors
             </Typography>
             {userRank.rank > 3 && (
-              <Typography variant="body2" color="secondary.main" sx={{ mt: 1 }}>
-                Keep going! You're getting closer to the top!
+              <Typography 
+                variant="body2" 
+                sx={{ 
+                  mt: 2,
+                  color: isDarkMode ? '#dc7bff' : '#a64dff',
+                  fontWeight: 500,
+                }}
+              >
+                🚀 Keep going! You're getting closer to the top!
               </Typography>
             )}
           </Box>
         </Box>
       )}
 
-      {/* Clean Search Section */}
+      {/* Liquid Glass Search Section */}
       <Box sx={{ mb: 3 }}>
-        <Box display="flex" gap={2} alignItems="center">
+        <Box display="flex" gap={2} alignItems="center" flexWrap="wrap">
           <TextField
             fullWidth
             placeholder="Search completed tasks by title or description..."
@@ -691,7 +875,7 @@ const PostsPage = () => {
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
-                  <SearchIcon color="action" />
+                  <SearchIcon sx={{ color: getTextColor('secondary') }} />
                 </InputAdornment>
               ),
               endAdornment: searchQuery && (
@@ -703,9 +887,29 @@ const PostsPage = () => {
               )
             }}
             sx={{
+              flex: 1,
+              minWidth: 200,
               '& .MuiOutlinedInput-root': {
-                borderRadius: 2
-              }
+                borderRadius: 2,
+                backgroundColor: isDarkMode ? 'rgba(44, 44, 46, 0.5)' : 'rgba(255, 255, 255, 0.8)',
+                backdropFilter: `blur(${liquidGlassSettings.blurIntensity / 2}px)`,
+                WebkitBackdropFilter: `blur(${liquidGlassSettings.blurIntensity / 2}px)`,
+                '& fieldset': {
+                  border: 'none',
+                },
+                '&:hover .MuiOutlinedInput-notchedOutline': {
+                  border: liquidGlassSettings.addBorders
+                    ? `1px solid ${isDarkMode ? 'rgba(255, 255, 255, 0.3)' : 'rgba(0, 0, 0, 0.15)'}`
+                    : 'none',
+                },
+              },
+              '& .MuiInputBase-input': {
+                color: getTextColor('primary'),
+              },
+              '& .MuiInputBase-input::placeholder': {
+                color: getTextColor('tertiary'),
+                opacity: 1,
+              },
             }}
           />
           <Button
@@ -716,30 +920,85 @@ const PostsPage = () => {
             sx={{ 
               minWidth: '120px',
               borderRadius: 2,
-              textTransform: 'none'
+              background: currentPreset.light,
+              backdropFilter: 'blur(12px)',
+              WebkitBackdropFilter: 'blur(12px)',
+              opacity: !searchQuery.trim() || searchLoading ? 0.6 : 1,
+              '&:hover': {
+                transform: 'translateY(-2px)',
+                boxShadow: '0 6px 20px rgba(0, 0, 0, 0.15)',
+              },
             }}
           >
             {searchLoading ? 'Searching...' : 'Search'}
           </Button>
         </Box>
         {isSearching && (
-          <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+          <Typography 
+            variant="caption" 
+            sx={{ 
+              mt: 1, 
+              display: 'block',
+              color: getTextColor('tertiary'),
+            }}
+          >
             Showing results for "{searchQuery}"
           </Typography>
         )}
       </Box>
 
-      {/* Tabs */}
-      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
-        <Tabs value={activeTab} onChange={(_, newValue) => setActiveTab(newValue)}>
-          {tabs.map((tab, index) => (
-            <Tab
-              key={tab.key}
-              label={tab.label}
-              {...{ id: `posts-tab-${index}`, 'aria-controls': `posts-tabpanel-${index}` }}
-            />
-          ))}
-        </Tabs>
+      {/* iOS-style Segmented Control Tabs */}
+      <Box sx={{ mb: 3 }}>
+        <Paper
+          elevation={0}
+          sx={{
+            display: 'inline-flex',
+            width: 'auto',
+            minWidth: 200,
+            p: 0.5,
+            borderRadius: 2,
+            backgroundColor: isDarkMode ? 'rgba(44, 44, 46, 0.8)' : 'rgba(230, 230, 235, 0.8)',
+            backdropFilter: `blur(${liquidGlassSettings.blurIntensity / 2}px)`,
+            WebkitBackdropFilter: `blur(${liquidGlassSettings.blurIntensity / 2}px)`,
+          }}
+        >
+          <Tabs
+            value={activeTab}
+            onChange={(_, newValue: number) => setActiveTab(newValue)}
+            sx={{
+              '& .MuiTabs-indicator': {
+                display: 'none',
+              },
+            }}
+          >
+            {tabs.map((tab, index) => (
+              <Tab
+                key={tab.key}
+                label={tab.label}
+                {...{ id: `posts-tab-${index}`, 'aria-controls': `posts-tabpanel-${index}` }}
+                sx={{
+                  borderRadius: 8,
+                  minHeight: 36,
+                  minWidth: 100,
+                  textTransform: 'none',
+                  fontWeight: 500,
+                  transition: 'all 0.2s ease',
+                  color: activeTab === index 
+                    ? getTextColor('primary') 
+                    : getTextColor('secondary'),
+                  '&.Mui-selected': {
+                    background: currentPreset.light,
+                    backdropFilter: 'blur(12px)',
+                    WebkitBackdropFilter: 'blur(12px)',
+                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+                    fontWeight: 600,
+                    color: getTextColor('primary'),
+                  },
+                }}
+              />
+            ))}
+          </Tabs>
+        </Paper>
       </Box>
 
       {/* Error Display */}

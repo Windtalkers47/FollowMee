@@ -7,9 +7,21 @@ import {
   FormControlLabel,
   Alert,
   CircularProgress,
+  FormGroup,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from '@mui/material';
-import { Settings as SettingsIcon, Notifications as NotificationsIcon } from '@mui/icons-material';
-import { useLiquidGlass } from '../../contexts/LiquidGlassContext';
+import {
+  Settings as SettingsIcon,
+  Notifications as NotificationsIcon,
+  Palette as PaletteIcon,
+  BlurOn as BlurIcon,
+  Contrast as ContrastIcon,
+  BorderAll as BorderAllIcon,
+} from '@mui/icons-material';
+// useLiquidGlass is imported above with GradientPresetKey
 import LiquidGlassSettings from '../../components/LiquidGlassSettings';
 import { useAppDispatch, useAppSelector } from '../../store/store';
 import {
@@ -19,6 +31,16 @@ import {
   updateSettings,
 } from '../../store/slices/notificationSlice';
 import { useEffect } from 'react';
+import { gradientPresets, GradientPresetKey } from '../../styles/liquidGlassStyles';
+import { useLiquidGlass } from '../../contexts/LiquidGlassContext';
+
+// Default settings for fallback
+const defaultLiquidGlassSettings = {
+  gradientPreset: 'classicBluePurple' as GradientPresetKey,
+  reduceTransparency: false,
+  increaseContrast: false,
+  addBorders: true,
+};
 
 const SettingsPage = () => {
   const { isLiquidGlassEnabled, toggleLiquidGlass, liquidGlassSettings, updateLiquidGlassSettings } = useLiquidGlass();
@@ -36,6 +58,23 @@ const SettingsPage = () => {
     if (notificationSettings) {
       dispatch(updateSettings({ [setting]: value }));
     }
+  };
+
+  // Liquid Glass UI Settings handlers
+  const handleGradientPresetChange = (preset: GradientPresetKey) => {
+    updateLiquidGlassSettings({ gradientPreset: preset });
+  };
+
+  const handleReduceTransparencyChange = (value: boolean) => {
+    updateLiquidGlassSettings({ reduceTransparency: value });
+  };
+
+  const handleIncreaseContrastChange = (value: boolean) => {
+    updateLiquidGlassSettings({ increaseContrast: value });
+  };
+
+  const handleAddBordersChange = (value: boolean) => {
+    updateLiquidGlassSettings({ addBorders: value });
   };
 
   return (
@@ -91,12 +130,103 @@ const SettingsPage = () => {
       {isLiquidGlassEnabled && (
         <Paper sx={{ p: 3, mb: 3 }}>
           <Typography variant="h6" fontWeight={600} sx={{ mb: 2 }}>
-            Liquid Glass Controls
+            Liquid Glass Appearance
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-            Fine-tune the visual appearance with these controls:
+            Customize the Liquid Glass UI with gradient presets and accessibility options:
           </Typography>
           
+          <FormGroup>
+            {/* Gradient Preset Selector */}
+            <FormControl fullWidth size="small" sx={{ mb: 3 }}>
+              <InputLabel id="gradient-preset-label">
+                <Box display="flex" alignItems="center" gap={1}>
+                  <PaletteIcon fontSize="small" />
+                  Gradient Preset
+                </Box>
+              </InputLabel>
+              <Select
+                labelId="gradient-preset-label"
+                value={liquidGlassSettings.gradientPreset || defaultLiquidGlassSettings.gradientPreset}
+                label="Gradient Preset"
+                onChange={(e) => handleGradientPresetChange(e.target.value as GradientPresetKey)}
+                sx={{
+                  '& .MuiOutlinedInput-notchedOutline': {
+                    border: '1px solid rgba(0, 0, 0, 0.1)',
+                  },
+                }}
+              >
+                {Object.entries(gradientPresets).map(([key, preset]) => (
+                  <MenuItem key={key} value={key}>
+                    {preset.name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            {/* Reduce Transparency Toggle */}
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={liquidGlassSettings.reduceTransparency || defaultLiquidGlassSettings.reduceTransparency}
+                  onChange={(e) => handleReduceTransparencyChange(e.target.checked)}
+                  size="small"
+                  color="primary"
+                />
+              }
+              label={
+                <Box display="flex" alignItems="center" gap={1}>
+                  <BlurIcon fontSize="small" />
+                  Reduce Transparency
+                </Box>
+              }
+              sx={{ mb: 2 }}
+            />
+
+            {/* Increase Contrast Toggle */}
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={liquidGlassSettings.increaseContrast || defaultLiquidGlassSettings.increaseContrast}
+                  onChange={(e) => handleIncreaseContrastChange(e.target.checked)}
+                  size="small"
+                  color="primary"
+                />
+              }
+              label={
+                <Box display="flex" alignItems="center" gap={1}>
+                  <ContrastIcon fontSize="small" />
+                  Increase Contrast
+                </Box>
+              }
+              sx={{ mb: 2 }}
+            />
+
+            {/* Add Borders Toggle */}
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={liquidGlassSettings.addBorders || defaultLiquidGlassSettings.addBorders}
+                  onChange={(e) => handleAddBordersChange(e.target.checked)}
+                  size="small"
+                  color="primary"
+                />
+              }
+              label={
+                <Box display="flex" alignItems="center" gap={1}>
+                  <BorderAllIcon fontSize="small" />
+                  Add Borders
+                </Box>
+              }
+            />
+          </FormGroup>
+
+          <Divider sx={{ my: 3 }} />
+
+          {/* Legacy LiquidGlassSettings Component - keep for backward compatibility */}
+          <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 2 }}>
+            Advanced Controls
+          </Typography>
           <LiquidGlassSettings
             glassOpacity={liquidGlassSettings.glassOpacity}
             setGlassOpacity={(value) => updateLiquidGlassSettings({ glassOpacity: value })}
@@ -252,7 +382,7 @@ const SettingsPage = () => {
       </Paper>
 
       {/* Other Settings Sections */}
-      <Paper sx={{ p: 3 }}>
+      {/* <Paper sx={{ p: 3 }}>
         <Typography variant="h6" fontWeight={600} sx={{ mb: 2 }}>
           Account Settings
         </Typography>
@@ -263,7 +393,7 @@ const SettingsPage = () => {
         <Typography variant="body2" color="text.secondary">
           More settings coming soon...
         </Typography>
-      </Paper>
+      </Paper> */}
     </Box>
   );
 };

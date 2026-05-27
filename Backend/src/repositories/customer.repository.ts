@@ -110,19 +110,23 @@ export class CustomerRepository extends BaseRepository<Customer> {
       .createQueryBuilder('customer')
       .orderBy('customer.createdAt', 'DESC');
 
-    // Only filter by deletedAt when status is specified
-    // When status is undefined, return ALL customers including soft-deleted ones
-    if (status) {
-      query.andWhere('customer.deletedAt IS NULL');
-      
-      if (status === 'active') {
-        console.log('Filtering by active status');
-        query.andWhere('customer.isActive = :isActive', { isActive: true });
-      } else if (status === 'inactive' || status === 'canceled') {
-        // For inactive or canceled, filter by status
-        console.log('Filtering by status:', status);
-        query.andWhere('customer.status = :status', { status });
-      }
+    // Filter by status and isActive
+    // Note: We do NOT filter by deletedAt because:
+    // - A soft-deleted customer (deletedAt set) can still be active/inactive/canceled
+    // - deletedAt is just metadata, status and isActive determine the actual state
+    // - Customers can be reactivated after being soft-deleted
+    if (status === 'active') {
+      console.log('Filtering by active status');
+      query.andWhere('customer.status = :status', { status: 'active' })
+           .andWhere('customer.isActive = :isActive', { isActive: true });
+    } else if (status === 'inactive') {
+      console.log('Filtering by inactive status');
+      query.andWhere('customer.status = :status', { status: 'inactive' })
+           .andWhere('customer.isActive = :isActive', { isActive: true });
+    } else if (status === 'canceled') {
+      console.log('Filtering by canceled status');
+      query.andWhere('customer.status = :status', { status: 'canceled' })
+           .andWhere('customer.isActive = :isActive', { isActive: true });
     } else {
       console.log('No status filter - returning ALL customers (including soft-deleted)');
     }

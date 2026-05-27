@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { 
   Box, 
   Button, 
@@ -176,8 +176,42 @@ const CustomerPage = () => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [formApiError, setFormApiError] = useState<ApiError | null>(null);
+  const isInitialMount = useRef(true);
   
   const emptyRows = page > 0 ? Math.max(0, (1 + page) * pageSize - customers.length) : 0;
+
+  // Fetch data when tab changes (skip initial mount since Tab default value is 0)
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      // Initial fetch - Tab value is already 0, so call handleFilterChange once
+      const statusMap = {
+        0: 'all',
+        1: 'active',
+        2: 'inactive',
+        3: 'canceled'
+      } as const;
+      
+      handleFilterChange({ 
+        status: statusMap[tabValue as keyof typeof statusMap] as CustomerStatus | 'all',
+        search: filter.search 
+      });
+      return;
+    }
+    
+    // Subsequent tab changes
+    const statusMap = {
+      0: 'all',
+      1: 'active',
+      2: 'inactive',
+      3: 'canceled'
+    } as const;
+    
+    handleFilterChange({ 
+      status: statusMap[tabValue as keyof typeof statusMap] as CustomerStatus | 'all',
+      search: filter.search 
+    });
+  }, [tabValue]);
 
   // Filter customers based on tab value
   const filteredCustomers = customers.filter(customer => {
@@ -635,17 +669,6 @@ const CustomerPage = () => {
             value={tabValue}
             onChange={(_, newValue) => {
               setTabValue(newValue);
-              const statusMap = {
-                0: 'all',
-                1: 'active',
-                2: 'inactive',
-                3: 'canceled'
-              } as const;
-              
-              handleFilterChange({ 
-                status: statusMap[newValue as keyof typeof statusMap] as CustomerStatus | 'all',
-                search: filter.search 
-              });
             }}
             variant="scrollable"
             scrollButtons="auto"

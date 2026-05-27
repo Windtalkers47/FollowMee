@@ -27,23 +27,6 @@ export const useCustomers = () => {
   } = useAppSelector((state) => state.customer);
 
   // ===============================
-  // Initial load - fetch data once on mount
-  // ===============================
-  useEffect(() => {
-    // Fetch data only once when component mounts
-    const params = {
-      page: 1,
-      limit: pageSize,
-      status: undefined, // Start with 'all' customers
-      search: ''
-    };
-    
-    dispatch(fetchCustomers(params));
-    dispatch(fetchStatusStats());
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // ===============================
   // Pagination and filtering
   // ===============================
   const handlePageChange = useCallback(

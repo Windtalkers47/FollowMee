@@ -11,11 +11,24 @@ class WebSocketService {
       return;
     }
 
-    const wsUrl = import.meta.env.VITE_WS_URL || 'http://localhost:5000';
+    let wsUrl = import.meta.env.VITE_WS_URL || 'http://localhost:5000';
+    
+    // Convert HTTP to WebSocket protocol for production
+    // Socket.IO can handle HTTP URLs, but we ensure proper protocol
+    if (wsUrl.startsWith('https://')) {
+      // Socket.IO will automatically use wss:// for secure connections
+      wsUrl = wsUrl;
+    } else if (wsUrl.startsWith('http://')) {
+      // Socket.IO will automatically use ws:// for non-secure connections
+      wsUrl = wsUrl;
+    }
 
     this.socket = io(wsUrl, {
       withCredentials: true,
       transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionDelay: 1000,
+      reconnectionAttempts: 10,
     });
 
     this.socket.on('connect', () => {

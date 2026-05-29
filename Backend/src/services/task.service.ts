@@ -281,6 +281,9 @@ export class TaskService {
 
   async getTopPerformers(limit: number = 5): Promise<Array<{userId: number, userName: string, userLastName: string, completedTasks: number}>> {
     const stats = await this.customTaskRepository.findUserTaskStats(0);
+    if (!Array.isArray(stats)) {
+      return [];
+    }
     return stats.map(s => ({
       userId: 0,
       userName: 'Unknown',

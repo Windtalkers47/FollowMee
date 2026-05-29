@@ -12,7 +12,11 @@
     "build": "tsc",
     "typeorm": "typeorm-ts-node-commonjs",
     "watch": "tsc -w",
-    "dev:debug": "nodemon --inspect --watch src/**/*.ts --exec ts-node src/server.ts"
+    "dev:debug": "nodemon --inspect --watch src/**/*.ts --exec ts-node src/server.ts",
+    "db:migrate": "ts-node scripts/migrate-db.ts",
+    "db:migrate:export": "ts-node scripts/migrate-db.ts export",
+    "db:migrate:import": "ts-node scripts/migrate-db.ts import",
+    "prod": "npm run build && npm run start"
   },
   "keywords": [],
   "author": "",

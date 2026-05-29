@@ -17,8 +17,6 @@ export class TaskRepository extends BaseRepository<Task> {
       .createQueryBuilder('task')
       .leftJoinAndSelect('task.assignedToUser', 'assignedUser')
       .leftJoinAndSelect('task.createdByUser', 'createdUser')
-      .leftJoin('task.likes', 'like')
-      .leftJoin('task.comments', 'comment')
       .where('task.isActive = :isActive', { isActive: true });
 
     // Search functionality - only search when explicitly requested
@@ -29,9 +27,12 @@ export class TaskRepository extends BaseRepository<Task> {
       );
     }
 
-    // Filter by status
-    if (query.status && query.status.length > 0) {
-      qb.andWhere('task.status IN (:...status)', { status: query.status });
+    // Filter by status - ensure status is always an array
+    if (query.status) {
+      const statusArray = Array.isArray(query.status) ? query.status : [query.status];
+      if (statusArray.length > 0) {
+        qb.andWhere('task.status IN (:...status)', { status: statusArray });
+      }
     }
 
     // Filter by assigned user
@@ -103,14 +104,14 @@ export class TaskRepository extends BaseRepository<Task> {
   async findTasksByAssignedUser(userId: number): Promise<Task[]> {
     return this.repository.find({
       where: { assignedTo: userId, isActive: true },
-      relations: ['assignedToUser', 'createdByUser', 'customer']
+      relations: ['assignedToUser', 'createdByUser']
     });
   }
 
   async findTasksCreatedByUser(userId: number): Promise<Task[]> {
     return this.repository.find({
       where: { createdBy: userId, isActive: true },
-      relations: ['assignedToUser', 'createdByUser', 'customer']
+      relations: ['assignedToUser', 'createdByUser']
     });
   }
 

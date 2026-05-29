@@ -93,12 +93,15 @@ class App {
         // Allow requests with no origin (like mobile apps or curl requests)
         if (!origin) return callback(null, true);
         
+        // Build list of allowed origins
         const allowedOrigins = [
           'http://localhost:3000',
           'http://localhost:5173',
-          process.env.FRONTEND_URL || ''
+          process.env.FRONTEND_URL || '',
+          process.env.CORS_ORIGIN || ''
         ].filter(Boolean) as string[];
 
+        // Check for exact match or if origin starts with allowed origin (for subdomains)
         if (allowedOrigins.includes(origin) || allowedOrigins.some(allowed => origin?.startsWith(allowed))) {
           callback(null, true);
         } else {
@@ -106,7 +109,7 @@ class App {
         }
       },
       credentials: true,
-      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
       allowedHeaders: ['Content-Type', 'Authorization', 'x-application-name'],
       exposedHeaders: ['set-cookie']
     }));
@@ -223,10 +226,27 @@ class App {
       // Create HTTP server
       const httpServer = createServer(this.app);
 
-      // Initialize Socket.io
+      // Initialize Socket.io with CORS for production
+      const allowedOrigins = [
+        'http://localhost:5173',
+        'http://localhost:3000',
+        process.env.FRONTEND_URL || '',
+        process.env.CORS_ORIGIN || ''
+      ].filter(Boolean);
+
       const io = new SocketIOServer(httpServer, {
         cors: {
-          origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+          origin: function(origin, callback) {
+            // Allow requests with no origin (like mobile apps or curl requests)
+            if (!origin) return callback(null, true);
+            
+            // Check if origin is in allowed list
+            if (allowedOrigins.includes(origin) || allowedOrigins.some(allowed => origin?.startsWith(allowed))) {
+              callback(null, true);
+            } else {
+              callback(new Error('Not allowed by CORS'));
+            }
+          },
           credentials: true,
         },
       });

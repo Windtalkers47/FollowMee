@@ -1,0 +1,71 @@
+# Render Deployment Configuration
+# https://render.com/docs/blueprint-spec
+
+version: "1"
+
+services:
+  # Backend Service
+  - type: web
+    name: followmee-backend
+    env: node
+    region: oregon
+    plan: free
+    branch: main
+    rootDir: Backend
+    buildCommand: npm install && npm run build
+    startCommand: npm run start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: DB_HOST
+        fromDatabase:
+          name: followmee-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: followmee-db
+          property: port
+      - key: DB_USERNAME
+        fromDatabase:
+          name: followmee-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: followmee-db
+          property: password
+      - key: DB_NAME
+        fromDatabase:
+          name: followmee-db
+          property: database
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 24h
+      - key: FRONTEND_URL
+        sync: false
+      - key: CORS_ORIGIN
+        sync: false
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+
+databases:
+  - name: followmee-db
+    databaseName: followmee
+    plan: free
+    # Note: Render free tier only supports PostgreSQL
+    # For MySQL, use TiDB Cloud (free 5GB)
+    # See DEPLOYMENT_GUIDE.md for TiDB setup instructions

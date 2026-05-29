@@ -1,10 +1,10 @@
-import { DataSource, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import { BaseRepository } from './base.repository';
 import { UserNotificationSettings } from '../entities/UserNotificationSettings';
 
 export class UserNotificationSettingsRepository extends BaseRepository<UserNotificationSettings> {
-  constructor(repository?: Repository<UserNotificationSettings>) {
-    super(UserNotificationSettings, repository);
+  constructor() {
+    super(UserNotificationSettings);
   }
 
   async findByUserId(userId: number): Promise<UserNotificationSettings | null> {
@@ -18,7 +18,7 @@ export class UserNotificationSettingsRepository extends BaseRepository<UserNotif
     let settings = await this.findByUserId(userId);
     
     if (!settings) {
-      settings = this.repository.create({
+      settings = this.create({
         userId,
         notifyTaskAssigned: true,
         notifyTaskComment: true,
@@ -26,11 +26,10 @@ export class UserNotificationSettingsRepository extends BaseRepository<UserNotif
         notifyCommentReply: true,
         notifyCommentReaction: true,
         notifySystemAlert: true,
-        notifyRoleChanged: true,
         emailEnabled: false,
         pushEnabled: true,
       });
-      await this.repository.save(settings);
+      await this.save(settings);
     }
     
     return settings;
@@ -41,7 +40,7 @@ export class UserNotificationSettingsRepository extends BaseRepository<UserNotif
     if (!settings) return null;
 
     Object.assign(settings, updates);
-    return this.repository.save(settings);
+    return this.save(settings);
   }
 
   async checkNotificationPreference(userId: number, notificationType: string): Promise<boolean> {

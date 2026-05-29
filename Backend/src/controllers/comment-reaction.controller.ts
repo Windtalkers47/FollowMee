@@ -90,13 +90,19 @@ export class CommentReactionController {
   async uploadCommentImage(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const file = req.file;
+      const userId = (req as any).user?.userId;
       
       if (!file) {
         res.status(400).json({ message: 'No file uploaded' });
         return;
       }
 
-      const result = await this.taskCommentService.uploadCommentImage(file);
+      if (!userId) {
+        res.status(401).json({ message: 'Unauthorized' });
+        return;
+      }
+
+      const result = await this.taskCommentService.uploadCommentImage(file.buffer, userId);
       res.status(200).json({ success: true, data: result });
     } catch (error) {
       next(error);

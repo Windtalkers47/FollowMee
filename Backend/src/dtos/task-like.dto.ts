@@ -19,7 +19,7 @@ export class TaskLikeResponseDto {
   likeType!: 'like' | 'love' | 'laugh' | 'angry' | 'wow' | 'sad';
   createdAt!: Date;
 
-  user!: {
+  user?: {
     userId: number;
     userName: string;
     userLastName: string;

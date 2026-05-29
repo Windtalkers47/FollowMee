@@ -1,10 +1,11 @@
-import { DataSource, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import { BaseRepository } from './base.repository';
 import { Notification } from '../entities/Notification';
+import dataSource from '../config/database';
 
 export class NotificationRepository extends BaseRepository<Notification> {
-  constructor(repository?: Repository<Notification>) {
-    super(Notification, repository);
+  constructor() {
+    super(Notification);
   }
 
   async findWithRecipients(notificationId: number): Promise<Notification | null> {
@@ -31,8 +32,6 @@ export class NotificationRepository extends BaseRepository<Notification> {
   }
 
   async findRecentByUser(userId: number, limit: number = 20): Promise<Notification[]> {
-    // This will need to join with notification_recipients
-    // For now, we'll implement a simpler version
     return this.repository
       .createQueryBuilder('notification')
       .innerJoin(
@@ -49,7 +48,6 @@ export class NotificationRepository extends BaseRepository<Notification> {
   }
 
   async countUnreadByUser(userId: number): Promise<number> {
-    const dataSource = this.dataSource;
     const result = await dataSource
       .createQueryBuilder()
       .select('COUNT(*)', 'count')

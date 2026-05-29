@@ -1,19 +1,17 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
 import { CommentReaction } from '../entities/CommentReaction';
 import { TaskComment } from '../entities/TaskComment';
-import { CreateCommentReactionDto } from '../dtos/task-comment.dto';
-import { CommentReactionResponseDto } from '../dtos/task-comment.dto';
+import { CommentReactionResponseDto, CreateCommentReactionDto } from '../dtos/task-comment.dto';
+import { CommentReactionRepository } from '../repositories/comment-reaction.repository';
+import { TaskCommentRepository } from '../repositories/task-comment.repository';
 
-@Injectable()
 export class CommentReactionService {
-  constructor(
-    @InjectRepository(CommentReaction)
-    private commentReactionRepository: Repository<CommentReaction>,
-    @InjectRepository(TaskComment)
-    private taskCommentRepository: Repository<TaskComment>
-  ) {}
+  private commentReactionRepository: CommentReactionRepository;
+  private taskCommentRepository: TaskCommentRepository;
+
+  constructor() {
+    this.commentReactionRepository = new CommentReactionRepository();
+    this.taskCommentRepository = new TaskCommentRepository();
+  }
 
   async createOrUpdateReaction(
     commentId: number,
@@ -25,14 +23,11 @@ export class CommentReactionService {
       where: { commentId, isActive: true }
     });
     if (!comment) {
-      throw new NotFoundException('Comment not found');
+      throw new Error('Comment not found');
     }
 
     // Check if user already has a reaction on this comment
-    const existingReaction = await this.commentReactionRepository.findOne({
-      where: { commentId, userId },
-      relations: ['user']
-    });
+    const existingReaction = await this.commentReactionRepository.findByCommentAndUser(commentId, userId);
 
     if (existingReaction) {
       // Update existing reaction
@@ -51,27 +46,34 @@ export class CommentReactionService {
     }
   }
 
-  async removeReaction(commentId: number, userId: number): Promise<void> {
-    const reaction = await this.commentReactionRepository.findOne({
-      where: { commentId, userId }
-    });
-
-    if (!reaction) {
-      throw new NotFoundException('Reaction not found');
-    }
-
-    await this.commentReactionRepository.delete(reaction.reactionId);
+  async getReactionsByCommentId(commentId: number): Promise<CommentReactionResponseDto[]> {
+    const reactions = await this.commentReactionRepository.findByCommentId(commentId);
+    return reactions.map(reaction => this.mapToResponseDto(reaction));
   }
 
-  async getCommentReactions(commentId: number): Promise<CommentReactionResponseDto[]> {
-    const reactions = await this.commentReactionRepository
-      .createQueryBuilder('reaction')
-      .leftJoinAndSelect('reaction.user', 'user')
-      .where('reaction.commentId = :commentId', { commentId })
-      .orderBy('reaction.createdAt', 'ASC')
-      .getMany();
+  async deleteReaction(commentId: number, userId: number): Promise<{ message: string }> {
+    const reaction = await this.commentReactionRepository.findByCommentAndUser(commentId, userId);
 
-    return reactions.map(reaction => this.mapToResponseDto(reaction));
+    if (!reaction) {
+      throw new Error('Reaction not found');
+    }
+
+    await this.commentReactionRepository.deleteReaction(commentId, userId);
+    return { message: 'Reaction removed successfully' };
+  }
+
+  /**
+   * Alias for deleteReaction - used by controller
+   */
+  async removeReaction(commentId: number, userId: number): Promise<{ message: string }> {
+    return this.deleteReaction(commentId, userId);
+  }
+
+  /**
+   * Alias for getReactionsByCommentId - used by controller
+   */
+  async getCommentReactions(commentId: number): Promise<CommentReactionResponseDto[]> {
+    return this.getReactionsByCommentId(commentId);
   }
 
   private mapToResponseDto(reaction: CommentReaction): CommentReactionResponseDto {
@@ -84,8 +86,10 @@ export class CommentReactionService {
       user: reaction.user ? {
         userId: reaction.user.userId,
         userName: reaction.user.userName,
-        userLastName: reaction.user.userLastName
+        userLastName: reaction.user.userLastName,
       } : undefined
     };
   }
 }
+
+export default new CommentReactionService();

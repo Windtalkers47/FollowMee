@@ -7,10 +7,7 @@ import AppDataSource from '../config/database';
 const router = Router({ mergeParams: true });
 
 // Initialize dependencies
-const taskLikeService = new TaskLikeService(
-  AppDataSource.getRepository('TaskLike'),
-  AppDataSource.getRepository('Task')
-);
+const taskLikeService = new TaskLikeService();
 const taskLikeController = new TaskLikeController(taskLikeService);
 
 // All like routes require authentication

@@ -53,18 +53,19 @@ export class CustomerController {
     try {
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 10;
-      const status = req.query.status as 'active' | 'inactive' | 'canceled' | undefined;
+      const includeInactive = req.query.status === 'inactive';
       
-      // Get customers with pagination and status filter
-      const [customers, total] = await this.customerService.findWithPagination(
-        page, 
-        limit,
-        status
-      );
+      // Get customers
+      const customers = await this.customerService.findAll(includeInactive);
+      
+      // Apply pagination on client side since service doesn't support it yet
+      const total = customers.length;
+      const start = (page - 1) * limit;
+      const paginatedCustomers = customers.slice(start, start + limit);
       
       return res.json({ 
         success: true, 
-        data: customers,
+        data: paginatedCustomers,
         meta: { 
           total: total, 
           page: page, 
@@ -96,7 +97,7 @@ export class CustomerController {
         });
       }
       
-      const results = await this.customerService.search(search as string);
+      const results = await this.customerService.searchCustomers(search as string);
       
       return res.json({ 
         success: true, 
@@ -167,15 +168,14 @@ export class CustomerController {
         });
       }
       
-      // Create the customer first
-      let result = await this.customerService.create(createCustomerDto);
-      let customer = result.customer;
+      // Create the customer
+      const customer = await this.customerService.create(createCustomerDto);
       
       // If there's a base64 image, upload it and update the customer
       if (base64Image) {
         try {
           const imageUrl = await uploadBase64Image(base64Image);
-          customer = await this.customerService.update(customer.customerId, { 
+          await this.customerService.update(customer.customerId, { 
             customerImageUrl: imageUrl 
           });
         } catch (error) {
@@ -185,9 +185,7 @@ export class CustomerController {
         }
       }
       
-      const message = result.reactivated 
-        ? 'Customer reactivated successfully' + (base64Image ? ' with image' : '')
-        : 'Customer created successfully' + (base64Image ? ' with image' : '');
+      const message = 'Customer created successfully' + (base64Image ? ' with image' : '');
       
       return res.status(201).json({ 
         success: true, 
@@ -300,9 +298,6 @@ export class CustomerController {
     }
   }
 
-  /**
-   * Delete (deactivate) a customer
-   */
   /**
    * Upload customer profile image
    */
@@ -418,6 +413,9 @@ export class CustomerController {
     }
   }
 
+  /**
+   * Delete (deactivate) a customer
+   */
   async deleteCustomer(req: Request, res: Response) {
     try {
       const { id } = req.params;
@@ -442,14 +440,7 @@ export class CustomerController {
       }
 
       // Delete the customer
-      const result = await this.customerService.remove(id);
-      
-      if (!result) {
-        return res.status(404).json({ 
-          success: false, 
-          message: 'Customer not found' 
-        });
-      }
+      await this.customerService.delete(id);
       
       return res.json({ 
         success: true, 

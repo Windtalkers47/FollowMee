@@ -18,6 +18,11 @@ const NotificationBell = ({ onDropdownToggle }: NotificationBellProps) => {
   const theme = useTheme();
   const dispatch = useAppDispatch();
   const unreadCount = useAppSelector(selectUnreadCount);
+  
+  // Ensure badgeContent is a number, not an object
+  const badgeCount = typeof unreadCount === 'number' 
+    ? unreadCount 
+    : (unreadCount as any)?.count || 0;
   const dropdownOpen = useAppSelector(selectDropdownOpen);
 
   useEffect(() => {
@@ -51,7 +56,7 @@ const NotificationBell = ({ onDropdownToggle }: NotificationBellProps) => {
       }}
     >
       <Badge
-        badgeContent={unreadCount}
+        badgeContent={badgeCount}
         color="error"
         max={99}
         sx={{

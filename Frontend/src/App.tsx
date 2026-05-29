@@ -6,6 +6,8 @@ import { restoreSession, clearAuth } from './store/slices/authSlice';
 import { connectWebSocket, disconnectWebSocket } from './store/slices/notificationSlice';
 import MainLayout from './layouts/MainLayout';
 import { API_BASE_URL } from './api/config';
+import { ErrorBoundary } from './components/ErrorBoundary/ErrorBoundary';
+import { AsyncErrorBoundary } from './components/ErrorBoundary/AsyncErrorBoundary';
 
 // Lazy load pages
 const LoginPage = React.lazy(() => import('./pages/Login'));
@@ -113,120 +115,134 @@ const App = () => {
   }
 
   return (
-    <>
-      <style>
-        {`
-          @keyframes shimmer {
-            0% { transform: translateX(-100%); }
-            100% { transform: translateX(100%); }
-          }
-          @keyframes liquid {
-            0%, 100% { border-radius: 4px; }
-            50% { border-radius: 6px; }
-          }
-          @keyframes glow {
-            0%, 100% { 
-              box-shadow: 0 0 20px rgba(100, 181, 246, 0.3);
+    <ErrorBoundary
+      onError={(error, errorInfo) => {
+        console.error('App ErrorBoundary caught:', error, errorInfo);
+        // Optionally log to error reporting service
+      }}
+    >
+      <AsyncErrorBoundary
+        maxRetries={3}
+        onError={(error) => {
+          console.error('App AsyncErrorBoundary caught:', error);
+        }}
+      >
+        <style>
+          {`
+            @keyframes shimmer {
+              0% { transform: translateX(-100%); }
+              100% { transform: translateX(100%); }
             }
-            50% { 
-              box-shadow: 0 0 30px rgba(100, 181, 246, 0.5);
+            @keyframes liquid {
+              0%, 100% { border-radius: 4px; }
+              50% { border-radius: 6px; }
             }
-          }
-          @keyframes float {
-            0%, 100% { transform: translateY(0px); }
-            50% { transform: translateY(-10px); }
-          }
-          @keyframes pulse {
-            0%, 100% { opacity: 0.8; }
-            50% { opacity: 1; }
-          }
-          * {
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-          }
-        `}
-      </style>
-      <Box sx={{ minHeight: '100vh' }}>
-        <Suspense fallback={<LoadingSpinner />}>
-          <Routes location={location}>
-          {/* Public */}
-          <Route
-            index
-            element={
-              isAuthenticated ? (
-                <Navigate to="/dashboard" replace />
-              ) : (
-                <Navigate to="/login" replace />
-              )
+            @keyframes glow {
+              0%, 100% { 
+                box-shadow: 0 0 20px rgba(100, 181, 246, 0.3);
+              }
+              50% { 
+                box-shadow: 0 0 30px rgba(100, 181, 246, 0.5);
+              }
             }
-          />
-          <Route
-            path="/login"
-            element={
-              isAuthenticated ? (
-                <Navigate to="/dashboard" replace />
-              ) : (
-                <LoginPage />
-              )
+            @keyframes float {
+              0%, 100% { transform: translateY(0px); }
+              50% { transform: translateY(-10px); }
             }
-          />
-          <Route
-            path="/register"
-            element={
-              isAuthenticated ? (
-                <Navigate to="/dashboard" replace />
-              ) : (
-                <RegisterPage />
-              )
+            @keyframes pulse {
+              0%, 100% { opacity: 0.8; }
+              50% { opacity: 1; }
             }
-          />
-          <Route
-            path="/forgot-password"
-            element={
-              isAuthenticated ? (
-                <Navigate to="/dashboard" replace />
-              ) : (
-                <ForgotPasswordPage />
-              )
+            * {
+              transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
             }
-          />
-          
-          {/* Reset password route should be accessible without authentication */}
-          <Route 
-            path="/reset-password" 
-            element={<ResetPasswordPage />}
-          />
+          `}
+        </style>
+        <Box sx={{ minHeight: '100vh' }}>
+          <Suspense fallback={<LoadingSpinner />}>
+            <ErrorBoundary>
+              <Routes location={location}>
+                {/* Public */}
+                <Route
+                  index
+                  element={
+                    isAuthenticated ? (
+                      <Navigate to="/dashboard" replace />
+                    ) : (
+                      <Navigate to="/login" replace />
+                    )
+                  }
+                />
+                <Route
+                  path="/login"
+                  element={
+                    isAuthenticated ? (
+                      <Navigate to="/dashboard" replace />
+                    ) : (
+                      <LoginPage />
+                    )
+                  }
+                />
+                <Route
+                  path="/register"
+                  element={
+                    isAuthenticated ? (
+                      <Navigate to="/dashboard" replace />
+                    ) : (
+                      <RegisterPage />
+                    )
+                  }
+                />
+                <Route
+                  path="/forgot-password"
+                  element={
+                    isAuthenticated ? (
+                      <Navigate to="/dashboard" replace />
+                    ) : (
+                      <ForgotPasswordPage />
+                    )
+                  }
+                />
+                
+                {/* Reset password route should be accessible without authentication */}
+                <Route 
+                  path="/reset-password" 
+                  element={<ResetPasswordPage />}
+                />
 
-          {/* Protected */}
-          <Route element={<ProtectedRoute />}>
-            <Route path="/dashboard" element={<DashboardPage />} />
-            <Route path="/analytics" element={<AnalyticsPage />} />
-            <Route path="/posts" element={<PostsPage />} />
-            <Route path="/schedule" element={<SchedulePage />} />
-            <Route path="/customer" element={<CustomerPage />} />
-            <Route path="/users" element={<UsersPage />} />
-            <Route path="/settings" element={<SettingsPage />} />
-            <Route path="/customer-profile" element={<CustomerProfilePage />} />
-            <Route path="/customer/:customerId/profile" element={<CustomerProfilePage />} />
-          </Route>
+                {/* Protected */}
+                <Route element={<ProtectedRoute />}>
+                  <Route path="/dashboard" element={<DashboardPage />} />
+                  <Route path="/analytics" element={<AnalyticsPage />} />
+                  <Route path="/posts" element={<PostsPage />} />
+                  <Route path="/schedule" element={<SchedulePage />} />
+                  <Route path="/customer" element={<CustomerPage />} />
+                  <Route path="/users" element={<UsersPage />} />
+                  <Route path="/settings" element={<SettingsPage />} />
+                  <Route path="/customer-profile" element={<CustomerProfilePage />} />
+                  <Route path="/customer/:customerId/profile" element={<CustomerProfilePage />} />
+                </Route>
 
-          {/* Public profile routes */}
-          <Route path="/customer-profile/:customerId" element={<CustomerProfilePage />} />
+                {/* Public profile routes */}
+                <Route path="/customer-profile/:customerId" element={<CustomerProfilePage />} />
 
-          {/* 404 */}
-          <Route
-            path="*"
-            element={
-              isAuthenticated ? (
-                <Navigate to="/dashboard" replace />
-              ) : (
-                <Navigate to="/login" replace />
-              )
-            }
-          />
-        </Routes>
-      </Suspense>
-    </Box>
-    </>
+                {/* 404 */}
+                <Route
+                  path="*"
+                  element={
+                    isAuthenticated ? (
+                      <Navigate to="/dashboard" replace />
+                    ) : (
+                      <Navigate to="/login" replace />
+                    )
+                  }
+                />
+              </Routes>
+            </ErrorBoundary>
+          </Suspense>
+        </Box>
+      </AsyncErrorBoundary>
+    </ErrorBoundary>
   );
 };
 

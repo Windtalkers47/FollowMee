@@ -6,6 +6,8 @@ import morgan from 'morgan';
 import cookieParser from 'cookie-parser';
 import dataSource from './config/database';
 import dotenv from 'dotenv';
+import swaggerUi from 'swagger-ui-express';
+import swaggerSpec from './config/swagger.config';
 import { logger } from './utils/logger';
 import { processObjectDates } from './utils/date.utils';
 import { NotificationHelper } from './utils/notification.util';
@@ -147,6 +149,13 @@ class App {
     this.app.get('/health', (req: Request, res: Response) => {
       res.status(200).json({ status: 'UP' });
     });
+
+    // Swagger API Documentation
+    this.app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+      explorer: true,
+      customCss: '.swagger-ui .topbar { display: none }',
+      customSiteTitle: 'FollowMee API Docs',
+    }));
 
     // API routes
     this.app.use('/api/auth', authRoutes);

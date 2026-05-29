@@ -47,7 +47,7 @@ export class TaskCommentController {
   async getTaskComments(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { taskId } = req.params;
-      const result = await this.taskCommentService.getTaskComments(taskId);
+      const result = await this.taskCommentService.getCommentsByTask(taskId);
       res.status(200).json({ success: true, data: result });
     } catch (error) {
       next(error);

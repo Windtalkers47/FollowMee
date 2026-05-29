@@ -1,10 +1,10 @@
-import { DataSource, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import { BaseRepository } from './base.repository';
 import { NotificationRecipient } from '../entities/NotificationRecipient';
 
 export class NotificationRecipientRepository extends BaseRepository<NotificationRecipient> {
-  constructor(repository?: Repository<NotificationRecipient>) {
-    super(NotificationRecipient, repository);
+  constructor() {
+    super(NotificationRecipient);
   }
 
   async findByUserWithNotification(userId: number, limit: number = 20, offset: number = 0): Promise<NotificationRecipient[]> {

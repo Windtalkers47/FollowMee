@@ -8,9 +8,8 @@ import { upload } from '../services/file-upload.service';
 
 const router = Router();
 
-// ✅ MANUAL DEPENDENCY INJECTION
-const customerRepository = new CustomerRepository();
-const customerService = new CustomerService(customerRepository);
+// ✅ MANUAL DEPENDENCY INJECTION - Fixed for new constructor
+const customerService = new CustomerService();
 const customerController = new CustomerController(customerService);
 
 // Public routes

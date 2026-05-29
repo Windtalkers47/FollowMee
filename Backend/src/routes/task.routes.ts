@@ -12,9 +12,8 @@ import { TaskImage } from '../entities/TaskImage';
 const router = Router();
 
 // Initialize dependencies
-const taskRepository = new TaskRepository();
-const taskImageService = new TaskImageService(AppDataSource.getRepository(TaskImage), AppDataSource.getRepository(Task));
-const taskService = new TaskService(AppDataSource.getRepository(Task), taskImageService);
+const taskImageService = new TaskImageService();
+const taskService = new TaskService(taskImageService);
 const taskController = new TaskController(taskService);
 
 // All task routes require authentication

@@ -1,66 +1,104 @@
-import { DataSource, EntityTarget, FindManyOptions, FindOptionsWhere, ObjectLiteral, Repository, DeepPartial } from 'typeorm';
+import { DataSource, Repository, EntityTarget, ObjectLiteral, FindOptionsWhere, FindManyOptions, FindOneOptions, UpdateResult } from 'typeorm';
 import dataSource from '../config/database';
 
-export abstract class BaseRepository<T extends ObjectLiteral> {
+/**
+ * Base repository providing common CRUD operations
+ * This is a thin wrapper around TypeORM's Repository
+ */
+export class BaseRepository<T extends ObjectLiteral> {
   protected repository: Repository<T>;
-  protected dataSource: DataSource;
 
-  constructor(entity: EntityTarget<T>, repository?: Repository<T>) {
-    this.dataSource = dataSource;
-    this.repository = repository || this.dataSource.getRepository(entity);
+  constructor(entity: EntityTarget<T>) {
+    this.repository = dataSource.getRepository(entity);
   }
 
-  async findOne(where: FindOptionsWhere<T>): Promise<T | null> {
-    return this.repository.findOne({ where });
+  /**
+   * Find entities matching the given criteria
+   */
+  async find(where?: FindOptionsWhere<T> | FindOptionsWhere<T>[]): Promise<T[]> {
+    return this.repository.find({ where });
   }
 
-  async find(
-    where?: FindOptionsWhere<T>,
-    options: Omit<FindManyOptions<T>, 'where'> = {}
-  ): Promise<T[]> {
-    return this.repository.find({
-      where,
-      ...options,
-    });
+  /**
+   * Find a single entity by options or where clause
+   */
+  async findOne(options?: FindOneOptions<T> | FindOptionsWhere<T>): Promise<T | null> {
+    const findOptions: FindOneOptions<T> = typeof options === 'object' && 'where' in options 
+      ? options as FindOneOptions<T>
+      : { where: options as FindOptionsWhere<T> };
+    return this.repository.findOne(findOptions);
   }
 
-  async create(data: DeepPartial<T>): Promise<T> {
-    const entity = this.repository.create(data);
+  /**
+   * Find multiple entities with options
+   */
+  async findMany(options?: FindManyOptions<T>): Promise<T[]> {
+    return this.repository.find(options);
+  }
+
+  /**
+   * Create a new entity instance (does not save)
+   */
+  create(entityData: Partial<T>): T {
+    const result = this.repository.create(entityData as any);
+    return result as unknown as T;
+  }
+
+  /**
+   * Create and save a new entity
+   */
+  async createAndSave(entityData: Partial<T>): Promise<T> {
+    const entity = this.create(entityData);
     return this.repository.save(entity);
   }
 
-  async update(id: number | string, data: DeepPartial<T>): Promise<T | null> {
-    const metadata = this.repository.metadata;
-    const primaryColumn = metadata.primaryColumns[0];
-    const primaryKey = primaryColumn.propertyName;
-    
-    // First find the existing entity
-    const existing = await this.findOne({ [primaryKey]: id } as any);
-    if (!existing) return null;
-    
-    // Update the entity with new data
-    Object.assign(existing, data);
-    
-    // Save the entity which will trigger @UpdateDateColumn
-    return this.repository.save(existing);
+  /**
+   * Update entity by ID
+   */
+  async update(id: number | string, entityData: Partial<T>): Promise<boolean> {
+    const result: UpdateResult = await this.repository.update(id, entityData as any);
+    return result.affected !== undefined && result.affected > 0;
   }
 
-  async delete(id: number | string): Promise<boolean> {
-    const result = await this.repository.delete(id);
-    return result.affected ? result.affected > 0 : false;
+  /**
+   * Delete entity by criteria
+   */
+  async delete(criteria: FindOptionsWhere<T>): Promise<void> {
+    await this.repository.delete(criteria);
   }
 
-  async softDelete(id: number | string): Promise<boolean> {
-    const result = await this.update(id, { deletedAt: new Date() } as any);
-    return !!result;
+  /**
+   * Save an entity
+   */
+  async save(entity: T): Promise<T> {
+    return this.repository.save(entity);
   }
 
-  async count(where?: FindOptionsWhere<T>): Promise<number> {
-    return where ? this.repository.count({ where }) : this.repository.count();
+  /**
+   * Remove an entity
+   */
+  async remove(entity: T): Promise<T> {
+    return this.repository.remove(entity);
   }
 
-  async exists(where: FindOptionsWhere<T>): Promise<boolean> {
-    const count = await this.count(where);
-    return count > 0;
+  /**
+   * Count entities matching criteria
+   */
+  async count(where?: FindOptionsWhere<T> | FindOptionsWhere<T>[]): Promise<number> {
+    return this.repository.count({ where });
+  }
+
+  /**
+   * Check if entity exists
+   */
+  async exists(where: FindOptionsWhere<T> | FindOptionsWhere<T>[]): Promise<boolean> {
+    return this.repository.exists({ where });
+  }
+
+  /**
+   * Get the underlying TypeORM repository
+   */
+  getRepository(): Repository<T> {
+    return this.repository;
   }
 }

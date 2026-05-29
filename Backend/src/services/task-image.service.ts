@@ -1,20 +1,19 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { TaskImage } from '../entities/TaskImage';
 import { Task } from '../entities/Task';
 import { User } from '../entities/User';
 import { CreateTaskImageDto, UpdateTaskImageDto, TaskImageResponseDto } from '../dtos/task-image.dto';
 import { CloudinaryUtil } from '../utils/cloudinary.util';
+import AppDataSource from '../config/database';
 
-@Injectable()
 export class TaskImageService {
-  constructor(
-    @InjectRepository(TaskImage)
-    private taskImageRepository: Repository<TaskImage>,
-    @InjectRepository(Task)
-    private taskRepository: Repository<Task>
-  ) {}
+  private taskImageRepository: Repository<TaskImage>;
+  private taskRepository: Repository<Task>;
+
+  constructor() {
+    this.taskImageRepository = AppDataSource.getRepository(TaskImage);
+    this.taskRepository = AppDataSource.getRepository(Task);
+  }
 
   async createTaskImage(
     taskId: string,
@@ -22,17 +21,17 @@ export class TaskImageService {
     userId: number
   ): Promise<TaskImageResponseDto> {
     // Verify task exists
-    const task = await this.taskRepository.findOne({ where: { taskId, isActive: true } });
+    const task = await this.taskRepository.findOne({ where: { taskId, isActive: true } as any });
     if (!task) {
-      throw new NotFoundException('Task not found');
+      throw new Error('Task not found');
     }
 
     // Use the provided imageOrder, or get the highest current order
     let imageOrder = createImageDto.imageOrder;
     if (imageOrder === undefined || imageOrder === null) {
       const lastImage = await this.taskImageRepository.findOne({
-        where: { taskId, isActive: true },
-        order: { imageOrder: 'DESC' }
+        where: { taskId, isActive: true } as any,
+        order: { imageOrder: 'DESC' } as any
       });
       imageOrder = lastImage ? lastImage.imageOrder + 1 : 0;
     }
@@ -42,51 +41,61 @@ export class TaskImageService {
     image.imageUrl = createImageDto.imageUrl;
     image.imageOrder = imageOrder;
     image.uploadedBy = userId;
+    image.isActive = true;
 
     const savedImage = await this.taskImageRepository.save(image);
     
     // Fetch user data separately
     const user = await this.taskRepository.manager.getRepository(User).findOne({
       where: { userId: savedImage.uploadedBy },
-      select: ['userId', 'userName', 'userLastName', 'userImageUrl', 'userEmail']
+      select: ['userId', 'userName', 'userLastName', 'userImageUrl']
     });
-    
-    if (!user) {
-      throw new Error('Failed to retrieve user who uploaded the image');
-    }
-    
-    const imageWithUser = {
-      ...savedImage,
-      uploadedByUser: user
+
+    return {
+      imageId: savedImage.imageId,
+      taskId: savedImage.taskId,
+      imageUrl: savedImage.imageUrl,
+      imageOrder: savedImage.imageOrder,
+      uploadedBy: savedImage.uploadedBy,
+      isActive: savedImage.isActive,
+      createdAt: savedImage.createdAt,
+      uploadedByUser: user ? {
+        userId: user.userId,
+        userName: user.userName,
+        userLastName: user.userLastName,
+        userImageUrl: user.userImageUrl || undefined
+      } : undefined
     };
-    
-    return this.mapToResponseDto(imageWithUser as any);
   }
 
   async getTaskImages(taskId: string): Promise<TaskImageResponseDto[]> {
     const images = await this.taskImageRepository.find({
-      where: { taskId, isActive: true },
-      order: { imageOrder: 'ASC' }
+      where: { taskId, isActive: true } as any,
+      order: { imageOrder: 'ASC' } as any
     });
 
-    // Fetch user data for each image
-    const imagesWithUsers = await Promise.all(
-      images.map(async (image) => {
-        const user = await this.taskRepository.manager.getRepository(User).findOne({
-          where: { userId: image.uploadedBy },
-          select: ['userId', 'userName', 'userLastName', 'userImageUrl', 'userEmail']
-        });
-        
-        const imageWithUser = {
-          ...image,
-          uploadedByUser: user
-        };
-        
-        return this.mapToResponseDto(imageWithUser as any);
-      })
-    );
+    return Promise.all(images.map(async (image) => {
+      const user = await this.taskRepository.manager.getRepository(User).findOne({
+        where: { userId: image.uploadedBy },
+        select: ['userId', 'userName', 'userLastName', 'userImageUrl']
+      });
 
-    return imagesWithUsers;
+      return {
+        imageId: image.imageId,
+        taskId: image.taskId,
+        imageUrl: image.imageUrl,
+        imageOrder: image.imageOrder,
+        uploadedBy: image.uploadedBy,
+        isActive: image.isActive,
+        createdAt: image.createdAt,
+        uploadedByUser: user ? {
+          userId: user.userId,
+          userName: user.userName,
+          userLastName: user.userLastName,
+          userImageUrl: user.userImageUrl || undefined
+        } : undefined
+      };
+    }));
   }
 
   async updateTaskImage(
@@ -94,67 +103,65 @@ export class TaskImageService {
     updateImageDto: UpdateTaskImageDto,
     userId: number
   ): Promise<TaskImageResponseDto> {
-    const image = await this.taskImageRepository.findOne({
-      where: { imageId, isActive: true }
-    });
-
+    const image = await this.taskImageRepository.findOne({ where: { imageId } as any });
     if (!image) {
-      throw new NotFoundException('Image not found');
+      throw new Error('Image not found');
     }
 
-    // Check if user owns this image or created the task
-    const task = await this.taskRepository.findOne({ where: { taskId: image.taskId } });
-    if (image.uploadedBy !== userId && task?.createdBy !== userId) {
-      throw new ForbiddenException('You can only update images you uploaded or tasks you created');
+    if (image.uploadedBy !== userId) {
+      throw new Error('You can only update images you uploaded');
     }
 
-    if (updateImageDto.imageUrl !== undefined) {
-      // Delete old image from Cloudinary if it's being replaced
-      if (image.imageUrl && image.imageUrl !== updateImageDto.imageUrl) {
-        try {
-          await CloudinaryUtil.deleteImage(image.imageUrl);
-        } catch (error) {
-          console.error('Failed to delete old image from Cloudinary:', error);
-        }
-      }
-      image.imageUrl = updateImageDto.imageUrl;
-    }
     if (updateImageDto.imageOrder !== undefined) {
       image.imageOrder = updateImageDto.imageOrder;
     }
 
     const savedImage = await this.taskImageRepository.save(image);
-    
-    // Fetch user data
+
     const user = await this.taskRepository.manager.getRepository(User).findOne({
       where: { userId: savedImage.uploadedBy },
-      select: ['userId', 'userName', 'userLastName', 'userImageUrl', 'userEmail']
+      select: ['userId', 'userName', 'userLastName', 'userImageUrl']
     });
-    
-    const imageWithUser = {
-      ...savedImage,
-      uploadedByUser: user
+
+    return {
+      imageId: savedImage.imageId,
+      taskId: savedImage.taskId,
+      imageUrl: savedImage.imageUrl,
+      imageOrder: savedImage.imageOrder,
+      uploadedBy: savedImage.uploadedBy,
+      isActive: savedImage.isActive,
+      createdAt: savedImage.createdAt,
+      uploadedByUser: user ? {
+        userId: user.userId,
+        userName: user.userName,
+        userLastName: user.userLastName,
+        userImageUrl: user.userImageUrl || undefined
+      } : undefined
     };
-    
-    return this.mapToResponseDto(imageWithUser as any);
+  }
+
+  async deactivateTaskImage(imageId: number): Promise<void> {
+    const image = await this.taskImageRepository.findOne({ where: { imageId } as any });
+    if (!image) {
+      throw new Error('Image not found');
+    }
+
+    image.isActive = false;
+    image.deletedAt = new Date();
+    await this.taskImageRepository.save(image);
   }
 
   async deleteTaskImage(imageId: number, userId: number): Promise<void> {
-    const image = await this.taskImageRepository.findOne({
-      where: { imageId, isActive: true }
-    });
-
+    const image = await this.taskImageRepository.findOne({ where: { imageId } as any });
     if (!image) {
-      throw new NotFoundException('Image not found');
+      throw new Error('Image not found');
     }
 
-    // Check if user owns this image or created the task
-    const task = await this.taskRepository.findOne({ where: { taskId: image.taskId } });
-    if (image.uploadedBy !== userId && task?.createdBy !== userId) {
-      throw new ForbiddenException('You can only delete images you uploaded or tasks you created');
+    if (image.uploadedBy !== userId) {
+      throw new Error('You can only delete images you uploaded');
     }
 
-    // Delete image from Cloudinary before deactivating
+    // Delete from Cloudinary
     if (image.imageUrl) {
       try {
         await CloudinaryUtil.deleteImage(image.imageUrl);
@@ -163,28 +170,11 @@ export class TaskImageService {
       }
     }
 
-    await this.taskImageRepository.update(imageId, { isActive: false });
-  }
-
-  async deactivateTaskImage(imageId: number): Promise<void> {
-    await this.taskImageRepository.update(imageId, { isActive: false });
-  }
-
-  private mapToResponseDto(image: TaskImage): TaskImageResponseDto {
-    return {
-      imageId: image.imageId,
-      taskId: image.taskId,
-      imageUrl: image.imageUrl,
-      imageOrder: image.imageOrder,
-      uploadedBy: image.uploadedBy,
-      createdAt: image.createdAt,
-      isActive: image.isActive,
-      uploadedByUser: image.uploadedByUser ? {
-        userId: image.uploadedByUser.userId,
-        userName: image.uploadedByUser.userName,
-        userLastName: image.uploadedByUser.userLastName,
-        userImageUrl: image.uploadedByUser.userImageUrl || undefined
-      } : undefined
-    };
+    // Soft delete
+    image.isActive = false;
+    image.deletedAt = new Date();
+    await this.taskImageRepository.save(image);
   }
 }
+
+export default new TaskImageService();

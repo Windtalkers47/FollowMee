@@ -1,5 +1,3 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { TaskLike } from '../entities/TaskLike';
 import { Task } from '../entities/Task';
@@ -7,15 +5,16 @@ import { User } from '../entities/User';
 import { CreateTaskLikeDto, UpdateTaskLikeDto } from '../dtos/task-like.dto';
 import { TaskLikeResponseDto, TaskLikeSummaryDto } from '../dtos/task-like.dto';
 import { NotificationHelper } from '../utils/notification.util';
+import AppDataSource from '../config/database';
 
-@Injectable()
 export class TaskLikeService {
-  constructor(
-    @InjectRepository(TaskLike)
-    private taskLikeRepository: Repository<TaskLike>,
-    @InjectRepository(Task)
-    private taskRepository: Repository<Task>
-  ) {}
+  private taskLikeRepository: Repository<TaskLike>;
+  private taskRepository: Repository<Task>;
+
+  constructor() {
+    this.taskLikeRepository = AppDataSource.getRepository(TaskLike);
+    this.taskRepository = AppDataSource.getRepository(Task);
+  }
 
   async createOrUpdateLike(
     taskId: string,
@@ -23,14 +22,14 @@ export class TaskLikeService {
     userId: number
   ): Promise<TaskLikeResponseDto> {
     // Verify task exists
-    const task = await this.taskRepository.findOne({ where: { taskId, isActive: true } });
+    const task = await this.taskRepository.findOne({ where: { taskId, isActive: true } as any });
     if (!task) {
-      throw new NotFoundException('Task not found');
+      throw new Error('Task not found');
     }
 
     // Check if user already liked this task
     const existingLike = await this.taskLikeRepository.findOne({
-      where: { taskId, userId }
+      where: { taskId, userId } as any
     });
 
     if (existingLike) {
@@ -41,7 +40,7 @@ export class TaskLikeService {
       // Fetch user data separately
       const user = await this.taskRepository.manager.getRepository(User).findOne({
         where: { userId: savedLike.userId },
-        select: ['userId', 'userName', 'userLastName', 'userImageUrl', 'userEmail']
+        select: ['userId', 'userName', 'userLastName', 'userImageUrl', 'userEmail'] as any
       });
       
       const likeWithUser = {
@@ -72,7 +71,7 @@ export class TaskLikeService {
       // Fetch user data separately
       const user = await this.taskRepository.manager.getRepository(User).findOne({
         where: { userId: savedLike.userId },
-        select: ['userId', 'userName', 'userLastName', 'userImageUrl', 'userEmail']
+        select: ['userId', 'userName', 'userLastName', 'userImageUrl', 'userEmail'] as any
       });
 
       const likeWithUser = {
@@ -86,14 +85,14 @@ export class TaskLikeService {
 
   async removeLike(taskId: string, userId: number): Promise<void> {
     const like = await this.taskLikeRepository.findOne({
-      where: { taskId, userId }
+      where: { taskId, userId } as any
     });
 
     if (!like) {
-      throw new NotFoundException('Like not found');
+      throw new Error('Like not found');
     }
 
-    await this.taskLikeRepository.delete(like.likeId);
+    await this.taskLikeRepository.delete(like.likeId as any);
   }
 
   async getTaskLikes(taskId: string): Promise<TaskLikeResponseDto[]> {
@@ -140,26 +139,31 @@ export class TaskLikeService {
 
   async getUserLikeOnTask(taskId: string, userId: number): Promise<TaskLikeResponseDto | null> {
     const like = await this.taskLikeRepository.findOne({
-      where: { taskId, userId },
+      where: { taskId, userId } as any,
       relations: ['user']
     });
 
     return like ? this.mapToResponseDto(like) : null;
   }
 
-  private mapToResponseDto(like: TaskLike): TaskLikeResponseDto {
-    return {
+  private mapToResponseDto(like: TaskLike & { user?: User }): TaskLikeResponseDto {
+    const result: TaskLikeResponseDto = {
       likeId: like.likeId,
       taskId: like.taskId,
       userId: like.userId,
       likeType: like.likeType,
       createdAt: like.createdAt,
-      user: {
+    };
+    if (like.user) {
+      result.user = {
         userId: like.user.userId,
         userName: like.user.userName,
         userLastName: like.user.userLastName,
         userImageUrl: like.user.userImageUrl || undefined
-      }
-    };
+      };
+    }
+    return result;
   }
 }
+
+export default new TaskLikeService();

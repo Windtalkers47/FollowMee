@@ -76,7 +76,7 @@ export class NotificationController {
 
   /**
    * Mark a notification as read
-   * PUT /api/notifications/:recipientId/read
+   * PUT /api/notifications/:notificationId/read
    */
   async markAsRead(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
@@ -86,34 +86,8 @@ export class NotificationController {
         return;
       }
 
-      const recipientId = parseInt(req.params.recipientId);
-      const result = await this.notificationService.markAsRead(recipientId);
-
-      if (!result) {
-        res.status(404).json({ message: 'Notification not found' });
-        return;
-      }
-
-      res.status(200).json({ success: true, data: result });
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  /**
-   * Mark a notification as seen
-   * PUT /api/notifications/:recipientId/seen
-   */
-  async markAsSeen(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const userId = req.user?.userId;
-      if (!userId) {
-        res.status(401).json({ message: 'User not authenticated' });
-        return;
-      }
-
-      const recipientId = parseInt(req.params.recipientId);
-      const result = await this.notificationService.markAsSeen(recipientId);
+      const notificationId = parseInt(req.params.notificationId);
+      const result = await this.notificationService.markAsRead(userId, notificationId);
 
       if (!result) {
         res.status(404).json({ message: 'Notification not found' });
@@ -146,34 +120,8 @@ export class NotificationController {
   }
 
   /**
-   * Archive a notification
-   * PUT /api/notifications/:recipientId/archive
-   */
-  async archiveNotification(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const userId = req.user?.userId;
-      if (!userId) {
-        res.status(401).json({ message: 'User not authenticated' });
-        return;
-      }
-
-      const recipientId = parseInt(req.params.recipientId);
-      const result = await this.notificationService.archiveNotification(recipientId);
-
-      if (!result) {
-        res.status(404).json({ message: 'Notification not found' });
-        return;
-      }
-
-      res.status(200).json({ success: true, data: result });
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  /**
-   * Delete a notification
-   * DELETE /api/notifications/:recipientId
+   * Delete a notification (soft delete)
+   * DELETE /api/notifications/:notificationId
    */
   async deleteNotification(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
@@ -183,8 +131,8 @@ export class NotificationController {
         return;
       }
 
-      const recipientId = parseInt(req.params.recipientId);
-      const result = await this.notificationService.deleteNotification(recipientId);
+      const notificationId = parseInt(req.params.notificationId);
+      const result = await this.notificationService.deleteNotification(userId, notificationId);
 
       if (!result) {
         res.status(404).json({ message: 'Notification not found' });
@@ -229,7 +177,7 @@ export class NotificationController {
       }
 
       const dto: UpdateUserNotificationSettingsDto = req.body;
-      const settings = await this.notificationService.updateUserSettings(userId, dto);
+      const settings = await this.notificationService.updateSettings(userId, dto);
       res.status(200).json({ success: true, data: settings });
     } catch (error) {
       next(error);

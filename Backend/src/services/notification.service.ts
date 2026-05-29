@@ -22,19 +22,11 @@ export class NotificationService {
   private notificationSettingsRepository: UserNotificationSettingsRepository;
   private userRepository: Repository<User>;
   private groupActorRepository: Repository<NotificationGroupActor>;
-  private notificationRepo: Repository<Notification>;
-  private notificationRecipientRepo: Repository<NotificationRecipient>;
 
   constructor(dataSource: DataSource) {
-    this.notificationRepo = dataSource.getRepository(Notification);
-    this.notificationRecipientRepo = dataSource.getRepository(NotificationRecipient);
-    this.notificationRepository = new NotificationRepository(this.notificationRepo);
-    this.notificationRecipientRepository = new NotificationRecipientRepository(
-      this.notificationRecipientRepo
-    );
-    this.notificationSettingsRepository = new UserNotificationSettingsRepository(
-      dataSource.getRepository(UserNotificationSettings)
-    );
+    this.notificationRepository = new NotificationRepository();
+    this.notificationRecipientRepository = new NotificationRecipientRepository();
+    this.notificationSettingsRepository = new UserNotificationSettingsRepository();
     this.userRepository = dataSource.getRepository(User);
     this.groupActorRepository = dataSource.getRepository(NotificationGroupActor);
   }
@@ -48,137 +40,57 @@ export class NotificationService {
       userId => userId !== dto.actorUserId
     );
 
-    if (recipientUserIds.length === 0 && !dto.isGlobal) {
-      // No recipients after filtering self
-      return this.mapToNotificationResponse(new Notification());
-    }
+    const notification = new Notification();
+    notification.notificationType = dto.notificationType;
+    notification.title = dto.title;
+    notification.message = dto.message;
+    notification.entityType = dto.entityType;
+    notification.entityId = dto.entityId;
+    notification.actorUserId = dto.actorUserId;
+    notification.actionUrl = dto.actionUrl;
+    notification.imageUrl = dto.imageUrl;
+    notification.isSystem = dto.isSystem || false;
+    notification.isGlobal = dto.isGlobal || false;
 
-    // Check for existing similar notification within last 5 minutes (for grouping)
-    const existingNotification = await this.findSimilarNotification(dto);
-    let savedNotification: Notification;
+    const savedNotification = await this.notificationRepository.save(notification);
 
-    if (existingNotification) {
-      // Group with existing notification
-      savedNotification = existingNotification;
-      
-      // Add actor to group if not already there
-      if (dto.actorUserId && dto.groupActorUserIds) {
-        const existingActors = await this.groupActorRepository.find({
-          where: { notificationId: savedNotification.notificationId }
-        });
-        const existingActorIds = new Set(existingActors.map(a => a.actorUserId));
-        
-        for (const actorUserId of dto.groupActorUserIds) {
-          if (!existingActorIds.has(actorUserId)) {
-            const groupActor = new NotificationGroupActor();
-            groupActor.notificationId = savedNotification.notificationId;
-            groupActor.actorUserId = actorUserId;
-            await this.groupActorRepository.save(groupActor);
-          }
-        }
-      }
-    } else {
-      // Create new notification
-      const notification = new Notification();
-      notification.notificationType = dto.notificationType;
-      notification.actorUserId = dto.actorUserId;
-      notification.entityType = dto.entityType;
-      notification.entityId = dto.entityId;
-      notification.title = dto.title;
-      notification.message = dto.message;
-      notification.actionUrl = dto.actionUrl;
-      notification.imageUrl = dto.imageUrl;
-      notification.isSystem = dto.isSystem || false;
-      notification.isGlobal = dto.isGlobal || false;
-
-      savedNotification = await this.notificationRepository.create(notification);
-
-      // Add group actors if provided (for Facebook-style grouping)
-      if (dto.groupActorUserIds && dto.groupActorUserIds.length > 0) {
-        for (const actorUserId of dto.groupActorUserIds) {
-          const groupActor = new NotificationGroupActor();
-          groupActor.notificationId = savedNotification.notificationId;
-          groupActor.actorUserId = actorUserId;
-          await this.groupActorRepository.save(groupActor);
-        }
+    // Create group actors if group notification
+    if (dto.groupActorUserIds && dto.groupActorUserIds.length > 0) {
+      for (const userId of dto.groupActorUserIds) {
+        const groupActor = new NotificationGroupActor();
+        groupActor.notificationId = savedNotification.notificationId;
+        groupActor.actorUserId = userId;
+        await this.groupActorRepository.save(groupActor);
       }
     }
 
-    // Add recipients
-    const finalRecipientUserIds = [...recipientUserIds];
-    if (dto.isGlobal) {
-      // If global, get all active users except actor
-      const allUsers = await this.userRepository.find({ where: { isActive: true } });
-      finalRecipientUserIds.push(
-        ...allUsers
-          .map(u => u.userId)
-          .filter(userId => userId !== dto.actorUserId)
-      );
+    // Create recipients
+    const recipients: NotificationRecipient[] = [];
+    for (const userId of recipientUserIds) {
+      const recipient = new NotificationRecipient();
+      recipient.notificationId = savedNotification.notificationId;
+      recipient.userId = userId;
+      recipients.push(recipient);
     }
 
-    const notifiedUserIds: number[] = [];
+    if (recipients.length > 0) {
+      await this.notificationRecipientRepository.save(recipients[0]);
+      for (let i = 1; i < recipients.length; i++) {
+        await this.notificationRecipientRepository.save(recipients[i]);
+      }
+    }
 
-    for (const userId of finalRecipientUserIds) {
-      // Check if user already has this notification (avoid duplicate spam)
-      const existingRecipient = await this.notificationRecipientRepo.findOne({
-        where: { userId, notificationId: savedNotification.notificationId }
+    // Send WebSocket notification
+    for (const userId of recipientUserIds) {
+      webSocketService.emitNotificationToUser(userId, {
+        notificationId: savedNotification.notificationId,
+        type: savedNotification.notificationType,
+        title: savedNotification.title,
+        message: savedNotification.message,
       });
-
-      if (existingRecipient) {
-        continue; // Skip duplicate
-      }
-
-      // Check user's notification preferences
-      const shouldNotify = await this.notificationSettingsRepository.checkNotificationPreference(
-        userId,
-        dto.notificationType
-      );
-
-      if (shouldNotify) {
-        const recipient = new NotificationRecipient();
-        recipient.notificationId = savedNotification.notificationId;
-        recipient.userId = userId;
-        recipient.isRead = false;
-        recipient.isSeen = false;
-        recipient.isArchived = false;
-        recipient.isDeleted = false;
-        recipient.deliveredAt = new Date();
-        await this.notificationRecipientRepository.create(recipient);
-        notifiedUserIds.push(userId);
-      }
     }
 
-    // Emit real-time WebSocket notifications
-    if (notifiedUserIds.length > 0) {
-      const notificationData = this.mapToNotificationResponse(savedNotification);
-      webSocketService.emitNotificationToUsers(notifiedUserIds, notificationData);
-
-      // Update unread counts for each user
-      for (const userId of notifiedUserIds) {
-        const unreadCount = await this.notificationRepository.countUnreadByUser(userId);
-        webSocketService.emitUnreadCount(userId, unreadCount);
-      }
-    }
-
-    return this.mapToNotificationResponse(savedNotification);
-  }
-
-  /**
-   * Find similar notification within last 5 minutes for grouping
-   */
-  private async findSimilarNotification(dto: CreateNotificationDto): Promise<Notification | null> {
-    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
-
-    const similar = await this.notificationRepo
-      .createQueryBuilder('notification')
-      .where('notification.notificationType = :type', { type: dto.notificationType })
-      .andWhere('notification.entityType = :entityType', { entityType: dto.entityType })
-      .andWhere('notification.entityId = :entityId', { entityId: dto.entityId })
-      .andWhere('notification.createdAt >= :fiveMinutesAgo', { fiveMinutesAgo })
-      .orderBy('notification.createdAt', 'DESC')
-      .getOne();
-
-    return similar || null;
+    return this.mapToResponseDto(savedNotification);
   }
 
   /**
@@ -186,76 +98,61 @@ export class NotificationService {
    */
   async getUserNotifications(
     userId: number,
+    page: number = 1,
     limit: number = 20,
-    offset: number = 0,
-    unreadOnly: boolean = false
+    includeRead: boolean = false
   ): Promise<NotificationListResponseDto> {
-    let recipients: NotificationRecipient[];
+    const notifications = await this.notificationRecipientRepository.findByUserWithNotification(
+      userId,
+      limit,
+      (page - 1) * limit
+    );
 
-    if (unreadOnly) {
-      recipients = await this.notificationRecipientRepository.findUnreadByUser(userId, limit);
-    } else {
-      recipients = await this.notificationRecipientRepository.findByUserWithNotification(userId, limit, offset);
-    }
+    const unreadCount = await this.notificationRecipientRepository.findUnreadByUser(userId, 1).then(n => n.length);
 
-    const total = await this.notificationRecipientRepository.count({ userId, isDeleted: false });
-    const unreadCount = await this.notificationRepository.countUnreadByUser(userId);
+    const notificationDtos = notifications.map(recipient => ({
+      notification: this.mapToResponseDto(recipient.notification),
+      recipient: this.mapRecipientToResponseDto(recipient),
+    }));
 
     return {
-      notifications: recipients.map(r => this.mapToRecipientResponse(r)),
-      total,
+      notifications: notificationDtos as unknown as NotificationRecipientResponseDto[],
       unreadCount,
+      total: notifications.length,
     };
   }
 
   /**
-   * Get unread count for a user
+   * Mark notification as read
    */
-  async getUnreadCount(userId: number): Promise<number> {
-    return this.notificationRepository.countUnreadByUser(userId);
-  }
+  async markAsRead(userId: number, notificationId: number): Promise<NotificationRecipientResponseDto | null> {
+    const recipient = await this.notificationRecipientRepository.findByUserAndNotification(userId, notificationId);
+    if (!recipient) {
+      return null;
+    }
 
-  /**
-   * Mark a notification as read
-   */
-  async markAsRead(recipientId: number): Promise<NotificationRecipientResponseDto | null> {
-    const recipient = await this.notificationRecipientRepository.markAsRead(recipientId);
-    if (!recipient) return null;
-    return this.mapToRecipientResponse(recipient);
-  }
+    const updated = await this.notificationRecipientRepository.markAsRead(recipient.recipientId);
+    if (!updated) {
+      return null;
+    }
 
-  /**
-   * Mark a notification as seen
-   */
-  async markAsSeen(recipientId: number): Promise<NotificationRecipientResponseDto | null> {
-    const recipient = await this.notificationRecipientRepository.markAsSeen(recipientId);
-    if (!recipient) return null;
-    return this.mapToRecipientResponse(recipient);
+    return this.mapRecipientToResponseDto(updated);
   }
 
   /**
    * Mark all notifications as read for a user
    */
-  async markAllAsRead(userId: number): Promise<void> {
+  async markAllAsRead(userId: number): Promise<{ success: boolean }> {
     await this.notificationRecipientRepository.markAllAsRead(userId);
+    return { success: true };
   }
 
   /**
-   * Archive a notification
+   * Get unread notification count
    */
-  async archiveNotification(recipientId: number): Promise<NotificationRecipientResponseDto | null> {
-    const recipient = await this.notificationRecipientRepository.archive(recipientId);
-    if (!recipient) return null;
-    return this.mapToRecipientResponse(recipient);
-  }
-
-  /**
-   * Delete a notification for a user
-   */
-  async deleteNotification(recipientId: number): Promise<NotificationRecipientResponseDto | null> {
-    const recipient = await this.notificationRecipientRepository.deleteForUser(recipientId);
-    if (!recipient) return null;
-    return this.mapToRecipientResponse(recipient);
+  async getUnreadCount(userId: number): Promise<{ count: number }> {
+    const count = await this.notificationRepository.countUnreadByUser(userId);
+    return { count };
   }
 
   /**
@@ -263,66 +160,72 @@ export class NotificationService {
    */
   async getUserSettings(userId: number): Promise<UserNotificationSettingsResponseDto> {
     const settings = await this.notificationSettingsRepository.getOrCreateForUser(userId);
-    return this.mapToSettingsResponse(settings);
+    return this.mapSettingsToResponseDto(settings);
   }
 
   /**
    * Update user notification settings
    */
-  async updateUserSettings(
+  async updateSettings(
     userId: number,
     dto: UpdateUserNotificationSettingsDto
   ): Promise<UserNotificationSettingsResponseDto> {
     const settings = await this.notificationSettingsRepository.updateSettings(userId, dto);
-    if (!settings) throw new Error('Settings not found');
-    return this.mapToSettingsResponse(settings);
+    if (!settings) {
+      throw new Error('User notification settings not found');
+    }
+    return this.mapSettingsToResponseDto(settings);
   }
 
-  // Helper methods to map entities to DTOs
-  private mapToNotificationResponse(notification: Notification): NotificationResponseDto {
+  /**
+   * Delete notification (soft delete by marking recipient as deleted)
+   */
+  async deleteNotification(userId: number, notificationId: number): Promise<{ success: boolean }> {
+    const recipient = await this.notificationRecipientRepository.findByUserAndNotification(userId, notificationId);
+    if (!recipient) {
+      throw new Error('Notification recipient not found');
+    }
+
+    await this.notificationRecipientRepository.deleteForUser(recipient.recipientId);
+    return { success: true };
+  }
+
+  private mapToResponseDto(notification: Notification): NotificationResponseDto {
     return {
       notificationId: notification.notificationId,
       notificationType: notification.notificationType,
-      actorUserId: notification.actorUserId,
-      actorUser: notification.actorUser
-        ? {
-            userId: notification.actorUser.userId,
-            userName: notification.actorUser.userName,
-            userLastName: notification.actorUser.userLastName,
-            userImageUrl: notification.actorUser.userImageUrl || undefined,
-          }
-        : undefined,
-      entityType: notification.entityType,
-      entityId: notification.entityId,
       title: notification.title,
       message: notification.message,
-      actionUrl: notification.actionUrl,
-      imageUrl: notification.imageUrl,
+      entityType: notification.entityType,
+      entityId: notification.entityId,
+      actorUserId: notification.actorUserId,
       isSystem: notification.isSystem,
       isGlobal: notification.isGlobal,
+      actionUrl: notification.actionUrl,
+      imageUrl: notification.imageUrl,
       createdAt: notification.createdAt,
     };
   }
 
-  private mapToRecipientResponse(recipient: NotificationRecipient): NotificationRecipientResponseDto {
+  private mapRecipientToResponseDto(recipient: NotificationRecipient): NotificationRecipientResponseDto {
     return {
       recipientId: recipient.recipientId,
       notificationId: recipient.notificationId,
       userId: recipient.userId,
-      notification: this.mapToNotificationResponse(recipient.notification),
       isRead: recipient.isRead,
-      readAt: recipient.readAt,
       isSeen: recipient.isSeen,
-      seenAt: recipient.seenAt,
       isArchived: recipient.isArchived,
-      archivedAt: recipient.archivedAt,
       isDeleted: recipient.isDeleted,
+      readAt: recipient.readAt,
+      seenAt: recipient.seenAt,
+      archivedAt: recipient.archivedAt,
       deletedAt: recipient.deletedAt,
+      notification: this.mapToResponseDto(recipient.notification),
       deliveredAt: recipient.deliveredAt,
     };
   }
 
-  private mapToSettingsResponse(settings: UserNotificationSettings): UserNotificationSettingsResponseDto {
+  private mapSettingsToResponseDto(settings: UserNotificationSettings): UserNotificationSettingsResponseDto {
     return {
       settingId: settings.settingId,
       userId: settings.userId,
@@ -340,3 +243,5 @@ export class NotificationService {
     };
   }
 }
+
+export default new NotificationService(require('../config/database').default);

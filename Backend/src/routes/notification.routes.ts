@@ -32,15 +32,9 @@ router.get('/settings', (req, res, next) => notificationController.getUserSettin
 router.put('/settings', (req, res, next) => notificationController.updateUserSettings(req, res, next));
 
 // Mark specific notification as read
-router.put('/:recipientId/read', (req, res, next) => notificationController.markAsRead(req, res, next));
+router.put('/:notificationId/read', (req, res, next) => notificationController.markAsRead(req, res, next));
 
-// Mark specific notification as seen
-router.put('/:recipientId/seen', (req, res, next) => notificationController.markAsSeen(req, res, next));
-
-// Archive notification
-router.put('/:recipientId/archive', (req, res, next) => notificationController.archiveNotification(req, res, next));
-
-// Delete notification
-router.delete('/:recipientId', (req, res, next) => notificationController.deleteNotification(req, res, next));
+// Delete notification (soft delete)
+router.delete('/:notificationId', (req, res, next) => notificationController.deleteNotification(req, res, next));
 
 export default router;

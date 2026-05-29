@@ -1,8 +1,20 @@
-import { PartialType } from '@nestjs/mapped-types';
-import { CreateUserDto } from './create-user.dto';
-import { IsEmail, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { IsEmail, IsOptional, IsString, MaxLength, MinLength, IsBoolean, IsIn } from 'class-validator';
 
-export class UpdateUserDto extends PartialType(CreateUserDto) {
+/**
+ * DTO for updating user information
+ * All fields are optional since we're doing partial updates
+ */
+export class UpdateUserDto {
+  @IsString()
+  @IsOptional()
+  @MaxLength(50)
+  userName?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(50)
+  userLastName?: string;
+
   @IsEmail()
   @IsOptional()
   @MaxLength(100)
@@ -10,12 +22,30 @@ export class UpdateUserDto extends PartialType(CreateUserDto) {
 
   @IsString()
   @IsOptional()
-  @MinLength(8)
+  @MinLength(6)
   @MaxLength(100)
   userPassword?: string;
 
   @IsString()
   @IsOptional()
+  @MaxLength(20)
+  userPhone1?: string | null;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(20)
+  userPhone2?: string | null;
+
+  @IsBoolean()
+  @IsOptional()
+  isActive?: boolean;
+
+  @IsString()
+  @IsOptional()
   @MaxLength(500)
-  userImageUrl: string | null = null;
+  userImageUrl?: string | null;
+
+  @IsOptional()
+  @IsIn(['Superadmin', 'Admin', 'Moderator', 'Customer'])
+  selectedRole?: string;
 }

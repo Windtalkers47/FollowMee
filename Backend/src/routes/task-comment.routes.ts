@@ -2,7 +2,6 @@ import { Router } from 'express';
 import { TaskCommentController } from '../controllers/task-comment.controller';
 import { TaskCommentService } from '../services/task-comment.service';
 import { authenticateToken } from '../middleware/auth.middleware';
-import AppDataSource from '../config/database';
 import multer from 'multer';
 
 const router = Router({ mergeParams: true });
@@ -22,13 +21,8 @@ const upload = multer({
   }
 });
 
-// Initialize dependencies
-const taskCommentService = new TaskCommentService(
-  AppDataSource.getRepository('TaskComment'),
-  AppDataSource.getRepository('Task'),
-  AppDataSource.getRepository('CommentReaction'),
-  AppDataSource.getRepository('User')
-);
+// Initialize dependencies - using new service with no constructor arguments
+const taskCommentService = new TaskCommentService();
 const taskCommentController = new TaskCommentController(taskCommentService);
 
 // All comment routes require authentication

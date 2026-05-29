@@ -106,9 +106,14 @@ export class UserService {
     user.deletedAt = undefined;
     user.updatedAt = new Date();
 
-    const updated = await this.userRepository.update(id, user);
-    if (!updated) {
+    const success = await this.userRepository.update(id, user);
+    if (!success) {
       throw new Error(`Failed to reactivate user with ID ${id}`);
+    }
+    
+    const updated = await this.userRepository.findOne({ userId: id });
+    if (!updated) {
+      throw new Error(`User with ID ${id} not found after reactivation`);
     }
     return new UserResponseDto(updated);
   }
@@ -171,12 +176,16 @@ export class UserService {
       user.userPassword = userData.userPassword;
     }
 
-    const updatedUser = await this.userRepository.update(id, user);
-    if (!updatedUser) {
+    const success = await this.userRepository.update(id, user);
+    if (!success) {
       throw new Error('Failed to update user');
     }
 
-    return new UserResponseDto(updatedUser);
+    const updated = await this.userRepository.findOne({ userId: id });
+    if (!updated) {
+      throw new Error('User not found after update');
+    }
+    return new UserResponseDto(updated);
   }
 
   /**
@@ -304,9 +313,10 @@ export class UserService {
    * Get all roles
    */
   async getAllRoles(): Promise<any[]> {
-    const roles = await this.roleRepository.find({ isActive: true }, {
+    const roles = await this.roleRepository.findMany({
+      where: { isActive: true } as any,
       relations: ['rolePermissions', 'rolePermissions.permission']
-    });
+    } as any);
     return roles.map(role => ({
       roleId: role.roleId,
       roleName: role.roleName,
@@ -375,17 +385,22 @@ export class UserService {
     }
 
     Object.assign(role, roleData);
-    const updatedRole = await this.roleRepository.update(roleId, role);
-    if (!updatedRole) {
+    const success = await this.roleRepository.update(roleId, role);
+    if (!success) {
       throw new Error('Failed to update role');
     }
 
+    const updated = await this.roleRepository.findOne({ roleId });
+    if (!updated) {
+      throw new Error('Role not found after update');
+    }
+
     return {
-      roleId: updatedRole.roleId,
-      roleName: updatedRole.roleName,
-      description: updatedRole.description,
-      roleLevel: updatedRole.roleLevel,
-      isActive: updatedRole.isActive
+      roleId: updated.roleId,
+      roleName: updated.roleName,
+      description: updated.description,
+      roleLevel: updated.roleLevel,
+      isActive: updated.isActive
     };
   }
 

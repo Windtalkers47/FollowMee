@@ -14,8 +14,6 @@ import {
   MenuItem,
   ListItemIcon,
   ListItemText,
-  Snackbar,
-  Alert,
   CircularProgress,
 } from '@mui/material';
 import {
@@ -78,7 +76,6 @@ const CustomerProfilePage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [copied, setCopied] = useState(false);
-  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [profileUrl, setProfileUrl] = useState('');
   const [selectedGradient, setSelectedGradient] = useState(0); // Default to first gradient
@@ -445,8 +442,6 @@ const CustomerProfilePage: React.FC = () => {
               display: 'flex',
               flexDirection: 'column',
               p: 3,
-              // color: 'Black',
-              // color: '#1f2937',
               color: '#1e293b',
               textAlign: 'center',
             }}
@@ -720,90 +715,86 @@ const CustomerProfilePage: React.FC = () => {
                 </Typography>
               </Box>
             </Box>
-          </Paper>
+      </Paper>
 
-          {/* Download Button */}
-          <Box sx={{ textAlign: 'center', mt: 3 }}>
+      {/* Action Buttons - Apple HIG Style */}
+      <Box sx={{ mt: 4, px: 3 }}>
+            {/* Primary Action - Save as Story (Hero Button) */}
             <Button
               variant="contained"
               startIcon={<CameraAlt />}
               onClick={downloadImage}
+              fullWidth
               size="large"
               sx={{
-                borderRadius: 3,
-                px: 4,
-                py: 1.5,
-                background: 'linear-gradient(45deg, #6366f1, #8b5cf6)',
+                borderRadius: 4,
+                py: 2,
+                mb: 2,
+                background: 'linear-gradient(135deg, #007AFF 0%, #5856D6 100%)',
+                color: 'white',
+                fontWeight: 600,
+                fontSize: '1.05rem',
+                boxShadow: '0 4px 14px rgba(0, 122, 255, 0.4)',
                 '&:hover': {
+                  background: 'linear-gradient(135deg, #0063d1 0%, #4a47b3 100%)',
                   transform: 'translateY(-2px)',
-                  boxShadow: 3,
+                  boxShadow: '0 6px 20px rgba(0, 122, 255, 0.5)',
                 },
-                transition: 'all 0.3s ease',
-                mr: 2,
+                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
               }}
             >
-              Save as Story
+              Save as Image
             </Button>
+
+            {/* Secondary Action - Copy Profile Link (Text Button) */}
             <Button
-              variant="outlined"
+              variant="text"
               startIcon={<ContentCopy />}
               onClick={copyUrl}
+              fullWidth
               size="large"
               sx={{
                 borderRadius: 3,
-                px: 4,
                 py: 1.5,
-                borderColor: 'rgba(255,255,255,0.5)',
-                color: 'white',
+                mb: 1,
+                color: '#007AFF',
+                fontWeight: 500,
+                bgcolor: 'rgba(0, 122, 255, 0.08)',
                 '&:hover': {
-                  borderColor: 'white',
-                  bgcolor: 'rgba(255,255,255,0.1)',
-                  transform: 'translateY(-2px)',
-                  boxShadow: 3,
+                  bgcolor: 'rgba(0, 122, 255, 0.12)',
+                  transform: 'translateY(-1px)',
                 },
-                transition: 'all 0.3s ease',
+                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
               }}
             >
-              {copied ? 'Copied!' : 'Copy Profile Link'}
+              {copied ? '✓ Copied!' : 'Copy Profile Link'}
+            </Button>
+
+            {/* Divider */}
+            <Divider sx={{ my: 3, borderColor: 'rgba(0,0,0,0.08)' }} />
+
+            {/* Navigation - Back to Customers */}
+            <Button
+              component={Link}
+              to="/customer-profile"
+              startIcon={<span>←</span>}
+              sx={{
+                color: '#8E8E93',
+                fontWeight: 500,
+                fontSize: '0.95rem',
+                py: 1,
+                px: 2,
+                borderRadius: 2,
+                '&:hover': {
+                  bgcolor: 'rgba(142, 142, 147, 0.08)',
+                  color: '#636366',
+                },
+                transition: 'all 0.2s ease',
+              }}
+            >
+              Back to Customers
             </Button>
           </Box>
-
-        {/* Back Button */}
-        <Box textAlign="center" mt={3}>
-          <Button 
-            variant="outlined" 
-            component={Link} 
-            to="/customer-profile"
-            startIcon={<span>←</span>}
-            sx={{ 
-              borderRadius: 3, 
-              px: 3, 
-              py: 1,
-              '&:hover': {
-                transform: 'translateY(-2px)',
-                boxShadow: 1,
-              },
-              transition: 'all 0.3s ease',
-            }}
-          >
-            Back to customers
-          </Button>
-        </Box>
-
-        <Snackbar 
-          open={snackbar.open} 
-          autoHideDuration={3000} 
-          onClose={() => setSnackbar({...snackbar, open: false})}
-          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-        >
-          <Alert 
-            onClose={() => setSnackbar({...snackbar, open: false})} 
-            severity={snackbar.severity as any}
-            sx={{ width: '100%' }}
-          >
-            {snackbar.message}
-          </Alert>
-        </Snackbar>
       </Box>
     );
   }

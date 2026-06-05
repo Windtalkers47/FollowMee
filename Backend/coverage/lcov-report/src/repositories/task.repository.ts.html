@@ -25,14 +25,14 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/42</span>
+                <span class='fraction'>0/44</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/18</span>
+                <span class='fraction'>0/19</span>
             </div>
         
             
@@ -46,7 +46,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/42</span>
+                <span class='fraction'>0/44</span>
             </div>
         
             
@@ -253,7 +253,8 @@
 <a name='L188'></a><a href='#L188'>188</a>
 <a name='L189'></a><a href='#L189'>189</a>
 <a name='L190'></a><a href='#L190'>190</a>
-<a name='L191'></a><a href='#L191'>191</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L191'></a><a href='#L191'>191</a>
+<a name='L192'></a><a href='#L192'>192</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -275,8 +276,6 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -287,6 +286,9 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -462,8 +464,6 @@ import { TaskQueryDto } from '../dtos/task.dto';
       .createQueryBuilder('task')
       .leftJoinAndSelect('task.assignedToUser', 'assignedUser')
       .leftJoinAndSelect('task.createdByUser', 'createdUser')
-      .leftJoin('task.likes', 'like')
-      .leftJoin('task.comments', 'comment')
       .where('task.isActive = :isActive', { isActive: true });
 &nbsp;
     // Search functionality - only search when explicitly requested
@@ -474,9 +474,12 @@ import { TaskQueryDto } from '../dtos/task.dto';
       );
     }
 &nbsp;
-    // Filter by status
-<span class="cstat-no" title="statement not covered" >    <span class="missing-if-branch" title="if path not taken" >I</span>if (query.status &amp;&amp; query.status.length &gt; 0) {</span>
-<span class="cstat-no" title="statement not covered" >      qb.andWhere('task.status IN (:...status)', { status: query.status });</span>
+    // Filter by status - ensure status is always an array
+<span class="cstat-no" title="statement not covered" >    <span class="missing-if-branch" title="if path not taken" >I</span>if (query.status) {</span>
+      const statusArray = <span class="cstat-no" title="statement not covered" >Array.isArray(query.status) ? query.status : [query.status];</span>
+<span class="cstat-no" title="statement not covered" >      <span class="missing-if-branch" title="if path not taken" >I</span>if (statusArray.length &gt; 0) {</span>
+<span class="cstat-no" title="statement not covered" >        qb.andWhere('task.status IN (:...status)', { status: statusArray });</span>
+      }
     }
 &nbsp;
     // Filter by assigned user
@@ -548,14 +551,14 @@ import { TaskQueryDto } from '../dtos/task.dto';
 <span class="fstat-no" title="function not covered" >  async </span>findTasksByAssignedUser(userId: number): Promise&lt;Task[]&gt; {
 <span class="cstat-no" title="statement not covered" >    return this.repository.find({</span>
       where: { assignedTo: userId, isActive: true },
-      relations: ['assignedToUser', 'createdByUser', 'customer']
+      relations: ['assignedToUser', 'createdByUser']
     });
   }
 &nbsp;
 <span class="fstat-no" title="function not covered" >  async </span>findTasksCreatedByUser(userId: number): Promise&lt;Task[]&gt; {
 <span class="cstat-no" title="statement not covered" >    return this.repository.find({</span>
       where: { createdBy: userId, isActive: true },
-      relations: ['assignedToUser', 'createdByUser', 'customer']
+      relations: ['assignedToUser', 'createdByUser']
     });
   }
 &nbsp;
@@ -640,7 +643,7 @@ import { TaskQueryDto } from '../dtos/task.dto';
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-05-29T10:58:46.427Z
+                at 2026-06-04T03:12:54.333Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

@@ -851,7 +851,17 @@ const CustomerPage = () => {
                       const customer = customers.find(c => c.customerId === customerId);
                       if (customer) {
                         await updateCustomer(customerId, {
-                          ...customer,
+                          customerName: customer.customerName,
+                          customerLastName: customer.customerLastName,
+                          customerEmail: customer.customerEmail,
+                          customerPhone1: customer.customerPhone1,
+                          customerPhone2: customer.customerPhone2,
+                          customerFacebook: customer.customerFacebook,
+                          customerInstagram: customer.customerInstagram,
+                          customerTikTok: customer.customerTikTok,
+                          customerLine: customer.customerLine,
+                          customerX: customer.customerX,
+                          customerAddress: customer.customerAddress,
                           status: 'active',
                           isActive: true
                         });
@@ -912,7 +922,17 @@ const CustomerPage = () => {
                       const customer = customers.find(c => c.customerId === customerId);
                       if (customer) {
                         await updateCustomer(customerId, {
-                          ...customer,
+                          customerName: customer.customerName,
+                          customerLastName: customer.customerLastName,
+                          customerEmail: customer.customerEmail,
+                          customerPhone1: customer.customerPhone1,
+                          customerPhone2: customer.customerPhone2,
+                          customerFacebook: customer.customerFacebook,
+                          customerInstagram: customer.customerInstagram,
+                          customerTikTok: customer.customerTikTok,
+                          customerLine: customer.customerLine,
+                          customerX: customer.customerX,
+                          customerAddress: customer.customerAddress,
                           status: 'inactive',
                           isActive: false
                         });
@@ -973,7 +993,17 @@ const CustomerPage = () => {
                       const customer = customers.find(c => c.customerId === customerId);
                       if (customer) {
                         await updateCustomer(customerId, {
-                          ...customer,
+                          customerName: customer.customerName,
+                          customerLastName: customer.customerLastName,
+                          customerEmail: customer.customerEmail,
+                          customerPhone1: customer.customerPhone1,
+                          customerPhone2: customer.customerPhone2,
+                          customerFacebook: customer.customerFacebook,
+                          customerInstagram: customer.customerInstagram,
+                          customerTikTok: customer.customerTikTok,
+                          customerLine: customer.customerLine,
+                          customerX: customer.customerX,
+                          customerAddress: customer.customerAddress,
                           status: 'canceled',
                           isActive: false
                         });

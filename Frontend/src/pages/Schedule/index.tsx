@@ -8,17 +8,19 @@ import {
   Grid,
   CircularProgress,
   Alert,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
   Fab,
-  useTheme
+  useTheme,
+  IconButton,
+  Tooltip,
+  Paper
 } from '@mui/material';
+import { useLiquidGlass } from '../../contexts/LiquidGlassContext';
+import { getGlassCardStyles, getSegmentedControlStyles } from '../../styles/liquidGlassStyles';
 import {
   Search as SearchIcon,
   Add as AddIcon,
-  Refresh as RefreshIcon
+  Refresh as RefreshIcon,
+  Clear as ClearIcon
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAppSelector } from '../../store/store';
@@ -51,37 +53,59 @@ const TabPanel = ({ children, value, index }: TabPanelProps) => (
 /* ================== Page ================== */
 const SchedulePage = () => {
   const theme = useTheme();
+  const { isLiquidGlassEnabled, liquidGlassSettings } = useLiquidGlass();
+  const isDarkMode = theme.palette.mode === 'dark';
   const [activeTab, setActiveTab] = useState(0);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<TaskStatus | 'all'>('all');
+  const [searchInput, setSearchInput] = useState('');  // Input value (what user types)
+  const [searchQuery, setSearchQuery] = useState('');  // Query value (what API uses)
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | undefined>();
   const [taskLikeSummaries, setTaskLikeSummaries] = useState<Record<string, TaskLikeSummary>>({});
 
+  // Handle search when user presses Enter or clicks Search icon
+  const handleSearch = () => {
+    setSearchQuery(searchInput);
+  };
+
+  // Handle clear search
+  const handleClearSearch = () => {
+    setSearchInput('');
+    setSearchQuery('');  // Fetch all immediately
+  };
+
   const { user } = useAppSelector((state) => state.auth);
   const queryClient = useQueryClient();
 
-  // Theme-aware colors
-  const isDarkMode = theme.palette.mode === 'dark';
-  const glassBgColor = isDarkMode 
-    ? 'rgba(255, 255, 255, 0.08)' 
-    : 'rgba(255, 255, 255, 0.7)';
-  const glassBorderColor = isDarkMode 
-    ? 'rgba(255, 255, 255, 0.15)' 
-    : 'rgba(0, 0, 0, 0.1)';
+  // Get freshGreen-based colors from Liquid Glass context
+  const segmentedControlStyles = getSegmentedControlStyles(liquidGlassSettings, isDarkMode);
+  
+  // iOS-style segmented control colors - using freshGreen theme
+  const segmentedBgColor = isDarkMode 
+    ? 'rgba(20, 83, 45, 0.5)' 
+    : 'rgba(209, 250, 229, 0.5)';
+  const segmentedActiveBg = '#10b981';
+  const segmentedActiveText = '#ffffff';
+  const segmentedInactiveText = isDarkMode 
+    ? 'rgba(255, 255, 255, 0.6)' 
+    : 'rgba(0, 0, 0, 0.5)';
+  
+  // Search bar colors (iOS Spotlight style) - freshGreen theme
+  const searchBgColor = isDarkMode 
+    ? 'rgba(20, 83, 45, 0.3)' 
+    : 'rgba(209, 250, 229, 0.3)';
+  
   const defaultTextColor = isDarkMode 
     ? 'rgba(255, 255, 255, 0.9)' 
     : 'rgba(0, 0, 0, 0.8)';
   const mutedTextColor = isDarkMode 
-    ? 'rgba(255, 255, 255, 0.7)' 
-    : 'rgba(0, 0, 0, 0.6)';
+    ? 'rgba(255, 255, 255, 0.5)' 
+    : 'rgba(0, 0, 0, 0.5)';
 
-  // Fetch tasks
+  // Fetch tasks - only queries when searchQuery changes (not on every keystroke)
   const { data: tasksResponse, isLoading, error, refetch } = useQuery({
-    queryKey: ['tasks', { search: searchQuery, status: statusFilter }],
+    queryKey: ['tasks', { search: searchQuery }],
     queryFn: () => taskApi.getTasks({
       search: searchQuery || undefined,
-      status: statusFilter !== 'all' ? statusFilter : undefined,
     }),
   });
 
@@ -464,201 +488,266 @@ const SchedulePage = () => {
       maxWidth: '100vw',
       overflow: 'hidden'
     }}>
-      {/* Header */}
+      {/* Header with Search Control Bar - iOS Style */}
       <Box 
-        display="flex" 
-        justifyContent="space-between" 
-        alignItems="center" 
-        mb={3}
         sx={{
           px: { xs: 2, sm: 3, md: 4 },
-          flexDirection: { xs: 'column', sm: 'row' },
-          gap: { xs: 2, sm: 0 }
+          mb: 3
         }}
       >
-        <Typography 
-          variant="h4" 
-          fontWeight="bold"
+        {/* Top Row: Title + Create Button */}
+        <Box 
+          display="flex" 
+          justifyContent="space-between" 
+          alignItems="center" 
+          mb={2}
           sx={{
-            fontSize: { xs: '1.75rem', sm: '2.125rem', md: '2.5rem' }
+            flexDirection: { xs: 'column', sm: 'row' },
+            gap: { xs: 2, sm: 0 }
           }}
         >
-          Task Management
-        </Typography>
-        <Button
-          startIcon={<AddIcon />}
-          variant="contained"
-          onClick={() => setTaskDialogOpen(true)}
-          sx={{
-            px: { xs: 3, sm: 4 },
-            py: { xs: 1.5, sm: 2 }
-          }}
-        >
-          Create Task
-        </Button>
-      </Box>
+          <Typography 
+            variant="h4" 
+            fontWeight="bold"
+            sx={{
+              fontSize: { xs: '1.75rem', sm: '2.125rem', md: '2.5rem' }
+            }}
+          >
+            Task Management
+          </Typography>
+          <Button
+            startIcon={<AddIcon />}
+            variant="contained"
+            onClick={() => setTaskDialogOpen(true)}
+            sx={{
+              px: { xs: 3, sm: 4 },
+              py: { xs: 1.25, sm: 1.5 },
+              borderRadius: 2.5,
+              textTransform: 'none',
+              fontWeight: 600,
+              fontSize: '0.9375rem',
+              boxShadow: '0 4px 14px rgba(74, 108, 247, 0.4)',
+              transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+              '&:hover': {
+                transform: 'translateY(-1px)',
+                boxShadow: '0 6px 20px rgba(74, 108, 247, 0.5)',
+              }
+            }}
+          >
+            Create Task
+          </Button>
+        </Box>
 
-      {/* Search and Filters */}
-      <Box 
-        sx={{ 
-          mb: 3,
-          px: { xs: 2, sm: 3, md: 4 }
-        }}
-      >
-        <Grid container spacing={{ xs: 2, sm: 3 }}>
-          <Grid size={{ xs: 12, md: 6, lg: 7 }}>
-            <TextField
-              fullWidth
-              placeholder="Search tasks..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              sx={{
-                '& .MuiInputBase-root': {
-                  fontSize: { xs: '0.875rem', sm: '1rem' }
-                }
-              }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon />
-                  </InputAdornment>
-                ),
-              }}
-            />
-          </Grid>
-          <Grid size={{ xs: 12, sm: 6, md: 3, lg: 2.5 }}>
-            <FormControl fullWidth>
-              <InputLabel>Status Filter</InputLabel>
-              <Select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value as TaskStatus | 'all')}
-                label="Status Filter"
-                sx={{
-                  '& .MuiSelect-select': {
-                    fontSize: { xs: '0.875rem', sm: '1rem' }
-                  }
-                }}
-              >
-                <MenuItem value="all">All Status</MenuItem>
-                <MenuItem value="draft">Draft</MenuItem>
-                <MenuItem value="todo">To Do</MenuItem>
-                <MenuItem value="in_progress">In Progress</MenuItem>
-                <MenuItem value="review">Review</MenuItem>
-                <MenuItem value="done">Done</MenuItem>
-                <MenuItem value="cancelled">Cancelled</MenuItem>
-              </Select>
-            </FormControl>
-          </Grid>
-          <Grid size={{ xs: 12, sm: 6, md: 3, lg: 2.5 }}>
-            <Button
-              fullWidth
-              startIcon={<RefreshIcon />}
-              onClick={() => refetch()}
-              disabled={isLoading}
-              sx={{
-                fontSize: { xs: '0.875rem', sm: '1rem' },
-                py: { xs: 1.5, sm: 2 }
-              }}
-            >
-              Refresh
-            </Button>
-          </Grid>
-        </Grid>
-      </Box>
-
-      {/* Status Tabs */}
-      <Box 
-        sx={{ 
-          mb: 3,
-          px: { xs: 2, sm: 3, md: 4 }
-        }}
-      >
+        {/* Search Bar + Actions (iOS Spotlight Style) */}
         <Box 
           sx={{
             display: 'flex',
+            alignItems: 'center',
             gap: 1,
-            p: 1.5,
-            background: glassBgColor,
+            p: 1,
+            background: searchBgColor,
             backdropFilter: 'blur(20px)',
             borderRadius: 3,
-            border: `1px solid ${glassBorderColor}`,
-            flexWrap: 'wrap',
-            overflowX: 'auto'
+            border: `1px solid ${isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)'}`,
+          }}
+        >
+          {/* Search Field */}
+          <TextField
+            fullWidth
+            placeholder="Search tasks..."
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                handleSearch();
+              }
+            }}
+            variant="outlined"
+            sx={{
+              '& .MuiInputBase-root': {
+                fontSize: '0.9375rem',
+                background: 'transparent',
+              },
+              '& .MuiOutlinedInput-root': {
+                border: 'none',
+                borderRadius: 2.5,
+                background: 'transparent',
+                '& fieldset': {
+                  border: 'none',
+                },
+                '&:hover fieldset': {
+                  border: 'none',
+                },
+                '&.Mui-focused fieldset': {
+                  border: 'none',
+                },
+              },
+              '& .MuiInputBase-input': {
+                py: 1,
+                color: defaultTextColor,
+                '&::placeholder': {
+                  color: mutedTextColor,
+                },
+              },
+            }}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon sx={{ color: mutedTextColor }} />
+                </InputAdornment>
+              ),
+              endAdornment: searchInput && (
+                <InputAdornment position="end">
+                  <IconButton
+                    size="small"
+                    onClick={handleClearSearch}
+                    sx={{
+                      p: 0.5,
+                      color: mutedTextColor,
+                      '&:hover': {
+                        background: isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)',
+                      }
+                    }}
+                  >
+                    <ClearIcon fontSize="small" />
+                  </IconButton>
+                </InputAdornment>
+              ),
+            }}
+          />
+          
+          {/* Search Button (visible when there's input) */}
+          {searchInput.trim() && (
+            <Tooltip title="Search">
+              <IconButton
+                onClick={handleSearch}
+                sx={{
+                  p: 1.25,
+                  borderRadius: 2,
+                  color: defaultTextColor,
+                  background: isDarkMode ? 'rgba(74, 108, 247, 0.3)' : 'rgba(74, 108, 247, 0.1)',
+                  transition: 'all 0.2s ease',
+                  '&:hover': {
+                    background: isDarkMode ? 'rgba(74, 108, 247, 0.5)' : 'rgba(74, 108, 247, 0.2)',
+                    color: '#fff',
+                  },
+                }}
+              >
+                <SearchIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          )}
+          
+          {/* Divider */}
+          <Box 
+            sx={{
+              width: 1,
+              height: 24,
+              borderLeft: `1px solid ${isDarkMode ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.1)'}`,
+            }}
+          />
+          
+          {/* Refresh Button */}
+          <Tooltip title="Refresh">
+            <IconButton
+              onClick={() => refetch()}
+              disabled={isLoading}
+              sx={{
+                p: 1.25,
+                borderRadius: 2,
+                color: mutedTextColor,
+                background: 'transparent',
+                transition: 'all 0.2s ease',
+                '&:hover': {
+                  background: isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)',
+                  color: defaultTextColor,
+                },
+                '&.Mui-disabled': {
+                  opacity: 0.3,
+                }
+              }}
+            >
+              <RefreshIcon sx={{ 
+                fontSize: 22,
+                animation: isLoading ? 'spin 1s linear infinite' : 'none',
+                '@keyframes spin': {
+                  '0%': { transform: 'rotate(0deg)' },
+                  '100%': { transform: 'rotate(360deg)' },
+                }
+              }} />
+            </IconButton>
+          </Tooltip>
+        </Box>
+
+        {/* iOS-Style Segmented Control for Status Tabs */}
+        <Box 
+          sx={{
+            mt: 2,
+            display: 'flex',
+            p: 0.5,
+            background: segmentedBgColor,
+            borderRadius: 2,
+            overflowX: 'auto',
+            scrollbarWidth: 'none',
+            '&::-webkit-scrollbar': {
+              display: 'none',
+            },
           }}
         >
           {tabs.map((tab, index) => {
             const isActive = activeTab === index;
             const taskCount = groupedTasks[tab.key].length;
+            const isCompact = tabs.length > 5;
             
             return (
               <Button
                 key={tab.key}
                 onClick={() => setActiveTab(index)}
                 sx={{
-                  px: 2.5,
-                  py: 1.5,
-                  borderRadius: 2,
-                  fontSize: { xs: '0.875rem', sm: '1rem', md: '1.125rem' },
-                  fontWeight: isActive ? 700 : 500,
-                  background: isActive 
-                    ? `${tab.color}CC` // Semi-transparent color when active
-                    : `${tab.color}15`, // Very transparent when inactive
-                  color: isActive 
-                    ? 'white' 
-                    : defaultTextColor,
-                  border: `2px solid ${isActive ? tab.color : `${tab.color}40`}`,
-                  backdropFilter: 'blur(10px)',
-                  transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                  px: isCompact ? 1.5 : 2,
+                  py: 1,
                   minWidth: 'fit-content',
+                  borderRadius: 1.5,
+                  fontSize: isCompact ? '0.8125rem' : '0.875rem',
+                  fontWeight: 600,
                   textTransform: 'none',
+                  background: isActive ? segmentedActiveBg : 'transparent',
+                  color: isActive ? segmentedActiveText : segmentedInactiveText,
+                  transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
                   position: 'relative',
-                  overflow: 'hidden',
+                  overflow: 'visible',
                   '&:hover': {
-                    background: isActive 
-                      ? `${tab.color}E6` // More opaque on hover
-                      : `${tab.color}25`, // Slightly more opaque on hover
-                    borderColor: tab.color,
-                    transform: 'translateY(-1px)',
-                    boxShadow: `0 4px 20px ${tab.color}40`,
-                    color: isActive 
-                      ? 'white' 
-                      : tab.color,
+                    background: isActive ? segmentedActiveBg : (isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)'),
                   },
                   '&:active': {
-                    transform: 'translateY(0)'
+                    transform: 'scale(0.98)',
                   },
-                  '&::before': {
-                    content: '""',
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    width: '100%',
-                    height: '100%',
-                    background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.3), transparent)',
-                    opacity: isActive ? 1 : 0,
-                    transition: 'opacity 0.2s ease'
-                  }
                 }}
               >
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, position: 'relative', zIndex: 1 }}>
-                  <Typography variant="inherit" sx={{ lineHeight: 1 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Typography 
+                    variant="body2" 
+                    sx={{ 
+                      lineHeight: 1,
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
                     {tab.label}
                   </Typography>
                   <Box 
                     sx={{
-                      px: 1,
+                      px: 0.75,
                       py: 0.25,
                       borderRadius: 1,
-                      fontSize: '0.75rem',
-                      background: isActive 
-                        ? 'rgba(255, 255, 255, 0.3)' 
-                        : `${tab.color}30`,
-                      color: isActive 
-                        ? 'white' 
-                        : tab.color,
+                      fontSize: '0.6875rem',
                       fontWeight: 700,
-                      minWidth: '24px',
-                      textAlign: 'center'
+                      minWidth: '20px',
+                      textAlign: 'center',
+                      background: isActive 
+                        ? (isDarkMode ? 'rgba(0,0,0,0.1)' : 'rgba(0,0,0,0.08)')
+                        : 'transparent',
+                      color: isActive ? segmentedInactiveText : mutedTextColor,
+                      transition: 'all 0.2s ease',
                     }}
                   >
                     {taskCount}

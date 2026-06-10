@@ -16,7 +16,7 @@ const statusColors: Record<Task['status'], 'default' | 'primary' | 'warning' | '
   todo: 'primary',
   in_progress: 'warning',
   review: 'warning',
-  done: 'success',
+  done: 'success', // Using Fresh Green (#10b981) theme
   cancelled: 'default',
 } as const;
 
@@ -97,14 +97,23 @@ const TaskHeader: React.FC<TaskHeaderProps> = ({
                 fontSize: '0.65rem', 
                 height: 18,
                 fontWeight: 500,
-                background: theme.palette.mode === 'dark'
-                  ? 'rgba(255, 255, 255, 0.15)'
-                  : 'rgba(255, 255, 255, 0.9)',
+                background: task.status === 'done'
+                  ? '#10b981'  // Fresh Green for Done status
+                  : theme.palette.mode === 'dark'
+                    ? 'rgba(255, 255, 255, 0.15)'
+                    : 'rgba(255, 255, 255, 0.9)',
+                color: task.status === 'done'
+                  ? '#ffffff'
+                  : theme.palette.mode === 'dark'
+                    ? '#ffffff'
+                    : 'rgba(0, 0, 0, 0.8)',
                 backdropFilter: 'blur(8px)',
                 WebkitBackdropFilter: 'blur(8px)',
-                border: `1px solid ${theme.palette.mode === 'dark' 
-                  ? 'rgba(255, 255, 255, 0.2)' 
-                  : 'rgba(255, 255, 255, 0.7)'}`,
+                border: task.status === 'done'
+                  ? '1px solid rgba(16, 185, 129, 0.3)'
+                  : theme.palette.mode === 'dark' 
+                    ? '1px solid rgba(255, 255, 255, 0.2)' 
+                    : '1px solid rgba(255, 255, 255, 0.7)',
               }}
             />
           </Stack>

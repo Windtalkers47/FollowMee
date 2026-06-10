@@ -98,9 +98,9 @@ export interface LiquidGlassSettings {
   addBorders: boolean;
 }
 
-// Default Settings
+// Default Settings - Fresh Green as default for iOS-like feel
 export const defaultLiquidGlassSettings: LiquidGlassSettings = {
-  gradientPreset: 'classicBluePurple',
+  gradientPreset: 'freshGreen',
   reduceTransparency: false,
   increaseContrast: false,
   addBorders: true,

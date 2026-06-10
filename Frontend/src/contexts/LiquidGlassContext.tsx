@@ -29,8 +29,8 @@ const defaultSettings: LiquidGlassSettings = {
   blurIntensity: 20,
   glassStyle: 'medium',
   contrastLevel: 0.8,
-  // New default values
-  gradientPreset: 'classicBluePurple',
+  // New default values - Fresh Green for iOS-like feel
+  gradientPreset: 'freshGreen',
   reduceTransparency: false,
   increaseContrast: false,
   addBorders: true,

@@ -984,8 +984,10 @@ const CustomerProfilePage: React.FC = () => {
               px={1.5}
               py={0.5}
               borderRadius={1}
-              bgcolor="success.light"
-              color="success.dark"
+              sx={{
+                bgcolor: '#10b98120',
+                color: '#10b981',
+              }}
               fontSize={12}
               fontWeight={600}
             >

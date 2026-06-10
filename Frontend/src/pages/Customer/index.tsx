@@ -65,9 +65,16 @@ import FilterMenu from '../../components/customers/FilterMenu';
 import AddCustomerMenu from '../../components/customers/AddCustomerMenu';
 import CustomerForm from '@/components/customers/CustomerForm';
 import ActionMenu from '@/components/ActionMenu';
+import { useLiquidGlass } from '../../contexts/LiquidGlassContext';
+import { getGlassCardStyles, type GradientPresetKey } from '../../styles/liquidGlassStyles';
 
 interface Customer extends CustomerType {
   // All properties are now inherited from CustomerType
+}
+
+interface StyledCardProps {
+  liquidGlassSettings: any;
+  isDarkMode: boolean;
 }
 
 function a11yProps(index: number) {
@@ -77,32 +84,39 @@ function a11yProps(index: number) {
   };
 }
 
-// Styled components
-const StyledCard = styled(Card)(({ theme }) => ({
-  borderRadius: 12,
-  background: 'rgba(255, 255, 255, 0.1)',
-  backdropFilter: 'blur(25px) saturate(200%)',
-  WebkitBackdropFilter: 'blur(25px) saturate(200%)',
-  border: '1px solid rgba(255, 255, 255, 0.2)',
-  boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.37), inset 0 1px 0 0 rgba(255, 255, 255, 0.1)',
-  position: 'relative',
-  overflow: 'hidden',
-  transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-  '&::before': {
-    content: '""',
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: '1px',
-    background: 'linear-gradient(90deg, transparent, rgba(100, 181, 246, 0.6), transparent)',
-    opacity: 0.7,
-  },
-  '&:hover': {
-    transform: 'translateY(-2px) scale(1.02)',
-    boxShadow: '0 12px 40px 0 rgba(31, 38, 135, 0.45), inset 0 1px 0 0 rgba(255, 255, 255, 0.15)',
-  }
-}));
+// Styled Card Component - Using Liquid Glass UI with freshGreen theme
+const StyledCard: React.FC<StyledCardProps & { children: React.ReactNode }> = ({ 
+  liquidGlassSettings, 
+  isDarkMode, 
+  children 
+}) => {
+  const glassStyles = getGlassCardStyles(liquidGlassSettings, isDarkMode);
+  
+  return (
+    <Card sx={{
+      ...glassStyles,
+      position: 'relative',
+      overflow: 'hidden',
+      transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+      '&::before': {
+        content: '""',
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        height: '1px',
+        background: 'linear-gradient(90deg, transparent, rgba(16, 185, 129, 0.6), transparent)',
+        opacity: 0.7,
+      },
+      '&:hover': {
+        transform: 'translateY(-2px) scale(1.02)',
+        boxShadow: '0 12px 40px 0 rgba(16, 185, 129, 0.25), inset 0 1px 0 0 rgba(255, 255, 255, 0.15)',
+      }
+    }}>
+      {children}
+    </Card>
+  );
+};
 
 const StatusBadge = styled('span', {
   shouldForwardProp: (prop) => prop !== 'status',
@@ -111,19 +125,18 @@ const StatusBadge = styled('span', {
   height: 10,
   borderRadius: '50%',
   backgroundColor: 
-    status === 'active' ? theme.palette.success.main :
-    status === 'inactive' ? theme.palette.warning.main :
-    theme.palette.error.main,
+    status === 'active' ? '#10b981' :  // Fresh Green
+    status === 'inactive' ? '#f59e0b' :  // Amber/Orange
+    '#ef4444',  // Red
   marginRight: 8,
   display: 'inline-block'
 }));
 
-// Engagement meter component with proper TypeScript types
-// Engagement meter component with proper TypeScript types
+// Engagement meter component with proper TypeScript types - Using Fresh Green (#10b981)
 const EngagementMeter = styled('div')<{ value: number }>(({ theme, value }) => ({
   height: 4,
   borderRadius: 2,
-  background: `linear-gradient(90deg, ${theme.palette.primary.main} ${value}%, ${theme.palette.action.disabledBackground} ${value}%)`,
+  background: `linear-gradient(90deg, #10b981 ${value}%, ${theme.palette.action.disabledBackground} ${value}%)`,
   width: '100%',
   marginTop: 4
 }));
@@ -145,6 +158,8 @@ const getEngagementScore = (customer: Customer): number => {
 
 const CustomerPage = () => {
   const theme = useTheme();
+  const { isLiquidGlassEnabled, liquidGlassSettings } = useLiquidGlass();
+  const isDarkMode = theme.palette.mode === 'dark';
 
   const {
     customers,
@@ -502,7 +517,7 @@ const CustomerPage = () => {
 
         {/* Stats Cards */}
         <Box display="grid" gridTemplateColumns={{ xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' }} gap={3} mb={4}>
-          <StyledCard>
+          <StyledCard liquidGlassSettings={liquidGlassSettings} isDarkMode={isDarkMode}>
             <CardContent>
               <Box display="flex" justifyContent="space-between" alignItems="center">
                 <Box>
@@ -521,11 +536,11 @@ const CustomerPage = () => {
                   width: 56,
                   height: 56,
                   borderRadius: '50%',
-                  bgcolor: 'primary.light',
+                  bgcolor: '#10b98120',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  color: 'primary.contrastText'
+                  color: '#10b981'
                 }}>
                   <GroupIcon fontSize="large" />
                 </Box>
@@ -533,7 +548,7 @@ const CustomerPage = () => {
             </CardContent>
           </StyledCard>
 
-          <StyledCard>
+          <StyledCard liquidGlassSettings={liquidGlassSettings} isDarkMode={isDarkMode}>
             <CardContent>
               <Box display="flex" justifyContent="space-between" alignItems="center">
                 <Box>
@@ -551,11 +566,11 @@ const CustomerPage = () => {
                   width: 56,
                   height: 56,
                   borderRadius: '50%',
-                  bgcolor: 'success.light',
+                  bgcolor: '#10b98120',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  color: 'success.contrastText'
+                  color: '#10b981'
                 }}>
                   <CheckCircleIcon fontSize="large" />
                 </Box>
@@ -563,7 +578,7 @@ const CustomerPage = () => {
             </CardContent>
           </StyledCard>
 
-          <StyledCard>
+          <StyledCard liquidGlassSettings={liquidGlassSettings} isDarkMode={isDarkMode}>
             <CardContent>
               <Box display="flex" justifyContent="space-between" alignItems="center">
                 <Box>
@@ -581,11 +596,11 @@ const CustomerPage = () => {
                   width: 56,
                   height: 56,
                   borderRadius: '50%',
-                  bgcolor: 'warning.light',
+                  bgcolor: '#f59e0b20',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  color: 'warning.contrastText'
+                  color: '#f59e0b'
                 }}>
                   <AccessTimeIcon fontSize="large" />
                 </Box>
@@ -593,7 +608,7 @@ const CustomerPage = () => {
             </CardContent>
           </StyledCard>
 
-          <StyledCard>
+          <StyledCard liquidGlassSettings={liquidGlassSettings} isDarkMode={isDarkMode}>
             <CardContent>
               <Box display="flex" justifyContent="space-between" alignItems="center">
                 <Box>
@@ -611,11 +626,11 @@ const CustomerPage = () => {
                   width: 56,
                   height: 56,
                   borderRadius: '50%',
-                  bgcolor: 'error.light',
+                  bgcolor: '#ef444420',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  color: 'error.contrastText'
+                  color: '#ef4444'
                 }}>
                   <BlockIcon fontSize="large" />
                 </Box>
@@ -1236,8 +1251,8 @@ const CustomerPage = () => {
                                   height: 12,
                                   borderRadius: '50%',
                                   bgcolor: 
-                                    customer.status === 'active' ? 'success.main' :
-                                    customer.status === 'inactive' ? 'warning.main' : 'error.main',
+                                    customer.status === 'active' ? '#10b981' :
+                                    customer.status === 'inactive' ? '#f59e0b' : '#ef4444',
                                   border: `2px solid ${theme.palette.background.paper}`,
                                 }}
                               />
@@ -1278,10 +1293,9 @@ const CustomerPage = () => {
                               {customer.status === 'active' && (
                                 <Tooltip title="Verified" arrow>
                                   <VerifiedIcon 
-                                    color="primary" 
                                     fontSize="small" 
                                     sx={{ 
-                                      color: 'success.main',
+                                      color: '#10b981',
                                       fontSize: 16,
                                     }} 
                                   />
@@ -1312,8 +1326,8 @@ const CustomerPage = () => {
                             sx={{
                               fontWeight: 500,
                               color: 
-                                customer.status === 'active' ? 'success.main' :
-                                customer.status === 'inactive' ? 'warning.dark' : 'error.main',
+                                customer.status === 'active' ? '#10b981' :
+                                customer.status === 'inactive' ? '#f59e0b' : '#ef4444',
                               textTransform: 'capitalize',
                             }}
                           >
@@ -1330,24 +1344,15 @@ const CustomerPage = () => {
                             <Typography 
                               variant="body2" 
                               fontWeight={600}
-                              color={
-                                engagementScore > 70 ? 'success.main' :
-                                engagementScore > 40 ? 'warning.main' : 'error.main'
-                              }
+                              sx={{
+                                color: engagementScore > 70 ? '#10b981' :
+                                  engagementScore > 40 ? '#f59e0b' : '#ef4444'
+                              }}
                             >
                               {engagementScore}%
                             </Typography>
                           </Box>
-                          <EngagementMeter 
-                            value={engagementScore}
-                            sx={{
-                              background: engagementScore > 70 
-                                ? `linear-gradient(90deg, ${theme.palette.success.main} ${engagementScore}%, ${theme.palette.action.disabledBackground} ${engagementScore}%)`
-                                : engagementScore > 40
-                                  ? `linear-gradient(90deg, ${theme.palette.warning.main} ${engagementScore}%, ${theme.palette.action.disabledBackground} ${engagementScore}%)`
-                                  : `linear-gradient(90deg, ${theme.palette.error.main} ${engagementScore}%, ${theme.palette.action.disabledBackground} ${engagementScore}%)`
-                            }}
-                          />
+                          <EngagementMeter value={engagementScore} />
                         </Box>
                       </TableCell>
                       <TableCell>

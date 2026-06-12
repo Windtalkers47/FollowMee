@@ -125,6 +125,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
   return (
     <>
       <Card
+        data-task-id={task.taskId}
         sx={{
           mb: 1.5,
           // maxWidth: compact ? '100%' : 700, ปรับขนาด TaskCard

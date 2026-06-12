@@ -28,6 +28,7 @@ import taskCommentRoutes from './routes/task-comment.routes';
 import taskLikeRoutes from './routes/task-like.routes';
 import commentReactionRoutes from './routes/comment-reaction.routes';
 import notificationRoutes from './routes/notification.routes';
+import dashboardRoutes from './routes/dashboard.routes';
 
 // Load environment variables
 dotenv.config();
@@ -184,6 +185,9 @@ class App {
 
     // Notification routes
     this.app.use('/api/notifications', notificationRoutes);
+
+    // Dashboard routes
+    this.app.use('/api/dashboard', dashboardRoutes);
 
     // 404 handler
     this.app.use((req: Request, res: Response) => {

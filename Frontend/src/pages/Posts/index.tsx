@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import React from 'react';
+import { useParams } from 'react-router-dom';
 import {
   Box,
   Typography,
@@ -150,6 +151,7 @@ const TaskFeedCard: React.FC<TaskFeedCardProps> = ({
 
 /* ================== Page ================== */
 const PostsPage = () => {
+  const { taskId } = useParams<{ taskId: string }>();
   const [activeTab, setActiveTab] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [taskLikeSummaries, setTaskLikeSummaries] = useState<Record<string, TaskLikeSummary>>({});
@@ -362,6 +364,37 @@ const PostsPage = () => {
       }
     });
   }, [assignedTasks, allTasksResponse, searchResults, activeTab, taskLikeSummaries, isSearching]);
+
+  // Handle navigation from dashboard (when taskId is in URL)
+  useEffect(() => {
+    if (taskId) {
+      // Switch to the appropriate tab based on task status
+      const allTasks = [...(assignedTasks || []), ...(allTasksResponse?.tasks || [])];
+      const targetTask = allTasks.find(t => t.taskId === taskId);
+      
+      if (targetTask) {
+        // Switch to the correct tab
+        if (targetTask.assignedTo === user?.userId) {
+          setActiveTab(0); // My Tasks tab
+        } else {
+          setActiveTab(1); // Team Feed tab
+        }
+        
+        // Scroll to the task after a short delay to ensure rendering
+        setTimeout(() => {
+          const taskElement = document.querySelector(`[data-task-id="${taskId}"]`);
+          if (taskElement) {
+            taskElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            // Add a highlight effect
+            taskElement.classList.add('highlight-task');
+            setTimeout(() => {
+              taskElement.classList.remove('highlight-task');
+            }, 2000);
+          }
+        }, 500);
+      }
+    }
+  }, [taskId, assignedTasks, allTasksResponse, user?.userId]);
 
   // Search handlers
   const handleSearch = async () => {

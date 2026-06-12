@@ -38,7 +38,6 @@ import {
 import {
   Menu as MenuIcon,
   Dashboard,
-  Analytics,
   PostAdd,
   Schedule,
   Settings,
@@ -65,7 +64,6 @@ interface MainLayoutProps {
 
 const menuItems = [
   { text: 'Dashboard', icon: <Dashboard />, path: '/dashboard', exact: true },
-  { text: 'Analytics', icon: <Analytics />, path: '/analytics', exact: true },
   { text: 'Posts', icon: <PostAdd />, path: '/posts', exact: true },
   { text: 'Schedule', icon: <Schedule />, path: '/schedule', exact: true },
   { text: 'Customer', icon: <Group />, path: '/customer', exact: true },

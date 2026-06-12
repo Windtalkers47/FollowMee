@@ -2,7 +2,6 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { 
   Box, 
   Button, 
-  Paper,
   Tooltip,
   Table, 
   TableBody, 
@@ -14,8 +13,6 @@ import {
   Checkbox, 
   Avatar, 
   Chip, 
-  Tabs, 
-  Tab, 
   Typography, 
   CircularProgress, 
   IconButton,
@@ -23,41 +20,31 @@ import {
   CardContent,
   Badge,
   useTheme,
-  alpha,
-  InputAdornment,
-  TextField
+  TextField,
+  Paper,
 } from '@mui/material';
 import Swal from 'sweetalert2';
 import { styled } from '@mui/material/styles';
-import { Link } from 'react-router-dom';
-import { FilterBar } from '@/components/FilterBar';
 import { Customer as CustomerType, CustomerStatus } from '../../types/customer.types';
 import { CustomerFormData, ApiError } from '@/components/customers/CustomerForm';
 import { 
-  MoreVert as MoreVertIcon,
-  Facebook as FacebookIcon,
-  Instagram as InstagramIcon,
-  Twitter as TwitterIcon,
-  GroupAdd as GroupAddIcon,
   Group as GroupIcon,
   CheckCircle as CheckCircleIcon,
   Block as BlockIcon,
   AccessTime as AccessTimeIcon,
-  FileUpload as FileUploadIcon,
   MusicNote as MusicNoteIcon,
   Message as MessageIcon,
-  Search as SearchIcon,
-  FilterList as FilterListIcon,
   Refresh as RefreshIcon,
   PersonAdd as PersonAddIcon,
   Email as EmailIcon,
   Phone as PhoneIcon,
-  LocationOn as LocationIcon,
   CalendarToday as CalendarIcon,
   MoreHoriz as MoreHorizIcon,
-  CheckCircle as VerifiedIcon,
-  PauseCircleOutline as PauseCircleOutlineIcon,
-  Cancel as CancelIcon
+  Facebook as FacebookIcon,
+  Instagram as InstagramIcon,
+  Twitter as TwitterIcon,
+  TrendingUp as TrendingUpIcon,
+  TrendingDown as TrendingDownIcon
 } from '@mui/icons-material';
 
 import { useCustomers } from '../../hooks/useCustomers';
@@ -66,86 +53,101 @@ import AddCustomerMenu from '../../components/customers/AddCustomerMenu';
 import CustomerForm from '@/components/customers/CustomerForm';
 import ActionMenu from '@/components/ActionMenu';
 import { useLiquidGlass } from '../../contexts/LiquidGlassContext';
-import { getGlassCardStyles, type GradientPresetKey } from '../../styles/liquidGlassStyles';
+import { getGlassCardStyles, gradientPresets } from '../../styles/liquidGlassStyles';
+import { FilterBar } from '@/components/FilterBar';
 
-interface Customer extends CustomerType {
-  // All properties are now inherited from CustomerType
-}
+interface Customer extends CustomerType {}
 
-interface StyledCardProps {
+// ============================================
+// Stats Card Component
+// ============================================
+const StatsCard: React.FC<{
+  title: string;
+  value: number | string;
+  subtitle?: string;
+  icon: React.ReactNode;
+  iconBg: string;
+  iconColor: string;
+  trend?: { value: number; direction: 'up' | 'down' };
   liquidGlassSettings: any;
   isDarkMode: boolean;
-}
-
-function a11yProps(index: number) {
-  return {
-    id: `customer-tab-${index}`,
-    'aria-controls': `customer-tabpanel-${index}`,
-  };
-}
-
-// Styled Card Component - Using Liquid Glass UI with freshGreen theme
-const StyledCard: React.FC<StyledCardProps & { children: React.ReactNode }> = ({ 
-  liquidGlassSettings, 
-  isDarkMode, 
-  children 
-}) => {
+}> = ({ title, value, subtitle, icon, iconBg, iconColor, trend, liquidGlassSettings, isDarkMode }) => {
   const glassStyles = getGlassCardStyles(liquidGlassSettings, isDarkMode);
   
   return (
     <Card sx={{
       ...glassStyles,
+      borderRadius: 4,
+      p: { xs: 2, md: 3 },
       position: 'relative',
-      overflow: 'hidden',
-      transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-      '&::before': {
-        content: '""',
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        height: '1px',
-        background: 'linear-gradient(90deg, transparent, rgba(16, 185, 129, 0.6), transparent)',
-        opacity: 0.7,
-      },
+      overflow: 'visible',
+      transition: 'all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
       '&:hover': {
-        transform: 'translateY(-2px) scale(1.02)',
-        boxShadow: '0 12px 40px 0 rgba(16, 185, 129, 0.25), inset 0 1px 0 0 rgba(255, 255, 255, 0.15)',
-      }
+        transform: 'translateY(-6px)',
+        boxShadow: '0 24px 64px 0 rgba(16, 185, 129, 0.25)',
+      },
     }}>
-      {children}
+      <CardContent sx={{ p: '0 !important' }}>
+        <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2}>
+          <Box>
+            <Typography variant="body2" color="text.secondary" fontWeight={500} gutterBottom>
+              {title}
+            </Typography>
+            <Typography variant="h3" fontWeight={700} sx={{ fontSize: { xs: '1.75rem', md: '2.25rem' } }}>
+              {value}
+            </Typography>
+            {subtitle && (
+              <Box display="flex" alignItems="center" gap={0.5} mt={1}>
+                {trend && (
+                  trend.direction === 'up' ? (
+                    <TrendingUpIcon fontSize="small" sx={{ color: '#10b981', fontSize: 16 }} />
+                  ) : (
+                    <TrendingDownIcon fontSize="small" sx={{ color: '#ef4444', fontSize: 16 }} />
+                  )
+                )}
+                <Typography variant="caption" color={trend?.direction === 'up' ? 'success.main' : 'text.secondary'} fontWeight={500}>
+                  {subtitle}
+                </Typography>
+              </Box>
+            )}
+          </Box>
+          <Box sx={{
+            width: 64,
+            height: 64,
+            borderRadius: '50%',
+            background: iconBg,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: iconColor,
+            boxShadow: '0 8px 24px rgba(0,0,0,0.08)',
+          }}>
+            {icon}
+          </Box>
+        </Box>
+      </CardContent>
     </Card>
   );
 };
 
-const StatusBadge = styled('span', {
-  shouldForwardProp: (prop) => prop !== 'status',
-})<{ status: 'active' | 'inactive' | 'canceled' }>(({ theme, status }) => ({
-  width: 10,
-  height: 10,
-  borderRadius: '50%',
-  backgroundColor: 
-    status === 'active' ? '#10b981' :  // Fresh Green
-    status === 'inactive' ? '#f59e0b' :  // Amber/Orange
-    '#ef4444',  // Red
-  marginRight: 8,
-  display: 'inline-block'
-}));
-
-// Engagement meter component with proper TypeScript types - Using Fresh Green (#10b981)
-const EngagementMeter = styled('div')<{ value: number }>(({ theme, value }) => ({
-  height: 4,
-  borderRadius: 2,
-  background: `linear-gradient(90deg, #10b981 ${value}%, ${theme.palette.action.disabledBackground} ${value}%)`,
+// ============================================
+// Engagement Meter Component
+// ============================================
+const EngagementMeter = styled('div')<{ value: number }>(({ value }) => ({
+  height: 6,
+  borderRadius: 3,
+  background: `linear-gradient(90deg, 
+    ${value > 70 ? '#10b981' : value > 40 ? '#f59e0b' : '#ef4444'} 0%, 
+    ${value > 70 ? '#34d399' : value > 40 ? '#fbbf24' : '#f87171'} ${value}%, 
+    rgba(0,0,0,0.08) ${value}%)`,
   width: '100%',
-  marginTop: 4
+  marginTop: 6,
+  transition: 'all 0.3s ease',
 }));
 
-/**
- * Calculates an engagement score based on customer's social media presence
- * @param customer - The customer object
- * @returns A score between 0 and 100
- */
+// ============================================
+// Helper Functions
+// ============================================
 const getEngagementScore = (customer: Customer): number => {
   let score = 0;
   if (customer.customerFacebook) score += 25;
@@ -156,6 +158,9 @@ const getEngagementScore = (customer: Customer): number => {
   return Math.min(100, score);
 };
 
+// ============================================
+// Main Component
+// ============================================
 const CustomerPage = () => {
   const theme = useTheme();
   const { isLiquidGlassEnabled, liquidGlassSettings } = useLiquidGlass();
@@ -180,7 +185,6 @@ const CustomerPage = () => {
     getStatusCount,
   } = useCustomers();
 
-  // Local state for search input (only submit on search button or ENTER)
   const [searchInput, setSearchInput] = useState(filter.search || '');
   const [tabValue, setTabValue] = useState(0);
   const [selected, setSelected] = useState<string[]>([]);
@@ -195,50 +199,25 @@ const CustomerPage = () => {
   
   const emptyRows = page > 0 ? Math.max(0, (1 + page) * pageSize - customers.length) : 0;
 
-  // Fetch data when tab changes (skip initial mount since Tab default value is 0)
   useEffect(() => {
     if (isInitialMount.current) {
       isInitialMount.current = false;
-      // Initial fetch - Tab value is already 0, so call handleFilterChange once
-      const statusMap = {
-        0: 'all',
-        1: 'active',
-        2: 'inactive',
-        3: 'canceled'
-      } as const;
-      
-      handleFilterChange({ 
-        status: statusMap[tabValue as keyof typeof statusMap] as CustomerStatus | 'all',
-        search: filter.search 
-      });
+      const statusMap = { 0: 'all', 1: 'active', 2: 'inactive', 3: 'canceled' } as const;
+      handleFilterChange({ status: statusMap[tabValue as keyof typeof statusMap] as CustomerStatus | 'all', search: filter.search });
       return;
     }
-    
-    // Subsequent tab changes
-    const statusMap = {
-      0: 'all',
-      1: 'active',
-      2: 'inactive',
-      3: 'canceled'
-    } as const;
-    
-    handleFilterChange({ 
-      status: statusMap[tabValue as keyof typeof statusMap] as CustomerStatus | 'all',
-      search: filter.search 
-    });
+    const statusMap = { 0: 'all', 1: 'active', 2: 'inactive', 3: 'canceled' } as const;
+    handleFilterChange({ status: statusMap[tabValue as keyof typeof statusMap] as CustomerStatus | 'all', search: filter.search });
   }, [tabValue]);
 
-  // Filter customers based on tab value
   const filteredCustomers = customers.filter(customer => {
     if (tabValue === 1) return customer.status === 'active';
     if (tabValue === 2) return customer.status === 'inactive';
     if (tabValue === 3) return customer.status === 'canceled';
-    return true; // tabValue === 0 (All)
+    return true;
   });
 
-  // Calculate total count for the "All" tab using the hook's getStatusCount
   const totalCustomers = getStatusCount('active') + getStatusCount('inactive') + getStatusCount('canceled');
-
 
   const handlePageChangeEvent = (_: React.MouseEvent<HTMLButtonElement> | null, newPage: number) => {
     handlePageChange(newPage + 1);
@@ -246,7 +225,6 @@ const CustomerPage = () => {
 
   const handleChangeRowsPerPage = (e: React.ChangeEvent<HTMLInputElement>) => {
     handlePageSizeChange(parseInt(e.target.value, 10));
-    // handlePageSizeChange already calls setPage(1) and refetch internally
   };
 
   const handleSelectAllClick = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -257,8 +235,6 @@ const CustomerPage = () => {
     }
     setSelected([]);
   };
-
-
 
   const handleClick = (event: React.MouseEvent, id: string) => {
     event.preventDefault();
@@ -289,7 +265,6 @@ const CustomerPage = () => {
     setSelectedMember(customer);
   };
 
-  // Handle filter menu open
   const handleFilterClick = (event: React.MouseEvent<HTMLElement>) => {
     setFilterAnchorEl(event.currentTarget);
   };
@@ -337,9 +312,7 @@ const CustomerPage = () => {
         deletedAt: null,
         ...(formData.base64Image ? { base64Image: formData.base64Image } : {}),
         ...(formData.removeImage ? { removeImage: formData.removeImage } : {}),
-        ...(editingCustomer
-          ? { createdAt: editingCustomer.createdAt }
-          : { createdAt: new Date().toISOString() }),
+        ...(editingCustomer ? { createdAt: editingCustomer.createdAt } : { createdAt: new Date().toISOString() }),
       };
   
       let result;
@@ -349,12 +322,9 @@ const CustomerPage = () => {
         result = await createCustomer(payload);
       }
   
-      // Close the loading dialog
       Swal.close();
   
-      // Check if the result indicates a failure
       if (result && !result.success) {
-        // Always show Swal error dialog for clear feedback
         await Swal.fire({
           icon: 'error',
           title: 'Operation Failed',
@@ -362,12 +332,8 @@ const CustomerPage = () => {
           confirmButtonColor: '#d33',
         });
         
-        // Also set field error for email-specific errors
         if (result.message?.toLowerCase().includes('email')) {
-          setFormApiError({
-            field: 'customerEmail',
-            message: result.message,
-          });
+          setFormApiError({ field: 'customerEmail', message: result.message });
         }
         return;
       }
@@ -389,10 +355,7 @@ const CustomerPage = () => {
       const message = error?.response?.data?.message || error?.message || 'Failed to save customer';
       
       if (message.toLowerCase().includes('email')) {
-        setFormApiError({
-          field: 'customerEmail',
-          message: message,
-        });
+        setFormApiError({ field: 'customerEmail', message: message });
       } else {
         await Swal.fire({
           icon: 'error',
@@ -404,28 +367,30 @@ const CustomerPage = () => {
     }
   };
   
-
   const isSelected = (id: string) => selected.includes(id);
 
-  // Handle error display with SweetAlert2
   useEffect(() => {
     if (error) {
       const showError = async () => {
-        await Swal.fire({
-          icon: 'error',
-          title: 'Error',
-          text: error,
-          confirmButtonColor: '#d33',
-        });
+        await Swal.fire({ icon: 'error', title: 'Error', text: error, confirmButtonColor: '#d33' });
       };
       showError();
     }
   }, [error]);
 
+  // Get gradient colors from preset
+  const preset = gradientPresets[liquidGlassSettings.gradientPreset];
+
+  // Loading state
   if (loading && customers.length === 0) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" height="80vh">
-        <CircularProgress />
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
+        <Box textAlign="center">
+          <CircularProgress size={60} thickness={4} sx={{ color: '#10b981' }} />
+          <Typography variant="body1" color="text.secondary" mt={2} fontWeight={500}>
+            Loading customers...
+          </Typography>
+        </Box>
       </Box>
     );
   }
@@ -433,9 +398,11 @@ const CustomerPage = () => {
   return (
     <Box sx={{ 
       width: '100%',
-      background: theme.palette.mode === 'light' ? '#f8fafc' : theme.palette.background.default,
+      background: theme.palette.mode === 'light' 
+        ? 'linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 50%, #f0f9ff 100%)'
+        : theme.palette.background.default,
       minHeight: '100vh',
-      p: 3
+      pb: 6
     }}>
       <CustomerForm
         open={isFormOpen}
@@ -458,1101 +425,860 @@ const CustomerPage = () => {
         onClearApiError={() => setFormApiError(null)}
       />
 
-      <Box sx={{ maxWidth: 1400, mx: 'auto' }}>
-        {/* Header Section */}
-        <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={4} flexWrap="wrap" gap={2}>
-          <Box>
-            <Typography variant="h3" component="h1" fontWeight="bold" gutterBottom>
-              Customer Hub
-            </Typography>
-            <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 600 }}>
-              Connect, engage and build relationships with your customers across all platforms
-            </Typography>
-          </Box>
-
-          <Box display="flex" gap={2} flexWrap="wrap">
-            <Button
-              variant="contained"
-              color="primary"
-              startIcon={<PersonAddIcon />}
-              onClick={() => handleOpenForm()}
-              sx={{
-                borderRadius: 2,
-                textTransform: 'none',
-                px: 3,
-                py: 1.5,
-                fontWeight: 600,
-                boxShadow: '0 4px 14px rgba(0, 0, 0, 0.1)',
-                '&:hover': {
-                  boxShadow: '0 6px 20px rgba(0, 0, 0, 0.15)',
-                  transform: 'translateY(-1px)'
-                },
-                transition: 'all 0.3s ease'
-              }}
-            >
-              Add New Customer
-            </Button>
-
-            <Button
-              variant="outlined"
-              startIcon={<RefreshIcon />}
-              onClick={refetch}
-              disabled={loading}
-              sx={{
-                borderRadius: 2,
-                textTransform: 'none',
-                px: 3,
-                py: 1.5,
-                fontWeight: 500,
-                borderWidth: 2,
-                '&:hover': {
-                  borderWidth: 2
-                }
-              }}
-            >
-              Refresh
-            </Button>
-          </Box>
-        </Box>
-
-        {/* Stats Cards */}
-        <Box display="grid" gridTemplateColumns={{ xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' }} gap={3} mb={4}>
-          <StyledCard liquidGlassSettings={liquidGlassSettings} isDarkMode={isDarkMode}>
-            <CardContent>
-              <Box display="flex" justifyContent="space-between" alignItems="center">
-                <Box>
-                  <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                    Total Customers
-                  </Typography>
-                  <Typography variant="h4" fontWeight="bold">
-                    {totalCustomers}
-                  </Typography>
-                  <Typography variant="caption" color="success.main" sx={{ display: 'flex', alignItems: 'center' }}>
-                    <CheckCircleIcon color="success" fontSize="small" sx={{ mr: 0.5 }} />
-                    {getStatusCount('active')} active
-                  </Typography>
+      <Box sx={{ maxWidth: 1600, mx: 'auto', px: { xs: 2, md: 4 } }}>
+        
+        {/* Hero Header Section */}
+        <Box sx={{ pt: { xs: 4, md: 6 }, pb: { xs: 3, md: 4 }, mb: 2 }}>
+          <Box display="flex" justifyContent="space-between" alignItems="flex-start" flexWrap="wrap" gap={3}>
+            <Box>
+              <Box display="flex" alignItems="center" gap={2} mb={2}>
+                <Box
+                  sx={{
+                    width: 56,
+                    height: 56,
+                    borderRadius: 3,
+                    background: `linear-gradient(135deg, ${preset.primary}, ${preset.secondary})`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: 'white',
+                    boxShadow: `0 8px 24px ${preset.primary}66`,
+                  }}
+                >
+                  <GroupIcon sx={{ fontSize: 32 }} />
                 </Box>
-                <Box sx={{
-                  width: 56,
-                  height: 56,
-                  borderRadius: '50%',
-                  bgcolor: '#10b98120',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#10b981'
-                }}>
-                  <GroupIcon fontSize="large" />
+                <Box>
+                  <Typography variant="h2" component="h1" fontWeight={800} sx={{ fontSize: { xs: '1.75rem', md: '2.5rem' } }}>
+                    Customer Hub
+                  </Typography>
+                  <Typography variant="body1" color="text.secondary" fontWeight={400}>
+                    Connect, engage & build meaningful relationships
+                  </Typography>
                 </Box>
               </Box>
-            </CardContent>
-          </StyledCard>
+            </Box>
 
-          <StyledCard liquidGlassSettings={liquidGlassSettings} isDarkMode={isDarkMode}>
-            <CardContent>
-              <Box display="flex" justifyContent="space-between" alignItems="center">
-                <Box>
-                  <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                    Active Now
-                  </Typography>
-                  <Typography variant="h4" fontWeight="bold">
-                    {getStatusCount('active')}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    {totalCustomers > 0 ? Math.round((getStatusCount('active') / totalCustomers) * 100) : 0}% of total
-                  </Typography>
-                </Box>
-                <Box sx={{
-                  width: 56,
-                  height: 56,
-                  borderRadius: '50%',
-                  bgcolor: '#10b98120',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#10b981'
-                }}>
-                  <CheckCircleIcon fontSize="large" />
-                </Box>
-              </Box>
-            </CardContent>
-          </StyledCard>
-
-          <StyledCard liquidGlassSettings={liquidGlassSettings} isDarkMode={isDarkMode}>
-            <CardContent>
-              <Box display="flex" justifyContent="space-between" alignItems="center">
-                <Box>
-                  <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                    Inactive
-                  </Typography>
-                  <Typography variant="h4" fontWeight="bold">
-                    {getStatusCount('inactive')}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    Needs attention
-                  </Typography>
-                </Box>
-                <Box sx={{
-                  width: 56,
-                  height: 56,
-                  borderRadius: '50%',
-                  bgcolor: '#f59e0b20',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#f59e0b'
-                }}>
-                  <AccessTimeIcon fontSize="large" />
-                </Box>
-              </Box>
-            </CardContent>
-          </StyledCard>
-
-          <StyledCard liquidGlassSettings={liquidGlassSettings} isDarkMode={isDarkMode}>
-            <CardContent>
-              <Box display="flex" justifyContent="space-between" alignItems="center">
-                <Box>
-                  <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                    Canceled
-                  </Typography>
-                  <Typography variant="h4" fontWeight="bold">
-                    {getStatusCount('canceled')}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    Not active anymore
-                  </Typography>
-                </Box>
-                <Box sx={{
-                  width: 56,
-                  height: 56,
-                  borderRadius: '50%',
-                  bgcolor: '#ef444420',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#ef4444'
-                }}>
-                  <BlockIcon fontSize="large" />
-                </Box>
-              </Box>
-            </CardContent>
-          </StyledCard>
-        </Box>
-
-      {/* Local state for search input */}
-      <FilterBar
-        searchValue={searchInput}
-        onSearchChange={(value) => {
-          setSearchInput(value);
-          if (value.trim() === '') {
-            // handleFilterChange already calls setPage(1) and refetch internally
-            handleFilterChange({ search: '' });
-          }
-        }}
-        onSearch={(value) => {
-          if (!value || value.trim() === '') {
-            setSearchInput('');
-            // handleFilterChange already calls setPage(1) and refetch internally
-            handleFilterChange({ search: '' });
-          } else {
-            handleFilterChange({ search: value });
-          }
-        }}
-        onClear={() => {
-          setSearchInput('');
-          // handleFilterChange already calls setPage(1) and refetch internally
-          handleFilterChange({ search: '' });
-        }}
-        onRefresh={refetch}
-        searchPlaceholder="Search customers..."
-        loading={loading}
-        sx={{
-          px: 3,
-          py: 2,
-          borderBottom: (theme) => `1px solid ${theme.palette.divider}`,
-          bgcolor: 'background.paper',
-          position: 'sticky',
-          top: 64, // Adjust based on your header height
-          zIndex: (theme) => theme.zIndex.appBar - 1,
-          boxShadow: (theme) => theme.shadows[1]
-        }}
-      />
-
-              {/* Tabs */}
-              <Box sx={{ borderBottom: 1, borderColor: 'divider', px: 2 }}>
-          <Tabs
-            value={tabValue}
-            onChange={(_, newValue) => {
-              setTabValue(newValue);
-            }}
-            variant="scrollable"
-            scrollButtons="auto"
-            aria-label="customer status tabs"
-            sx={{
-              '& .MuiTabs-indicator': {
-                height: 3,
-                borderRadius: '3px 3px 0 0',
-              },
-              '& .MuiTab-root': {
-                minHeight: 52,
-                minWidth: 'auto',
-                px: 2,
-                mx: 0.5,
-                '&.Mui-selected': {
-                  color: theme.palette.primary.main,
+            <Box display="flex" gap={2} flexWrap="wrap">
+              <Button
+                variant="contained"
+                startIcon={<PersonAddIcon />}
+                onClick={() => handleOpenForm()}
+                sx={{
+                  borderRadius: 3,
+                  textTransform: 'none',
+                  px: 4,
+                  py: 1.5,
                   fontWeight: 600,
-                },
-              },
+                  fontSize: '0.95rem',
+                  background: `linear-gradient(135deg, ${preset.primary}, ${preset.secondary})`,
+                  boxShadow: `0 8px 24px ${preset.primary}66`,
+                  '&:hover': {
+                    boxShadow: `0 12px 32px ${preset.primary}99`,
+                    transform: 'translateY(-2px)',
+                  },
+                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                }}
+              >
+                Add New Customer
+              </Button>
+
+              <Button
+                variant="outlined"
+                startIcon={<RefreshIcon />}
+                onClick={refetch}
+                disabled={loading}
+                sx={{
+                  borderRadius: 3,
+                  textTransform: 'none',
+                  px: 4,
+                  py: 1.5,
+                  fontWeight: 600,
+                  fontSize: '0.95rem',
+                  borderWidth: 2,
+                  '&:hover': {
+                    borderWidth: 2,
+                    transform: 'translateY(-2px)',
+                  },
+                  transition: 'all 0.3s ease',
+                }}
+              >
+                Refresh
+              </Button>
+            </Box>
+          </Box>
+        </Box>
+
+        {/* Stats Dashboard - 4 Cards Grid */}
+        <Box 
+          display="grid" 
+          gridTemplateColumns={{ xs: '1fr', sm: 'repeat(2, 1fr)', lg: 'repeat(4, 1fr)' }} 
+          gap={{ xs: 2, sm: 3, md: 4 }} 
+          mb={{ xs: 4, md: 6 }}
+        >
+          <StatsCard
+            title="Total Customers"
+            value={totalCustomers}
+            subtitle={`${getStatusCount('active')} active`}
+            icon={<GroupIcon sx={{ fontSize: 32 }} />}
+            iconBg="rgba(16, 185, 129, 0.15)"
+            iconColor="#10b981"
+            liquidGlassSettings={liquidGlassSettings}
+            isDarkMode={isDarkMode}
+          />
+          <StatsCard
+            title="Active Now"
+            value={getStatusCount('active')}
+            subtitle={totalCustomers > 0 ? `${Math.round((getStatusCount('active') / totalCustomers) * 100)}% of total` : '0% of total'}
+            icon={<CheckCircleIcon sx={{ fontSize: 32 }} />}
+            iconBg="rgba(16, 185, 129, 0.15)"
+            iconColor="#10b981"
+            trend={{ value: 5, direction: 'up' }}
+            liquidGlassSettings={liquidGlassSettings}
+            isDarkMode={isDarkMode}
+          />
+          <StatsCard
+            title="Inactive"
+            value={getStatusCount('inactive')}
+            subtitle="Needs attention"
+            icon={<AccessTimeIcon sx={{ fontSize: 32 }} />}
+            iconBg="rgba(245, 158, 11, 0.15)"
+            iconColor="#f59e0b"
+            liquidGlassSettings={liquidGlassSettings}
+            isDarkMode={isDarkMode}
+          />
+          <StatsCard
+            title="Canceled"
+            value={getStatusCount('canceled')}
+            subtitle="Not active anymore"
+            icon={<BlockIcon sx={{ fontSize: 32 }} />}
+            iconBg="rgba(239, 68, 68, 0.15)"
+            iconColor="#ef4444"
+            liquidGlassSettings={liquidGlassSettings}
+            isDarkMode={isDarkMode}
+          />
+        </Box>
+
+        {/* Search & Filter Bar - Floating Design */}
+        <Box mb={4}>
+          <Card
+            sx={{
+              borderRadius: 4,
+              overflow: 'hidden',
+              background: isDarkMode ? 'rgba(30, 41, 59, 0.8)' : 'rgba(255, 255, 255, 0.9)',
+              backdropFilter: 'blur(20px)',
+              WebkitBackdropFilter: 'blur(20px)',
+              border: '1px solid rgba(255, 255, 255, 0.3)',
+              boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.08)',
             }}
           >
-            <Tab 
-              icon={<GroupIcon />}
-              iconPosition="start"
-              label={
-                <Box display="flex" alignItems="center" gap={1}>
-                  <span>All</span>
-                  <Chip 
-                    label={getStatusCount('active') + getStatusCount('inactive') + getStatusCount('canceled')}
-                    size="small"
-                    sx={{
-                      height: 20,
-                      fontSize: '0.7rem',
-                      fontWeight: 600,
-                      bgcolor: tabValue === 0 ? 'primary.50' : 'action.selected',
-                      color: tabValue === 0 ? 'primary.main' : 'text.secondary',
-                    }}
-                  />
-                </Box>
-              }
-              {...a11yProps(0)}
+            <FilterBar
+              searchValue={searchInput}
+              onSearchChange={(value) => {
+                setSearchInput(value);
+                if (value.trim() === '') {
+                  handleFilterChange({ search: '' });
+                }
+              }}
+              onSearch={(value) => {
+                if (!value || value.trim() === '') {
+                  setSearchInput('');
+                  handleFilterChange({ search: '' });
+                } else {
+                  handleFilterChange({ search: value });
+                }
+              }}
+              onClear={() => {
+                setSearchInput('');
+                handleFilterChange({ search: '' });
+              }}
+              onRefresh={refetch}
+              searchPlaceholder="Search customers by name, email..."
+              loading={loading}
               sx={{
-                textTransform: 'none',
-                minHeight: 48,
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: 3,
+                  bgcolor: isDarkMode ? 'rgba(51, 65, 85, 0.5)' : 'rgba(255, 255, 255, 0.8)',
+                },
               }}
             />
-            <Tab 
-              icon={<CheckCircleIcon color={tabValue === 1 ? 'success' : 'inherit'} />}
-              iconPosition="start"
-              label={
-                <Box display="flex" alignItems="center" gap={1}>
-                  <span>Active</span>
-                  <Chip 
-                    label={getStatusCount('active')}
-                    size="small"
-                    sx={{
-                      height: 20,
-                      fontSize: '0.7rem',
-                      fontWeight: 600,
-                      bgcolor: tabValue === 1 ? 'success.50' : 'action.selected',
-                      color: tabValue === 1 ? 'success.main' : 'text.secondary',
-                    }}
-                  />
-                </Box>
-              }
-              {...a11yProps(1)}
-              sx={{
-                textTransform: 'none',
-                minHeight: 48,
-                color: tabValue === 1 ? 'success.main' : 'inherit',
-              }}
-            />
-            <Tab 
-              icon={<AccessTimeIcon color={tabValue === 2 ? 'warning' : 'inherit'} />}
-              iconPosition="start"
-              label={
-                <Box display="flex" alignItems="center" gap={1}>
-                  <span>Inactive</span>
-                  <Chip 
-                    label={getStatusCount('inactive')}
-                    size="small"
-                    sx={{
-                      height: 20,
-                      fontSize: '0.7rem',
-                      fontWeight: 600,
-                      bgcolor: tabValue === 2 ? 'warning.50' : 'action.selected',
-                      color: tabValue === 2 ? 'warning.dark' : 'text.secondary',
-                    }}
-                  />
-                </Box>
-              }
-              {...a11yProps(2)}
-              sx={{
-                textTransform: 'none',
-                minHeight: 48,
-                color: tabValue === 2 ? 'warning.dark' : 'inherit',
-              }}
-            />
-            <Tab 
-              icon={<BlockIcon color={tabValue === 3 ? 'error' : 'inherit'} />}
-              iconPosition="start"
-              label={
-                <Box display="flex" alignItems="center" gap={1}>
-                  <span>Canceled</span>
-                  <Chip 
-                    label={getStatusCount('canceled')}
-                    size="small"
-                    sx={{
-                      height: 20,
-                      fontSize: '0.7rem',
-                      fontWeight: 600,
-                      bgcolor: tabValue === 3 ? 'error.50' : 'action.selected',
-                      color: tabValue === 3 ? 'error.main' : 'text.secondary',
-                    }}
-                  />
-                </Box>
-              }
-              {...a11yProps(3)}
-              sx={{
-                textTransform: 'none',
-                minHeight: 48,
-                color: tabValue === 3 ? 'error.main' : 'inherit',
-              }}
-            />
-          </Tabs>
+          </Card>
         </Box>
 
-      {/* Bulk Actions Bar */}
-      {selected.length > 0 && (
-        <Paper 
-          sx={{ 
-            p: 2, 
-            mb: 2, 
-            borderRadius: 2, 
-            background: theme.palette.primary.main,
-            color: 'white',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            animation: 'slideDown 0.3s ease',
-            position: 'sticky',
-            top: 0,
-            zIndex: 1000,
-            boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
-          }}
-        >
-          <Typography variant="body1" sx={{ fontWeight: 500 }}>
-            {selected.length} {selected.length === 1 ? 'customer' : 'customers'} selected
-          </Typography>
-          <Box display="flex" gap={1}>
-            <Button 
-              size="small" 
-              variant="contained"
-              startIcon={<CheckCircleIcon />}
-              sx={{ 
-                bgcolor: '#28a745', 
-                color: 'white',
-                fontWeight: 600,
-                px: 2,
-                '&:hover': { 
-                  bgcolor: '#218838',
-                  transform: 'translateY(-1px)',
-                  boxShadow: '0 4px 8px rgba(40, 167, 69, 0.3)'
-                }
-              }}
-              onClick={async () => {
-                const result = await Swal.fire({
-                  title: 'Mark as Active',
-                  text: `Are you sure you want to mark ${selected.length} customer(s) as active?`,
-                  icon: 'question',
-                  showCancelButton: true,
-                  confirmButtonColor: '#28a745',
-                  cancelButtonColor: '#6c757d',
-                  confirmButtonText: 'Yes, mark as active'
-                });
-                
-                if (result.isConfirmed) {
-                  try {
-                    for (const customerId of selected) {
-                      const customer = customers.find(c => c.customerId === customerId);
-                      if (customer) {
-                        await updateCustomer(customerId, {
-                          customerName: customer.customerName,
-                          customerLastName: customer.customerLastName,
-                          customerEmail: customer.customerEmail,
-                          customerPhone1: customer.customerPhone1,
-                          customerPhone2: customer.customerPhone2,
-                          customerFacebook: customer.customerFacebook,
-                          customerInstagram: customer.customerInstagram,
-                          customerTikTok: customer.customerTikTok,
-                          customerLine: customer.customerLine,
-                          customerX: customer.customerX,
-                          customerAddress: customer.customerAddress,
-                          status: 'active',
-                          isActive: true
-                        });
-                      }
-                    }
-                    await Swal.fire({
-                      icon: 'success',
-                      title: 'Success',
-                      text: `${selected.length} customer(s) marked as active`,
-                      timer: 2000,
-                      timerProgressBar: true,
-                      showConfirmButton: false
-                    });
-                    setSelected([]);
-                    refetch();
-                  } catch (error) {
-                    await Swal.fire({
-                      icon: 'error',
-                      title: 'Error',
-                      text: 'Failed to update customers',
-                      confirmButtonColor: '#d33'
-                    });
+        {/* Tabs - iOS Segmented Control Style */}
+        <Box mb={4}>
+          <Box
+            sx={{
+              display: 'inline-flex',
+              background: isDarkMode ? 'rgba(51, 65, 85, 0.6)' : 'rgba(230, 230, 235, 0.6)',
+              borderRadius: 3,
+              p: 1,
+              backdropFilter: 'blur(12px)',
+              WebkitBackdropFilter: 'blur(12px)',
+            }}
+          >
+            {[
+              { label: 'All', icon: GroupIcon, count: totalCustomers },
+              { label: 'Active', icon: CheckCircleIcon, count: getStatusCount('active') },
+              { label: 'Inactive', icon: AccessTimeIcon, count: getStatusCount('inactive') },
+              { label: 'Canceled', icon: BlockIcon, count: getStatusCount('canceled') },
+            ].map((tab, index) => {
+              const isActive = tabValue === index;
+              const getIconColor = () => {
+                if (index === 0) return 'primary';
+                if (index === 1) return 'success';
+                if (index === 2) return 'warning';
+                return 'error';
+              };
+              
+              return (
+                <Button
+                  key={tab.label}
+                  onClick={() => setTabValue(index)}
+                  startIcon={<tab.icon fontSize="small" color={isActive ? getIconColor() : 'inherit'} />}
+                  endIcon={
+                    <Chip
+                      label={tab.count}
+                      size="small"
+                      sx={{
+                        ml: 0.5,
+                        height: 20,
+                        fontSize: '0.7rem',
+                        fontWeight: 600,
+                        bgcolor: isActive ? 'rgba(255,255,255,0.3)' : 'transparent',
+                        color: isActive ? 'inherit' : 'text.secondary',
+                        minWidth: 24,
+                      }}
+                    />
                   }
-                }
-              }}
-            >
-              Mark Active
-            </Button>
-            <Button 
-              size="small" 
-              variant="contained"
-              startIcon={<PauseCircleOutlineIcon />}
-              sx={{ 
-                bgcolor: '#ffc107', 
-                color: '#212529',
-                fontWeight: 600,
-                px: 2,
-                '&:hover': { 
-                  bgcolor: '#e0a800',
-                  transform: 'translateY(-1px)',
-                  boxShadow: '0 4px 8px rgba(255, 193, 7, 0.3)'
-                }
-              }}
-              onClick={async () => {
-                const result = await Swal.fire({
-                  title: 'Mark as Inactive',
-                  text: `Are you sure you want to mark ${selected.length} customer(s) as inactive?`,
-                  icon: 'question',
-                  showCancelButton: true,
-                  confirmButtonColor: '#ffc107',
-                  cancelButtonColor: '#6c757d',
-                  confirmButtonText: 'Yes, mark as inactive'
-                });
-                
-                if (result.isConfirmed) {
-                  try {
-                    for (const customerId of selected) {
-                      const customer = customers.find(c => c.customerId === customerId);
-                      if (customer) {
-                        await updateCustomer(customerId, {
-                          customerName: customer.customerName,
-                          customerLastName: customer.customerLastName,
-                          customerEmail: customer.customerEmail,
-                          customerPhone1: customer.customerPhone1,
-                          customerPhone2: customer.customerPhone2,
-                          customerFacebook: customer.customerFacebook,
-                          customerInstagram: customer.customerInstagram,
-                          customerTikTok: customer.customerTikTok,
-                          customerLine: customer.customerLine,
-                          customerX: customer.customerX,
-                          customerAddress: customer.customerAddress,
-                          status: 'inactive',
-                          isActive: false
-                        });
-                      }
-                    }
-                    await Swal.fire({
-                      icon: 'success',
-                      title: 'Success',
-                      text: `${selected.length} customer(s) marked as inactive`,
-                      timer: 2000,
-                      timerProgressBar: true,
-                      showConfirmButton: false
-                    });
-                    setSelected([]);
-                    refetch();
-                  } catch (error) {
-                    await Swal.fire({
-                      icon: 'error',
-                      title: 'Error',
-                      text: 'Failed to update customers',
-                      confirmButtonColor: '#d33'
-                    });
+                  sx={{
+                    borderRadius: 2,
+                    px: 3,
+                    py: 1.5,
+                    minHeight: 44,
+                    minWidth: 'auto',
+                    mx: 0.5,
+                    textTransform: 'none',
+                    fontWeight: isActive ? 600 : 500,
+                    color: isActive ? 'primary.main' : 'text.secondary',
+                    background: isActive ? (isDarkMode ? 'rgba(51, 65, 85, 0.8)' : 'rgba(255, 255, 255, 0.8)') : 'transparent',
+                    boxShadow: isActive ? '0 2px 8px rgba(0,0,0,0.08)' : 'none',
+                    transition: 'all 0.2s ease',
+                    '&:hover': {
+                      background: isDarkMode ? 'rgba(51, 65, 85, 0.5)' : 'rgba(255, 255, 255, 0.5)',
+                    },
+                  }}
+                >
+                  {tab.label}
+                </Button>
+              );
+            })}
+          </Box>
+        </Box>
+
+        {/* Bulk Actions Bar */}
+        {selected.length > 0 && (
+          <Paper 
+            sx={{ 
+              p: 2, 
+              mb: 3, 
+              borderRadius: 3, 
+              background: `linear-gradient(135deg, ${preset.primary}, ${preset.secondary})`,
+              color: 'white',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              animation: 'slideDown 0.3s ease',
+              position: 'sticky',
+              top: 0,
+              zIndex: 1000,
+              boxShadow: '0 8px 24px rgba(0,0,0,0.15)'
+            }}
+          >
+            <Typography variant="body1" sx={{ fontWeight: 600 }}>
+              {selected.length} {selected.length === 1 ? 'customer' : 'customers'} selected
+            </Typography>
+            <Box display="flex" gap={1}>
+              <Button 
+                size="small" 
+                variant="contained"
+                startIcon={<CheckCircleIcon />}
+                sx={{ 
+                  bgcolor: 'rgba(255,255,255,0.2)', 
+                  color: 'white',
+                  fontWeight: 600,
+                  px: 2,
+                  '&:hover': { 
+                    bgcolor: 'rgba(255,255,255,0.3)',
+                    transform: 'translateY(-1px)',
                   }
-                }
-              }}
-            >
-              Mark Inactive
-            </Button>
-            <Button
-              size="small"
-              variant="contained"
-              startIcon={<CancelIcon />}
-              sx={{
-                bgcolor: '#000000',
-                color: 'white',
-                fontWeight: 600,
-                px: 2,
-                '&:hover': {
-                  bgcolor: '#333333',
-                  transform: 'translateY(-1px)',
-                  boxShadow: '0 4px 8px rgba(0, 0, 0, 0.3)'
-                }
-              }}
-              onClick={async () => {
-                const result = await Swal.fire({
-                  title: 'Mark as Canceled',
-                  text: `Are you sure you want to mark ${selected.length} customer(s) as canceled?`,
-                  icon: 'warning',
-                  showCancelButton: true,
-                  confirmButtonColor: '#000000',
-                  cancelButtonColor: '#6c757d',
-                  confirmButtonText: 'Yes, mark as canceled'
-                });
-
-                if (result.isConfirmed) {
-                  try {
-                    for (const customerId of selected) {
-                      const customer = customers.find(c => c.customerId === customerId);
-                      if (customer) {
-                        await updateCustomer(customerId, {
-                          customerName: customer.customerName,
-                          customerLastName: customer.customerLastName,
-                          customerEmail: customer.customerEmail,
-                          customerPhone1: customer.customerPhone1,
-                          customerPhone2: customer.customerPhone2,
-                          customerFacebook: customer.customerFacebook,
-                          customerInstagram: customer.customerInstagram,
-                          customerTikTok: customer.customerTikTok,
-                          customerLine: customer.customerLine,
-                          customerX: customer.customerX,
-                          customerAddress: customer.customerAddress,
-                          status: 'canceled',
-                          isActive: false
-                        });
+                }}
+                onClick={async () => {
+                  const result = await Swal.fire({
+                    title: 'Mark as Active',
+                    text: `Are you sure you want to mark ${selected.length} customer(s) as active?`,
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonColor: '#28a745',
+                    cancelButtonColor: '#6c757d',
+                    confirmButtonText: 'Yes, mark as active'
+                  });
+                  
+                  if (result.isConfirmed) {
+                    try {
+                      for (const customerId of selected) {
+                        const customer = customers.find(c => c.customerId === customerId);
+                        if (customer) {
+                          await updateCustomer(customerId, {
+                            customerName: customer.customerName,
+                            customerLastName: customer.customerLastName,
+                            customerEmail: customer.customerEmail,
+                            customerPhone1: customer.customerPhone1,
+                            customerPhone2: customer.customerPhone2,
+                            customerFacebook: customer.customerFacebook,
+                            customerInstagram: customer.customerInstagram,
+                            customerTikTok: customer.customerTikTok,
+                            customerLine: customer.customerLine,
+                            customerX: customer.customerX,
+                            customerAddress: customer.customerAddress,
+                            status: 'active',
+                            isActive: true
+                          });
+                        }
                       }
+                      await Swal.fire({
+                        icon: 'success',
+                        title: 'Success',
+                        text: `${selected.length} customer(s) marked as active`,
+                        timer: 2000,
+                        timerProgressBar: true,
+                        showConfirmButton: false
+                      });
+                      setSelected([]);
+                      refetch();
+                    } catch (error) {
+                      await Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'Failed to update customers',
+                        confirmButtonColor: '#d33'
+                      });
                     }
-                    await Swal.fire({
-                      icon: 'success',
-                      title: 'Success',
-                      text: `${selected.length} customer(s) marked as canceled`,
-                      timer: 2000,
-                      timerProgressBar: true,
-                      showConfirmButton: false
-                    });
-                    setSelected([]);
-                    refetch();
-                  } catch (error) {
-                    await Swal.fire({
-                      icon: 'error',
-                      title: 'Error',
-                      text: 'Failed to update customers',
-                      confirmButtonColor: '#d33'
-                    });
                   }
-                }
-              }}
-            >
-              Mark Canceled
-            </Button>
-            <Button
-              size="small"
-              variant="contained"
-              startIcon={<BlockIcon />}
-              sx={{
-                bgcolor: '#dc3545',
-                color: 'white',
-                fontWeight: 600,
-                px: 2,
-                '&:hover': {
-                  bgcolor: '#c82333',
-                  transform: 'translateY(-1px)',
-                  boxShadow: '0 4px 8px rgba(220, 53, 69, 0.3)'
-                }
-              }}
-              onClick={async () => {
-                const result = await Swal.fire({
-                  title: 'Delete Customers',
-                  text: `Are you sure you want to delete ${selected.length} customer(s)? This action cannot be undone and will also delete their profile images.`,
-                  icon: 'warning',
-                  showCancelButton: true,
-                  confirmButtonColor: '#dc3545',
-                  cancelButtonColor: '#6c757d',
-                  confirmButtonText: 'Yes, delete',
-                  cancelButtonText: 'Cancel',
-                });
-
-                if (result.isConfirmed) {
-                  try {
-                    let successCount = 0;
-                    let failCount = 0;
-
-                    for (const customerId of selected) {
-                      const deleteResult = await deleteCustomer(customerId);
-                      if (deleteResult.success) {
-                        successCount++;
-                      } else {
-                        failCount++;
+                }}
+              >
+                Mark Active
+              </Button>
+              <Button 
+                size="small" 
+                variant="contained"
+                startIcon={<AccessTimeIcon />}
+                sx={{ 
+                  bgcolor: 'rgba(255,255,255,0.2)', 
+                  color: 'white',
+                  fontWeight: 600,
+                  px: 2,
+                  '&:hover': { 
+                    bgcolor: 'rgba(255,255,255,0.3)',
+                    transform: 'translateY(-1px)',
+                  }
+                }}
+                onClick={async () => {
+                  const result = await Swal.fire({
+                    title: 'Mark as Inactive',
+                    text: `Are you sure you want to mark ${selected.length} customer(s) as inactive?`,
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonColor: '#ffc107',
+                    cancelButtonColor: '#6c757d',
+                    confirmButtonText: 'Yes, mark as inactive'
+                  });
+                  
+                  if (result.isConfirmed) {
+                    try {
+                      for (const customerId of selected) {
+                        const customer = customers.find(c => c.customerId === customerId);
+                        if (customer) {
+                          await updateCustomer(customerId, {
+                            customerName: customer.customerName,
+                            customerLastName: customer.customerLastName,
+                            customerEmail: customer.customerEmail,
+                            customerPhone1: customer.customerPhone1,
+                            customerPhone2: customer.customerPhone2,
+                            customerFacebook: customer.customerFacebook,
+                            customerInstagram: customer.customerInstagram,
+                            customerTikTok: customer.customerTikTok,
+                            customerLine: customer.customerLine,
+                            customerX: customer.customerX,
+                            customerAddress: customer.customerAddress,
+                            status: 'inactive',
+                            isActive: false
+                          });
+                        }
                       }
+                      await Swal.fire({
+                        icon: 'success',
+                        title: 'Success',
+                        text: `${selected.length} customer(s) marked as inactive`,
+                        timer: 2000,
+                        timerProgressBar: true,
+                        showConfirmButton: false
+                      });
+                      setSelected([]);
+                      refetch();
+                    } catch (error) {
+                      await Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'Failed to update customers',
+                        confirmButtonColor: '#d33'
+                      });
                     }
+                  }
+                }}
+              >
+                Mark Inactive
+              </Button>
+              <Button
+                size="small"
+                variant="contained"
+                startIcon={<BlockIcon />}
+                sx={{
+                  bgcolor: 'rgba(255,255,255,0.2)',
+                  color: 'white',
+                  fontWeight: 600,
+                  px: 2,
+                  '&:hover': {
+                    bgcolor: 'rgba(255,255,255,0.3)',
+                    transform: 'translateY(-1px)',
+                  }
+                }}
+                onClick={async () => {
+                  const result = await Swal.fire({
+                    title: 'Delete Customers',
+                    text: `Are you sure you want to delete ${selected.length} customer(s)?`,
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#dc3545',
+                    cancelButtonColor: '#6c757d',
+                    confirmButtonText: 'Yes, delete',
+                  });
 
-                    if (failCount === 0) {
+                  if (result.isConfirmed) {
+                    try {
+                      for (const customerId of selected) {
+                        await deleteCustomer(customerId);
+                      }
                       await Swal.fire({
                         icon: 'success',
                         title: 'Deleted',
-                        text: `${successCount} customer(s) deleted successfully`,
+                        text: `${selected.length} customer(s) deleted`,
                         timer: 2000,
                         timerProgressBar: true,
                         showConfirmButton: false,
                       });
-                    } else {
+                      setSelected([]);
+                      refetch();
+                    } catch (error) {
                       await Swal.fire({
-                        icon: 'warning',
-                        title: 'Partial Success',
-                        text: `${successCount} deleted, ${failCount} failed`,
-                        confirmButtonColor: '#d33',
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'Failed to delete customers',
+                        confirmButtonColor: '#d33'
                       });
                     }
-
-                    setSelected([]);
-                    refetch();
-                  } catch (error) {
-                    await Swal.fire({
-                      icon: 'error',
-                      title: 'Error',
-                      text: 'Failed to delete customers',
-                      confirmButtonColor: '#d33'
-                    });
                   }
-                }
-              }}
-            >
-              Delete
-            </Button>
-            <Button
-              size="small"
-              variant="text"
-              sx={{
-                color: 'white',
-                borderColor: 'rgba(255,255,255,0.5)',
-                borderWidth: 1,
-                borderStyle: 'solid',
-                '&:hover': {
-                  bgcolor: 'rgba(255,255,255,0.1)',
-                  borderColor: 'white'
-                }
-              }}
-              onClick={() => setSelected([])}
-            >
-              Clear Selection
-            </Button>
-          </Box>
-        </Paper>
-      )}
+                }}
+              >
+                Delete
+              </Button>
+              <Button
+                size="small"
+                variant="text"
+                sx={{
+                  color: 'white',
+                  borderColor: 'rgba(255,255,255,0.5)',
+                  borderWidth: 1,
+                  borderStyle: 'solid',
+                  '&:hover': {
+                    bgcolor: 'rgba(255,255,255,0.1)',
+                    borderColor: 'white'
+                  }
+                }}
+                onClick={() => setSelected([])}
+              >
+                Clear
+              </Button>
+            </Box>
+          </Paper>
+        )}
 
-      {/* Customer List */}
-      <Card sx={{ borderRadius: 3, overflow: 'hidden', boxShadow: '0 2px 10px rgba(0,0,0,0.04)' }}>
-        <TableContainer>
-          <Table sx={{ minWidth: 1050 }}>
-            <TableHead>
-              <TableRow>
-                <TableCell padding="checkbox" sx={{ pl: 3 }}>
-                  <Checkbox
-                    color="primary"
-                    indeterminate={selected.length > 0 && selected.length < filteredCustomers.length}
-                    checked={filteredCustomers.length > 0 && selected.length === filteredCustomers.length}
-                    onChange={handleSelectAllClick}
-                    inputProps={{ 'aria-label': 'select all customers' }}
-                    sx={{
-                      '&.Mui-checked': {
-                        color: theme.palette.primary.main,
-                      },
-                    }}
-                  />
-                </TableCell>
-                <TableCell sx={{ fontWeight: 600, color: 'text.secondary' }}>CUSTOMER</TableCell>
-                <TableCell sx={{ fontWeight: 600, color: 'text.secondary' }}>STATUS</TableCell>
-                <TableCell sx={{ fontWeight: 600, color: 'text.secondary' }}>ENGAGEMENT</TableCell>
-                <TableCell sx={{ fontWeight: 600, color: 'text.secondary' }}>CONTACT</TableCell>
-                <TableCell sx={{ fontWeight: 600, color: 'text.secondary' }}>JOINED</TableCell>
-                <TableCell align="right" sx={{ pr: 3, fontWeight: 600, color: 'text.secondary' }}>ACTIONS</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {loading && filteredCustomers.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
-                    <CircularProgress />
-                    <Typography variant="body2" color="text.secondary" mt={1}>
-                      Loading customers...
-                    </Typography>
-                  </TableCell>
-                </TableRow>
-              ) : filteredCustomers.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
-                    <Box sx={{ maxWidth: 360, mx: 'auto', textAlign: 'center' }}>
-                      <GroupIcon sx={{ fontSize: 64, color: 'text.disabled', mb: 2, opacity: 0.5 }} />
-                      <Typography variant="h6" gutterBottom>
-                        No customers found
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary" mb={3}>
-                        {searchInput ? 'Try adjusting your search or filter criteria' : 'Get started by adding your first customer'}
-                      </Typography>
-                      <Button
-                        variant="contained"
-                        color="primary"
-                        startIcon={<PersonAddIcon />}
-                        onClick={() => handleOpenForm()}
-                        sx={{ borderRadius: 2, textTransform: 'none' }}
-                      >
-                        Add Your First Customer
-                      </Button>
-                    </Box>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                filteredCustomers.map((customer) => {
-                  const isItemSelected = isSelected(customer.customerId);
-                  const engagementScore = getEngagementScore(customer);
-                  
-                  return (
-                    <TableRow
-                      hover
-                      key={customer.customerId}
-                      selected={isItemSelected}
-                      onClick={(event) => handleClick(event, customer.customerId)}
-                      sx={{
-                        cursor: 'pointer',
-                        '&:hover': {
-                          '& .customer-actions': {
-                            opacity: 1,
-                            visibility: 'visible',
-                          },
-                        },
-                      }}
-                    >
-                      <TableCell padding="checkbox" onClick={(e) => e.stopPropagation()} sx={{ pl: 3 }}>
+        {/* Customer List - Card-based Layout */}
+        <Box>
+          {loading && filteredCustomers.length === 0 ? (
+            <Box textAlign="center" py={8}>
+              <CircularProgress size={40} sx={{ color: '#10b981' }} />
+              <Typography variant="body2" color="text.secondary" mt={2}>
+                Loading customers...
+              </Typography>
+            </Box>
+          ) : filteredCustomers.length === 0 ? (
+            <Card
+              sx={{
+                borderRadius: 4,
+                p: 8,
+                textAlign: 'center',
+                background: isDarkMode ? 'rgba(30, 41, 59, 0.5)' : 'rgba(255, 255, 255, 0.8)',
+                backdropFilter: 'blur(12px)',
+              }}
+            >
+              <GroupIcon sx={{ fontSize: 80, color: 'text.disabled', mb: 3, opacity: 0.3 }} />
+              <Typography variant="h5" fontWeight={600} gutterBottom>
+                No customers found
+              </Typography>
+              <Typography variant="body1" color="text.secondary" mb={3}>
+                {searchInput ? 'Try adjusting your search criteria' : 'Get started by adding your first customer'}
+              </Typography>
+              <Button
+                variant="contained"
+                startIcon={<PersonAddIcon />}
+                onClick={() => handleOpenForm()}
+                sx={{
+                  borderRadius: 3,
+                  textTransform: 'none',
+                  px: 4,
+                  py: 1.5,
+                  fontWeight: 600,
+                  background: `linear-gradient(135deg, ${preset.primary}, ${preset.secondary})`,
+                }}
+              >
+                Add Your First Customer
+              </Button>
+            </Card>
+          ) : (
+            filteredCustomers.map((customer) => {
+              const engagementScore = getEngagementScore(customer);
+              const glassStyles = getGlassCardStyles(liquidGlassSettings, isDarkMode);
+              const isItemSelected = isSelected(customer.customerId);
+              
+              return (
+                <Card
+                  key={customer.customerId}
+                  onClick={(e) => handleClick(e, customer.customerId)}
+                  sx={{
+                    ...glassStyles,
+                    borderRadius: 3,
+                    mb: 2,
+                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                    cursor: 'pointer',
+                    border: isItemSelected ? `2px solid ${theme.palette.primary.main}` : '1px solid rgba(255,255,255,0.5)',
+                    '&:hover': {
+                      transform: 'translateX(4px)',
+                      boxShadow: '0 8px 32px 0 rgba(16, 185, 129, 0.15)',
+                    },
+                  }}
+                >
+                  <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
+                    <Box display="flex" alignItems="center" gap={3} flexWrap="wrap">
+                      {/* Checkbox */}
+                      <Box onClick={(e) => e.stopPropagation()}>
                         <Checkbox
                           color="primary"
                           checked={isItemSelected}
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            handleClick(event, customer.customerId);
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleClick(e, customer.customerId);
                           }}
-                          sx={{
-                            '&.Mui-checked': {
-                              color: theme.palette.primary.main,
-                            },
-                          }}
+                          sx={{ '&.Mui-checked': { color: theme.palette.primary.main } }}
                         />
-                      </TableCell>
-                      <TableCell>
-                        <Box display="flex" alignItems="center" gap={2}>
-                          <Badge
-                            overlap="circular"
-                            anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-                            badgeContent={
-                              <Box
-                                sx={{
-                                  width: 12,
-                                  height: 12,
-                                  borderRadius: '50%',
-                                  bgcolor: 
-                                    customer.status === 'active' ? '#10b981' :
-                                    customer.status === 'inactive' ? '#f59e0b' : '#ef4444',
-                                  border: `2px solid ${theme.palette.background.paper}`,
-                                }}
-                              />
-                            }
-                          >
-                            <Avatar
-                              src={customer.customerImageUrl || undefined}
-                              imgProps={{ crossOrigin: 'anonymous' }}
-                              alt={customer.fullName || customer.customerName}
-                              onError={(e) => {
-                                const target = e.target as HTMLImageElement;
-                                if (target) target.src = '';
-                              }}
-                              sx={{
-                                width: 40,
-                                height: 40,
-                                bgcolor: 'primary.light',
-                                color: 'primary.contrastText',
-                                '& .MuiAvatar-img': {
-                                  objectFit: 'cover'
-                                }
-                              }}
-                            >
-                              {(!customer.customerImageUrl || customer.customerImageUrl === '') && (
-                                <>
-                                  {customer.customerName.charAt(0).toUpperCase()}
-                                  {customer.customerLastName?.charAt(0).toUpperCase() || ''}
-                                </>
-                              )}
-                            </Avatar>
-                          </Badge>
-                          <Box>
-                            <Box display="flex" alignItems="center" gap={1}>
-                              <Typography variant="subtitle2" fontWeight={500}>
-                                {customer.fullName ||
-                                  `${customer.customerName} ${customer.customerLastName || ''}`.trim()}
-                              </Typography>
-                              {customer.status === 'active' && (
-                                <Tooltip title="Verified" arrow>
-                                  <VerifiedIcon 
-                                    fontSize="small" 
-                                    sx={{ 
-                                      color: '#10b981',
-                                      fontSize: 16,
-                                    }} 
-                                  />
-                                </Tooltip>
-                              )}
-                            </Box>
-                            <Box display="flex" alignItems="center" gap={0.5} mt={0.5}>
-                              <EmailIcon 
-                                color="action" 
-                                fontSize="small" 
-                                sx={{ 
-                                  fontSize: 14,
-                                  opacity: 0.7,
-                                }} 
-                              />
-                              <Typography variant="caption" color="text.secondary" noWrap sx={{ maxWidth: 180 }}>
-                                {customer.customerEmail}
-                              </Typography>
-                            </Box>
-                          </Box>
-                        </Box>
-                      </TableCell>
-                      <TableCell>
-                        <Box display="flex" alignItems="center">
-                          <StatusBadge status={customer.status as 'active' | 'inactive' | 'canceled'} />
-                          <Typography 
-                            variant="body2" 
+                      </Box>
+                      
+                      {/* Avatar with Status Badge */}
+                      <Badge
+                        overlap="circular"
+                        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                        badgeContent={
+                          <Box
                             sx={{
-                              fontWeight: 500,
-                              color: 
+                              width: 14,
+                              height: 14,
+                              borderRadius: '50%',
+                              bgcolor: 
                                 customer.status === 'active' ? '#10b981' :
                                 customer.status === 'inactive' ? '#f59e0b' : '#ef4444',
-                              textTransform: 'capitalize',
+                              border: `3px solid ${isDarkMode ? '#1e293b' : '#fff'}`,
+                              boxShadow: customer.status === 'active' ? '0 0 8px rgba(16, 185, 129, 0.5)' : 'none',
                             }}
-                          >
-                            {customer.status}
-                          </Typography>
-                        </Box>
-                      </TableCell>
-                      <TableCell>
-                        <Box sx={{ width: 100 }}>
-                          <Box display="flex" alignItems="center" justifyContent="space-between">
-                            <Typography variant="body2" color="text.secondary" fontSize="0.75rem">
-                              Engagement
-                            </Typography>
-                            <Typography 
-                              variant="body2" 
-                              fontWeight={600}
-                              sx={{
-                                color: engagementScore > 70 ? '#10b981' :
-                                  engagementScore > 40 ? '#f59e0b' : '#ef4444'
-                              }}
-                            >
-                              {engagementScore}%
-                            </Typography>
-                          </Box>
-                          <EngagementMeter value={engagementScore} />
-                        </Box>
-                      </TableCell>
-                      <TableCell>
-                        <Box display="flex" alignItems="center" gap={1}>
-                          {customer.customerPhone1 ? (
-                            <>
-                              <PhoneIcon 
-                                color="action" 
-                                fontSize="small" 
-                                sx={{ 
-                                  fontSize: 14,
-                                  opacity: 0.7,
-                                }} 
-                              />
-                              <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
-                                {customer.customerPhone1}
-                              </Typography>
-                            </>
-                          ) : (
-                            <Typography variant="body2" color="text.disabled">
-                              -
-                            </Typography>
-                          )}
-                        </Box>
-                      </TableCell>
-                      <TableCell>
-                        <Box display="flex" alignItems="center" gap={1}>
-                          <CalendarIcon 
-                            color="action" 
-                            fontSize="small" 
-                            sx={{ 
-                              fontSize: 14,
-                              opacity: 0.7,
-                            }} 
                           />
-                          <Typography variant="body2">
-                            {new Date(customer.createdAt).toLocaleDateString('en-US', {
-                              year: 'numeric',
-                              month: 'short',
-                              day: 'numeric'
-                            })}
-                          </Typography>
-                        </Box>
-                      </TableCell>
-                      <TableCell align="right" sx={{ pr: 3 }}>
-                        <Box 
-                          className="customer-actions"
+                        }
+                      >
+                        <Avatar
+                          src={customer.customerImageUrl || undefined}
+                          imgProps={{ crossOrigin: 'anonymous' }}
+                          alt={customer.fullName || customer.customerName}
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            if (target) target.src = '';
+                          }}
                           sx={{
-                            display: 'flex',
-                            justifyContent: 'flex-end',
-                            alignItems: 'center',
-                            gap: 0.5,
-                            opacity: 0,
-                            visibility: 'hidden',
-                            transition: 'all 0.2s ease',
-                            '&:hover': {
-                              opacity: '1 !important',
-                              visibility: 'visible !important',
-                            },
+                            width: 52,
+                            height: 52,
+                            bgcolor: 'primary.light',
+                            color: 'primary.contrastText',
+                            fontSize: '1.25rem',
+                            fontWeight: 600,
+                            '& .MuiAvatar-img': { objectFit: 'cover' }
                           }}
                         >
-                          {/* Social Media Icons */}
-                          {customer.customerFacebook && (
-                            <Tooltip title="Facebook" arrow>
-                              <IconButton
-                                size="small"
-                                href={customer.customerFacebook}
-                                target="_blank"
-                                onClick={(e) => e.stopPropagation()}
-                                sx={{
-                                  bgcolor: '#1877F2',
-                                  color: 'white',
-                                  '&:hover': { bgcolor: '#166FE5' },
-                                  width: 24,
-                                  height: 24
-                                }}
-                              >
-                                <FacebookIcon fontSize="small" />
-                              </IconButton>
+                          {(!customer.customerImageUrl || customer.customerImageUrl === '') && (
+                            <>
+                              {customer.customerName.charAt(0).toUpperCase()}
+                              {customer.customerLastName?.charAt(0).toUpperCase() || ''}
+                            </>
+                          )}
+                        </Avatar>
+                      </Badge>
+                      
+                      {/* Customer Info */}
+                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Box display="flex" alignItems="center" gap={1} mb={0.5}>
+                          <Typography variant="subtitle1" fontWeight={600} noWrap>
+                            {customer.fullName || `${customer.customerName} ${customer.customerLastName || ''}`.trim()}
+                          </Typography>
+                          {customer.status === 'active' && (
+                            <Tooltip title="Verified" arrow>
+                              <CheckCircleIcon fontSize="small" sx={{ color: '#10b981', fontSize: 18 }} />
                             </Tooltip>
                           )}
-                          {customer.customerInstagram && (
-                            <Tooltip title="Instagram" arrow>
-                              <IconButton
-                                size="small"
-                                href={customer.customerInstagram}
-                                target="_blank"
-                                onClick={(e) => e.stopPropagation()}
-                                sx={{
-                                  background: 'radial-gradient(circle at 30% 107%, #fdf497 0%, #fdf497 5%, #fd5949 45%,#d6249f 60%,#285AEB 90%)',
-                                  color: 'white',
-                                  '&:hover': { opacity: 0.9 },
-                                  width: 24,
-                                  height: 24
-                                }}
-                              >
-                                <InstagramIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                          )}
-                          {customer.customerTikTok && (
-                            <Tooltip title="TikTok" arrow>
-                              <IconButton
-                                size="small"
-                                href={customer.customerTikTok}
-                                target="_blank"
-                                onClick={(e) => e.stopPropagation()}
-                                sx={{
-                                  bgcolor: '#000000',
-                                  color: 'white',
-                                  '&:hover': { bgcolor: '#333333' },
-                                  width: 24,
-                                  height: 24
-                                }}
-                              >
-                                <MusicNoteIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                          )}
-                          {customer.customerLine && (
-                            <Tooltip title="Line" arrow>
-                              <IconButton
-                                size="small"
-                                href={`https://line.me/ti/p/${customer.customerLine}`}
-                                target="_blank"
-                                onClick={(e) => e.stopPropagation()}
-                                sx={{
-                                  bgcolor: '#06C755',
-                                  color: 'white',
-                                  '&:hover': { bgcolor: '#05a548' },
-                                  width: 24,
-                                  height: 24
-                                }}
-                              >
-                                <MessageIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                          )}
-                          {customer.customerX && (
-                            <Tooltip title="X (Twitter)" arrow>
-                              <IconButton
-                                size="small"
-                                href={customer.customerX}
-                                target="_blank"
-                                onClick={(e) => e.stopPropagation()}
-                                sx={{
-                                  bgcolor: '#000000',
-                                  color: 'white',
-                                  '&:hover': { bgcolor: '#333333' },
-                                  width: 24,
-                                  height: 24
-                                }}
-                              >
-                                <TwitterIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                          )}
-                          
-                          {/* More Actions Menu */}
-                          <Tooltip title="More actions">
-                            <IconButton 
+                        </Box>
+                        <Box display="flex" alignItems="center" gap={1}>
+                          <EmailIcon fontSize="small" sx={{ color: 'text.secondary', opacity: 0.7 }} />
+                          <Typography variant="body2" color="text.secondary" noWrap sx={{ maxWidth: 200 }}>
+                            {customer.customerEmail}
+                          </Typography>
+                        </Box>
+                      </Box>
+                      
+                      {/* Status Chip */}
+                      <Chip
+                        label={customer.status}
+                        size="small"
+                        sx={{
+                          minWidth: 90,
+                          height: 28,
+                          borderRadius: 2,
+                          fontWeight: 600,
+                          fontSize: '0.75rem',
+                          bgcolor: 
+                            customer.status === 'active' ? 'rgba(16, 185, 129, 0.12)' :
+                            customer.status === 'inactive' ? 'rgba(245, 158, 11, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+                          color: 
+                            customer.status === 'active' ? '#10b981' :
+                            customer.status === 'inactive' ? '#f59e0b' : '#ef4444',
+                          border: `1px solid ${
+                            customer.status === 'active' ? 'rgba(16, 185, 129, 0.3)' :
+                            customer.status === 'inactive' ? 'rgba(245, 158, 11, 0.3)' : 'rgba(239, 68, 68, 0.3)'
+                          }`,
+                        }}
+                      />
+                      
+                      {/* Engagement */}
+                      <Box sx={{ width: 120 }}>
+                        <Box display="flex" alignItems="center" justifyContent="space-between" mb={0.5}>
+                          <Typography variant="caption" color="text.secondary" fontWeight={500}>
+                            Engagement
+                          </Typography>
+                          <Typography 
+                            variant="body2" 
+                            fontWeight={700}
+                            sx={{
+                              color: engagementScore > 70 ? '#10b981' : engagementScore > 40 ? '#f59e0b' : '#ef4444'
+                            }}
+                          >
+                            {engagementScore}%
+                          </Typography>
+                        </Box>
+                        <EngagementMeter value={engagementScore} />
+                      </Box>
+                      
+                      {/* Contact Info */}
+                      <Box display="flex" alignItems="center" gap={1} minWidth={140}>
+                        {customer.customerPhone1 ? (
+                          <>
+                            <PhoneIcon fontSize="small" sx={{ color: 'text.secondary', opacity: 0.7 }} />
+                            <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.875rem' }}>
+                              {customer.customerPhone1}
+                            </Typography>
+                          </>
+                        ) : (
+                          <Typography variant="body2" color="text.disabled">-</Typography>
+                        )}
+                      </Box>
+                      
+                      {/* Joined Date */}
+                      <Box display="flex" alignItems="center" gap={1} minWidth={120}>
+                        <CalendarIcon fontSize="small" sx={{ color: 'text.secondary', opacity: 0.7 }} />
+                        <Typography variant="body2" color="text.secondary">
+                          {new Date(customer.createdAt).toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric'
+                          })}
+                        </Typography>
+                      </Box>
+                      
+                      {/* Social Media & Actions */}
+                      <Box display="flex" alignItems="center" gap={1}>
+                        {customer.customerFacebook && (
+                          <Tooltip title="Facebook" arrow>
+                            <IconButton
                               size="small"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleActionMenuOpen(e, customer);
-                              }}
+                              href={customer.customerFacebook}
+                              target="_blank"
+                              onClick={(e) => e.stopPropagation()}
                               sx={{
-                                '&:hover': {
-                                  bgcolor: 'action.hover',
-                                },
+                                bgcolor: '#1877F2',
+                                color: 'white',
+                                width: 32,
+                                height: 32,
+                                '&:hover': { bgcolor: '#166FE5', transform: 'scale(1.1)' },
+                                transition: 'all 0.2s ease',
                               }}
                             >
-                              <MoreHorizIcon fontSize="small" />
+                              <FacebookIcon fontSize="small" />
                             </IconButton>
                           </Tooltip>
-                        </Box>
-                      </TableCell>
-                    </TableRow>
-                  );
-                }))}
-              {emptyRows > 0 && (
-                <TableRow style={{ height: 53 * emptyRows }}>
-                  <TableCell colSpan={7} />
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
-        <TablePagination
-          rowsPerPageOptions={[10, 25, 50, 100]}
-          component="div"
-          count={total}
-          rowsPerPage={pageSize}
-          page={page - 1}
-          onPageChange={handlePageChangeEvent}
-          onRowsPerPageChange={handleChangeRowsPerPage}
-          labelRowsPerPage="Rows per page:"
-          labelDisplayedRows={({ from, to, count }) => `${from}-${to} of ${count}`}
-        />
-      </Card>
+                        )}
+                        {customer.customerInstagram && (
+                          <Tooltip title="Instagram" arrow>
+                            <IconButton
+                              size="small"
+                              href={customer.customerInstagram}
+                              target="_blank"
+                              onClick={(e) => e.stopPropagation()}
+                              sx={{
+                                background: 'radial-gradient(circle at 30% 107%, #fdf497 0%, #fdf497 5%, #fd5949 45%,#d6249f 60%,#285AEB 90%)',
+                                color: 'white',
+                                width: 32,
+                                height: 32,
+                                '&:hover': { opacity: 0.9, transform: 'scale(1.1)' },
+                                transition: 'all 0.2s ease',
+                              }}
+                            >
+                              <InstagramIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                        {customer.customerTikTok && (
+                          <Tooltip title="TikTok" arrow>
+                            <IconButton
+                              size="small"
+                              href={customer.customerTikTok}
+                              target="_blank"
+                              onClick={(e) => e.stopPropagation()}
+                              sx={{
+                                bgcolor: '#000000',
+                                color: 'white',
+                                width: 32,
+                                height: 32,
+                                '&:hover': { bgcolor: '#333333', transform: 'scale(1.1)' },
+                                transition: 'all 0.2s ease',
+                              }}
+                            >
+                              <MusicNoteIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                        {customer.customerLine && (
+                          <Tooltip title="Line" arrow>
+                            <IconButton
+                              size="small"
+                              href={`https://line.me/ti/p/${customer.customerLine}`}
+                              target="_blank"
+                              onClick={(e) => e.stopPropagation()}
+                              sx={{
+                                bgcolor: '#06C755',
+                                color: 'white',
+                                width: 32,
+                                height: 32,
+                                '&:hover': { bgcolor: '#05a548', transform: 'scale(1.1)' },
+                                transition: 'all 0.2s ease',
+                              }}
+                            >
+                              <MessageIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                        {customer.customerX && (
+                          <Tooltip title="X (Twitter)" arrow>
+                            <IconButton
+                              size="small"
+                              href={customer.customerX}
+                              target="_blank"
+                              onClick={(e) => e.stopPropagation()}
+                              sx={{
+                                bgcolor: '#000000',
+                                color: 'white',
+                                width: 32,
+                                height: 32,
+                                '&:hover': { bgcolor: '#333333', transform: 'scale(1.1)' },
+                                transition: 'all 0.2s ease',
+                              }}
+                            >
+                              <TwitterIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                        <Tooltip title="More actions">
+                          <IconButton 
+                            size="small"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleActionMenuOpen(e, customer);
+                            }}
+                            sx={{
+                              width: 32,
+                              height: 32,
+                              '&:hover': { bgcolor: 'action.hover' },
+                            }}
+                          >
+                            <MoreHorizIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </Box>
+                    </Box>
+                  </CardContent>
+                </Card>
+              );
+            })
+          )}
+        </Box>
+
+        {/* Pagination */}
+        {filteredCustomers.length > 0 && (
+          <Box display="flex" justifyContent="flex-end" mt={4}>
+            <TablePagination
+              rowsPerPageOptions={[10, 25, 50, 100]}
+              component="div"
+              count={total}
+              rowsPerPage={pageSize}
+              page={page - 1}
+              onPageChange={handlePageChangeEvent}
+              onRowsPerPageChange={handleChangeRowsPerPage}
+              labelRowsPerPage="Rows per page:"
+              labelDisplayedRows={({ from, to, count }) => `${from}-${to} of ${count}`}
+              sx={{
+                '& .MuiTablePagination-toolbar': {
+                  borderRadius: 3,
+                  background: isDarkMode ? 'rgba(30, 41, 59, 0.6)' : 'rgba(255, 255, 255, 0.8)',
+                  backdropFilter: 'blur(12px)',
+                  border: '1px solid rgba(255, 255, 255, 0.3)',
+                },
+              }}
+            />
+          </Box>
+        )}
+
+      </Box>
 
       <AddCustomerMenu
         anchorEl={addMenuAnchorEl}
@@ -1564,6 +1290,7 @@ const CustomerPage = () => {
         anchorEl={filterAnchorEl}
         onClose={() => setFilterAnchorEl(null)}
       />
+      
       <ActionMenu
         anchorEl={actionMenuAnchorEl}
         open={Boolean(actionMenuAnchorEl)}
@@ -1582,7 +1309,6 @@ const CustomerPage = () => {
               case 'setInactive':
               case 'setCanceled': {
                 const status = action.replace('set', '').toLowerCase() as CustomerStatus;
-                // Create a clean update object with only the fields we want to update
                 const updateData = {
                   customerName: selectedMember.customerName,
                   customerLastName: selectedMember.customerLastName,
@@ -1608,14 +1334,14 @@ const CustomerPage = () => {
                   timerProgressBar: true,
                   showConfirmButton: false,
                 });
-                refetch(); // Refresh the list to show updated status
+                refetch();
                 break;
               }
 
               case 'delete': {
                 const result = await Swal.fire({
                   title: 'Delete Customer',
-                  text: `Are you sure you want to delete ${selectedMember.fullName || selectedMember.customerName}? This action cannot be undone.`,
+                  text: `Are you sure you want to delete ${selectedMember.fullName || selectedMember.customerName}?`,
                   icon: 'warning',
                   showCancelButton: true,
                   confirmButtonColor: '#d33',
@@ -1675,13 +1401,8 @@ const CustomerPage = () => {
           }
         }}
       />
-
-
-      </Box>
     </Box>
   );
 };
-
-
 
 export default CustomerPage;

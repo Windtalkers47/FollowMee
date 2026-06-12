@@ -1,49 +1,51 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
   Container,
-  Card,
-  CardContent,
-  Avatar,
-  IconButton,
-  useTheme,
-  LinearProgress,
-  Divider,
-  Chip,
-  styled,
+  Grid,
+  CircularProgress,
+  ToggleButtonGroup,
+  ToggleButton,
 } from '@mui/material';
-import Grid from '@mui/material/Grid';
-
 import {
-  Notifications as NotificationsIcon,
-  Settings as SettingsIcon,
-  Logout as LogoutIcon,
-  PostAdd as PostAddIcon,
-  BarChart as BarChartIcon,
   People as PeopleIcon,
-  ThumbUp as ThumbUpIcon,
-  Comment as CommentIcon,
-  Share as ShareIcon,
+  Task as TaskIcon,
+  TrendingUp as TrendingUpIcon,
+  EmojiEvents as EmojiEventsIcon,
+  Add as AddIcon,
+  List as ListIcon,
 } from '@mui/icons-material';
-
-import { Line, Bar } from 'react-chartjs-2';
+import { useNavigate } from 'react-router-dom';
+import { Line, Doughnut } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
   CategoryScale,
   LinearScale,
   PointElement,
   LineElement,
-  BarElement,
+  ArcElement,
   Title,
-  Tooltip,
+  Tooltip as ChartTooltip,
   Legend,
   Filler,
 } from 'chart.js';
-
-import { useAppDispatch, useAppSelector } from '../../store/store';
-import { logout } from '../../store/slices/authSlice';
-
+import { useAppSelector } from '../../store/store';
+import {
+  LiquidGlassCard,
+  StatCard,
+  LeaderboardCard,
+  PendingTasksList,
+} from '../../components/LiquidGlassDashboard';
+import {
+  getDashboardStats,
+  getLeaderboard,
+  getPendingTasks,
+  DashboardStats,
+  LeaderboardData,
+  PendingTask,
+} from '../../services/api/dashboardApi';
+import { gradientPresets } from '../../styles/liquidGlassStyles';
 
 // Register ChartJS components
 ChartJS.register(
@@ -51,423 +53,470 @@ ChartJS.register(
   LinearScale,
   PointElement,
   LineElement,
-  BarElement,
+  ArcElement,
   Title,
-  Tooltip,
+  ChartTooltip,
   Legend,
   Filler
 );
 
-// Styled Components
-const StyledCard = styled(Card)(({ theme }) => ({
-  height: '100%',
-  display: 'flex',
-  flexDirection: 'column',
-  background: 'rgba(255, 255, 255, 0.1)',
-  backdropFilter: 'blur(25px) saturate(200%)',
-  WebkitBackdropFilter: 'blur(25px) saturate(200%)',
-  border: '1px solid rgba(255, 255, 255, 0.2)',
-  boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.37), inset 0 1px 0 0 rgba(255, 255, 255, 0.1)',
-  borderRadius: 4,
-  position: 'relative',
-  overflow: 'hidden',
-  transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-  '&::before': {
-    content: '""',
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: '1px',
-    background: 'linear-gradient(90deg, transparent, rgba(100, 181, 246, 0.6), transparent)',
-    opacity: 0.7,
-  },
-  '&:hover': {
-    transform: 'translateY(-5px) scale(1.02)',
-    boxShadow: '0 12px 40px 0 rgba(31, 38, 135, 0.45), inset 0 1px 0 0 rgba(255, 255, 255, 0.15)',
-  },
-}));
-
-interface StatCardProps {
-  title: string;
-  value: string | number;
-  icon: React.ReactNode;
-  color: string;
-}
-
-const StatCard: React.FC<StatCardProps> = ({ title, value, icon, color }) => (
-  <StyledCard>
-    <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-        <Typography color="textSecondary" variant="subtitle2" gutterBottom>
-          {title}
-        </Typography>
-        <Avatar sx={{ bgcolor: `${color}20`, color: color, width: 44, height: 44 }}>
-          {icon}
-        </Avatar>
-      </Box>
-      <Typography variant="h4" component="div">
-        {value}
-      </Typography>
-      <Box mt={1}>
-        <Chip 
-          label="+12% from last month" 
-          size="small" 
-          color="success"
-          sx={{ 
-            bgcolor: 'success.light',
-            color: 'success.contrastText',
-            fontWeight: 600,
-            fontSize: '0.7rem'
-          }}
-        />
-      </Box>
-    </CardContent>
-  </StyledCard>
-);
+type TimeRange = '7d' | '1m' | '3m' | '6m' | '1y';
 
 const DashboardPage: React.FC = () => {
-  const theme = useTheme();
-  const dispatch = useAppDispatch();
+  const navigate = useNavigate();
   const { user } = useAppSelector((state) => state.auth);
+  
   const [isLoading, setIsLoading] = useState(true);
+  const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
+  const [leaderboard, setLeaderboard] = useState<LeaderboardData | null>(null);
+  const [pendingTasks, setPendingTasks] = useState<PendingTask[]>([]);
+  const [timeRange, setTimeRange] = useState<TimeRange>('7d');
+  
+  const gradientPreset = 'freshGreen' as const;
+  const isDarkMode = false;
 
-  // Simulate loading data
+  // Fetch dashboard data
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 1000);
-    return () => clearTimeout(timer);
-  }, []);
+    const fetchDashboardData = async () => {
+      try {
+        setIsLoading(true);
+        const [stats, leaderboardData, tasks] = await Promise.all([
+          getDashboardStats(timeRange),
+          getLeaderboard(5),
+          getPendingTasks(5),
+        ]);
+        
+        setDashboardStats(stats);
+        setLeaderboard(leaderboardData);
+        setPendingTasks(tasks.tasks);
+      } catch (error) {
+        console.error('Failed to fetch dashboard data:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-  const handleLogout = () => {
-    dispatch(logout());
+    fetchDashboardData();
+  }, [timeRange]);
+
+  const handleTaskClick = (taskId: string) => {
+    navigate(`/posts/${taskId}`);
   };
 
-  // Chart data
-  const engagementData = {
-    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-    datasets: [
-      {
-        label: 'Engagement',
-        data: [65, 59, 80, 81, 56, 55],
-        fill: true,
-        backgroundColor: 'rgba(75, 192, 192, 0.2)',
-        borderColor: 'rgba(75, 192, 192, 1)',
-        tension: 0.4,
-      },
-    ],
+  const handleCreateTask = () => {
+    navigate('/schedule');
   };
 
-  const platformData = {
-    labels: ['Instagram', 'Facebook', 'Twitter', 'LinkedIn'],
-    datasets: [
-      {
-        label: 'Engagement',
-        data: [12, 19, 3, 5],
-        backgroundColor: [
-          'rgba(255, 99, 132, 0.7)',
-          'rgba(54, 162, 235, 0.7)',
-          'rgba(255, 206, 86, 0.7)',
-          'rgba(75, 192, 192, 0.7)',
+  const handleViewCustomers = () => {
+    navigate('/customer');
+  };
+
+  const handleTimeRangeChange = (event: React.MouseEvent<HTMLElement>, newRange: TimeRange) => {
+    if (newRange !== null) {
+      setTimeRange(newRange);
+    }
+  };
+
+  // Prepare chart data
+  const customerTrendData = dashboardStats?.customerStats.customerTrend
+    ? {
+        labels: dashboardStats.customerStats.customerTrend.map((item) => {
+          const date = new Date(item.date);
+          return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        }),
+        datasets: [
+          {
+            label: 'Active',
+            data: dashboardStats.customerStats.customerTrend.map((item) => item.active),
+            fill: true,
+            backgroundColor: 'rgba(76, 175, 80, 0.2)',
+            borderColor: '#4CAF50',
+            tension: 0.4,
+          },
+          {
+            label: 'New',
+            data: dashboardStats.customerStats.customerTrend.map((item) => item.new),
+            fill: true,
+            backgroundColor: 'rgba(33, 150, 243, 0.2)',
+            borderColor: '#2196F3',
+            tension: 0.4,
+          },
         ],
-        borderColor: [
-          'rgba(255, 99, 132, 1)',
-          'rgba(54, 162, 235, 1)',
-          'rgba(255, 206, 86, 1)',
-          'rgba(75, 192, 192, 1)',
+      }
+    : null;
+
+  const taskStatusData = dashboardStats?.taskStats.tasksByStatus
+    ? {
+        labels: ['To Do', 'In Progress', 'Review', 'Done', 'Cancelled'],
+        datasets: [
+          {
+            data: [
+              dashboardStats.taskStats.tasksByStatus.todo,
+              dashboardStats.taskStats.tasksByStatus.in_progress,
+              dashboardStats.taskStats.tasksByStatus.review,
+              dashboardStats.taskStats.tasksByStatus.done,
+              dashboardStats.taskStats.tasksByStatus.cancelled,
+            ],
+            backgroundColor: ['#FFC107', '#2196F3', '#9C27B0', '#4CAF50', '#F44336'],
+            borderWidth: 0,
+          },
         ],
-        borderWidth: 1,
+      }
+    : null;
+
+  const chartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        display: true,
+        position: 'bottom' as const,
+        labels: {
+          color: isDarkMode ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.7)',
+          font: {
+            size: 11,
+          },
+        },
       },
-    ],
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        grid: {
+          display: true,
+          color: isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+        },
+        border: {
+          display: false,
+        },
+        ticks: {
+          color: isDarkMode ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.7)',
+        },
+      },
+      x: {
+        grid: {
+          display: false,
+        },
+        ticks: {
+          color: isDarkMode ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.7)',
+          font: {
+            size: 10,
+          },
+        },
+      },
+    },
   };
 
-  const recentPosts = [
-    {
-      id: 1,
-      platform: 'Instagram',
-      content: 'Check out our latest product launch! #NewProduct',
-      date: '2 hours ago',
-      likes: 245,
-      comments: 32,
-      shares: 12,
+  const doughnutOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        display: true,
+        position: 'bottom' as const,
+        labels: {
+          color: isDarkMode ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.7)',
+          font: {
+            size: 11,
+          },
+        },
+      },
     },
-    {
-      id: 2,
-      platform: 'Twitter',
-      content: 'Exciting news coming soon! Stay tuned for updates. #ComingSoon',
-      date: '5 hours ago',
-      likes: 189,
-      comments: 24,
-      shares: 8,
-    },
-  ];
+  };
+
+  const getChartTitle = () => {
+    const titles: Record<TimeRange, string> = {
+      '7d': 'Customer Growth (7 Days)',
+      '1m': 'Customer Growth (1 Month)',
+      '3m': 'Customer Growth (3 Months)',
+      '6m': 'Customer Growth (6 Months)',
+      '1y': 'Customer Growth (1 Year)',
+    };
+    return titles[timeRange];
+  };
 
   if (isLoading) {
     return (
-      <Box sx={{ width: '100%' }}>
-        <LinearProgress />
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          minHeight: '100vh',
+          background: gradientPresets.freshGreen.light,
+        }}
+      >
+        <CircularProgress sx={{ color: '#10b981' }} />
       </Box>
     );
   }
 
   return (
-    <Container maxWidth="xl" sx={{ py: 4 }}>
-      {/* Header */}
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={4}>
-        <Box>
-          <Typography variant="h4" component="h1" fontWeight="bold" gutterBottom>
+    <Container maxWidth="xl" sx={{ py: 4, minHeight: '100vh' }}>
+      {/* Fade-in animation */}
+      <Box
+        sx={{
+          animation: 'fadeIn 0.6s ease-out',
+          '@keyframes fadeIn': {
+            '0%': { opacity: 0, transform: 'translateY(20px)' },
+            '100%': { opacity: 1, transform: 'translateY(0)' },
+          },
+        }}
+      >
+        {/* Header - Welcome only */}
+        <Box mb={4}>
+          <Typography
+            variant="h4"
+            component="h1"
+            fontWeight="bold"
+            gutterBottom
+            sx={{
+              color: isDarkMode ? '#fff' : '#1a1a1a',
+              background: 'linear-gradient(135deg, #10b981, #34d399)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              backgroundClip: 'text',
+            }}
+          >
             Welcome back, {user?.userName || 'User'}! 👋
           </Typography>
-          <Typography variant="subtitle1" color="text.secondary">
-            Here's what's happening with your social media today
+          <Typography
+            variant="subtitle1"
+            sx={{
+              color: isDarkMode ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.6)',
+            }}
+          >
+            Here's what's happening with your business today
           </Typography>
         </Box>
-        <Box>
-          <IconButton color="inherit" sx={{ mr: 1 }}>
-            <NotificationsIcon />
-          </IconButton>
-          <IconButton color="inherit" sx={{ mr: 1 }}>
-            <SettingsIcon />
-          </IconButton>
-          <IconButton color="inherit" onClick={handleLogout}>
-            <LogoutIcon />
-          </IconButton>
+
+        {/* Quick Actions */}
+        <Box display="flex" gap={2} mb={4} flexWrap="wrap">
+          <LiquidGlassCard
+            gradientPreset={gradientPreset}
+            isDarkMode={isDarkMode}
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 2,
+              p: 2,
+              cursor: 'pointer',
+              '&:hover': {
+                transform: 'translateY(-3px)',
+              },
+            }}
+            onClick={handleCreateTask}
+          >
+            <Avatar sx={{ bgcolor: '#10b981', width: 44, height: 44 }}>
+              <AddIcon />
+            </Avatar>
+            <Box>
+              <Typography variant="subtitle2" fontWeight={600}>
+                Create Task
+              </Typography>
+              <Typography variant="caption" sx={{ opacity: 0.7 }}>
+                Add new task
+              </Typography>
+            </Box>
+          </LiquidGlassCard>
+
+          <LiquidGlassCard
+            gradientPreset={gradientPreset}
+            isDarkMode={isDarkMode}
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 2,
+              p: 2,
+              cursor: 'pointer',
+              '&:hover': {
+                transform: 'translateY(-3px)',
+              },
+            }}
+            onClick={handleViewCustomers}
+          >
+            <Avatar sx={{ bgcolor: '#2196F3', width: 44, height: 44 }}>
+              <ListIcon />
+            </Avatar>
+            <Box>
+              <Typography variant="subtitle2" fontWeight={600}>
+                View Customers
+              </Typography>
+              <Typography variant="caption" sx={{ opacity: 0.7 }}>
+                Manage customers
+              </Typography>
+            </Box>
+          </LiquidGlassCard>
         </Box>
-      </Box>
 
-      {/* Stats Cards */}
-      <Box sx={{ mb: 4 }}>
-        <Grid container spacing={3}>
-          <Grid size={{ xs: 12, md: 6 }}>
-            <StatCard 
-              title="Total Followers" 
-              value="24.5K" 
-              icon={<PeopleIcon />} 
-              color={theme.palette.primary.main}
-            />
+        {/* Stats Cards */}
+        <Box sx={{ mb: 4 }}>
+          <Grid container spacing={3}>
+            <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
+              <StatCard
+                title="Total Customers"
+                value={dashboardStats?.customerStats.totalCustomers.toLocaleString() || '0'}
+                icon={<PeopleIcon />}
+                color="#10b981"
+                trend={{
+                  value: `+${dashboardStats?.customerStats.customersByStatus.newThisWeek || 0} this period`,
+                  isPositive: true,
+                }}
+                subtitle={`${dashboardStats?.customerStats.customersByStatus.active.toLocaleString() || '0'} active`}
+                gradientPreset={gradientPreset}
+                isDarkMode={isDarkMode}
+              />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
+              <StatCard
+                title="Pending Tasks"
+                value={dashboardStats?.taskStats.pendingTasks.toLocaleString() || '0'}
+                icon={<TaskIcon />}
+                color="#f59e0b"
+                trend={{
+                  value: `${dashboardStats?.taskStats.completionRate || 0}% completion rate`,
+                  isPositive: true,
+                }}
+                subtitle="Need attention"
+                gradientPreset={gradientPreset}
+                isDarkMode={isDarkMode}
+              />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
+              <StatCard
+                title="My Rank"
+                value={`#${dashboardStats?.userRank.rank || '-'}`}
+                icon={<EmojiEventsIcon />}
+                color="#8b5cf6"
+                trend={{
+                  value: `${dashboardStats?.userRank.completedTasks || 0} tasks`,
+                  isPositive: true,
+                }}
+                subtitle={`of ${dashboardStats?.userRank.totalUsers || 0} users`}
+                gradientPreset={gradientPreset}
+                isDarkMode={isDarkMode}
+              />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
+              <StatCard
+                title="Total Tasks"
+                value={dashboardStats?.taskStats.totalTasks.toLocaleString() || '0'}
+                icon={<TrendingUpIcon />}
+                color="#3b82f6"
+                trend={{
+                  value: `${dashboardStats?.taskStats.tasksByStatus.done || 0} completed`,
+                  isPositive: true,
+                }}
+                subtitle="All time"
+                gradientPreset={gradientPreset}
+                isDarkMode={isDarkMode}
+              />
+            </Grid>
           </Grid>
-          <Grid size={{ xs: 12, md: 6 }}>
-            <StatCard 
-              title="Engagement Rate" 
-              value="8.2%" 
-              icon={<ThumbUpIcon />} 
-              color={theme.palette.success.main}
-            />
-          </Grid>
-          <Grid size={{ xs: 12, md: 6 }}>
-            <StatCard 
-              title="New Posts" 
-              value="12" 
-              icon={<PostAddIcon />} 
-              color={theme.palette.warning.main}
-            />
-          </Grid>
-          <Grid size={{ xs: 12, md: 6 }}>
-            <StatCard 
-              title="Avg. Engagement" 
-              value="1.2K" 
-              icon={<BarChartIcon />} 
-              color={theme.palette.info.main}
-            />
-          </Grid>
-        </Grid>
-      </Box>
+        </Box>
 
-      {/* Charts Row */}
-      <Box sx={{ mb: 4 }}>
-        <Grid container spacing={3}>
-          <Grid size={{ xs: 12, md: 6 }}>
-            <StyledCard>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>Engagement Overview</Typography>
+        {/* Time Range Selector & Charts Row */}
+        <Box sx={{ mb: 4 }}>
+          <Grid container spacing={3}>
+            <Grid size={{ xs: 12, lg: 8 }}>
+              <LiquidGlassCard gradientPreset={gradientPreset} isDarkMode={isDarkMode} sx={{ p: 3, height: '100%' }}>
+                <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+                  <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                    {getChartTitle()}
+                  </Typography>
+                  <ToggleButtonGroup
+                    value={timeRange}
+                    exclusive
+                    onChange={handleTimeRangeChange}
+                    size="small"
+                    sx={{
+                      '& .MuiToggleButton-root': {
+                        border: '1px solid rgba(16, 185, 129, 0.3)',
+                        '&.Mui-selected': {
+                          backgroundColor: 'rgba(16, 185, 129, 0.2)',
+                          color: '#10b981',
+                          '&:hover': {
+                            backgroundColor: 'rgba(16, 185, 129, 0.3)',
+                          },
+                        },
+                      },
+                    }}
+                  >
+                    <ToggleButton value="7d">7D</ToggleButton>
+                    <ToggleButton value="1m">1M</ToggleButton>
+                    <ToggleButton value="3m">3M</ToggleButton>
+                    <ToggleButton value="6m">6M</ToggleButton>
+                    <ToggleButton value="1y">1Y</ToggleButton>
+                  </ToggleButtonGroup>
+                </Box>
                 <Box height={300}>
-                  <Line 
-                    data={engagementData} 
-                    options={{
-                      responsive: true,
-                      maintainAspectRatio: false,
-                      plugins: {
-                        legend: {
-                          display: false,
-                        },
-                      },
-                      scales: {
-                        y: {
-                          beginAtZero: true,
-                          grid: {
-                            display: true,
-                          },
-                          border:{
-                            display: false,
-                          }
-                        },
-                        x: {
-                          grid: {
-                            display: false,
-                          },
-                        },
-                      },
-                    }}
-                  />
+                  {customerTrendData ? (
+                    <Line data={customerTrendData} options={chartOptions} />
+                  ) : (
+                    <Box display="flex" justifyContent="center" alignItems="center" height="100%">
+                      <CircularProgress size={40} />
+                    </Box>
+                  )}
                 </Box>
-              </CardContent>
-            </StyledCard>
-          </Grid>
-          <Grid size={{ xs: 12, md: 4 }}>
-            <StyledCard>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>Platform Performance</Typography>
+              </LiquidGlassCard>
+            </Grid>
+            <Grid size={{ xs: 12, lg: 4 }}>
+              <LiquidGlassCard gradientPreset={gradientPreset} isDarkMode={isDarkMode} sx={{ p: 3, height: '100%' }}>
+                <Typography variant="h6" gutterBottom sx={{ fontWeight: 700, mb: 3 }}>
+                  📊 Task Status
+                </Typography>
                 <Box height={300}>
-                  <Bar 
-                    data={platformData} 
-                    options={{
-                      responsive: true,
-                      maintainAspectRatio: false,
-                      plugins: {
-                        legend: {
-                          display: false,
-                        },
-                      },
-                      scales: {
-                        y: {
-                          beginAtZero: true,
-                          grid: {
-                            display: true,
-                          },
-                          border:{
-                            display: false,
-                          }
-                        },
-                        x: {
-                          grid: {
-                            display: false,
-                          },
-                        },
-                      },
-                    }}
-                  />
+                  {taskStatusData ? (
+                    <Doughnut data={taskStatusData} options={doughnutOptions} />
+                  ) : (
+                    <Box display="flex" justifyContent="center" alignItems="center" height="100%">
+                      <CircularProgress size={40} />
+                    </Box>
+                  )}
                 </Box>
-              </CardContent>
-            </StyledCard>
+              </LiquidGlassCard>
+            </Grid>
           </Grid>
-        </Grid>
-      </Box>
+        </Box>
 
-      {/* Recent Posts & Quick Actions */}
-      <Box sx={{ mb: 4 }}>
-        <Grid container spacing={3}>
-          <Grid size={{ xs: 12, md: 8 }}>
-            <StyledCard>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>Recent Posts</Typography>
-                {recentPosts.map((post, index) => (
-                  <Box key={post.id} mb={3}>
-                    <Box display="flex" alignItems="center" mb={1}>
-                      <Chip 
-                        label={post.platform} 
-                        size="small" 
-                        sx={{ 
-                          mr: 1,
-                          bgcolor: 'primary.light',
-                          color: 'primary.contrastText',
-                          fontWeight: 600,
-                        }}
-                      />
-                      <Typography variant="caption" color="text.secondary">
-                        {post.date}
-                      </Typography>
-                    </Box>
-                    <Typography variant="body1" paragraph>
-                      {post.content}
-                    </Typography>
-                    <Box display="flex" alignItems="center" mt={1}>
-                      <Box display="flex" alignItems="center" mr={2}>
-                        <ThumbUpIcon fontSize="small" color="action" sx={{ mr: 0.5 }} />
-                        <Typography variant="caption" color="text.secondary">
-                          {post.likes}
-                        </Typography>
-                      </Box>
-                      <Box display="flex" alignItems="center" mr={2}>
-                        <CommentIcon fontSize="small" color="action" sx={{ mr: 0.5 }} />
-                        <Typography variant="caption" color="text.secondary">
-                          {post.comments}
-                        </Typography>
-                      </Box>
-                      <Box display="flex" alignItems="center">
-                        <ShareIcon fontSize="small" color="action" sx={{ mr: 0.5 }} />
-                        <Typography variant="caption" color="text.secondary">
-                          {post.shares}
-                        </Typography>
-                      </Box>
-                    </Box>
-                    {index < recentPosts.length - 1 && <Divider sx={{ mt: 2 }} />}
-                  </Box>
-                ))}
-              </CardContent>
-            </StyledCard>
+        {/* Leaderboard & Pending Tasks */}
+        <Box sx={{ mb: 4 }}>
+          <Grid container spacing={3}>
+            <Grid size={{ xs: 12, lg: 7 }}>
+              {leaderboard && (
+                <LeaderboardCard
+                  topPerformers={leaderboard.topPerformers}
+                  myRank={{
+                    rank: leaderboard.myRank.rank,
+                    score: leaderboard.myRank.score,
+                    progressToNext: leaderboard.myRank.progressToNext,
+                    completedTasks: leaderboard.myRank.completedTasks,
+                  }}
+                  gradientPreset={gradientPreset}
+                  isDarkMode={isDarkMode}
+                />
+              )}
+            </Grid>
+            <Grid size={{ xs: 12, lg: 5 }}>
+              <PendingTasksList
+                tasks={pendingTasks}
+                gradientPreset={gradientPreset}
+                isDarkMode={isDarkMode}
+                onTaskClick={handleTaskClick}
+              />
+            </Grid>
           </Grid>
-          <Grid size={{ xs: 12, md: 4 }}>
-            <StyledCard>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>Quick Actions</Typography>
-                <Box display="flex" flexDirection="column" gap={2}>
-                  <Box 
-                    sx={{
-                      p: 2,
-                      borderRadius: 1,
-                      bgcolor: 'action.hover',
-                      cursor: 'pointer',
-                      '&:hover': {
-                        bgcolor: 'action.selected',
-                      },
-                    }}
-                  >
-                    <Typography variant="subtitle2">Schedule Post</Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      Plan your content in advance
-                    </Typography>
-                  </Box>
-                  <Box 
-                    sx={{
-                      p: 2,
-                      borderRadius: 1,
-                      bgcolor: 'action.hover',
-                      cursor: 'pointer',
-                      '&:hover': {
-                        bgcolor: 'action.selected',
-                      },
-                    }}
-                  >
-                    <Typography variant="subtitle2">View Analytics</Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      Detailed performance metrics
-                    </Typography>
-                  </Box>
-                  <Box 
-                    sx={{
-                      p: 2,
-                      borderRadius: 1,
-                      bgcolor: 'action.hover',
-                      cursor: 'pointer',
-                      '&:hover': {
-                        bgcolor: 'action.selected',
-                      },
-                    }}
-                  >
-                    <Typography variant="subtitle2">Audience Insights</Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      Understand your followers
-                    </Typography>
-                  </Box>
-                </Box>
-              </CardContent>
-            </StyledCard>
-          </Grid>
-        </Grid>
+        </Box>
       </Box>
     </Container>
   );
 };
+
+// Avatar component for quick actions
+const Avatar: React.FC<{ children: React.ReactNode; sx?: any }> = ({ children, sx }) => (
+  <Box sx={{ ...sx, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+    {children}
+  </Box>
+);
 
 export default DashboardPage;

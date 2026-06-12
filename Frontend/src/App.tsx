@@ -15,7 +15,6 @@ const RegisterPage = React.lazy(() => import('./pages/Register'));
 const ForgotPasswordPage = React.lazy(() => import('./pages/ForgotPassword'));
 const ResetPasswordPage = React.lazy(() => import('./pages/ResetPassword'));
 const DashboardPage = React.lazy(() => import('./pages/Dashboard'));
-const AnalyticsPage = React.lazy(() => import('./pages/Analytics'));
 const PostsPage = React.lazy(() => import('./pages/Posts'));
 const SchedulePage = React.lazy(() => import('./pages/Schedule'));
 const CustomerPage = React.lazy(() => import('./pages/Customer'));
@@ -213,8 +212,8 @@ const App = () => {
                 {/* Protected */}
                 <Route element={<ProtectedRoute />}>
                   <Route path="/dashboard" element={<DashboardPage />} />
-                  <Route path="/analytics" element={<AnalyticsPage />} />
                   <Route path="/posts" element={<PostsPage />} />
+                  <Route path="/posts/:taskId" element={<PostsPage />} />
                   <Route path="/schedule" element={<SchedulePage />} />
                   <Route path="/customer" element={<CustomerPage />} />
                   <Route path="/users" element={<UsersPage />} />

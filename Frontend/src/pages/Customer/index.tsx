@@ -185,6 +185,8 @@ const CustomerPage = () => {
     getStatusCount,
   } = useCustomers();
 
+  const DEFAULT_PAGE_SIZE = 25;
+
   const [searchInput, setSearchInput] = useState(filter.search || '');
   const [tabValue, setTabValue] = useState(0);
   const [selected, setSelected] = useState<string[]>([]);
@@ -210,12 +212,9 @@ const CustomerPage = () => {
     handleFilterChange({ status: statusMap[tabValue as keyof typeof statusMap] as CustomerStatus | 'all', search: filter.search });
   }, [tabValue]);
 
-  const filteredCustomers = customers.filter(customer => {
-    if (tabValue === 1) return customer.status === 'active';
-    if (tabValue === 2) return customer.status === 'inactive';
-    if (tabValue === 3) return customer.status === 'canceled';
-    return true;
-  });
+  // ใช้ customers โดยตรงจาก API แทนการ filter ใน frontend
+  // เพราะ API ส่งข้อมูลที่มี pagination มาแล้ว
+  const displayCustomers = customers;
 
   const totalCustomers = getStatusCount('active') + getStatusCount('inactive') + getStatusCount('canceled');
 
@@ -229,7 +228,7 @@ const CustomerPage = () => {
 
   const handleSelectAllClick = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.checked) {
-      const newSelected = filteredCustomers.map((n) => n.customerId);
+      const newSelected = displayCustomers.map((n) => n.customerId);
       setSelected(newSelected);
       return;
     }
@@ -582,16 +581,27 @@ const CustomerPage = () => {
               onSearch={(value) => {
                 if (!value || value.trim() === '') {
                   setSearchInput('');
-                  handleFilterChange({ search: '' });
+                  // Reset pageSize และ fetch ข้อมูลทั้งหมด
+                  handlePageSizeChange(DEFAULT_PAGE_SIZE);
+                  // ใช้ handleFilterChange พร้อม limit parameter
+                  handleFilterChange({ search: '', limit: DEFAULT_PAGE_SIZE });
                 } else {
                   handleFilterChange({ search: value });
                 }
               }}
               onClear={() => {
                 setSearchInput('');
-                handleFilterChange({ search: '' });
+                // Reset pageSize และ fetch ข้อมูลทั้งหมด
+                handlePageSizeChange(DEFAULT_PAGE_SIZE);
+                // ใช้ handleFilterChange พร้อม limit parameter
+                handleFilterChange({ search: '', limit: DEFAULT_PAGE_SIZE });
               }}
-              onRefresh={refetch}
+              onRefresh={() => {
+                // Reset pageSize และ fetch ข้อมูลทั้งหมด
+                handlePageSizeChange(DEFAULT_PAGE_SIZE);
+                // ใช้ handleFilterChange พร้อม limit parameter
+                handleFilterChange({ ...filter, limit: DEFAULT_PAGE_SIZE });
+              }}
               searchPlaceholder="Search customers by name, email..."
               loading={loading}
               sx={{
@@ -604,8 +614,8 @@ const CustomerPage = () => {
           </Card>
         </Box>
 
-        {/* Tabs - iOS Segmented Control Style */}
-        <Box mb={4}>
+        {/* Tabs - iOS Segmented Control Style with Horizontal Scroll on Mobile */}
+        <Box mb={4} sx={{ overflowX: 'auto', overflowY: 'hidden', '&::-webkit-scrollbar': { display: 'none' }, scrollbarWidth: 'none' }}>
           <Box
             sx={{
               display: 'inline-flex',
@@ -614,6 +624,7 @@ const CustomerPage = () => {
               p: 1,
               backdropFilter: 'blur(12px)',
               WebkitBackdropFilter: 'blur(12px)',
+              minWidth: '100%',
             }}
           >
             {[
@@ -652,7 +663,7 @@ const CustomerPage = () => {
                   }
                   sx={{
                     borderRadius: 2,
-                    px: 3,
+                    px: { xs: 2, sm: 3 },
                     py: 1.5,
                     minHeight: 44,
                     minWidth: 'auto',
@@ -663,6 +674,7 @@ const CustomerPage = () => {
                     background: isActive ? (isDarkMode ? 'rgba(51, 65, 85, 0.8)' : 'rgba(255, 255, 255, 0.8)') : 'transparent',
                     boxShadow: isActive ? '0 2px 8px rgba(0,0,0,0.08)' : 'none',
                     transition: 'all 0.2s ease',
+                    whiteSpace: 'nowrap',
                     '&:hover': {
                       background: isDarkMode ? 'rgba(51, 65, 85, 0.5)' : 'rgba(255, 255, 255, 0.5)',
                     },
@@ -912,16 +924,16 @@ const CustomerPage = () => {
           </Paper>
         )}
 
-        {/* Customer List - Card-based Layout */}
+        {/* Customer List - Card-based Layout with Mobile Responsive */}
         <Box>
-          {loading && filteredCustomers.length === 0 ? (
+          {loading && displayCustomers.length === 0 ? (
             <Box textAlign="center" py={8}>
               <CircularProgress size={40} sx={{ color: '#10b981' }} />
               <Typography variant="body2" color="text.secondary" mt={2}>
                 Loading customers...
               </Typography>
             </Box>
-          ) : filteredCustomers.length === 0 ? (
+          ) : displayCustomers.length === 0 ? (
             <Card
               sx={{
                 borderRadius: 4,
@@ -955,7 +967,7 @@ const CustomerPage = () => {
               </Button>
             </Card>
           ) : (
-            filteredCustomers.map((customer) => {
+            displayCustomers.map((customer) => {
               const engagementScore = getEngagementScore(customer);
               const glassStyles = getGlassCardStyles(liquidGlassSettings, isDarkMode);
               const isItemSelected = isSelected(customer.customerId);
@@ -972,76 +984,79 @@ const CustomerPage = () => {
                     cursor: 'pointer',
                     border: isItemSelected ? `2px solid ${theme.palette.primary.main}` : '1px solid rgba(255,255,255,0.5)',
                     '&:hover': {
-                      transform: 'translateX(4px)',
+                      transform: 'translateY(-4px)',
                       boxShadow: '0 8px 32px 0 rgba(16, 185, 129, 0.15)',
                     },
                   }}
                 >
-                  <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
-                    <Box display="flex" alignItems="center" gap={3} flexWrap="wrap">
-                      {/* Checkbox */}
-                      <Box onClick={(e) => e.stopPropagation()}>
-                        <Checkbox
-                          color="primary"
-                          checked={isItemSelected}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleClick(e, customer.customerId);
-                          }}
-                          sx={{ '&.Mui-checked': { color: theme.palette.primary.main } }}
-                        />
+                  <CardContent sx={{ p: { xs: 2, sm: 2.5 }, '&:last-child': { pb: { xs: 2, sm: 2.5 } } }}>
+                    {/* Desktop Layout - Horizontal */}
+                    <Box display={{ xs: 'block', sm: 'flex' }} alignItems="center" gap={3} flexWrap="wrap">
+                      {/* Checkbox & Avatar - Always on left/top */}
+                      <Box display="flex" alignItems="center" gap={2}>
+                        <Box onClick={(e) => e.stopPropagation()}>
+                          <Checkbox
+                            color="primary"
+                            checked={isItemSelected}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleClick(e, customer.customerId);
+                            }}
+                            sx={{ '&.Mui-checked': { color: theme.palette.primary.main } }}
+                          />
+                        </Box>
+                        
+                        {/* Avatar with Status Badge */}
+                        <Badge
+                          overlap="circular"
+                          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                          badgeContent={
+                            <Box
+                              sx={{
+                                width: 14,
+                                height: 14,
+                                borderRadius: '50%',
+                                bgcolor: 
+                                  customer.status === 'active' ? '#10b981' :
+                                  customer.status === 'inactive' ? '#f59e0b' : '#ef4444',
+                                border: `3px solid ${isDarkMode ? '#1e293b' : '#fff'}`,
+                                boxShadow: customer.status === 'active' ? '0 0 8px rgba(16, 185, 129, 0.5)' : 'none',
+                              }}
+                            />
+                          }
+                        >
+                          <Avatar
+                            src={customer.customerImageUrl || undefined}
+                            imgProps={{ crossOrigin: 'anonymous' }}
+                            alt={customer.fullName || customer.customerName}
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              if (target) target.src = '';
+                            }}
+                            sx={{
+                              width: { xs: 44, sm: 52 },
+                              height: { xs: 44, sm: 52 },
+                              bgcolor: 'primary.light',
+                              color: 'primary.contrastText',
+                              fontSize: { xs: '1.1rem', sm: '1.25rem' },
+                              fontWeight: 600,
+                              '& .MuiAvatar-img': { objectFit: 'cover' }
+                            }}
+                          >
+                            {(!customer.customerImageUrl || customer.customerImageUrl === '') && (
+                              <>
+                                {customer.customerName.charAt(0).toUpperCase()}
+                                {customer.customerLastName?.charAt(0).toUpperCase() || ''}
+                              </>
+                            )}
+                          </Avatar>
+                        </Badge>
                       </Box>
                       
-                      {/* Avatar with Status Badge */}
-                      <Badge
-                        overlap="circular"
-                        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-                        badgeContent={
-                          <Box
-                            sx={{
-                              width: 14,
-                              height: 14,
-                              borderRadius: '50%',
-                              bgcolor: 
-                                customer.status === 'active' ? '#10b981' :
-                                customer.status === 'inactive' ? '#f59e0b' : '#ef4444',
-                              border: `3px solid ${isDarkMode ? '#1e293b' : '#fff'}`,
-                              boxShadow: customer.status === 'active' ? '0 0 8px rgba(16, 185, 129, 0.5)' : 'none',
-                            }}
-                          />
-                        }
-                      >
-                        <Avatar
-                          src={customer.customerImageUrl || undefined}
-                          imgProps={{ crossOrigin: 'anonymous' }}
-                          alt={customer.fullName || customer.customerName}
-                          onError={(e) => {
-                            const target = e.target as HTMLImageElement;
-                            if (target) target.src = '';
-                          }}
-                          sx={{
-                            width: 52,
-                            height: 52,
-                            bgcolor: 'primary.light',
-                            color: 'primary.contrastText',
-                            fontSize: '1.25rem',
-                            fontWeight: 600,
-                            '& .MuiAvatar-img': { objectFit: 'cover' }
-                          }}
-                        >
-                          {(!customer.customerImageUrl || customer.customerImageUrl === '') && (
-                            <>
-                              {customer.customerName.charAt(0).toUpperCase()}
-                              {customer.customerLastName?.charAt(0).toUpperCase() || ''}
-                            </>
-                          )}
-                        </Avatar>
-                      </Badge>
-                      
-                      {/* Customer Info */}
-                      <Box sx={{ flex: 1, minWidth: 0 }}>
-                        <Box display="flex" alignItems="center" gap={1} mb={0.5}>
-                          <Typography variant="subtitle1" fontWeight={600} noWrap>
+                      {/* Customer Info - Full width on mobile */}
+                      <Box sx={{ flex: 1, minWidth: 0, width: { xs: '100%', sm: 'auto' } }}>
+                        <Box display="flex" alignItems="center" gap={1} mb={0.5} flexWrap="wrap">
+                          <Typography variant="subtitle1" fontWeight={600} noWrap sx={{ maxWidth: { xs: '100%', sm: '200px' } }}>
                             {customer.fullName || `${customer.customerName} ${customer.customerLastName || ''}`.trim()}
                           </Typography>
                           {customer.status === 'active' && (
@@ -1050,84 +1065,96 @@ const CustomerPage = () => {
                             </Tooltip>
                           )}
                         </Box>
-                        <Box display="flex" alignItems="center" gap={1}>
-                          <EmailIcon fontSize="small" sx={{ color: 'text.secondary', opacity: 0.7 }} />
-                          <Typography variant="body2" color="text.secondary" noWrap sx={{ maxWidth: 200 }}>
+                        <Box display="flex" alignItems="center" gap={1} flexWrap="wrap">
+                          <EmailIcon fontSize="small" sx={{ color: 'text.secondary', opacity: 0.7, flexShrink: 0 }} />
+                          <Typography variant="body2" color="text.secondary" noWrap sx={{ maxWidth: { xs: '100%', sm: '200px' } }}>
                             {customer.customerEmail}
                           </Typography>
                         </Box>
                       </Box>
                       
-                      {/* Status Chip */}
-                      <Chip
-                        label={customer.status}
-                        size="small"
-                        sx={{
-                          minWidth: 90,
-                          height: 28,
-                          borderRadius: 2,
-                          fontWeight: 600,
-                          fontSize: '0.75rem',
-                          bgcolor: 
-                            customer.status === 'active' ? 'rgba(16, 185, 129, 0.12)' :
-                            customer.status === 'inactive' ? 'rgba(245, 158, 11, 0.12)' : 'rgba(239, 68, 68, 0.12)',
-                          color: 
-                            customer.status === 'active' ? '#10b981' :
-                            customer.status === 'inactive' ? '#f59e0b' : '#ef4444',
-                          border: `1px solid ${
-                            customer.status === 'active' ? 'rgba(16, 185, 129, 0.3)' :
-                            customer.status === 'inactive' ? 'rgba(245, 158, 11, 0.3)' : 'rgba(239, 68, 68, 0.3)'
-                          }`,
-                        }}
-                      />
-                      
-                      {/* Engagement */}
-                      <Box sx={{ width: 120 }}>
-                        <Box display="flex" alignItems="center" justifyContent="space-between" mb={0.5}>
-                          <Typography variant="caption" color="text.secondary" fontWeight={500}>
-                            Engagement
-                          </Typography>
-                          <Typography 
-                            variant="body2" 
-                            fontWeight={700}
-                            sx={{
-                              color: engagementScore > 70 ? '#10b981' : engagementScore > 40 ? '#f59e0b' : '#ef4444'
-                            }}
-                          >
-                            {engagementScore}%
-                          </Typography>
+                      {/* Status Chip & Engagement - Row on mobile */}
+                      <Box display="flex" alignItems="center" gap={2} flexWrap="wrap" sx={{ width: { xs: '100%', sm: 'auto' } }}>
+                        <Chip
+                          label={customer.status}
+                          size="small"
+                          sx={{
+                            minWidth: 80,
+                            height: 28,
+                            borderRadius: 2,
+                            fontWeight: 600,
+                            fontSize: { xs: '0.7rem', sm: '0.75rem' },
+                            bgcolor: 
+                              customer.status === 'active' ? 'rgba(16, 185, 129, 0.12)' :
+                              customer.status === 'inactive' ? 'rgba(245, 158, 11, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+                            color: 
+                              customer.status === 'active' ? '#10b981' :
+                              customer.status === 'inactive' ? '#f59e0b' : '#ef4444',
+                            border: `1px solid ${
+                              customer.status === 'active' ? 'rgba(16, 185, 129, 0.3)' :
+                              customer.status === 'inactive' ? 'rgba(245, 158, 11, 0.3)' : 'rgba(239, 68, 68, 0.3)'
+                            }`,
+                          }}
+                        />
+                        
+                        {/* Engagement */}
+                        <Box sx={{ minWidth: 100, flex: { xs: 1, sm: 0 } }}>
+                          <Box display="flex" alignItems="center" justifyContent="space-between" mb={0.5}>
+                            <Typography variant="caption" color="text.secondary" fontWeight={500}>
+                              Engagement
+                            </Typography>
+                            <Typography 
+                              variant="body2" 
+                              fontWeight={700}
+                              sx={{
+                                color: engagementScore > 70 ? '#10b981' : engagementScore > 40 ? '#f59e0b' : '#ef4444'
+                              }}
+                            >
+                              {engagementScore}%
+                            </Typography>
+                          </Box>
+                          <EngagementMeter value={engagementScore} />
                         </Box>
-                        <EngagementMeter value={engagementScore} />
                       </Box>
                       
-                      {/* Contact Info */}
-                      <Box display="flex" alignItems="center" gap={1} minWidth={140}>
-                        {customer.customerPhone1 ? (
-                          <>
-                            <PhoneIcon fontSize="small" sx={{ color: 'text.secondary', opacity: 0.7 }} />
-                            <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.875rem' }}>
+                      {/* Contact Info - Full width on mobile */}
+                      <Box display="flex" alignItems="center" gap={2} flexWrap="wrap" sx={{ width: { xs: '100%', sm: 'auto' }, pt: { xs: 1, sm: 0 } }}>
+                        <Box display="flex" alignItems="center" gap={1}>
+                          <PhoneIcon fontSize="small" sx={{ color: 'text.secondary', opacity: 0.7, flexShrink: 0 }} />
+                          {customer.customerPhone1 ? (
+                            <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: { xs: '0.8rem', sm: '0.875rem' } }}>
                               {customer.customerPhone1}
                             </Typography>
-                          </>
-                        ) : (
-                          <Typography variant="body2" color="text.disabled">-</Typography>
-                        )}
+                          ) : (
+                            <Typography variant="body2" color="text.disabled">-</Typography>
+                          )}
+                        </Box>
+                        <Box display="flex" alignItems="center" gap={1}>
+                          <CalendarIcon fontSize="small" sx={{ color: 'text.secondary', opacity: 0.7, flexShrink: 0 }} />
+                          <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.8rem', sm: '0.875rem' } }}>
+                            {new Date(customer.createdAt).toLocaleDateString('en-US', {
+                              month: 'short',
+                              day: 'numeric',
+                              year: 'numeric'
+                            })}
+                          </Typography>
+                        </Box>
                       </Box>
                       
-                      {/* Joined Date */}
-                      <Box display="flex" alignItems="center" gap={1} minWidth={120}>
-                        <CalendarIcon fontSize="small" sx={{ color: 'text.secondary', opacity: 0.7 }} />
-                        <Typography variant="body2" color="text.secondary">
-                          {new Date(customer.createdAt).toLocaleDateString('en-US', {
-                            month: 'short',
-                            day: 'numeric',
-                            year: 'numeric'
-                          })}
-                        </Typography>
-                      </Box>
-                      
-                      {/* Social Media & Actions */}
-                      <Box display="flex" alignItems="center" gap={1}>
+                      {/* Social Media & Actions - Scrollable on mobile */}
+                      <Box 
+                        display="flex" 
+                        alignItems="center" 
+                        gap={0.5}
+                        sx={{ 
+                          width: { xs: '100%', sm: 'auto' },
+                          overflowX: { xs: 'auto', sm: 'visible' },
+                          pt: { xs: 1, sm: 0 },
+                          pb: { xs: 0.5, sm: 0 },
+                          '&::-webkit-scrollbar': { display: 'none' },
+                          scrollbarWidth: 'none',
+                        }}
+                      >
                         {customer.customerFacebook && (
                           <Tooltip title="Facebook" arrow>
                             <IconButton
@@ -1138,8 +1165,9 @@ const CustomerPage = () => {
                               sx={{
                                 bgcolor: '#1877F2',
                                 color: 'white',
-                                width: 32,
-                                height: 32,
+                                width: { xs: 30, sm: 32 },
+                                height: { xs: 30, sm: 32 },
+                                flexShrink: 0,
                                 '&:hover': { bgcolor: '#166FE5', transform: 'scale(1.1)' },
                                 transition: 'all 0.2s ease',
                               }}
@@ -1158,8 +1186,9 @@ const CustomerPage = () => {
                               sx={{
                                 background: 'radial-gradient(circle at 30% 107%, #fdf497 0%, #fdf497 5%, #fd5949 45%,#d6249f 60%,#285AEB 90%)',
                                 color: 'white',
-                                width: 32,
-                                height: 32,
+                                width: { xs: 30, sm: 32 },
+                                height: { xs: 30, sm: 32 },
+                                flexShrink: 0,
                                 '&:hover': { opacity: 0.9, transform: 'scale(1.1)' },
                                 transition: 'all 0.2s ease',
                               }}
@@ -1178,8 +1207,9 @@ const CustomerPage = () => {
                               sx={{
                                 bgcolor: '#000000',
                                 color: 'white',
-                                width: 32,
-                                height: 32,
+                                width: { xs: 30, sm: 32 },
+                                height: { xs: 30, sm: 32 },
+                                flexShrink: 0,
                                 '&:hover': { bgcolor: '#333333', transform: 'scale(1.1)' },
                                 transition: 'all 0.2s ease',
                               }}
@@ -1198,8 +1228,9 @@ const CustomerPage = () => {
                               sx={{
                                 bgcolor: '#06C755',
                                 color: 'white',
-                                width: 32,
-                                height: 32,
+                                width: { xs: 30, sm: 32 },
+                                height: { xs: 30, sm: 32 },
+                                flexShrink: 0,
                                 '&:hover': { bgcolor: '#05a548', transform: 'scale(1.1)' },
                                 transition: 'all 0.2s ease',
                               }}
@@ -1218,8 +1249,9 @@ const CustomerPage = () => {
                               sx={{
                                 bgcolor: '#000000',
                                 color: 'white',
-                                width: 32,
-                                height: 32,
+                                width: { xs: 30, sm: 32 },
+                                height: { xs: 30, sm: 32 },
+                                flexShrink: 0,
                                 '&:hover': { bgcolor: '#333333', transform: 'scale(1.1)' },
                                 transition: 'all 0.2s ease',
                               }}
@@ -1236,8 +1268,9 @@ const CustomerPage = () => {
                               handleActionMenuOpen(e, customer);
                             }}
                             sx={{
-                              width: 32,
-                              height: 32,
+                              width: { xs: 30, sm: 32 },
+                              height: { xs: 30, sm: 32 },
+                              flexShrink: 0,
                               '&:hover': { bgcolor: 'action.hover' },
                             }}
                           >
@@ -1253,8 +1286,8 @@ const CustomerPage = () => {
           )}
         </Box>
 
-        {/* Pagination */}
-        {filteredCustomers.length > 0 && (
+        {/* Pagination - แสดงเสมอเมื่อมีข้อมูลรวม */}
+        {total > 0 && (
           <Box display="flex" justifyContent="flex-end" mt={4}>
             <TablePagination
               rowsPerPageOptions={[10, 25, 50, 100]}
@@ -1272,6 +1305,9 @@ const CustomerPage = () => {
                   background: isDarkMode ? 'rgba(30, 41, 59, 0.6)' : 'rgba(255, 255, 255, 0.8)',
                   backdropFilter: 'blur(12px)',
                   border: '1px solid rgba(255, 255, 255, 0.3)',
+                },
+                '& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows': {
+                  fontSize: { xs: '0.75rem', sm: '0.875rem' },
                 },
               }}
             />

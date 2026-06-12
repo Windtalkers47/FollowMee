@@ -2,6 +2,8 @@ import React from 'react';
 import { Box, Button } from '@mui/material';
 import { Task } from '../../api/task.api';
 import { TaskPermissions } from '../../permissions/taskPermissions';
+import { useLiquidGlass } from '../../contexts/LiquidGlassContext';
+import { gradientPresets } from '../../styles/liquidGlassStyles';
 
 interface TaskActionsProps {
   task: Task;
@@ -18,29 +20,35 @@ const TaskActions: React.FC<TaskActionsProps> = ({
   onMarkUndone,
   onApproveTask,
 }) => {
+  const { liquidGlassSettings } = useLiquidGlass();
+  const preset = gradientPresets[liquidGlassSettings.gradientPreset];
 
-  const buttonStyle = {
-    borderRadius: 15,
+  const glassButtonStyle = {
+    borderRadius: 16,
     textTransform: 'none' as const,
     fontWeight: 600,
     px: 1.5,
-    py: 0.5,
+    py: 0.6,
     fontSize: '0.75rem',
-    backdropFilter: 'blur(8px)',
-    WebkitBackdropFilter: 'blur(8px)',
-    border: '1px solid rgba(255, 255, 255, 0.2)',
+    backdropFilter: 'blur(10px) saturate(180%)',
+    WebkitBackdropFilter: 'blur(10px) saturate(180%)',
+    border: '1px solid rgba(255, 255, 255, 0.3)',
+    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
     '&:hover': {
-      transform: 'translateY(-1px)',
+      transform: 'translateY(-2px) scale(1.02)',
+      boxShadow: '0 6px 16px rgba(0, 0, 0, 0.15)',
     }
   };
 
-  const getButtonVariant = (color: string, gradient: string) => ({
-    ...buttonStyle,
-    background: gradient,
-    boxShadow: `0 4px 12px ${color}`,
+  const getButtonVariant = (primaryColor: string, secondaryColor: string, icon: string) => ({
+    ...glassButtonStyle,
+    background: `linear-gradient(135deg, ${primaryColor} 0%, ${secondaryColor} 100%)`,
+    color: '#fff',
+    boxShadow: `0 4px 12px ${primaryColor}66`,
+    border: `1px solid ${primaryColor}80`,
     '&:hover': {
-      background: gradient.replace('100%)', '85%)'),
-      boxShadow: `0 6px 16px ${color}`,
+      background: `linear-gradient(135deg, ${secondaryColor} 0%, ${primaryColor} 100%)`,
+      boxShadow: `0 6px 20px ${primaryColor}99`,
     }
   });
 
@@ -50,19 +58,20 @@ const TaskActions: React.FC<TaskActionsProps> = ({
       bottom: 8,
       right: 8,
       display: 'flex',
-      gap: 0.5,
-      zIndex: 10
+      gap: 0.75,
+      zIndex: 10,
+      flexWrap: 'wrap',
+      justifyContent: 'flex-end'
     }}>
       {/* For assignee: Mark as Review (instead of Done) - Only when task is in progress */}
       {permissions.canSubmit && task.status === 'in_progress' && (
         <Button
           size="small"
-          startIcon={<span>✓</span>}
           onClick={() => onMarkDone?.(task.taskId)}
           variant="contained"
-          color="primary"
-          sx={getButtonVariant('rgba(59, 130, 246, 0.4)', 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)')}
+          sx={getButtonVariant('#3b82f6', '#2563eb', '✓')}
         >
+          <span style={{ marginRight: 4 }}>✓</span>
           Submit for Review
         </Button>
       )}
@@ -71,12 +80,11 @@ const TaskActions: React.FC<TaskActionsProps> = ({
       {permissions.canApprove && task.status === 'review' && (
         <Button
           size="small"
-          startIcon={<span>✓</span>}
           onClick={() => onApproveTask?.(task.taskId)}
           variant="contained"
-          color="success"
-          sx={getButtonVariant('rgba(16, 185, 129, 0.4)', 'linear-gradient(135deg, #10b981 0%, #059669 100%)')}
+          sx={getButtonVariant('#10b981', '#059669', '✓')}
         >
+          <span style={{ marginRight: 4 }}>✓</span>
           Approve
         </Button>
       )}
@@ -85,12 +93,11 @@ const TaskActions: React.FC<TaskActionsProps> = ({
       {permissions.canReject && task.status === 'review' && (
         <Button
           size="small"
-          startIcon={<span>×</span>}
           onClick={() => onMarkUndone?.(task.taskId)}
           variant="contained"
-          color="warning"
-          sx={getButtonVariant('rgba(245, 158, 11, 0.4)', 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)')}
+          sx={getButtonVariant('#f59e0b', '#d97706', '×')}
         >
+          <span style={{ marginRight: 4 }}>×</span>
           Reject
         </Button>
       )}
@@ -99,12 +106,11 @@ const TaskActions: React.FC<TaskActionsProps> = ({
       {permissions.canUndo && task.status === 'done' && (
         <Button
           size="small"
-          startIcon={<span>↩</span>}
           onClick={() => onMarkUndone?.(task.taskId)}
           variant="contained"
-          color="warning"
-          sx={getButtonVariant('rgba(245, 158, 11, 0.4)', 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)')}
+          sx={getButtonVariant('#f59e0b', '#d97706', '↩')}
         >
+          <span style={{ marginRight: 4 }}>↩</span>
           Undo
         </Button>
       )}

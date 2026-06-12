@@ -58,15 +58,17 @@ export const useCustomers = () => {
     [dispatch, filter.status, filter.search]
   );
 
-  const handleFilterChange = useCallback((newFilter: { status?: CustomerStatus | 'all'; search?: string }) => {
+  const handleFilterChange = useCallback((newFilter: { status?: CustomerStatus | 'all'; search?: string; limit?: number }) => {
     const updatedFilter = { ...filter, ...newFilter };
     dispatch(setFilter(updatedFilter));
     // Reset to first page when filters change
     dispatch(setPage(1));
+    // ใช้ limit ที่ส่งมา หรือใช้ pageSize ปัจจุบัน
+    const limitToUse = newFilter.limit ?? pageSize;
     // Refetch data when filter changes
     dispatch(fetchCustomers({ 
       page: 1, 
-      limit: pageSize, 
+      limit: limitToUse, 
       status: updatedFilter.status === 'all' ? undefined : updatedFilter.status,
       search: updatedFilter.search 
     }));

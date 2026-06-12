@@ -7,6 +7,7 @@ import {
   CircularProgress,
   ToggleButtonGroup,
   ToggleButton,
+  useTheme,
 } from '@mui/material';
 import {
   People as PeopleIcon,
@@ -65,6 +66,7 @@ type TimeRange = '7d' | '1m' | '3m' | '6m' | '1y';
 const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAppSelector((state) => state.auth);
+  const theme = useTheme();
   
   const [isLoading, setIsLoading] = useState(true);
   const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
@@ -73,7 +75,7 @@ const DashboardPage: React.FC = () => {
   const [timeRange, setTimeRange] = useState<TimeRange>('7d');
   
   const gradientPreset = 'freshGreen' as const;
-  const isDarkMode = false;
+  const isDarkMode = theme.palette.mode === 'dark';
 
   // Fetch dashboard data
   useEffect(() => {
@@ -284,6 +286,7 @@ const DashboardPage: React.FC = () => {
             variant="subtitle1"
             sx={{
               color: isDarkMode ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.6)',
+              transition: 'color 0.3s ease',
             }}
           >
             Here's what's happening with your business today

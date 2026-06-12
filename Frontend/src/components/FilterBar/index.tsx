@@ -29,16 +29,26 @@ export const FilterBar = ({
   return (
     <Box
       sx={{
-        p: 2,
+        p: { xs: 2, sm: 2.5 },
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        gap: 2,
+        gap: { xs: 1.5, sm: 2 },
         flexWrap: 'wrap',
         ...sx,
       }}
     >
-      <Box sx={{ display: 'flex', gap: 2, flex: 1, minWidth: 300, maxWidth: 500 }}>
+      <Box sx={{ 
+        display: 'flex', 
+        gap: 2, 
+        flex: 1, 
+        minWidth: 0,
+        width: '100%',
+        maxWidth: '100%',
+        '& > .MuiBox-root': {
+          maxWidth: { xs: '100%', sm: '500px' },
+        }
+      }}>
         <SearchField
           value={searchValue}
           onChange={onSearchChange}
@@ -47,18 +57,23 @@ export const FilterBar = ({
           placeholder={searchPlaceholder}
           fullWidth
           loading={loading}
+          maxWidth="none"
         />
         {children}
       </Box>
       {onRefresh && (
-        <Box>
+        <Box sx={{ flexShrink: 0 }}>
           <IconButton 
             onClick={onRefresh}
             disabled={loading}
             aria-label="Refresh data"
             title="Refresh data"
+            sx={{
+              width: { xs: 40, sm: 48 },
+              height: { xs: 40, sm: 48 },
+            }}
           >
-            <RefreshIcon />
+            <RefreshIcon sx={{ fontSize: { xs: 20, sm: 24 } }} />
           </IconButton>
         </Box>
       )}

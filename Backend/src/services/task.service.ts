@@ -165,8 +165,9 @@ export class TaskService {
 
     const isStatusOnlyUpdate = Object.keys(updateTaskDto).length === 1 && updateTaskDto.status !== undefined;
     
-    if (!isStatusOnlyUpdate && task.createdBy !== userId) {
-      throw new Error('You can only update tasks you created');
+    // Allow both creator and assigned user to update the task
+    if (!isStatusOnlyUpdate && task.createdBy !== userId && task.assignedTo !== userId) {
+      throw new Error('You can only update tasks you created or are assigned to');
     }
     
     if (isStatusOnlyUpdate && task.createdBy !== userId && task.assignedTo !== userId) {
@@ -243,8 +244,8 @@ export class TaskService {
       throw new Error('Task not found');
     }
 
-    if (task.createdBy !== userId) {
-      throw new Error('You can only delete tasks you created');
+    if (task.createdBy !== userId && task.assignedTo !== userId) {
+      throw new Error('You can only delete tasks you created or are assigned to');
     }
 
     // Delete all associated images from Cloudinary before deleting the task

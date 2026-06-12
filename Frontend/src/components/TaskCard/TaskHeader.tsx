@@ -10,6 +10,8 @@ import {
 } from '@mui/material';
 import { MoreVert as MoreVertIcon } from '@mui/icons-material';
 import { Task } from '../../api/task.api';
+import { useLiquidGlass } from '../../contexts/LiquidGlassContext';
+import { gradientPresets } from '../../styles/liquidGlassStyles';
 
 const statusColors: Record<Task['status'], 'default' | 'primary' | 'warning' | 'success'> = {
   draft: 'default',
@@ -41,6 +43,10 @@ const TaskHeader: React.FC<TaskHeaderProps> = ({
   onMenuOpen,
 }) => {
   const theme = useTheme();
+  const { liquidGlassSettings } = useLiquidGlass();
+  
+  // Get gradient preset for status chip
+  const preset = gradientPresets[liquidGlassSettings.gradientPreset];
 
   return (
     <Box sx={{ 
@@ -96,24 +102,40 @@ const TaskHeader: React.FC<TaskHeaderProps> = ({
               sx={{ 
                 fontSize: '0.65rem', 
                 height: 18,
-                fontWeight: 500,
+                fontWeight: 600,
+                // Use gradient preset for status chip background
                 background: task.status === 'done'
-                  ? '#10b981'  // Fresh Green for Done status
-                  : theme.palette.mode === 'dark'
-                    ? 'rgba(255, 255, 255, 0.15)'
-                    : 'rgba(255, 255, 255, 0.9)',
-                color: task.status === 'done'
+                  ? preset.light  // Use gradient preset for Done status
+                  : task.status === 'in_progress'
+                    ? 'linear-gradient(135deg, rgba(245, 158, 11, 0.8), rgba(251, 191, 36, 0.8))'
+                    : task.status === 'review'
+                      ? 'linear-gradient(135deg, rgba(59, 130, 246, 0.8), rgba(147, 197, 253, 0.8))'
+                      : theme.palette.mode === 'dark'
+                        ? 'rgba(255, 255, 255, 0.2)'
+                        : 'rgba(255, 255, 255, 0.9)',
+                color: task.status === 'done' || task.status === 'in_progress' || task.status === 'review'
                   ? '#ffffff'
                   : theme.palette.mode === 'dark'
                     ? '#ffffff'
-                    : 'rgba(0, 0, 0, 0.8)',
-                backdropFilter: 'blur(8px)',
-                WebkitBackdropFilter: 'blur(8px)',
+                    : 'rgba(0, 0, 0, 0.85)',
+                backdropFilter: 'blur(10px) saturate(180%)',
+                WebkitBackdropFilter: 'blur(10px) saturate(180%)',
                 border: task.status === 'done'
-                  ? '1px solid rgba(16, 185, 129, 0.3)'
-                  : theme.palette.mode === 'dark' 
-                    ? '1px solid rgba(255, 255, 255, 0.2)' 
-                    : '1px solid rgba(255, 255, 255, 0.7)',
+                  ? '1px solid rgba(16, 185, 129, 0.4)'
+                  : task.status === 'in_progress'
+                    ? '1px solid rgba(245, 158, 11, 0.4)'
+                    : task.status === 'review'
+                      ? '1px solid rgba(59, 130, 246, 0.4)'
+                      : theme.palette.mode === 'dark' 
+                        ? '1px solid rgba(255, 255, 255, 0.25)' 
+                        : '1px solid rgba(255, 255, 255, 0.8)',
+                boxShadow: task.status === 'done' || task.status === 'in_progress' || task.status === 'review'
+                  ? '0 2px 8px rgba(0, 0, 0, 0.15)'
+                  : '0 2px 6px rgba(0, 0, 0, 0.1)',
+                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                '&:hover': {
+                  transform: 'scale(1.05)',
+                }
               }}
             />
           </Stack>
@@ -156,7 +178,7 @@ const TaskHeader: React.FC<TaskHeaderProps> = ({
           )}
         </Box>
 
-        {/* Glass Menu */}
+        {/* Glass Menu with Liquid Effect */}
         {showActions && (
           <IconButton 
             size="small" 
@@ -164,21 +186,27 @@ const TaskHeader: React.FC<TaskHeaderProps> = ({
             sx={{ 
               p: 0.5,
               background: theme.palette.mode === 'dark'
-                ? 'rgba(255, 255, 255, 0.1)'
-                : 'rgba(255, 255, 255, 0.5)',
-              backdropFilter: 'blur(8px)',
-              WebkitBackdropFilter: 'blur(8px)',
+                ? 'rgba(255, 255, 255, 0.12)'
+                : 'rgba(255, 255, 255, 0.6)',
+              backdropFilter: 'blur(10px) saturate(180%)',
+              WebkitBackdropFilter: 'blur(10px) saturate(180%)',
               border: `1px solid ${theme.palette.mode === 'dark' 
-                ? 'rgba(255, 255, 255, 0.15)' 
-                : 'rgba(255, 255, 255, 0.3)'}`,
+                ? 'rgba(255, 255, 255, 0.2)' 
+                : 'rgba(255, 255, 255, 0.4)'}`,
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
               '&:hover': {
                 background: theme.palette.mode === 'dark'
                   ? 'rgba(255, 255, 255, 0.2)'
-                  : 'rgba(255, 255, 255, 0.7)',
-              }
+                  : 'rgba(255, 255, 255, 0.8)',
+                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                transform: 'scale(1.05)',
+              },
+              transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
             }}
           >
-            <MoreVertIcon fontSize="small" />
+            <MoreVertIcon fontSize="small" sx={{ 
+              color: theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.8)' : 'rgba(0, 0, 0, 0.6)'
+            }} />
           </IconButton>
         )}
       </Stack>

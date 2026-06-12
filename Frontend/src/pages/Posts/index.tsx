@@ -49,11 +49,13 @@ import { useAppSelector } from '../../store/store';
 import { taskApi, likeApi, commentApi, Task, TaskLikeSummary, UserRank, UpdateTaskData } from '../../api/task.api';
 import { userApi } from '../../api/user.api';
 import TaskCard from '../../components/TaskCard';
+import TaskCardLiquid from '../../components/TaskCard/TaskCardLiquid';
 import { TaskForm } from '../../components/TaskForm/TaskForm';
 import Swal from 'sweetalert2';
 import { getTaskPermissions, hasAnyPermission } from '../../permissions/taskPermissions';
 import { getBookedDates } from '../../utils/dateUtils';
 import { useLiquidGlass } from '../../contexts/LiquidGlassContext';
+import { useTheme } from '@mui/material';
 import {
   gradientPresets,
   type GradientPresetKey,
@@ -127,8 +129,9 @@ const TaskFeedCard: React.FC<TaskFeedCardProps> = ({
 
   const showActions = hasAnyPermission(permissions);
 
+  // Use Liquid Glass TaskCard for better UI experience
   return (
-    <TaskCard
+    <TaskCardLiquid
       task={task}
       likeSummary={likeSummary}
       currentUserId={user?.userId || 0}
@@ -167,9 +170,10 @@ const PostsPage = () => {
   
   // Liquid Glass UI Settings
   const { isLiquidGlassEnabled, liquidGlassSettings, updateLiquidGlassSettings } = useLiquidGlass();
+  const theme = useTheme();
   
-  // Detect dark mode from theme - fallback to false if theme state doesn't exist
-  const isDarkMode = false; // Can be extended when theme state is available
+  // Detect dark mode from theme
+  const isDarkMode = theme.palette.mode === 'dark';
   
   // Safe gradient preset access with default fallback
   const currentGradientPreset = liquidGlassSettings?.gradientPreset || 'classicBluePurple';

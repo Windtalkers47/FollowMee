@@ -1,7 +1,18 @@
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { Task } from '../entities/Task';
 import { TaskRepository } from '../repositories/task.repository';
-import { CreateTaskDto, UpdateTaskDto, TaskQueryDto, MarkTaskDoneDto } from '../dtos/task.dto';
+import { 
+  CreateTaskDto, 
+  UpdateTaskDto, 
+  TaskQueryDto, 
+  MarkTaskDoneDto,
+  BulkUpdateStatusDto,
+  BulkDeleteDto,
+  BulkAssignDto,
+  PrioritySummaryResponseDto,
+  PrioritySuggestionDto,
+  SuggestionActionDto
+} from '../dtos/task.dto';
 import { TaskResponseDto, TaskListResponseDto } from '../dtos/task-response.dto';
 import { User } from '../entities/User';
 import { TaskImageService } from './task-image.service';
@@ -9,6 +20,7 @@ import { CloudinaryUtil } from '../utils/cloudinary.util';
 import { NotificationHelper } from '../utils/notification.util';
 import AppDataSource from '../config/database';
 import { v4 as uuidv4 } from 'uuid';
+import { addDays, isPast, isToday, isTomorrow } from 'date-fns';
 
 export class TaskService {
   private customTaskRepository: TaskRepository;
@@ -375,6 +387,252 @@ export class TaskService {
   async getUserRank(userId: number): Promise<{ rank: number; completedTasks: number; totalUsers: number }> {
     // Simplified implementation - returns placeholder data
     return { rank: 1, completedTasks: 0, totalUsers: 1 };
+  }
+
+  // ==================== Bulk Actions ====================
+
+  /**
+   * Update status of multiple tasks at once
+   */
+  async bulkUpdateStatus(
+    taskIds: string[], 
+    status: 'draft' | 'todo' | 'in_progress' | 'review' | 'done' | 'cancelled',
+    userId: number
+  ): Promise<{ updated: number; failed: string[] }> {
+    const failed: string[] = [];
+    let updated = 0;
+
+    for (const taskId of taskIds) {
+      try {
+        const task = await this.customTaskRepository.findById(taskId);
+        if (!task) {
+          failed.push(taskId);
+          continue;
+        }
+
+        // Check permission - user must be creator or assigned to
+        if (task.createdBy !== userId && task.assignedTo !== userId) {
+          failed.push(taskId);
+          continue;
+        }
+
+        await this.customTaskRepository.updateTaskStatus(taskId, status);
+        updated++;
+      } catch (error) {
+        failed.push(taskId);
+      }
+    }
+
+    return { updated, failed };
+  }
+
+  /**
+   * Delete multiple tasks at once (soft delete)
+   */
+  async bulkDelete(taskIds: string[], userId: number): Promise<{ deleted: number; failed: string[] }> {
+    const failed: string[] = [];
+    let deleted = 0;
+
+    for (const taskId of taskIds) {
+      try {
+        const task = await this.customTaskRepository.findById(taskId);
+        if (!task) {
+          failed.push(taskId);
+          continue;
+        }
+
+        // Check permission - user must be creator or assigned to
+        if (task.createdBy !== userId && task.assignedTo !== userId) {
+          failed.push(taskId);
+          continue;
+        }
+
+        // Soft delete by marking as inactive
+        task.isActive = false;
+        await this.taskRepository.save(task);
+        deleted++;
+      } catch (error) {
+        failed.push(taskId);
+      }
+    }
+
+    return { deleted, failed };
+  }
+
+  /**
+   * Assign multiple tasks to a user at once
+   */
+  async bulkAssign(taskIds: string[], assignedTo: number | undefined, userId: number): Promise<{ assigned: number; failed: string[] }> {
+    const failed: string[] = [];
+    let assigned = 0;
+
+    for (const taskId of taskIds) {
+      try {
+        const task = await this.customTaskRepository.findById(taskId);
+        if (!task) {
+          failed.push(taskId);
+          continue;
+        }
+
+        // Check permission - only creator can reassign tasks
+        if (task.createdBy !== userId) {
+          failed.push(taskId);
+          continue;
+        }
+
+        const oldAssignedTo = task.assignedTo;
+        task.assignedTo = assignedTo;
+
+        // Send notification if task is assigned to someone new
+        if (assignedTo && assignedTo !== oldAssignedTo && assignedTo !== userId) {
+          NotificationHelper.notifyTaskAssigned(
+            task.title,
+            `/posts/${task.taskId}`,
+            userId,
+            [assignedTo]
+          );
+        }
+
+        await this.taskRepository.save(task);
+        assigned++;
+      } catch (error) {
+        failed.push(taskId);
+      }
+    }
+
+    return { assigned, failed };
+  }
+
+  /**
+   * Get priority summary with smart suggestions based on due dates
+   */
+  async getPrioritySummary(userId: number): Promise<PrioritySummaryResponseDto> {
+    const now = new Date();
+    const tomorrow = addDays(now, 1);
+    const threeDaysLater = addDays(now, 3);
+
+    // Get all active tasks for this user
+    const [allTasks] = await this.customTaskRepository.findTasksWithRelations({
+      assignedTo: userId,
+      page: 1,
+      limit: 1000
+    });
+
+    const activeTasks = allTasks.filter(task => task.isActive && task.status !== 'done' && task.status !== 'cancelled');
+
+    // Categorize tasks by urgency
+    const dueToday: Task[] = [];
+    const dueTomorrow: Task[] = [];
+    const overdue: Task[] = [];
+    const dueWithin3Days: Task[] = [];
+
+    for (const task of activeTasks) {
+      const dueDate = task.endDate ? new Date(task.endDate) : (task.dueDate ? new Date(task.dueDate) : null);
+      if (!dueDate) continue;
+
+      if (isPast(dueDate) && !isToday(dueDate)) {
+        overdue.push(task);
+      } else if (isToday(dueDate)) {
+        dueToday.push(task);
+      } else if (isTomorrow(dueDate)) {
+        dueTomorrow.push(task);
+      } else if (dueDate <= threeDaysLater) {
+        dueWithin3Days.push(task);
+      }
+    }
+
+    // Build suggestions
+    const suggestions: PrioritySuggestionDto[] = [];
+
+    // Overdue tasks (highest priority)
+    if (overdue.length > 0) {
+      suggestions.push({
+        id: 'overdue',
+        title: 'งานที่เกินกำหนด',
+        type: 'overdue',
+        taskIds: overdue.map(t => t.taskId),
+        count: overdue.length,
+        priority: 100,
+        message: `คุณมี ${overdue.length} งานที่เกินกำหนด - ควรจัดการด่วน!`,
+        actions: [
+          { id: 'start-all', label: 'เริ่มทำทั้งหมด', type: 'start-all', color: '#FF3B30' },
+          { id: 'reschedule', label: 'เลื่อนกำหนด', type: 'reschedule', color: '#FF9500' }
+        ]
+      });
+    }
+
+    // Due today
+    if (dueToday.length > 0) {
+      suggestions.push({
+        id: 'due-today',
+        title: 'งานครบกำหนดวันนี้',
+        type: 'due-today',
+        taskIds: dueToday.map(t => t.taskId),
+        count: dueToday.length,
+        priority: 90,
+        message: `คุณมี ${dueToday.length} งานที่ต้องเสร็จวันนี้ - สู้ๆ!`,
+        actions: [
+          { id: 'mark-done', label: 'ทำเสร็จแล้วทั้งหมด', type: 'mark-done', color: '#34C759' },
+          { id: 'start-all', label: 'เริ่มทำทั้งหมด', type: 'start-all', color: '#0A84FF' }
+        ]
+      });
+    }
+
+    // Due tomorrow
+    if (dueTomorrow.length > 0) {
+      suggestions.push({
+        id: 'due-tomorrow',
+        title: 'งานครบกำหนดพรุ่งนี้',
+        type: 'due-tomorrow',
+        taskIds: dueTomorrow.map(t => t.taskId),
+        count: dueTomorrow.length,
+        priority: 70,
+        message: `คุณมี ${dueTomorrow.length} งานที่ต้องเสร็จพรุ่งนี้ - เตรียมตัวไว้ก่อน!`,
+        actions: [
+          { id: 'start-all', label: 'เริ่มทำทั้งหมด', type: 'start-all', color: '#0A84FF' },
+          { id: 'review', label: 'ตรวจสอบ', type: 'review', color: '#AF52DE' }
+        ]
+      });
+    }
+
+    // Due within 3 days
+    if (dueWithin3Days.length > 0) {
+      suggestions.push({
+        id: 'due-within-3-days',
+        title: 'งานครบกำหนดใน 3 วัน',
+        type: 'due-within-3-days',
+        taskIds: dueWithin3Days.map(t => t.taskId),
+        count: dueWithin3Days.length,
+        priority: 50,
+        message: `คุณมี ${dueWithin3Days.length} งานที่ต้องเสร็จใน 3 วัน - วางแผนให้ดี!`,
+        actions: [
+          { id: 'review', label: 'ตรวจสอบ', type: 'review', color: '#AF52DE' }
+        ]
+      });
+    }
+
+    // Sort by priority (highest first)
+    suggestions.sort((a, b) => b.priority - a.priority);
+
+    // Determine suggested action
+    let suggestedAction: string | undefined;
+    if (overdue.length > 0) {
+      suggestedAction = 'handle-overdue';
+    } else if (dueToday.length > 0) {
+      suggestedAction = 'complete-today';
+    } else if (dueTomorrow.length > 0) {
+      suggestedAction = 'prepare-tomorrow';
+    }
+
+    return {
+      dueToday: dueToday.length,
+      dueTomorrow: dueTomorrow.length,
+      overdue: overdue.length,
+      dueWithin3Days: dueWithin3Days.length,
+      totalTasks: activeTasks.length,
+      suggestedAction,
+      suggestions
+    };
   }
 
   private async mapToResponseDto(task: Task): Promise<TaskResponseDto> {

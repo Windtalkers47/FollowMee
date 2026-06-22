@@ -37,6 +37,21 @@ router.get('/top-performers', (req, res, next) => taskController.getTopPerformer
 // Get current user's rank
 router.get('/my-rank', (req, res, next) => taskController.getUserRank(req, res, next));
 
+// ==================== Bulk Actions Routes ====================
+// IMPORTANT: Must be before /:taskId routes to avoid conflicts
+
+// Get priority summary with smart suggestions
+router.get('/priority-summary', (req, res, next) => taskController.getPrioritySummary(req, res, next));
+
+// Bulk update status for multiple tasks
+router.put('/bulk-update-status', (req, res, next) => taskController.bulkUpdateStatus(req, res, next));
+
+// Bulk delete multiple tasks
+router.delete('/bulk-delete', (req, res, next) => taskController.bulkDelete(req, res, next));
+
+// Bulk assign multiple tasks to a user
+router.put('/bulk-assign', (req, res, next) => taskController.bulkAssign(req, res, next));
+
 // Mark task as done
 router.put('/:taskId/mark-done', (req, res, next) => taskController.markTaskAsDone(req, res, next));
 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Box,
   Typography,
@@ -12,10 +12,7 @@ import {
   useTheme,
   IconButton,
   Tooltip,
-  Paper
 } from '@mui/material';
-import { useLiquidGlass } from '../../contexts/LiquidGlassContext';
-import { getGlassCardStyles, getSegmentedControlStyles } from '../../styles/liquidGlassStyles';
 import {
   Search as SearchIcon,
   Add as AddIcon,
@@ -25,12 +22,24 @@ import {
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAppSelector } from '../../store/store';
 import Swal from 'sweetalert2';
-import { taskApi, Task, CreateTaskData, UpdateTaskData, TaskLikeSummary } from '../../api/task.api';
+import { 
+  taskApi, 
+  Task, 
+  CreateTaskData, 
+  UpdateTaskData, 
+  TaskLikeSummary,
+  bulkActionApi 
+} from '../../api/task.api';
 import { userApi } from '../../api/user.api';
 import { likeApi } from '../../api/task.api';
-import ScheduleTaskCard from '../../components/ScheduleTaskCard';
 import { TaskForm } from '../../components/TaskForm/TaskForm';
 import { getBookedDates } from '../../utils/dateUtils';
+import ScheduleTaskCard from '../../components/ScheduleTaskCard';
+import SmartSuggestionsBar from '../../components/SmartSuggestions/SmartSuggestionsBar';
+import SelectionModeToolbar from '../../components/SelectionMode/SelectionModeToolbar';
+import { useMultiSelect } from '../../hooks/useMultiSelect';
+import { useSmartSuggestions } from '../../hooks/useSmartSuggestions';
+import toast from '../../utils/toast';
 
 /* ================== Types ================== */
 type TabPanelProps = {
@@ -48,60 +57,57 @@ const TabPanel = ({ children, value, index }: TabPanelProps) => (
   </div>
 );
 
-      {/* Task Form Dialog - Remove this since we're using TaskForm component */}
-
 /* ================== Page ================== */
 const SchedulePage = () => {
   const theme = useTheme();
-  const { isLiquidGlassEnabled, liquidGlassSettings } = useLiquidGlass();
   const isDarkMode = theme.palette.mode === 'dark';
   const [activeTab, setActiveTab] = useState(0);
-  const [searchInput, setSearchInput] = useState('');  // Input value (what user types)
-  const [searchQuery, setSearchQuery] = useState('');  // Query value (what API uses)
+  const [searchInput, setSearchInput] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | undefined>();
   const [taskLikeSummaries, setTaskLikeSummaries] = useState<Record<string, TaskLikeSummary>>({});
 
-  // Handle search when user presses Enter or clicks Search icon
+  // Multi-select hook - using taskId as id
+  const multiSelect = useMultiSelect<{ id: string }>();
+  
+  // Debug log
+  React.useEffect(() => {
+    console.log('[Schedule] multiSelect changed:', {
+      isSelectionMode: multiSelect.isSelectionMode,
+      selectedCount: multiSelect.selectedCount,
+      selectedIds: Array.from(multiSelect.selectedIds),
+      toggleSelect: typeof multiSelect.toggleSelect,
+      enterSelectionMode: typeof multiSelect.enterSelectionMode
+    });
+  }, [multiSelect.isSelectionMode, multiSelect.selectedCount, multiSelect.toggleSelect]);
+
+  // Smart suggestions hook
+  const {
+    suggestions,
+    handleSuggestionAction,
+    bulkUpdate,
+    bulkDelete,
+  } = useSmartSuggestions({
+    onSuccess: () => {
+      multiSelect.exitSelectionMode();
+    }
+  });
+
+  // Handle search
   const handleSearch = () => {
     setSearchQuery(searchInput);
   };
 
-  // Handle clear search
   const handleClearSearch = () => {
     setSearchInput('');
-    setSearchQuery('');  // Fetch all immediately
+    setSearchQuery('');
   };
 
   const { user } = useAppSelector((state) => state.auth);
   const queryClient = useQueryClient();
 
-  // Get freshGreen-based colors from Liquid Glass context
-  const segmentedControlStyles = getSegmentedControlStyles(liquidGlassSettings, isDarkMode);
-  
-  // iOS-style segmented control colors - using freshGreen theme
-  const segmentedBgColor = isDarkMode 
-    ? 'rgba(20, 83, 45, 0.5)' 
-    : 'rgba(209, 250, 229, 0.5)';
-  const segmentedActiveBg = '#10b981';
-  const segmentedActiveText = '#ffffff';
-  const segmentedInactiveText = isDarkMode 
-    ? 'rgba(255, 255, 255, 0.6)' 
-    : 'rgba(0, 0, 0, 0.5)';
-  
-  // Search bar colors (iOS Spotlight style) - freshGreen theme
-  const searchBgColor = isDarkMode 
-    ? 'rgba(20, 83, 45, 0.3)' 
-    : 'rgba(209, 250, 229, 0.3)';
-  
-  const defaultTextColor = isDarkMode 
-    ? 'rgba(255, 255, 255, 0.9)' 
-    : 'rgba(0, 0, 0, 0.8)';
-  const mutedTextColor = isDarkMode 
-    ? 'rgba(255, 255, 255, 0.5)' 
-    : 'rgba(0, 0, 0, 0.5)';
-
-  // Fetch tasks - only queries when searchQuery changes (not on every keystroke)
+  // Fetch tasks
   const { data: tasksResponse, isLoading, error, refetch } = useQuery({
     queryKey: ['tasks', { search: searchQuery }],
     queryFn: () => taskApi.getTasks({
@@ -109,13 +115,12 @@ const SchedulePage = () => {
     }),
   });
 
-  // Fetch users for assignment dropdown
+  // Fetch users
   const { data: users = [] } = useQuery({
     queryKey: ['users'],
     queryFn: userApi.getUsers,
   });
 
-  // Extract dates only for current task being edited
   const bookedDates = getBookedDates(editingTask);
 
   // Mutations
@@ -123,6 +128,7 @@ const SchedulePage = () => {
     mutationFn: (data: CreateTaskData) => taskApi.createTask(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['prioritySummary'] });
     },
   });
 
@@ -131,6 +137,7 @@ const SchedulePage = () => {
       taskApi.updateTask(taskId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['prioritySummary'] });
     },
   });
 
@@ -138,6 +145,7 @@ const SchedulePage = () => {
     mutationFn: taskApi.deleteTask,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['prioritySummary'] });
     },
   });
 
@@ -161,6 +169,7 @@ const SchedulePage = () => {
       taskApi.markTaskAsDone(taskId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['prioritySummary'] });
     },
   });
 
@@ -168,6 +177,7 @@ const SchedulePage = () => {
     mutationFn: (taskId: string) => taskApi.markTaskAsUndone(taskId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['prioritySummary'] });
       refetch();
     },
   });
@@ -176,12 +186,12 @@ const SchedulePage = () => {
     mutationFn: (taskId: string) => taskApi.approveTask(taskId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['prioritySummary'] });
       refetch();
     },
   });
 
-  // Note: Using updateTaskMutation for status changes since specific endpoints don't exist yet
-
+  // Handlers
   const handleDeleteTask = (taskId: string) => {
     deleteTaskMutation.mutate(taskId);
   };
@@ -195,7 +205,6 @@ const SchedulePage = () => {
   };
 
   const handleCommentTask = (taskId: string, comment: string) => {
-    // Comment functionality would be handled here
     console.log('Comment on task:', taskId, comment);
   };
 
@@ -210,11 +219,10 @@ const SchedulePage = () => {
   const handleApproveTask = async (taskId: string) => {
     const result = await Swal.fire({
       title: 'Approve Task',
-      text: 'Are you sure you want to approve this task? This will mark it as completed.',
+      text: 'Are you sure you want to approve this task?',
       icon: 'question',
       showCancelButton: true,
       confirmButtonColor: '#10b981',
-      // confirmButtonColor: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
       cancelButtonColor: '#d32f2f',
       confirmButtonText: 'Yes, approve it!',
       cancelButtonText: 'Cancel',
@@ -240,7 +248,7 @@ const SchedulePage = () => {
   const handleRejectTask = async (taskId: string) => {
     const result = await Swal.fire({
       title: 'Reject Task',
-      text: 'Are you sure you want to reject this task? This will send it back to the assignee.',
+      text: 'Are you sure you want to reject this task?',
       icon: 'warning',
       showCancelButton: true,
       confirmButtonColor: '#f44336',
@@ -269,7 +277,7 @@ const SchedulePage = () => {
   const handleUndoTask = async (taskId: string) => {
     const result = await Swal.fire({
       title: 'Reopen Task?',
-      text: 'Are you sure you want to reopen this completed task? This will move it back to progress.',
+      text: 'Are you sure you want to reopen this completed task?',
       icon: 'question',
       showCancelButton: true,
       confirmButtonColor: '#ff9800',
@@ -286,21 +294,11 @@ const SchedulePage = () => {
 
     if (result.isConfirmed) {
       await Swal.fire({
-        title: 'Task Reopened! ',
-        html: `
-          <div style="text-align: center;">
-            <p>No worries! The task has been reopened for improvement.</p>
-            <div style="margin: 20px 0; padding: 16px; background: #fff3cd; border: 2px solid #ffc107; border-radius: 8px;">
-              <h4 style="margin: 0 0 8px 0; color: #f57c00;">💡 Take your time and do your best!</h4>
-              <p style="margin: 0; color: #666;">You've got this! Every setback is a setup for a comeback!</p>
-            </div>
-          </div>
-        `,
+        title: 'Task Reopened!',
+        text: 'The task has been reopened for improvement.',
         icon: 'info',
-        confirmButtonText: 'Got it!',
-        confirmButtonColor: '#ff9800',
         timer: 2000,
-        showConfirmButton: true
+        showConfirmButton: false
       });
     }
   };
@@ -308,7 +306,7 @@ const SchedulePage = () => {
   const handleCancelTask = async (taskId: string) => {
     const result = await Swal.fire({
       title: 'Cancel Task?',
-      text: 'Are you sure you want to cancel this task? This will move it to the cancelled tab.',
+      text: 'Are you sure you want to cancel this task?',
       icon: 'warning',
       showCancelButton: true,
       confirmButtonColor: '#ff9800',
@@ -344,7 +342,7 @@ const SchedulePage = () => {
         data: { status } 
       });
       
-      const statusMessages = {
+      const statusMessages: Record<string, string> = {
         'todo': 'Task moved to To Do',
         'in_progress': 'Task started',
         'review': 'Task submitted for review',
@@ -374,12 +372,12 @@ const SchedulePage = () => {
   const handleStartProgress = async (taskId: string) => {
     const result = await Swal.fire({
       title: 'Start Working?',
-      text: 'Ready to start working on this task? Let\'s do this! ',
+      text: 'Ready to start working on this task?',
       icon: 'question',
       showCancelButton: true,
       confirmButtonColor: '#ff9800',
       cancelButtonColor: '#757575',
-      confirmButtonText: 'Let\'s go! ',
+      confirmButtonText: 'Let\'s go!',
       cancelButtonText: 'Not yet',
       reverseButtons: true,
       showLoaderOnConfirm: true,
@@ -394,26 +392,16 @@ const SchedulePage = () => {
 
     if (result.isConfirmed) {
       await Swal.fire({
-        title: 'Let\'s Get Started! ',
-        html: `
-          <div style="text-align: center;">
-            <p>Awesome! You're now working on this task. </p>
-            <div style="margin: 20px 0; padding: 16px; background: #e3f2fd; border: 2px solid #2196f3; border-radius: 8px;">
-              <h4 style="margin: 0 0 8px 0; color: #1976d2;"> You've got this! </h4>
-              <p style="margin: 0; color: #666;">Time to make some progress! </p>
-            </div>
-          </div>
-        `,
+        title: 'Let\'s Get Started!',
+        text: 'You\'re now working on this task.',
         icon: 'success',
-        confirmButtonText: 'Working on it!',
-        confirmButtonColor: '#2196f3',
-        timer: 3000,
-        showConfirmButton: true
+        timer: 2000,
+        showConfirmButton: false
       });
     }
   };
 
-  // Fetch like summaries for tasks
+  // Fetch like summaries
   const fetchLikeSummary = async (taskId: string) => {
     try {
       const summary = await likeApi.getTaskLikeSummary(taskId);
@@ -435,8 +423,8 @@ const SchedulePage = () => {
     cancelled: filteredTasks.filter(task => task.status === 'cancelled'),
   };
 
-  // Load like summaries for visible tasks
-  useEffect(() => {
+  // Load like summaries
+  React.useEffect(() => {
     filteredTasks?.forEach(task => {
       if (!taskLikeSummaries[task.taskId]) {
         fetchLikeSummary(task.taskId);
@@ -445,74 +433,100 @@ const SchedulePage = () => {
   }, [filteredTasks, taskLikeSummaries]);
 
   const tabs = [
-    { 
-      label: 'All Tasks', 
-      key: 'all' as const,
-      color: '#757575' // Gray for all
-    },
-    { 
-      label: 'Drafts', 
-      key: 'draft' as const,
-      color: '#9e9e9e' // Gray for draft
-    },
-    { 
-      label: 'To Do', 
-      key: 'todo' as const,
-      color: '#2196f3' // Blue for todo
-    },
-    { 
-      label: 'In Progress', 
-      key: 'in_progress' as const,
-      color: '#ff9800' // Orange for in progress
-    },
-    { 
-      label: 'Review', 
-      key: 'review' as const,
-      color: '#9c27b0' // Purple for review
-    },
-    { 
-      label: 'Done', 
-      key: 'done' as const,
-      color: '#4caf50' // Green for done
-    },
-    { 
-      label: 'Cancelled', 
-      key: 'cancelled' as const,
-      color: '#f44336' // Red for cancelled
-    },
+    { label: 'All Tasks', key: 'all' as const, color: '#757575' },
+    { label: 'Drafts', key: 'draft' as const, color: '#9e9e9e' },
+    { label: 'To Do', key: 'todo' as const, color: '#2196f3' },
+    { label: 'In Progress', key: 'in_progress' as const, color: '#ff9800' },
+    { label: 'Review', key: 'review' as const, color: '#9c27b0' },
+    { label: 'Done', key: 'done' as const, color: '#4caf50' },
+    { label: 'Cancelled', key: 'cancelled' as const, color: '#f44336' },
   ];
 
+  // Handle bulk actions from toolbar
+  const handleBulkAction = async (action: 'delete' | 'done' | 'start' | 'todo' | 'draft' | 'review' | 'cancel' | 'assign') => {
+    const selectedTaskIds = Array.from(multiSelect.selectedIds);
+    
+    if (selectedTaskIds.length === 0) {
+      toast.warning('No tasks selected');
+      return;
+    }
+
+    switch (action) {
+      case 'delete':
+        const deleteResult = await Swal.fire({
+          title: `Delete ${selectedTaskIds.length} tasks?`,
+          text: 'This action cannot be undone.',
+          icon: 'warning',
+          showCancelButton: true,
+          confirmButtonColor: '#FF3B30',
+          cancelButtonColor: '#757575',
+          confirmButtonText: 'Yes, delete all!',
+          cancelButtonText: 'Cancel',
+          reverseButtons: true,
+        });
+
+        if (deleteResult.isConfirmed) {
+          bulkDelete({ taskIds: selectedTaskIds });
+        }
+        break;
+
+      case 'done':
+        bulkUpdate({ taskIds: selectedTaskIds, status: 'done' });
+        break;
+
+      case 'start':
+        bulkUpdate({ taskIds: selectedTaskIds, status: 'in_progress' });
+        break;
+
+      case 'todo':
+        bulkUpdate({ taskIds: selectedTaskIds, status: 'todo' });
+        break;
+
+      case 'draft':
+        bulkUpdate({ taskIds: selectedTaskIds, status: 'draft' });
+        break;
+
+      case 'review':
+        bulkUpdate({ taskIds: selectedTaskIds, status: 'review' });
+        break;
+
+      case 'cancel':
+        bulkUpdate({ taskIds: selectedTaskIds, status: 'cancelled' });
+        break;
+
+      case 'assign':
+        // TODO: Open assign dialog
+        toast.info('Assign feature coming soon');
+        break;
+    }
+  };
+
+  // Get current tab tasks for select all - convert to { id: string } format
+  const currentTabTasks = (groupedTasks[tabs[activeTab].key] || []).map(task => ({ id: task.taskId }));
+
   return (
-    <Box sx={{ 
-      width: '100%',
-      maxWidth: '100vw',
-      overflow: 'hidden'
-    }}>
-      {/* Header with Search Control Bar - iOS Style */}
-      <Box 
-        sx={{
-          px: { xs: 2, sm: 3, md: 4 },
-          mb: 3
-        }}
-      >
-        {/* Top Row: Title + Create Button */}
+    <Box sx={{ width: '100%', maxWidth: '100vw', overflow: 'hidden' }}>
+      {/* Smart Suggestions Bar */}
+      {suggestions.length > 0 && (
+        <Box sx={{ px: { xs: 2, sm: 3, md: 4 }, pt: 3 }}>
+          <SmartSuggestionsBar
+            suggestions={suggestions}
+            onActionClick={handleSuggestionAction}
+          />
+        </Box>
+      )}
+
+      {/* Header with Search */}
+      <Box sx={{ px: { xs: 2, sm: 3, md: 4 }, mb: 3 }}>
+        {/* Top Row */}
         <Box 
           display="flex" 
           justifyContent="space-between" 
           alignItems="center" 
           mb={2}
-          sx={{
-            flexDirection: { xs: 'column', sm: 'row' },
-            gap: { xs: 2, sm: 0 }
-          }}
+          sx={{ flexDirection: { xs: 'column', sm: 'row' }, gap: { xs: 2, sm: 0 } }}
         >
-          <Typography 
-            variant="h4" 
-            fontWeight="bold"
-            sx={{
-              fontSize: { xs: '1.75rem', sm: '2.125rem', md: '2.5rem' }
-            }}
-          >
+          <Typography variant="h4" fontWeight="bold" sx={{ fontSize: { xs: '1.75rem', sm: '2.125rem', md: '2.5rem' } }}>
             Task Management
           </Typography>
           <Button
@@ -538,200 +552,112 @@ const SchedulePage = () => {
           </Button>
         </Box>
 
-        {/* Search Bar + Actions (iOS Spotlight Style) */}
+        {/* Search Bar */}
         <Box 
           sx={{
             display: 'flex',
             alignItems: 'center',
             gap: 1,
             p: 1,
-            background: searchBgColor,
+            background: isDarkMode ? 'rgba(20, 83, 45, 0.3)' : 'rgba(209, 250, 229, 0.3)',
             backdropFilter: 'blur(20px)',
             borderRadius: 3,
             border: `1px solid ${isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)'}`,
           }}
         >
-          {/* Search Field */}
           <TextField
             fullWidth
             placeholder="Search tasks..."
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                handleSearch();
-              }
-            }}
+            onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
             variant="outlined"
             sx={{
-              '& .MuiInputBase-root': {
-                fontSize: '0.9375rem',
-                background: 'transparent',
-              },
+              '& .MuiInputBase-root': { fontSize: '0.9375rem', background: 'transparent' },
               '& .MuiOutlinedInput-root': {
                 border: 'none',
                 borderRadius: 2.5,
                 background: 'transparent',
-                '& fieldset': {
-                  border: 'none',
-                },
-                '&:hover fieldset': {
-                  border: 'none',
-                },
-                '&.Mui-focused fieldset': {
-                  border: 'none',
-                },
+                '& fieldset': { border: 'none' },
+                '&:hover fieldset': { border: 'none' },
+                '&.Mui-focused fieldset': { border: 'none' },
               },
               '& .MuiInputBase-input': {
                 py: 1,
-                color: defaultTextColor,
-                '&::placeholder': {
-                  color: mutedTextColor,
-                },
+                color: isDarkMode ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.8)',
+                '&::placeholder': { color: isDarkMode ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)' },
               },
             }}
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
-                  <SearchIcon sx={{ color: mutedTextColor }} />
+                  <SearchIcon sx={{ color: isDarkMode ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)' }} />
                 </InputAdornment>
               ),
               endAdornment: searchInput && (
                 <InputAdornment position="end">
-                  <IconButton
-                    size="small"
-                    onClick={handleClearSearch}
-                    sx={{
-                      p: 0.5,
-                      color: mutedTextColor,
-                      '&:hover': {
-                        background: isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)',
-                      }
-                    }}
-                  >
+                  <IconButton size="small" onClick={handleClearSearch} sx={{ p: 0.5 }}>
                     <ClearIcon fontSize="small" />
                   </IconButton>
                 </InputAdornment>
               ),
             }}
           />
-          
-          {/* Search Button (visible when there's input) */}
           {searchInput.trim() && (
             <Tooltip title="Search">
-              <IconButton
-                onClick={handleSearch}
-                sx={{
-                  p: 1.25,
-                  borderRadius: 2,
-                  color: defaultTextColor,
-                  background: isDarkMode ? 'rgba(74, 108, 247, 0.3)' : 'rgba(74, 108, 247, 0.1)',
-                  transition: 'all 0.2s ease',
-                  '&:hover': {
-                    background: isDarkMode ? 'rgba(74, 108, 247, 0.5)' : 'rgba(74, 108, 247, 0.2)',
-                    color: '#fff',
-                  },
-                }}
-              >
+              <IconButton onClick={handleSearch} sx={{ p: 1.25, borderRadius: 2 }}>
                 <SearchIcon fontSize="small" />
               </IconButton>
             </Tooltip>
           )}
-          
-          {/* Divider */}
-          <Box 
-            sx={{
-              width: 1,
-              height: 24,
-              borderLeft: `1px solid ${isDarkMode ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.1)'}`,
-            }}
-          />
-          
-          {/* Refresh Button */}
+          <Box sx={{ width: 1, height: 24, borderLeft: `1px solid ${isDarkMode ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.1)'}` }} />
           <Tooltip title="Refresh">
-            <IconButton
-              onClick={() => refetch()}
-              disabled={isLoading}
-              sx={{
-                p: 1.25,
-                borderRadius: 2,
-                color: mutedTextColor,
-                background: 'transparent',
-                transition: 'all 0.2s ease',
-                '&:hover': {
-                  background: isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)',
-                  color: defaultTextColor,
-                },
-                '&.Mui-disabled': {
-                  opacity: 0.3,
-                }
-              }}
-            >
-              <RefreshIcon sx={{ 
-                fontSize: 22,
-                animation: isLoading ? 'spin 1s linear infinite' : 'none',
-                '@keyframes spin': {
-                  '0%': { transform: 'rotate(0deg)' },
-                  '100%': { transform: 'rotate(360deg)' },
-                }
-              }} />
+            <IconButton onClick={() => refetch()} disabled={isLoading} sx={{ p: 1.25, borderRadius: 2 }}>
+              <RefreshIcon sx={{ fontSize: 22, animation: isLoading ? 'spin 1s linear infinite' : 'none' }} />
             </IconButton>
           </Tooltip>
         </Box>
 
-        {/* iOS-Style Segmented Control for Status Tabs */}
+        {/* Segmented Control */}
         <Box 
           sx={{
             mt: 2,
             display: 'flex',
             p: 0.5,
-            background: segmentedBgColor,
+            background: isDarkMode ? 'rgba(20, 83, 45, 0.5)' : 'rgba(209, 250, 229, 0.5)',
             borderRadius: 2,
             overflowX: 'auto',
             scrollbarWidth: 'none',
-            '&::-webkit-scrollbar': {
-              display: 'none',
-            },
+            '&::-webkit-scrollbar': { display: 'none' },
           }}
         >
-          {tabs.map((tab, index) => {
-            const isActive = activeTab === index;
+          {tabs.map((tab) => {
+            const isActive = activeTab === tabs.indexOf(tab);
             const taskCount = groupedTasks[tab.key].length;
-            const isCompact = tabs.length > 5;
             
             return (
               <Button
                 key={tab.key}
-                onClick={() => setActiveTab(index)}
+                onClick={() => setActiveTab(tabs.indexOf(tab))}
                 sx={{
-                  px: isCompact ? 1.5 : 2,
+                  px: 2,
                   py: 1,
                   minWidth: 'fit-content',
                   borderRadius: 1.5,
-                  fontSize: isCompact ? '0.8125rem' : '0.875rem',
+                  fontSize: '0.875rem',
                   fontWeight: 600,
                   textTransform: 'none',
-                  background: isActive ? segmentedActiveBg : 'transparent',
-                  color: isActive ? segmentedActiveText : segmentedInactiveText,
+                  background: isActive ? '#10b981' : 'transparent',
+                  color: isActive ? '#ffffff' : (isDarkMode ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.5)'),
                   transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                  position: 'relative',
-                  overflow: 'visible',
                   '&:hover': {
-                    background: isActive ? segmentedActiveBg : (isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)'),
+                    background: isActive ? '#10b981' : (isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)'),
                   },
-                  '&:active': {
-                    transform: 'scale(0.98)',
-                  },
+                  '&:active': { transform: 'scale(0.98)' },
                 }}
               >
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Typography 
-                    variant="body2" 
-                    sx={{ 
-                      lineHeight: 1,
-                      whiteSpace: 'nowrap'
-                    }}
-                  >
+                  <Typography variant="body2" sx={{ lineHeight: 1, whiteSpace: 'nowrap' }}>
                     {tab.label}
                   </Typography>
                   <Box 
@@ -743,11 +669,8 @@ const SchedulePage = () => {
                       fontWeight: 700,
                       minWidth: '20px',
                       textAlign: 'center',
-                      background: isActive 
-                        ? (isDarkMode ? 'rgba(0,0,0,0.1)' : 'rgba(0,0,0,0.08)')
-                        : 'transparent',
-                      color: isActive ? segmentedInactiveText : mutedTextColor,
-                      transition: 'all 0.2s ease',
+                      background: isActive ? (isDarkMode ? 'rgba(0,0,0,0.1)' : 'rgba(0,0,0,0.08)') : 'transparent',
+                      color: isActive ? 'rgba(255,255,255,0.6)' : (isDarkMode ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)'),
                     }}
                   >
                     {taskCount}
@@ -761,13 +684,7 @@ const SchedulePage = () => {
 
       {/* Error Display */}
       {error && (
-        <Alert 
-          severity="error" 
-          sx={{ 
-            mb: 2,
-            mx: { xs: 2, sm: 3, md: 4 }
-          }}
-        >
+        <Alert severity="error" sx={{ mb: 2, mx: { xs: 2, sm: 3, md: 4 } }}>
           Failed to load tasks. Please try again.
         </Alert>
       )}
@@ -783,37 +700,21 @@ const SchedulePage = () => {
             <Box>
               {groupedTasks[tab.key].length === 0 ? (
                 <Box textAlign="center" py={8}>
-                  <Typography variant="h6" color="text.secondary" sx={{ mb: 2 }}>
-                    No {tab.label.toLowerCase()} found
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {tab.key === 'all' && 'Try adjusting filters or create a new task'}
-                    {tab.key === 'draft' && 'Drafts are tasks you\'re still working on'}
-                    {tab.key === 'todo' && 'Tasks ready to be started'}
-                    {tab.key === 'in_progress' && 'Tasks currently being worked on'}
-                    {tab.key === 'review' && 'Tasks waiting for approval'}
-                    {tab.key === 'done' && 'Completed tasks - great work!'}
-                    {tab.key === 'cancelled' && 'Cancelled tasks'}
-                  </Typography>
+                  <Typography variant="h6" color="text.secondary">No {tab.label.toLowerCase()} found</Typography>
                 </Box>
               ) : (
                 <Box sx={{ px: { xs: 2, sm: 3, md: 4 } }}>
                   <Grid container spacing={{ xs: 2, sm: 3, md: 3 }}>
                     {groupedTasks[tab.key].map((task) => (
-                      <Grid 
-                        size={{ 
-                          xs: 12,      // Mobile: full width
-                          sm: 6,       // Tablet: 2 columns
-                          md: 4,       // Desktop: 3 columns
-                          lg: 3,       // Large: 4 columns
-                          xl: 2.4      // Extra large: 5 columns
-                        }} 
-                        key={task.taskId}
-                      >
+                      <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={task.taskId}>
                         <ScheduleTaskCard
                           task={task}
                           likeSummary={taskLikeSummaries[task.taskId]}
                           currentUserId={user?.userId || 0}
+                          isSelected={multiSelect.isSelected(task.taskId)}
+                          onToggleSelect={multiSelect.toggleSelect}
+                          isInSelectionMode={multiSelect.isSelectionMode}
+                          onEnterSelectionMode={multiSelect.enterSelectionMode}
                           onEdit={(task: Task) => {
                             setEditingTask(task);
                             setTaskDialogOpen(true);
@@ -851,22 +752,16 @@ const SchedulePage = () => {
         }}
         onSave={async (taskData: any) => {
           try {
-            // Handle date conversion for backend
             const dataToSave = {
               ...taskData,
-              // Handle date range - convert Date objects to ISO strings
               startDate: taskData.dueDateRange?.[0] ? taskData.dueDateRange[0].toISOString() : taskData.startDate || null,
               endDate: taskData.dueDateRange?.[1] ? taskData.dueDateRange[1].toISOString() : taskData.endDate || null,
-              // Keep dueDate for backward compatibility (single date)
               dueDate: (!taskData.dueDateRange?.[0] && !taskData.startDate) ? 
                 (taskData.dueDate instanceof Date ? taskData.dueDate.toISOString() : taskData.dueDate) : null
             };
             
             if (editingTask) {
-              await updateTaskMutation.mutateAsync({ 
-                taskId: editingTask.taskId, 
-                data: dataToSave as UpdateTaskData 
-              });
+              await updateTaskMutation.mutateAsync({ taskId: editingTask.taskId, data: dataToSave as UpdateTaskData });
             } else {
               await createTaskMutation.mutateAsync(dataToSave as CreateTaskData);
             }
@@ -874,12 +769,23 @@ const SchedulePage = () => {
             setEditingTask(undefined);
           } catch (error) {
             console.error('Error saving task:', error);
-            throw error; // Re-throw to let TaskForm handle the error display
+            throw error;
           }
         }}
       />
 
-      {/* Floating Action Button for Mobile */}
+      {/* Selection Mode Toolbar */}
+      <SelectionModeToolbar
+        selectedCount={multiSelect.selectedCount}
+        totalCount={currentTabTasks.length}
+        areAllSelected={multiSelect.areAllSelected(currentTabTasks)}
+        onSelectAll={() => multiSelect.selectAll(currentTabTasks)}
+        onDeselectAll={multiSelect.deselectAll}
+        onClose={multiSelect.exitSelectionMode}
+        onBulkAction={handleBulkAction}
+      />
+
+      {/* FAB */}
       <Fab
         color="primary"
         sx={{ 
@@ -888,11 +794,8 @@ const SchedulePage = () => {
           right: 16,
           background: 'linear-gradient(135deg, rgba(74, 108, 247, 0.8), rgba(166, 77, 255, 0.8))',
           backdropFilter: 'blur(10px)',
-          WebkitBackdropFilter: 'blur(10px)',
           border: '1px solid rgba(255, 255, 255, 0.3)',
           boxShadow: '0 8px 25px rgba(74, 108, 247, 0.4)',
-          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-          animation: 'float 3s ease-in-out infinite',
           '&:hover': {
             transform: 'scale(1.1) translateY(-2px)',
             boxShadow: '0 12px 35px rgba(74, 108, 247, 0.6)',

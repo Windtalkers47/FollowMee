@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsOptional, IsString, IsDateString, IsEnum, IsBoolean, Length } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString, IsDateString, IsEnum, IsBoolean, Length, IsArray, IsInt } from 'class-validator';
 
 export class CreateTaskDto {
   @IsNotEmpty()
@@ -114,4 +114,63 @@ export class TaskQueryDto {
 
   @IsOptional()
   limit?: number = 30;
+}
+
+// ==================== Bulk Action DTOs ====================
+
+export class BulkUpdateStatusDto {
+  @IsArray()
+  @IsString({ each: true })
+  taskIds!: string[];
+
+  @IsNotEmpty()
+  @IsEnum(['draft', 'todo', 'in_progress', 'review', 'done', 'cancelled'])
+  status!: 'draft' | 'todo' | 'in_progress' | 'review' | 'done' | 'cancelled';
+}
+
+export class BulkDeleteDto {
+  @IsArray()
+  @IsString({ each: true })
+  taskIds!: string[];
+}
+
+export class BulkAssignDto {
+  @IsArray()
+  @IsString({ each: true })
+  taskIds!: string[];
+
+  @IsOptional()
+  @IsInt()
+  assignedTo?: number;
+}
+
+// ==================== Priority Summary DTO ====================
+
+export class PrioritySummaryResponseDto {
+  dueToday!: number;
+  dueTomorrow!: number;
+  overdue!: number;
+  dueWithin3Days!: number;
+  totalTasks!: number;
+  suggestedAction?: string;
+  suggestions!: PrioritySuggestionDto[];
+}
+
+export class PrioritySuggestionDto {
+  id!: string;
+  title!: string;
+  type!: 'due-today' | 'due-tomorrow' | 'overdue' | 'due-within-3-days';
+  taskIds!: string[];
+  count!: number;
+  priority!: number; // Higher = more urgent
+  message!: string;
+  actions!: SuggestionActionDto[];
+}
+
+export class SuggestionActionDto {
+  id!: string;
+  label!: string;
+  type!: 'mark-done' | 'start-all' | 'reschedule' | 'review';
+  icon?: string;
+  color?: string;
 }

@@ -203,6 +203,60 @@ export interface CreateLikeData {
   likeType: 'like' | 'love' | 'laugh' | 'angry' | 'wow' | 'sad';
 }
 
+// ==================== Bulk Actions Types ====================
+
+export interface BulkUpdateStatusData {
+  taskIds: string[];
+  status: 'draft' | 'todo' | 'in_progress' | 'review' | 'done' | 'cancelled';
+}
+
+export interface BulkDeleteData {
+  taskIds: string[];
+}
+
+export interface BulkAssignData {
+  taskIds: string[];
+  assignedTo?: number;
+}
+
+export interface BulkActionResult {
+  updated?: number;
+  deleted?: number;
+  assigned?: number;
+  failed: string[];
+}
+
+// ==================== Priority Summary Types ====================
+
+export interface PrioritySuggestion {
+  id: string;
+  title: string;
+  type: 'due-today' | 'due-tomorrow' | 'overdue' | 'due-within-3-days';
+  taskIds: string[];
+  count: number;
+  priority: number;
+  message: string;
+  actions: SuggestionAction[];
+}
+
+export interface SuggestionAction {
+  id: string;
+  label: string;
+  type: 'mark-done' | 'start-all' | 'reschedule' | 'review';
+  icon?: string;
+  color?: string;
+}
+
+export interface PrioritySummaryResponse {
+  dueToday: number;
+  dueTomorrow: number;
+  overdue: number;
+  dueWithin3Days: number;
+  totalTasks: number;
+  suggestedAction?: string;
+  suggestions: PrioritySuggestion[];
+}
+
 // Task CRUD operations
 export const taskApi = {
   // Create a new task
@@ -482,6 +536,43 @@ export const likeApi = {
   // Get current user's like on a task
   getMyLikeOnTask: async (taskId: string): Promise<TaskLike | null> => {
     const response = await axios.get(`${API_BASE_URL}/tasks/${taskId}/likes/my-like`, {
+      withCredentials: true,
+    });
+    return response.data.data;
+  },
+};
+
+// ==================== Bulk Actions API ====================
+
+export const bulkActionApi = {
+  // Bulk update status for multiple tasks
+  bulkUpdateStatus: async (data: BulkUpdateStatusData): Promise<BulkActionResult> => {
+    const response = await axios.put(`${API_BASE_URL}/tasks/bulk-update-status`, data, {
+      withCredentials: true,
+    });
+    return response.data.data;
+  },
+
+  // Bulk delete multiple tasks
+  bulkDelete: async (data: BulkDeleteData): Promise<BulkActionResult> => {
+    const response = await axios.delete(`${API_BASE_URL}/tasks/bulk-delete`, {
+      data,
+      withCredentials: true,
+    });
+    return response.data.data;
+  },
+
+  // Bulk assign multiple tasks to a user
+  bulkAssign: async (data: BulkAssignData): Promise<BulkActionResult> => {
+    const response = await axios.put(`${API_BASE_URL}/tasks/bulk-assign`, data, {
+      withCredentials: true,
+    });
+    return response.data.data;
+  },
+
+  // Get priority summary with smart suggestions
+  getPrioritySummary: async (): Promise<PrioritySummaryResponse> => {
+    const response = await axios.get(`${API_BASE_URL}/tasks/priority-summary`, {
       withCredentials: true,
     });
     return response.data.data;

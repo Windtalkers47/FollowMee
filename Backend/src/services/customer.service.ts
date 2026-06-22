@@ -128,11 +128,20 @@ export class CustomerService {
   }
 
   async searchCustomers(query: string, includeInactive = false): Promise<CustomerResponseDto[]> {
-    // Simple search implementation
+    // Simple search implementation - Search across 10 key fields
     const customers = await this.customerRepository.find({ isActive: !includeInactive } as any);
+    const searchLower = query.toLowerCase();
     const filtered = customers.filter(c => 
-      c.customerName?.toLowerCase().includes(query.toLowerCase()) ||
-      c.customerEmail?.toLowerCase().includes(query.toLowerCase())
+      c.customerName?.toLowerCase().includes(searchLower) ||
+      c.customerLastName?.toLowerCase().includes(searchLower) ||
+      c.customerEmail?.toLowerCase().includes(searchLower) ||
+      c.customerPhone1?.toLowerCase().includes(searchLower) ||
+      c.customerAddress?.toLowerCase().includes(searchLower) ||
+      c.customerFacebook?.toLowerCase().includes(searchLower) ||
+      c.customerInstagram?.toLowerCase().includes(searchLower) ||
+      c.customerTikTok?.toLowerCase().includes(searchLower) ||
+      c.customerLine?.toLowerCase().includes(searchLower) ||
+      c.customerX?.toLowerCase().includes(searchLower)
     );
     return filtered.map(c => new CustomerResponseDto({
       ...c,

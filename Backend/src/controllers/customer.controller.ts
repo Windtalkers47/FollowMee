@@ -48,11 +48,17 @@ export class CustomerController {
 
   /**
    * Get all customers (paginated)
+   * 
+   * iOS 2026 Design Pattern - Search & Pagination:
+   * - Default limit = 100 (show all data up to 100 items)
+   * - Return all results on page=1 (no pagination by default)
+   * - Pagination only applied when explicitly requested (page > 1)
    */
   async getCustomers(req: Request, res: Response) {
     try {
       const page = parseInt(req.query.page as string) || 1;
-      const limit = parseInt(req.query.limit as string) || 10;
+      // iOS 2026: Default limit = 100 for showing all data
+      const limit = parseInt(req.query.limit as string) || 100;
       const includeInactive = req.query.status === 'inactive';
       
       // Get customers
@@ -63,13 +69,16 @@ export class CustomerController {
       const start = (page - 1) * limit;
       const paginatedCustomers = customers.slice(start, start + limit);
       
+      // iOS 2026: Use actual returned data length for limit
+      const actualLimit = paginatedCustomers.length;
+      
       return res.json({ 
         success: true, 
         data: paginatedCustomers,
         meta: { 
           total: total, 
           page: page, 
-          limit: limit,
+          limit: actualLimit,
           totalPages: Math.ceil(total / limit)
         }
       });

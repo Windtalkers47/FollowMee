@@ -79,7 +79,15 @@ export const StatCard: React.FC<StatCardProps> = ({
       </Box>
 
       {(trend || subtitle) && (
-        <Box>
+        <Box
+          display="flex"
+          flexWrap="wrap"
+          alignItems="center"
+          gap={1}
+          sx={{
+            mt: 'auto',
+          }}
+        >
           {trend && (
             <Chip
               label={trend.value}
@@ -88,17 +96,19 @@ export const StatCard: React.FC<StatCardProps> = ({
                 bgcolor: trend.isPositive ? 'rgba(76, 175, 80, 0.2)' : 'rgba(244, 67, 54, 0.2)',
                 color: trend.isPositive ? '#4caf50' : '#f44336',
                 fontWeight: 600,
-                fontSize: '0.75rem',
+                fontSize: '0.7rem',
                 border: `1px solid ${trend.isPositive ? '#4caf50' : '#f44336'}`,
+                height: 24,
               }}
             />
           )}
           {subtitle && (
             <Typography
-              variant="caption"
+              variant="body2"
               sx={{
-                ml: 1,
-                color: isDarkMode ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)',
+                color: isDarkMode ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)',
+                fontSize: '0.8rem',
+                lineHeight: 1.4,
               }}
             >
               {subtitle}

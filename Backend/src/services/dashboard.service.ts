@@ -15,7 +15,7 @@ import {
 } from '../dtos/dashboard.dto';
 
 // Time Range type for dashboard stats
-export type TimeRange = '7d' | '1m' | '3m' | '6m' | '1y';
+export type TimeRange = '1d' | '5d' | '7d' | '1m' | '3m' | '6m' | 'ytd' | '1y' | '5y';
 
 // Helper function to get date range based on time range
 export const getDateRange = (range: TimeRange): { days: number; startDate: Date } => {
@@ -23,6 +23,12 @@ export const getDateRange = (range: TimeRange): { days: number; startDate: Date 
   let days: number;
   
   switch (range) {
+    case '1d':
+      days = 1;
+      break;
+    case '5d':
+      days = 5;
+      break;
     case '7d':
       days = 7;
       break;
@@ -35,11 +41,19 @@ export const getDateRange = (range: TimeRange): { days: number; startDate: Date 
     case '6m':
       days = 180;
       break;
+    case 'ytd':
+      // Year-to-Date: from start of current year
+      const startOfYear = new Date(now.getFullYear(), 0, 1);
+      days = Math.floor((now.getTime() - startOfYear.getTime()) / (24 * 60 * 60 * 1000));
+      return { days, startDate: startOfYear };
     case '1y':
       days = 365;
       break;
+    case '5y':
+      days = 365 * 5;
+      break;
     default:
-      days = 7;
+      days = 1;
   }
   
   const startDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);

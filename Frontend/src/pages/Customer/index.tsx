@@ -581,26 +581,21 @@ const CustomerPage = () => {
               onSearch={(value) => {
                 if (!value || value.trim() === '') {
                   setSearchInput('');
-                  // Reset pageSize และ fetch ข้อมูลทั้งหมด
-                  handlePageSizeChange(DEFAULT_PAGE_SIZE);
-                  // ใช้ handleFilterChange พร้อม limit parameter
-                  handleFilterChange({ search: '', limit: DEFAULT_PAGE_SIZE });
+                  // iOS 2026: Clear search → Reset to default state (show all data)
+                  handleFilterChange({ search: '' });
                 } else {
                   handleFilterChange({ search: value });
                 }
               }}
               onClear={() => {
                 setSearchInput('');
-                // Reset pageSize และ fetch ข้อมูลทั้งหมด
-                handlePageSizeChange(DEFAULT_PAGE_SIZE);
-                // ใช้ handleFilterChange พร้อม limit parameter
-                handleFilterChange({ search: '', limit: DEFAULT_PAGE_SIZE });
+                // iOS 2026: Instant reset to default state
+                // handleFilterChange จะ reset pageSize เป็น 100 อัตโนมัติ
+                handleFilterChange({ search: '' });
               }}
               onRefresh={() => {
-                // Reset pageSize และ fetch ข้อมูลทั้งหมด
-                handlePageSizeChange(DEFAULT_PAGE_SIZE);
-                // ใช้ handleFilterChange พร้อม limit parameter
-                handleFilterChange({ ...filter, limit: DEFAULT_PAGE_SIZE });
+                // iOS 2026: Refetch โดย reset page เป็น 1
+                handlePageChange(1);
               }}
               searchPlaceholder="Search customers by name, email..."
               loading={loading}
@@ -1286,8 +1281,8 @@ const CustomerPage = () => {
           )}
         </Box>
 
-        {/* Pagination - แสดงเสมอเมื่อมีข้อมูลรวม */}
-        {total > 0 && (
+        {/* Pagination - แสดงเฉพาะเมื่อข้อมูลมากกว่า 50 รายการ (iOS 2026 Design Pattern) */}
+        {total > 50 && (
           <Box display="flex" justifyContent="flex-end" mt={4}>
             <TablePagination
               rowsPerPageOptions={[10, 25, 50, 100]}

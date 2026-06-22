@@ -1,9 +1,9 @@
 import React from 'react';
-import { Box, Typography, Chip, SxProps, Theme, IconButton } from '@mui/material';
+import { Box, Typography, SxProps, Theme } from '@mui/material';
 import { LiquidGlassCard } from './LiquidGlassCard';
 import { PendingTask } from '../../services/api/dashboardApi';
 import { GradientPresetKey } from '../../styles/liquidGlassStyles';
-import { AccessTime, CheckCircle, ArrowForward } from '@mui/icons-material';
+import { AccessTime, CheckCircle, ArrowForward, Flag } from '@mui/icons-material';
 
 interface PendingTasksListProps {
   tasks: PendingTask[];
@@ -49,6 +49,19 @@ export const PendingTasksList: React.FC<PendingTasksListProps> = ({
     }
   };
 
+  const getPriorityGradient = (priority: string) => {
+    switch (priority) {
+      case 'high':
+        return 'linear-gradient(135deg, rgba(244, 67, 54, 0.2), rgba(244, 67, 54, 0.05))';
+      case 'medium':
+        return 'linear-gradient(135deg, rgba(255, 152, 0, 0.2), rgba(255, 152, 0, 0.05))';
+      case 'low':
+        return 'linear-gradient(135deg, rgba(76, 175, 80, 0.2), rgba(76, 175, 80, 0.05))';
+      default:
+        return isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)';
+    }
+  };
+
   const getPriorityLabel = (priority: string) => {
     switch (priority) {
       case 'high':
@@ -62,21 +75,21 @@ export const PendingTasksList: React.FC<PendingTasksListProps> = ({
     }
   };
 
-  const formatDate = (dateString?: string) => {
-    if (!dateString) return '';
+  const formatDate = (dateString?: string): { text: string; color: string } => {
+    if (!dateString) return { text: '', color: '' };
     const date = new Date(dateString);
     const now = new Date();
     const diffTime = date.getTime() - now.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
     if (diffDays < 0) {
-      return `Overdue by ${Math.abs(diffDays)} days`;
+      return { text: `${Math.abs(diffDays)}d overdue`, color: '#F44336' };
     } else if (diffDays === 0) {
-      return 'Due today';
+      return { text: 'Today', color: '#FF9800' };
     } else if (diffDays === 1) {
-      return 'Due tomorrow';
+      return { text: 'Tomorrow', color: '#2196F3' };
     } else {
-      return `Due in ${diffDays} days`;
+      return { text: `In ${diffDays}d`, color: isDarkMode ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)' };
     }
   };
 
@@ -85,18 +98,26 @@ export const PendingTasksList: React.FC<PendingTasksListProps> = ({
       gradientPreset={gradientPreset}
       isDarkMode={isDarkMode}
       sx={{
-        p: 3,
+        p: { xs: 2, sm: 3 },
         ...sx,
       }}
     >
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Typography variant="h6" sx={{ fontWeight: 700 }}>
-          ⏳ Pending Tasks
-        </Typography>
+        <Box display="flex" alignItems="center" gap={1}>
+          <AccessTime sx={{ color: '#10b981', fontSize: 20 }} />
+          <Typography variant="h6" sx={{ fontWeight: 700, color: isDarkMode ? '#fff' : '#1a1a1a' }}>
+            Pending Tasks
+          </Typography>
+        </Box>
         <Typography
           variant="caption"
           sx={{
             color: isDarkMode ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)',
+            bgcolor: isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
+            px: 1.5,
+            py: 0.5,
+            borderRadius: 2,
+            fontWeight: 600,
           }}
         >
           {tasks.length} tasks
@@ -109,128 +130,154 @@ export const PendingTasksList: React.FC<PendingTasksListProps> = ({
           py={4}
           sx={{ color: isDarkMode ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)' }}
         >
-          <CheckCircle sx={{ fontSize: 48, mb: 2, opacity: 0.5 }} />
-          <Typography variant="body1">All caught up!</Typography>
+          <CheckCircle sx={{ fontSize: 48, mb: 2, opacity: 0.5, color: '#10b981' }} />
+          <Typography variant="body1" sx={{ fontWeight: 600, color: isDarkMode ? '#fff' : '#1a1a1a' }}>
+            All caught up!
+          </Typography>
           <Typography variant="caption">No pending tasks</Typography>
         </Box>
       ) : (
         <Box>
-          {tasks.map((task, index) => (
-            <Box
-              key={task.taskId}
-              display="flex"
-              alignItems="center"
-              mb={index < tasks.length - 1 ? 2 : 0}
-              p={2}
-              sx={{
-                borderRadius: 2,
-                background: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
-                border: `1px solid ${
-                  task.priority === 'high'
-                    ? 'rgba(244, 67, 54, 0.3)'
-                    : isDarkMode
-                    ? 'rgba(255,255,255,0.1)'
-                    : 'rgba(0,0,0,0.08)'
-                }`,
-                transition: 'all 0.3s ease',
-                cursor: onTaskClick ? 'pointer' : 'default',
-                '&:hover': {
-                  background: isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
-                  transform: onTaskClick ? 'translateX(4px)' : 'none',
-                  borderColor: task.priority === 'high' ? 'rgba(244, 67, 54, 0.5)' : undefined,
-                },
-              }}
-              onClick={() => onTaskClick?.(task.taskId)}
-            >
+          {tasks.map((task, index) => {
+            const dueDateInfo = formatDate(task.dueDate);
+            return (
               <Box
+                key={task.taskId}
+                display="flex"
+                alignItems="center"
+                mb={index < tasks.length - 1 ? 2 : 0}
+                p={2}
                 sx={{
-                  width: 4,
-                  height: '100%',
-                  minHeight: 40,
-                  borderRadius: 2,
-                  mr: 2,
-                  bgcolor: getPriorityColor(task.priority),
+                  borderRadius: 3,
+                  background: getPriorityGradient(task.priority),
+                  border: `1px solid ${getPriorityColor(task.priority)}30`,
+                  transition: 'all 0.3s ease',
+                  cursor: onTaskClick ? 'pointer' : 'default',
+                  '&:hover': {
+                    transform: 'translateX(8px)',
+                    borderColor: `${getPriorityColor(task.priority)}50`,
+                    boxShadow: `0 8px 20px ${getPriorityColor(task.priority)}20`,
+                  },
                 }}
-              />
-              <Box flex={1} minWidth={0}>
-                <Typography
-                  variant="subtitle2"
+                onClick={() => onTaskClick?.(task.taskId)}
+              >
+                {/* Priority Bar */}
+                <Box
                   sx={{
-                    fontWeight: 600,
-                    color: isDarkMode ? '#fff' : '#1a1a1a',
-                    mb: 0.5,
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
+                    width: 4,
+                    height: '100%',
+                    minHeight: 48,
+                    borderRadius: 2,
+                    mr: 2,
+                    background: `linear-gradient(180deg, ${getPriorityColor(task.priority)}, ${getPriorityColor(task.priority)}80)`,
                   }}
-                >
-                  {task.title}
-                </Typography>
-                <Box display="flex" alignItems="center" gap={1}>
-                  <Chip
-                    label={statusLabels[task.status] || task.status}
-                    size="small"
+                />
+
+                {/* Content */}
+                <Box flex={1} minWidth={0}>
+                  <Typography
+                    variant="subtitle2"
                     sx={{
-                      bgcolor: `${statusColors[task.status]}20`,
-                      color: statusColors[task.status],
                       fontWeight: 600,
-                      fontSize: '0.7rem',
-                      border: `1px solid ${statusColors[task.status]}`,
+                      color: isDarkMode ? '#fff' : '#1a1a1a',
+                      mb: 1,
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
                     }}
-                  />
-                  <Chip
-                    label={getPriorityLabel(task.priority)}
-                    size="small"
-                    sx={{
-                      bgcolor: `${getPriorityColor(task.priority)}20`,
-                      color: getPriorityColor(task.priority),
-                      fontWeight: 600,
-                      fontSize: '0.7rem',
-                      border: `1px solid ${getPriorityColor(task.priority)}`,
-                    }}
-                  />
-                  {task.dueDate && (
-                    <Box display="flex" alignItems="center" sx={{ ml: 1 }}>
-                      <AccessTime
+                  >
+                    {task.title}
+                  </Typography>
+                  <Box display="flex" flexWrap="wrap" alignItems="center" gap={1}>
+                    {/* Status Badge */}
+                    <Box
+                      sx={{
+                        px: 1.5,
+                        py: 0.5,
+                        borderRadius: 2,
+                        bgcolor: `${statusColors[task.status]}15`,
+                        border: `1px solid ${statusColors[task.status]}40`,
+                        color: statusColors[task.status],
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 0.5,
+                        fontSize: '0.75rem',
+                        fontWeight: 600,
+                      }}
+                    >
+                      {statusLabels[task.status] || task.status}
+                    </Box>
+
+                    {/* Priority Badge */}
+                    <Box
+                      sx={{
+                        px: 1.5,
+                        py: 0.5,
+                        borderRadius: 2,
+                        bgcolor: `${getPriorityColor(task.priority)}15`,
+                        border: `1px solid ${getPriorityColor(task.priority)}40`,
+                        color: getPriorityColor(task.priority),
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 0.5,
+                        fontSize: '0.75rem',
+                        fontWeight: 600,
+                      }}
+                    >
+                      <Flag sx={{ fontSize: 12 }} />
+                      {getPriorityLabel(task.priority)}
+                    </Box>
+
+                    {/* Due Date */}
+                    {task.dueDate && (
+                      <Box
+                        display="flex"
+                        alignItems="center"
                         sx={{
-                          fontSize: 14,
-                          mr: 0.5,
-                          color:
-                            formatDate(task.dueDate).includes('Overdue')
-                              ? '#F44336'
-                              : isDarkMode
-                              ? 'rgba(255,255,255,0.5)'
-                              : 'rgba(0,0,0,0.5)',
-                        }}
-                      />
-                      <Typography
-                        variant="caption"
-                        sx={{
-                          color:
-                            formatDate(task.dueDate).includes('Overdue')
-                              ? '#F44336'
-                              : isDarkMode
-                              ? 'rgba(255,255,255,0.5)'
-                              : 'rgba(0,0,0,0.5)',
+                          ml: 0.5,
+                          px: 1,
+                          py: 0.3,
+                          borderRadius: 1.5,
+                          bgcolor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
                         }}
                       >
-                        {formatDate(task.dueDate)}
-                      </Typography>
-                    </Box>
-                  )}
+                        <AccessTime
+                          sx={{
+                            fontSize: 12,
+                            mr: 0.3,
+                            color: dueDateInfo.color,
+                          }}
+                        />
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            color: dueDateInfo.color,
+                            fontWeight: 500,
+                            fontSize: '0.7rem',
+                          }}
+                        >
+                          {dueDateInfo.text}
+                        </Typography>
+                      </Box>
+                    )}
+                  </Box>
                 </Box>
-              </Box>
-              {onTaskClick && (
-                <IconButton size="small" sx={{ ml: 1 }}>
-                  <ArrowForward
+
+                {/* Arrow Icon */}
+                {onTaskClick && (
+                  <Box
                     sx={{
-                      color: isDarkMode ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)',
+                      ml: 1,
+                      color: isDarkMode ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)',
+                      transition: 'transform 0.3s ease',
                     }}
-                  />
-                </IconButton>
-              )}
-            </Box>
-          ))}
+                  >
+                    <ArrowForward sx={{ fontSize: 18 }} />
+                  </Box>
+                )}
+              </Box>
+            );
+          })}
         </Box>
       )}
     </LiquidGlassCard>

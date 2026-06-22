@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   Box,
   Typography,
@@ -18,14 +18,14 @@ import {
   List as ListIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
-import { Line, Doughnut } from 'react-chartjs-2';
+import { Line, Bar } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
   CategoryScale,
   LinearScale,
   PointElement,
   LineElement,
-  ArcElement,
+  BarElement,
   Title,
   Tooltip as ChartTooltip,
   Legend,
@@ -47,59 +47,140 @@ import {
   PendingTask,
 } from '../../services/api/dashboardApi';
 import { gradientPresets } from '../../styles/liquidGlassStyles';
+import { webSocketService } from '../../services/websocket.service';
 
-// Register ChartJS components
+// Register ChartJS components (once, at module level)
 ChartJS.register(
   CategoryScale,
   LinearScale,
   PointElement,
   LineElement,
-  ArcElement,
+  BarElement,
   Title,
   ChartTooltip,
   Legend,
   Filler
 );
 
-type TimeRange = '7d' | '1m' | '3m' | '6m' | '1y';
+type TimeRange = '1d' | '5d' | '7d' | '1m' | '3m' | '6m' | 'ytd' | '1y' | '5y';
 
 const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAppSelector((state) => state.auth);
   const theme = useTheme();
   
-  const [isLoading, setIsLoading] = useState(true);
+  // Loading states - แยกตามส่วน
+  const [isStatsLoading, setIsStatsLoading] = useState(true);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  
+  // Data states
   const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
   const [leaderboard, setLeaderboard] = useState<LeaderboardData | null>(null);
   const [pendingTasks, setPendingTasks] = useState<PendingTask[]>([]);
-  const [timeRange, setTimeRange] = useState<TimeRange>('7d');
+  const [timeRange, setTimeRange] = useState<TimeRange>('1d');
+  
+  // Refs
+  const debounceTimer = React.useRef<NodeJS.Timeout | null>(null);
+  const hasInitializedWebSocket = useRef(false);
+  const hasFetchedStaticData = useRef(false);
   
   const gradientPreset = 'freshGreen' as const;
   const isDarkMode = theme.palette.mode === 'dark';
 
-  // Fetch dashboard data
+  // Fetch Stats only (เรียกเมื่อเปลี่ยน time range)
+  const fetchStatsOnly = useCallback(async (range: TimeRange) => {
+    try {
+      setIsStatsLoading(true);
+      const stats = await getDashboardStats(range);
+      setDashboardStats(stats);
+    } catch (error) {
+      console.error('Failed to fetch stats:', error);
+    } finally {
+      setIsStatsLoading(false);
+    }
+  }, []);
+
+  // Fetch Static Data (Leaderboard + Pending Tasks) - เรียกครั้งเดียว
+  const fetchStaticData = useCallback(async () => {
+    try {
+      const [leaderboardData, tasksData] = await Promise.all([
+        getLeaderboard(5),
+        getPendingTasks(5),
+      ]);
+      
+      setLeaderboard(leaderboardData);
+      setPendingTasks(tasksData.tasks);
+    } catch (error) {
+      console.error('Failed to fetch static data:', error);
+    }
+  }, []);
+
+  // Initial load - เรียกทั้ง Stats และ Static Data
   useEffect(() => {
-    const fetchDashboardData = async () => {
-      try {
-        setIsLoading(true);
-        const [stats, leaderboardData, tasks] = await Promise.all([
-          getDashboardStats(timeRange),
-          getLeaderboard(5),
-          getPendingTasks(5),
-        ]);
-        
-        setDashboardStats(stats);
-        setLeaderboard(leaderboardData);
-        setPendingTasks(tasks.tasks);
-      } catch (error) {
-        console.error('Failed to fetch dashboard data:', error);
-      } finally {
-        setIsLoading(false);
+    const initialLoad = async () => {
+      setIsInitialLoading(true);
+      await Promise.all([
+        fetchStatsOnly(timeRange),
+        fetchStaticData(),
+      ]);
+      setIsInitialLoading(false);
+    };
+    
+    initialLoad();
+  }, []);
+
+  // Debounced time range change - เรียกเฉพาะ Stats
+  useEffect(() => {
+    // Clear previous timer
+    if (debounceTimer.current) {
+      clearTimeout(debounceTimer.current);
+    }
+    
+    // Set new timer with 200ms debounce (เร็วขึ้นสำหรับ UX ที่ดีกว่า)
+    debounceTimer.current = setTimeout(() => {
+      fetchStatsOnly(timeRange);
+    }, 200);
+    
+    // Cleanup
+    return () => {
+      if (debounceTimer.current) {
+        clearTimeout(debounceTimer.current);
       }
     };
+  }, [timeRange, fetchStatsOnly]);
 
-    fetchDashboardData();
-  }, [timeRange]);
+  // WebSocket integration for realtime updates
+  useEffect(() => {
+    if (!user?.userId || hasInitializedWebSocket.current) return;
+    
+    // Initialize WebSocket connection
+    webSocketService.connect(user.userId);
+    hasInitializedWebSocket.current = true;
+    
+    // Listen for real-time updates - refresh เฉพาะ static data เมื่อมี notification
+    const handleDashboardUpdate = () => {
+      // Refresh เฉพาะ Leaderboard และ Pending Tasks (ไม่ refresh Stats)
+      fetchStaticData();
+    };
+    
+    webSocketService.onNotificationNew(handleDashboardUpdate);
+    
+    // Cleanup
+    return () => {
+      webSocketService.offNotificationNew(handleDashboardUpdate);
+    };
+  }, [user?.userId, fetchStaticData]);
+
+  // Refresh static data เป็นระยะ (ทุก 2 นาที) เพื่อข้อมูลที่เป็นปัจจุบัน
+  useEffect(() => {
+    if (!user?.userId) return;
+    
+    const intervalId = setInterval(() => {
+      fetchStaticData();
+    }, 2 * 60 * 1000); // 2 นาที
+    
+    return () => clearInterval(intervalId);
+  }, [user?.userId, fetchStaticData]);
 
   const handleTaskClick = (taskId: string) => {
     navigate(`/posts/${taskId}`);
@@ -113,39 +194,67 @@ const DashboardPage: React.FC = () => {
     navigate('/customer');
   };
 
-  const handleTimeRangeChange = (event: React.MouseEvent<HTMLElement>, newRange: TimeRange) => {
+  const handleTimeRangeChange = useCallback((event: React.MouseEvent<HTMLElement>, newRange: TimeRange) => {
     if (newRange !== null) {
       setTimeRange(newRange);
     }
-  };
+  }, []);
 
-  // Prepare chart data
-  const customerTrendData = dashboardStats?.customerStats.customerTrend
-    ? {
-        labels: dashboardStats.customerStats.customerTrend.map((item) => {
-          const date = new Date(item.date);
-          return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-        }),
-        datasets: [
-          {
-            label: 'Active',
-            data: dashboardStats.customerStats.customerTrend.map((item) => item.active),
-            fill: true,
-            backgroundColor: 'rgba(76, 175, 80, 0.2)',
-            borderColor: '#4CAF50',
-            tension: 0.4,
+  // Prepare chart data with memoization
+  const customerTrendData = useMemo(() => {
+    if (!dashboardStats?.customerStats.customerTrend) return null;
+    
+    const trend = dashboardStats.customerStats.customerTrend;
+    
+    return {
+      labels: trend.map((item) => {
+        const date = new Date(item.date);
+        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      }),
+      datasets: [
+        {
+          label: 'Active',
+          data: trend.map((item) => item.active),
+          fill: true,
+          backgroundColor: (context: any) => {
+            const ctx = context.chart.ctx;
+            const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+            gradient.addColorStop(0, 'rgba(16, 185, 129, 0.4)');
+            gradient.addColorStop(1, 'rgba(16, 185, 129, 0.0)');
+            return gradient;
           },
-          {
-            label: 'New',
-            data: dashboardStats.customerStats.customerTrend.map((item) => item.new),
-            fill: true,
-            backgroundColor: 'rgba(33, 150, 243, 0.2)',
-            borderColor: '#2196F3',
-            tension: 0.4,
+          borderColor: '#10b981',
+          borderWidth: 2,
+          tension: 0.4,
+          pointRadius: 0,
+          pointHoverRadius: 4,
+          pointHoverBackgroundColor: '#10b981',
+          pointHoverBorderColor: '#fff',
+          pointHoverBorderWidth: 2,
+        },
+        {
+          label: 'New',
+          data: trend.map((item) => item.new),
+          fill: true,
+          backgroundColor: (context: any) => {
+            const ctx = context.chart.ctx;
+            const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+            gradient.addColorStop(0, 'rgba(59, 130, 246, 0.3)');
+            gradient.addColorStop(1, 'rgba(59, 130, 246, 0.0)');
+            return gradient;
           },
-        ],
-      }
-    : null;
+          borderColor: '#3b82f6',
+          borderWidth: 2,
+          tension: 0.4,
+          pointRadius: 0,
+          pointHoverRadius: 4,
+          pointHoverBackgroundColor: '#3b82f6',
+          pointHoverBorderColor: '#fff',
+          pointHoverBorderWidth: 2,
+        },
+      ],
+    };
+  }, [dashboardStats?.customerStats.customerTrend]);
 
   const taskStatusData = dashboardStats?.taskStats.tasksByStatus
     ? {
@@ -159,16 +268,122 @@ const DashboardPage: React.FC = () => {
               dashboardStats.taskStats.tasksByStatus.done,
               dashboardStats.taskStats.tasksByStatus.cancelled,
             ],
-            backgroundColor: ['#FFC107', '#2196F3', '#9C27B0', '#4CAF50', '#F44336'],
-            borderWidth: 0,
+            backgroundColor: [
+              (context: any) => {
+                const ctx = context.chart.ctx;
+                const gradient = ctx.createLinearGradient(0, 0, 200, 0);
+                gradient.addColorStop(0, 'rgba(255, 193, 7, 0.8)');
+                gradient.addColorStop(1, 'rgba(255, 193, 7, 0.3)');
+                return gradient;
+              },
+              (context: any) => {
+                const ctx = context.chart.ctx;
+                const gradient = ctx.createLinearGradient(0, 0, 200, 0);
+                gradient.addColorStop(0, 'rgba(33, 150, 243, 0.8)');
+                gradient.addColorStop(1, 'rgba(33, 150, 243, 0.3)');
+                return gradient;
+              },
+              (context: any) => {
+                const ctx = context.chart.ctx;
+                const gradient = ctx.createLinearGradient(0, 0, 200, 0);
+                gradient.addColorStop(0, 'rgba(156, 39, 176, 0.8)');
+                gradient.addColorStop(1, 'rgba(156, 39, 176, 0.3)');
+                return gradient;
+              },
+              (context: any) => {
+                const ctx = context.chart.ctx;
+                const gradient = ctx.createLinearGradient(0, 0, 200, 0);
+                gradient.addColorStop(0, 'rgba(76, 175, 80, 0.8)');
+                gradient.addColorStop(1, 'rgba(76, 175, 80, 0.3)');
+                return gradient;
+              },
+              (context: any) => {
+                const ctx = context.chart.ctx;
+                const gradient = ctx.createLinearGradient(0, 0, 200, 0);
+                gradient.addColorStop(0, 'rgba(244, 67, 54, 0.8)');
+                gradient.addColorStop(1, 'rgba(244, 67, 54, 0.3)');
+                return gradient;
+              },
+            ],
+            borderRadius: 8,
+            barThickness: 28,
           },
         ],
       }
     : null;
 
-  const chartOptions = {
+  const barChartOptions = useMemo(() => ({
+    indexAxis: 'y' as const,
     responsive: true,
     maintainAspectRatio: false,
+    interaction: {
+      mode: 'index' as const,
+      intersect: false,
+    },
+    plugins: {
+      legend: {
+        display: false,
+      },
+      tooltip: {
+        backgroundColor: isDarkMode ? 'rgba(0, 0, 0, 0.9)' : 'rgba(255, 255, 255, 0.95)',
+        titleColor: isDarkMode ? '#fff' : '#1a1a1a',
+        bodyColor: isDarkMode ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.7)',
+        borderColor: isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+        borderWidth: 1,
+        padding: 12,
+        cornerRadius: 8,
+        titleFont: {
+          size: 13,
+          weight: '600',
+        },
+        bodyFont: {
+          size: 12,
+        },
+      },
+    },
+    scales: {
+      y: {
+        grid: {
+          display: false,
+        },
+        border: {
+          display: false,
+        },
+        ticks: {
+          color: isDarkMode ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.7)',
+          font: {
+            size: 11,
+            weight: 500,
+          },
+        },
+      },
+      x: {
+        grid: {
+          display: true,
+          color: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)',
+          drawBorder: false,
+        },
+        border: {
+          display: false,
+        },
+        ticks: {
+          color: isDarkMode ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)',
+          font: {
+            size: 10,
+          },
+        },
+        min: 0,
+      },
+    },
+  }), [isDarkMode]);
+
+  const chartOptions = useMemo(() => ({
+    responsive: true,
+    maintainAspectRatio: false,
+    interaction: {
+      mode: 'index' as const,
+      intersect: false,
+    },
     plugins: {
       legend: {
         display: true,
@@ -178,6 +393,25 @@ const DashboardPage: React.FC = () => {
           font: {
             size: 11,
           },
+          usePointStyle: true,
+          pointStyle: 'circle',
+        },
+      },
+      tooltip: {
+        backgroundColor: isDarkMode ? 'rgba(0, 0, 0, 0.9)' : 'rgba(255, 255, 255, 0.95)',
+        titleColor: isDarkMode ? '#fff' : '#1a1a1a',
+        bodyColor: isDarkMode ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.7)',
+        borderColor: isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+        borderWidth: 1,
+        padding: 12,
+        displayColors: true,
+        cornerRadius: 8,
+        titleFont: {
+          size: 13,
+          weight: '600',
+        },
+        bodyFont: {
+          size: 12,
         },
       },
     },
@@ -186,58 +420,58 @@ const DashboardPage: React.FC = () => {
         beginAtZero: true,
         grid: {
           display: true,
-          color: isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+          color: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)',
+          drawBorder: false,
         },
         border: {
           display: false,
         },
         ticks: {
-          color: isDarkMode ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.7)',
+          color: isDarkMode ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)',
+          padding: 8,
+          font: {
+            size: 11,
+          },
+          callback: (value: any) => Number.isInteger(value) ? value : '',
         },
       },
       x: {
         grid: {
           display: false,
         },
+        border: {
+          display: false,
+        },
         ticks: {
-          color: isDarkMode ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.7)',
+          color: isDarkMode ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)',
+          padding: 8,
           font: {
             size: 10,
           },
+          maxRotation: 0,
+          autoSkip: true,
+          maxTicksLimit: 8,
         },
       },
     },
-  };
+  }), [isDarkMode]);
 
-  const doughnutOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: {
-        display: true,
-        position: 'bottom' as const,
-        labels: {
-          color: isDarkMode ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.7)',
-          font: {
-            size: 11,
-          },
-        },
-      },
-    },
-  };
-
-  const getChartTitle = () => {
+  const getChartTitle = useCallback(() => {
     const titles: Record<TimeRange, string> = {
+      '1d': 'Customer Growth (24 Hours)',
+      '5d': 'Customer Growth (5 Days)',
       '7d': 'Customer Growth (7 Days)',
       '1m': 'Customer Growth (1 Month)',
       '3m': 'Customer Growth (3 Months)',
       '6m': 'Customer Growth (6 Months)',
+      'ytd': 'Customer Growth (Year to Date)',
       '1y': 'Customer Growth (1 Year)',
+      '5y': 'Customer Growth (5 Years)',
     };
     return titles[timeRange];
-  };
+  }, [timeRange]);
 
-  if (isLoading) {
+  if (isInitialLoading) {
     return (
       <Box
         sx={{
@@ -422,37 +656,59 @@ const DashboardPage: React.FC = () => {
         <Box sx={{ mb: 4 }}>
           <Grid container spacing={3}>
             <Grid size={{ xs: 12, lg: 8 }}>
-              <LiquidGlassCard gradientPreset={gradientPreset} isDarkMode={isDarkMode} sx={{ p: 3, height: '100%' }}>
-                <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-                  <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                    {getChartTitle()}
-                  </Typography>
+              <LiquidGlassCard 
+                gradientPreset={gradientPreset} 
+                isDarkMode={isDarkMode} 
+                sx={{ p: { xs: 2, sm: 3 }, height: '100%' }}
+                key={`customer-growth-${timeRange}`}
+              >
+                <Box display="flex" justifyContent="space-between" alignItems="center" mb={3} flexDirection={{ xs: 'column', sm: 'row' }} gap={2}>
+                  <Box display="flex" alignItems="center" gap={2}>
+                    <Typography variant="h6" sx={{ fontWeight: 700, fontSize: { xs: '1rem', sm: '1.125rem' } }}>
+                      {getChartTitle()}
+                    </Typography>
+                    {isStatsLoading && (
+                      <CircularProgress size={16} sx={{ color: '#10b981' }} />
+                    )}
+                  </Box>
                   <ToggleButtonGroup
                     value={timeRange}
                     exclusive
                     onChange={handleTimeRangeChange}
                     size="small"
                     sx={{
+                      flexWrap: 'wrap',
                       '& .MuiToggleButton-root': {
                         border: '1px solid rgba(16, 185, 129, 0.3)',
+                        borderRadius: '6px',
+                        padding: '4px 8px',
+                        minWidth: { xs: '36px', sm: '42px' },
+                        fontSize: { xs: '0.7rem', sm: '0.8rem' },
                         '&.Mui-selected': {
-                          backgroundColor: 'rgba(16, 185, 129, 0.2)',
+                          backgroundColor: 'rgba(16, 185, 129, 0.25)',
                           color: '#10b981',
+                          fontWeight: 600,
                           '&:hover': {
-                            backgroundColor: 'rgba(16, 185, 129, 0.3)',
+                            backgroundColor: 'rgba(16, 185, 129, 0.35)',
                           },
+                        },
+                        '&:hover': {
+                          backgroundColor: 'rgba(16, 185, 129, 0.1)',
                         },
                       },
                     }}
                   >
+                    <ToggleButton value="1d">1D</ToggleButton>
+                    <ToggleButton value="5d">5D</ToggleButton>
                     <ToggleButton value="7d">7D</ToggleButton>
                     <ToggleButton value="1m">1M</ToggleButton>
-                    <ToggleButton value="3m">3M</ToggleButton>
                     <ToggleButton value="6m">6M</ToggleButton>
+                    <ToggleButton value="ytd">YTD</ToggleButton>
                     <ToggleButton value="1y">1Y</ToggleButton>
+                    <ToggleButton value="5y">5Y</ToggleButton>
                   </ToggleButtonGroup>
                 </Box>
-                <Box height={300}>
+                <Box height={{ xs: 220, sm: 280, md: 300 }}>
                   {customerTrendData ? (
                     <Line data={customerTrendData} options={chartOptions} />
                   ) : (
@@ -464,13 +720,20 @@ const DashboardPage: React.FC = () => {
               </LiquidGlassCard>
             </Grid>
             <Grid size={{ xs: 12, lg: 4 }}>
-              <LiquidGlassCard gradientPreset={gradientPreset} isDarkMode={isDarkMode} sx={{ p: 3, height: '100%' }}>
-                <Typography variant="h6" gutterBottom sx={{ fontWeight: 700, mb: 3 }}>
-                  📊 Task Status
-                </Typography>
-                <Box height={300}>
+              <LiquidGlassCard 
+                gradientPreset={gradientPreset} 
+                isDarkMode={isDarkMode} 
+                sx={{ p: { xs: 2, sm: 3 }, height: '100%' }}
+                key="task-status"
+              >
+                <Box display="flex" alignItems="center" gap={1} mb={3}>
+                  <Typography variant="h6" sx={{ fontWeight: 700, color: isDarkMode ? '#fff' : '#1a1a1a', fontSize: { xs: '1rem', sm: '1.125rem' } }}>
+                    📊 Task Status
+                  </Typography>
+                </Box>
+                <Box height={{ xs: 220, sm: 280, md: 300 }}>
                   {taskStatusData ? (
-                    <Doughnut data={taskStatusData} options={doughnutOptions} />
+                    <Bar data={taskStatusData} options={barChartOptions} />
                   ) : (
                     <Box display="flex" justifyContent="center" alignItems="center" height="100%">
                       <CircularProgress size={40} />

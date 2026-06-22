@@ -6,12 +6,12 @@ export class DashboardController {
 
   /**
    * Get dashboard statistics
-   * GET /api/dashboard/stats?range=7d|1m|3m|6m|1y
+   * GET /api/dashboard/stats?range=1d|5d|7d|1m|3m|6m|ytd|1y|5y
    */
   async getDashboardStats(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = req.user?.userId;
-      const range = req.query.range as TimeRange || '7d';
+      const range = req.query.range as TimeRange || '1d';
       
       if (!userId) {
         res.status(401).json({ message: 'User not authenticated' });

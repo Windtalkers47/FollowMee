@@ -239,6 +239,11 @@ const customerSlice = createSlice({
         state.currentItem = action.payload;
       })
       .addCase(createCustomer.fulfilled, (state, action) => {
+        // iOS 2026: After creating customer, reset pagination state
+        // This ensures the next refetch() will get all customers with correct limit (100)
+        state.page = 1;
+        state.pageSize = 100; // Reset to iOS 2026 default
+        // Add new customer to the list (will be replaced by refetch)
         state.items.unshift(action.payload);
         state.total += 1;
       })

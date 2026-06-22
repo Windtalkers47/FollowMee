@@ -1,8 +1,9 @@
 import React from 'react';
-import { Box, Typography, Avatar, SxProps, Theme, LinearProgress } from '@mui/material';
+import { Box, Typography, Avatar, SxProps, Theme } from '@mui/material';
 import { LiquidGlassCard } from './LiquidGlassCard';
 import { LeaderboardItem } from '../../services/api/dashboardApi';
 import { GradientPresetKey } from '../../styles/liquidGlassStyles';
+import { EmojiEvents } from '@mui/icons-material';
 
 interface LeaderboardCardProps {
   topPerformers: LeaderboardItem[];
@@ -31,7 +32,21 @@ export const LeaderboardCard: React.FC<LeaderboardCardProps> = ({
     return `#${rank}`;
   };
 
-  const getRankColor = (rank: number) => {
+  const getGradientBg = (rank: number) => {
+    if (rank === 1) return 'linear-gradient(135deg, rgba(255, 215, 0, 0.15), rgba(255, 193, 7, 0.05))';
+    if (rank === 2) return 'linear-gradient(135deg, rgba(192, 192, 192, 0.15), rgba(169, 169, 169, 0.05))';
+    if (rank === 3) return 'linear-gradient(135deg, rgba(205, 127, 50, 0.15), rgba(184, 115, 51, 0.05))';
+    return isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)';
+  };
+
+  const getBorderColor = (rank: number) => {
+    if (rank === 1) return 'rgba(255, 215, 0, 0.5)';
+    if (rank === 2) return 'rgba(192, 192, 192, 0.5)';
+    if (rank === 3) return 'rgba(205, 127, 50, 0.5)';
+    return isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)';
+  };
+
+  const getRankNumberColor = (rank: number) => {
     if (rank === 1) return '#FFD700';
     if (rank === 2) return '#C0C0C0';
     if (rank === 3) return '#CD7F32';
@@ -43,13 +58,16 @@ export const LeaderboardCard: React.FC<LeaderboardCardProps> = ({
       gradientPreset={gradientPreset}
       isDarkMode={isDarkMode}
       sx={{
-        p: 3,
+        p: { xs: 2, sm: 3 },
         ...sx,
       }}
     >
-      <Typography variant="h6" gutterBottom sx={{ fontWeight: 700, mb: 3 }}>
-        🏆 Leaderboard
-      </Typography>
+      <Box display="flex" alignItems="center" gap={1} mb={3}>
+        <EmojiEvents sx={{ color: '#10b981', fontSize: 24 }} />
+        <Typography variant="h6" sx={{ fontWeight: 700, color: isDarkMode ? '#fff' : '#1a1a1a' }}>
+          Leaderboard
+        </Typography>
+      </Box>
 
       {/* Top Performers */}
       <Box mb={3}>
@@ -59,110 +77,177 @@ export const LeaderboardCard: React.FC<LeaderboardCardProps> = ({
             display="flex"
             alignItems="center"
             mb={index < topPerformers.length - 1 ? 2 : 0}
-            p={1.5}
+            p={2}
             sx={{
-              borderRadius: 2,
-              background: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
+              borderRadius: 3,
+              background: getGradientBg(performer.rank),
+              border: `1px solid ${getBorderColor(performer.rank)}`,
               transition: 'all 0.3s ease',
               '&:hover': {
-                background: isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
-                transform: 'translateX(4px)',
+                transform: 'translateX(8px)',
+                boxShadow: performer.rank <= 3 
+                  ? `0 8px 20px ${getBorderColor(performer.rank).replace('0.5', '0.3')}`
+                  : isDarkMode 
+                    ? '0 8px 20px rgba(255,255,255,0.1)' 
+                    : '0 8px 20px rgba(0,0,0,0.1)',
               },
             }}
           >
+            {/* Rank Badge */}
             <Box
               sx={{
-                width: 32,
-                height: 32,
+                width: 36,
+                height: 36,
                 borderRadius: '50%',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 mr: 2,
-                bgcolor: getRankColor(performer.rank),
-                color: performer.rank <= 3 ? '#000' : isDarkMode ? '#fff' : '#000',
-                fontWeight: 700,
-                fontSize: '0.875rem',
+                background: performer.rank <= 3 
+                  ? `linear-gradient(135deg, ${getRankNumberColor(performer.rank)}, ${getRankNumberColor(performer.rank).replace('0.8', '0.6')})`
+                  : isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
+                boxShadow: performer.rank <= 3 ? `0 4px 12px ${getRankNumberColor(performer.rank)}40` : 'none',
+                fontSize: '1rem',
               }}
             >
               {getRankBadge(performer.rank)}
             </Box>
+
+            {/* Avatar */}
             <Avatar
               src={performer.userImageUrl}
               alt={`${performer.userName} ${performer.userLastName}`}
-              sx={{ width: 40, height: 40, mr: 2 }}
+              sx={{ 
+                width: 44, 
+                height: 44, 
+                mr: 2,
+                border: performer.rank <= 3 ? `2px solid ${getRankNumberColor(performer.rank)}` : 'none',
+                boxShadow: performer.rank <= 3 ? `0 2px 8px ${getRankNumberColor(performer.rank)}60` : 'none',
+              }}
             >
               {performer.userName.charAt(0)}
             </Avatar>
-            <Box flex={1}>
+
+            {/* Info */}
+            <Box flex={1} minWidth={0}>
               <Typography
                 variant="subtitle2"
                 sx={{
                   fontWeight: 600,
                   color: isDarkMode ? '#fff' : '#1a1a1a',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
                 }}
               >
                 {performer.userName} {performer.userLastName}
               </Typography>
               <Typography
                 variant="caption"
-                sx={{ color: isDarkMode ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)' }}
+                sx={{ 
+                  color: isDarkMode ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)',
+                  fontSize: '0.75rem',
+                }}
               >
                 {performer.completedTasks} tasks completed
               </Typography>
             </Box>
-            <Typography
-              variant="body2"
-              sx={{
-                fontWeight: 700,
-                color: getRankColor(performer.rank),
-              }}
-            >
-              {performer.score} pts
-            </Typography>
+
+            {/* Score */}
+            <Box textAlign="right">
+              <Typography
+                variant="body2"
+                sx={{
+                  fontWeight: 700,
+                  color: getRankNumberColor(performer.rank),
+                  fontSize: '1rem',
+                }}
+              >
+                {performer.score}
+              </Typography>
+              <Typography
+                variant="caption"
+                sx={{ 
+                  color: isDarkMode ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)',
+                  fontSize: '0.7rem',
+                }}
+              >
+                pts
+              </Typography>
+            </Box>
           </Box>
         ))}
       </Box>
 
       {/* My Rank */}
       <Box
-        p={2}
+        p={2.5}
         sx={{
-          borderRadius: 2,
-          background: isDarkMode ? 'rgba(100, 181, 246, 0.1)' : 'rgba(100, 181, 246, 0.05)',
-          border: `1px solid ${isDarkMode ? 'rgba(100, 181, 246, 0.3)' : 'rgba(100, 181, 246, 0.2)'}`,
+          borderRadius: 3,
+          background: isDarkMode 
+            ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(16, 185, 129, 0.05))' 
+            : 'linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(16, 185, 129, 0.02))',
+          border: `1px solid ${isDarkMode ? 'rgba(16, 185, 129, 0.4)' : 'rgba(16, 185, 129, 0.3)'}`,
         }}
       >
-        <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
-          <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-            Your Rank: #{myRank.rank}
-          </Typography>
-          <Typography variant="body2" sx={{ fontWeight: 700 }}>
+        <Box display="flex" justifyContent="space-between" alignItems="center" mb={1.5}>
+          <Box display="flex" alignItems="center" gap={1}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 700, color: isDarkMode ? '#fff' : '#1a1a1a' }}>
+              Your Rank: #{myRank.rank}
+            </Typography>
+            {myRank.rank <= 3 && <span>{getRankBadge(myRank.rank)}</span>}
+          </Box>
+          <Typography variant="body2" sx={{ fontWeight: 700, color: '#10b981', fontSize: '1.1rem' }}>
             {myRank.score} pts
           </Typography>
         </Box>
-        <Box display="flex" alignItems="center" mb={0.5}>
-          <LinearProgress
-            variant="determinate"
-            value={myRank.progressToNext}
+        
+        {/* Progress Bar */}
+        <Box display="flex" alignItems="center" mb={1}>
+          <Box
             sx={{
               flex: 1,
-              height: 8,
-              borderRadius: 4,
-              bgcolor: isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
-              '& .MuiLinearProgress-bar': {
-                bgcolor: myRank.progressToNext === 100 ? '#4caf50' : '#64b5f6',
-                borderRadius: 4,
-              },
+              height: 10,
+              borderRadius: 5,
+              bgcolor: isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)',
+              overflow: 'hidden',
+              position: 'relative',
             }}
-          />
-          <Typography variant="caption" sx={{ ml: 1, minWidth: 40 }}>
+          >
+            <Box
+              sx={{
+                position: 'absolute',
+                left: 0,
+                top: 0,
+                height: '100%',
+                width: `${Math.min(myRank.progressToNext, 100)}%`,
+                background: myRank.progressToNext === 100 
+                  ? 'linear-gradient(90deg, #10b981, #34d399)' 
+                  : 'linear-gradient(90deg, #3b82f6, #60a5fa)',
+                borderRadius: 5,
+                transition: 'width 0.5s ease',
+              }}
+            />
+          </Box>
+          <Typography 
+            variant="caption" 
+            sx={{ 
+              ml: 1.5, 
+              minWidth: 45,
+              fontWeight: 600,
+              color: myRank.progressToNext === 100 ? '#10b981' : '#3b82f6',
+            }}
+          >
             {myRank.progressToNext}%
           </Typography>
         </Box>
+        
         <Typography
           variant="caption"
-          sx={{ color: isDarkMode ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)' }}
+          sx={{ 
+            color: isDarkMode ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)',
+            display: 'block',
+          }}
         >
           {myRank.completedTasks} tasks completed
         </Typography>

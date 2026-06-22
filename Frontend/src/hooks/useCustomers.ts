@@ -12,6 +12,17 @@ import {
 } from '../store/slices/customerSlice';
 import { Customer, CustomerStatus } from '../types/customer.types';
 
+/**
+ * iOS 2026 Design Pattern - Search & Pagination
+ * 
+ * Principles:
+ * 1. Default limit = 100 (show all data up to 100 items)
+ * 2. Search returns all matching results (no pagination)
+ * 3. Clear search instantly resets to default state
+ * 4. No pagination memory - always reset on filter change
+ */
+const iOS_DEFAULT_LIMIT = 100;
+
 export const useCustomers = () => {
   const dispatch = useAppDispatch();
 
@@ -58,13 +69,21 @@ export const useCustomers = () => {
     [dispatch, filter.status, filter.search]
   );
 
+  /**
+   * iOS 2026: Reset pageSize to default when clearing search
+   * This ensures that after clearing search, we show all data (up to 100 items)
+   */
   const handleFilterChange = useCallback((newFilter: { status?: CustomerStatus | 'all'; search?: string; limit?: number }) => {
     const updatedFilter = { ...filter, ...newFilter };
     dispatch(setFilter(updatedFilter));
     // Reset to first page when filters change
     dispatch(setPage(1));
-    // ใช้ limit ที่ส่งมา หรือใช้ pageSize ปัจจุบัน
-    const limitToUse = newFilter.limit ?? pageSize;
+    
+    // iOS 2026: When clearing search, reset to default limit (100)
+    // This ensures we show all data after clearing search
+    const isClearingSearch = !newFilter.search || newFilter.search.trim() === '';
+    const limitToUse = isClearingSearch ? iOS_DEFAULT_LIMIT : (newFilter.limit ?? pageSize);
+    
     // Refetch data when filter changes
     dispatch(fetchCustomers({ 
       page: 1, 
@@ -77,16 +96,21 @@ export const useCustomers = () => {
   // ===============================
   // Refetch data
   // ===============================
+  /**
+   * iOS 2026: Refetch always uses current state values
+   * This ensures we get the latest data with correct pagination
+   */
   const refetch = useCallback(() => {
-    const params = {
-      page,
-      limit: pageSize,
+    // Read latest values from selector to avoid stale closure
+    const currentState = { 
+      page: 1, // Always refetch from page 1
+      limit: iOS_DEFAULT_LIMIT, // iOS 2026: Always use default limit (100)
       status: filter.status === 'all' ? undefined : filter.status,
       search: filter.search || undefined,
     };
     
-    dispatch(fetchCustomers(params));
-  }, [dispatch, page, pageSize, filter.status, filter.search]);
+    dispatch(fetchCustomers(currentState));
+  }, [dispatch, filter.status, filter.search]);
 
   // ===============================
   // CRUD

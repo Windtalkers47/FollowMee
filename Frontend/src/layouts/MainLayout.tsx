@@ -443,7 +443,13 @@ const MainLayout = ({ children }: MainLayoutProps) => {
   /* ================= Layout ================= */
 
   return (
-    <Box display="flex" height="100vh">
+    <Box 
+      display="flex" 
+      height="100vh"
+      sx={{
+        '--sidebar-width': open ? `${drawerWidth}px` : `${collapsedWidth}px`,
+      }}
+    >
       {/* AppBar */}
       <AppBar
         position="fixed"

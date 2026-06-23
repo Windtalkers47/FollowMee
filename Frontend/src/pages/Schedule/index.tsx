@@ -17,7 +17,8 @@ import {
   Search as SearchIcon,
   Add as AddIcon,
   Refresh as RefreshIcon,
-  Clear as ClearIcon
+  Clear as ClearIcon,
+  CheckBoxOutlineBlank as CheckBoxOutlineBlankIcon
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAppSelector } from '../../store/store';
@@ -37,8 +38,12 @@ import { getBookedDates } from '../../utils/dateUtils';
 import ScheduleTaskCard from '../../components/ScheduleTaskCard';
 import SmartSuggestionsBar from '../../components/SmartSuggestions/SmartSuggestionsBar';
 import SelectionModeToolbar from '../../components/SelectionMode/SelectionModeToolbar';
+import SelectionModeTopBar from '../../components/SelectionMode/SelectionModeTopBar';
 import { useMultiSelect } from '../../hooks/useMultiSelect';
 import { useSmartSuggestions } from '../../hooks/useSmartSuggestions';
+import { useSelectionKeyboard } from '../../hooks/useSelectionKeyboard';
+import { useLiquidGlass } from '../../contexts/LiquidGlassContext';
+import { gradientPresets } from '../../styles/liquidGlassStyles';
 import toast from '../../utils/toast';
 
 /* ================== Types ================== */
@@ -61,6 +66,9 @@ const TabPanel = ({ children, value, index }: TabPanelProps) => (
 const SchedulePage = () => {
   const theme = useTheme();
   const isDarkMode = theme.palette.mode === 'dark';
+  const { isLiquidGlassEnabled, liquidGlassSettings } = useLiquidGlass();
+  const preset = gradientPresets[liquidGlassSettings.gradientPreset];
+  
   const [activeTab, setActiveTab] = useState(0);
   const [searchInput, setSearchInput] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -82,6 +90,25 @@ const SchedulePage = () => {
     });
   }, [multiSelect.isSelectionMode, multiSelect.selectedCount, multiSelect.toggleSelect]);
 
+  // Auto Scroll to Task Cards when entering Selection Mode
+  React.useEffect(() => {
+    if (multiSelect.isSelectionMode) {
+      // Delay slightly for TopBar animation to complete
+      const timeoutId = setTimeout(() => {
+        // Scroll directly to task cards section
+        const taskListElement = document.querySelector('[role="tabpanel"]');
+        if (taskListElement) {
+          taskListElement.scrollIntoView({
+            behavior: 'smooth',
+            block: 'start'
+          });
+        }
+      }, 50);
+
+      return () => clearTimeout(timeoutId);
+    }
+  }, [multiSelect.isSelectionMode]);
+
   // Smart suggestions hook
   const {
     suggestions,
@@ -92,6 +119,26 @@ const SchedulePage = () => {
     onSuccess: () => {
       multiSelect.exitSelectionMode();
     }
+  });
+
+  // Keyboard shortcuts for selection mode
+  useSelectionKeyboard({
+    isSelectionMode: multiSelect.isSelectionMode,
+    selectedCount: multiSelect.selectedCount,
+    onSelectAll: () => multiSelect.selectAll(currentTabTasks),
+    onDeselectAll: multiSelect.deselectAll,
+    onExitSelectionMode: multiSelect.exitSelectionMode,
+    onBulkAction: (action) => {
+      if (action === 'done') bulkUpdate({ taskIds: Array.from(multiSelect.selectedIds), status: 'done' });
+      if (action === 'start') bulkUpdate({ taskIds: Array.from(multiSelect.selectedIds), status: 'in_progress' });
+      if (action === 'delete') {
+        const selectedTaskIds = Array.from(multiSelect.selectedIds);
+        if (selectedTaskIds.length > 0) {
+          bulkDelete({ taskIds: selectedTaskIds });
+        }
+      }
+    },
+    enabled: true
   });
 
   // Handle search
@@ -529,27 +576,57 @@ const SchedulePage = () => {
           <Typography variant="h4" fontWeight="bold" sx={{ fontSize: { xs: '1.75rem', sm: '2.125rem', md: '2.5rem' } }}>
             Task Management
           </Typography>
-          <Button
-            startIcon={<AddIcon />}
-            variant="contained"
-            onClick={() => setTaskDialogOpen(true)}
-            sx={{
-              px: { xs: 3, sm: 4 },
-              py: { xs: 1.25, sm: 1.5 },
-              borderRadius: 2.5,
-              textTransform: 'none',
-              fontWeight: 600,
-              fontSize: '0.9375rem',
-              boxShadow: '0 4px 14px rgba(74, 108, 247, 0.4)',
-              transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-              '&:hover': {
-                transform: 'translateY(-1px)',
-                boxShadow: '0 6px 20px rgba(74, 108, 247, 0.5)',
-              }
-            }}
-          >
-            Create Task
-          </Button>
+          
+          <Box display="flex" gap={2} flexWrap="wrap">
+            {/* Select Button - Same style as Customer page */}
+            {!multiSelect.isSelectionMode && multiSelect.selectedCount === 0 && (
+              <Button
+                variant="contained"
+                startIcon={<CheckBoxOutlineBlankIcon />}
+                onClick={multiSelect.enterSelectionMode}
+                sx={{
+                  borderRadius: 3,
+                  textTransform: 'none',
+                  px: 4,
+                  py: 1.5,
+                  fontWeight: 600,
+                  fontSize: '0.95rem',
+                  background: `linear-gradient(135deg, ${preset.primary}, ${preset.secondary})`,
+                  boxShadow: `0 8px 24px ${preset.primary}66`,
+                  '&:hover': {
+                    boxShadow: `0 12px 32px ${preset.primary}99`,
+                    transform: 'translateY(-2px)',
+                  },
+                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                }}
+              >
+                Select
+              </Button>
+            )}
+            
+            <Button
+              startIcon={<AddIcon />}
+              variant="contained"
+              onClick={() => setTaskDialogOpen(true)}
+              sx={{
+                borderRadius: 3,
+                textTransform: 'none',
+                px: 4,
+                py: 1.5,
+                fontWeight: 600,
+                fontSize: '0.95rem',
+                background: `linear-gradient(135deg, ${preset.primary}, ${preset.secondary})`,
+                boxShadow: `0 8px 24px ${preset.primary}66`,
+                '&:hover': {
+                  boxShadow: `0 12px 32px ${preset.primary}99`,
+                  transform: 'translateY(-2px)',
+                },
+                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+              }}
+            >
+              Create Task
+            </Button>
+          </Box>
         </Box>
 
         {/* Search Bar */}
@@ -774,23 +851,38 @@ const SchedulePage = () => {
         }}
       />
 
-      {/* Selection Mode Toolbar */}
-      <SelectionModeToolbar
+      {/* Selection Mode - Fixed Bottom Bar (Dime-style) */}
+      <SelectionModeTopBar
         selectedCount={multiSelect.selectedCount}
         totalCount={currentTabTasks.length}
         areAllSelected={multiSelect.areAllSelected(currentTabTasks)}
         onSelectAll={() => multiSelect.selectAll(currentTabTasks)}
         onDeselectAll={multiSelect.deselectAll}
         onClose={multiSelect.exitSelectionMode}
-        onBulkAction={handleBulkAction}
+        isVisible={multiSelect.isSelectionMode}
+        onBulkAction={(action) => {
+          if (action === 'done') {
+            bulkUpdate({ taskIds: Array.from(multiSelect.selectedIds), status: 'done' });
+          } else if (action === 'start') {
+            bulkUpdate({ taskIds: Array.from(multiSelect.selectedIds), status: 'in_progress' });
+          } else if (action === 'delete') {
+            const selectedTaskIds = Array.from(multiSelect.selectedIds);
+            if (selectedTaskIds.length > 0) {
+              bulkDelete({ taskIds: selectedTaskIds });
+            }
+          } else if (action === 'more') {
+            // Open more menu - handled by the menu in TopBar
+            toast.info('More actions coming soon');
+          }
+        }}
       />
 
-      {/* FAB */}
+      {/* FAB - Adjust position to be above Selection Bar */}
       <Fab
         color="primary"
         sx={{ 
           position: 'fixed', 
-          bottom: 16, 
+          bottom: 96, 
           right: 16,
           background: 'linear-gradient(135deg, rgba(74, 108, 247, 0.8), rgba(166, 77, 255, 0.8))',
           backdropFilter: 'blur(10px)',

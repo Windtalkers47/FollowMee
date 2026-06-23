@@ -23,7 +23,7 @@ import {
 import { parseISO, isPast, isToday } from 'date-fns';
 import { Task, TaskLikeSummary } from '../../api/task.api';
 import { getTaskPermissions } from '../../permissions/taskPermissions';
-import { useLongPress } from '../../hooks/useLongPress';
+// Removed useLongPress - using Tap instead for better UX
 
 interface Props {
   task: Task;
@@ -109,27 +109,13 @@ const ScheduleTaskCard: React.FC<Props> = ({
 
   const due = getDue(task);
 
-  // Long press handler for entering selection mode
-  const handleLongPress = useMemo(() => () => {
-    if (isInSelectionMode) {
-      // Already in selection mode, just toggle this task
-      onToggleSelect?.(task.taskId);
-    } else {
-      // Enter selection mode
-      onEnterSelectionMode?.();
-      onToggleSelect?.(task.taskId);
-    }
-  }, [isInSelectionMode, onToggleSelect, onEnterSelectionMode, task.taskId]);
-
-  const { handlers } = useLongPress(handleLongPress, {
-    delay: 500,
-    shouldPreventDefault: true,
-  });
-
+  // Tap handler for selection mode - simpler and more discoverable than long press
   const handleCardClick = () => {
     if (isInSelectionMode) {
+      // In selection mode: tap toggles selection
       onToggleSelect?.(task.taskId);
     } else {
+      // Normal mode: open detail or start working
       onCardClick?.();
     }
   };
@@ -156,9 +142,12 @@ const ScheduleTaskCard: React.FC<Props> = ({
 
   return (
     <Box
-      {...handlers}
       onClick={handleCardClick}
       sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100%',
+        minHeight: 220,
         p: 3,
         borderRadius: 3,
         cursor: isInSelectionMode ? 'pointer' : 'default',
@@ -166,53 +155,80 @@ const ScheduleTaskCard: React.FC<Props> = ({
 
         // Glass layer with selection state
         background: isSelected
-          ? (isDark ? 'rgba(10, 132, 255, 0.2)' : 'rgba(10, 132, 255, 0.15)')
+          ? (isDark ? 'rgba(10, 132, 255, 0.12)' : 'rgba(10, 132, 255, 0.08)')
           : (isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(255, 255, 255, 0.72)'),
 
         backdropFilter: 'blur(20px) saturate(120%)',
         WebkitBackdropFilter: 'blur(20px) saturate(120%)',
         border: isSelected
-          ? '2px solid #0A84FF'
+          ? '2.5px solid #0A84FF'
           : (isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(255, 255, 255, 0.5)'),
 
         // Soft depth - iOS style
         boxShadow: isSelected
-          ? '0 4px 24px rgba(10, 132, 255, 0.3)'
+          ? '0 8px 32px rgba(10, 132, 255, 0.35)'
           : (isDark ? '0 2px 20px rgba(0, 0, 0, 0.3)' : '0 2px 20px rgba(0, 0, 0, 0.06)'),
 
-        transition: 'all 0.2s ease',
+        transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
         '&:hover': {
-          transform: isInSelectionMode ? 'scale(1.02)' : 'translateY(-2px)',
+          transform: isInSelectionMode ? 'none' : 'translateY(-3px)',
           boxShadow: isSelected
-            ? '0 6px 28px rgba(10, 132, 255, 0.4)'
-            : (isDark ? '0 4px 28px rgba(0, 0, 0, 0.4)' : '0 4px 28px rgba(0, 0, 0, 0.1)'),
-          // Show checkbox on hover
-          '& .task-checkbox': {
-            opacity: 1,
-          },
+            ? '0 8px 32px rgba(10, 132, 255, 0.35)'
+            : (isDark ? '0 6px 28px rgba(0, 0, 0, 0.4)' : '0 6px 28px rgba(0, 0, 0, 0.1)'),
         },
 
-        // Long press feedback
-        ...(handlers as any).isLongPressing && {
-          transform: 'scale(0.98)',
-          background: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)',
-        }
+        // Selection mode: scale effect
+        ...(isInSelectionMode && isSelected && {
+          transform: 'scale(1.02)',
+        }),
+
+        // Highlight animation when entering selection mode - Scale + Border + Glow
+        animation: isInSelectionMode ? 'selectionHighlight 0.8s ease-out 2' : 'none',
+        '@keyframes selectionHighlight': {
+          '0%': {
+            transform: 'scale(1)',
+            borderColor: '#0A84FF',
+            boxShadow: '0 0 0 rgba(10, 132, 255, 0)',
+          },
+          '30%': {
+            transform: 'scale(1.03)',
+            borderColor: '#007AFF',
+            boxShadow: '0 8px 32px rgba(10, 132, 255, 0.5)',
+          },
+          '60%': {
+            transform: 'scale(0.98)',
+            borderColor: '#0055D4',
+            boxShadow: '0 4px 16px rgba(10, 132, 255, 0.3)',
+          },
+          '100%': {
+            transform: 'scale(1)',
+            borderColor: '#0A84FF',
+            boxShadow: '0 8px 32px rgba(10, 132, 255, 0.2)',
+          },
+        },
       }}
     >
       {/* Header - Checkbox + Title + Menu */}
-      <Box display="flex" alignItems="flex-start" gap={1.5} mb={2} sx={{ position: 'relative' }}>
-        {/* Checkbox - Visible on hover, in selection mode, or when selected */}
+      <Box 
+        display="flex" 
+        alignItems="flex-start" 
+        gap={2.5} 
+        mb={2} 
+        sx={{ 
+          position: 'relative',
+        }}
+      >
+        {/* Checkbox - Only visible in selection mode or when selected */}
         <Box
           onClick={(e) => {
             e.stopPropagation();
             e.preventDefault();
           }}
           sx={{
-            opacity: isInSelectionMode ? 1 : (isSelected ? 1 : 0),
+            opacity: isInSelectionMode || isSelected ? 1 : 0,
             transition: 'opacity 0.2s ease',
-            position: 'absolute',
-            left: -8,
-            top: 0,
+            flexShrink: 0,
+            pt: 0.5,
             zIndex: 10,
             pointerEvents: 'auto',
           }}
@@ -222,11 +238,15 @@ const ScheduleTaskCard: React.FC<Props> = ({
             checked={isSelected}
             onChange={handleCheckboxChange}
             onClick={handleCheckboxClick}
+            size="medium"
             sx={{
               p: 0.5,
               color: isSelected ? '#0A84FF' : (isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.4)'),
               '&.Mui-checked': {
                 color: '#0A84FF',
+              },
+              '& .MuiSvgIcon-root': {
+                fontSize: 22,
               }
             }}
           />
@@ -235,13 +255,12 @@ const ScheduleTaskCard: React.FC<Props> = ({
         {/* Title */}
         <Typography
           fontWeight={600}
-          fontSize="1.1rem"
+          fontSize="1.05rem"
           sx={{
             lineHeight: 1.4,
             color: isDark ? '#fff' : '#000',
             flex: 1,
-            ml: 2,
-            mr: 1,
+            minWidth: 0,
             display: '-webkit-box',
             WebkitLineClamp: 2,
             WebkitBoxOrient: 'vertical',
@@ -261,6 +280,7 @@ const ScheduleTaskCard: React.FC<Props> = ({
           sx={{
             color: isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.4)',
             p: 0.5,
+            flexShrink: 0,
             '&:hover': {
               color: isDark ? '#fff' : '#000',
               background: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
@@ -271,19 +291,21 @@ const ScheduleTaskCard: React.FC<Props> = ({
         </IconButton>
       </Box>
 
-      {/* Description */}
+      {/* Description - Flexible content area */}
       {task.description && (
         <Typography
           variant="body2"
           sx={{
             opacity: 0.6,
-            mb: 2.5,
+            mb: 2,
             lineHeight: 1.5,
             color: isDark ? '#fff' : '#000',
             display: '-webkit-box',
-            WebkitLineClamp: 2,
+            WebkitLineClamp: 3,
             WebkitBoxOrient: 'vertical',
-            overflow: 'hidden'
+            overflow: 'hidden',
+            flex: '0 0 auto',
+            minHeight: 0,
           }}
         >
           {task.description}
@@ -291,7 +313,7 @@ const ScheduleTaskCard: React.FC<Props> = ({
       )}
 
       {/* Meta chips */}
-      <Box display="flex" gap={1} flexWrap="wrap" mb={2.5}>
+      <Box display="flex" gap={1} flexWrap="wrap" mb={2}>
         {/* Status Chip */}
         <Chip
           label={task.status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
@@ -347,6 +369,9 @@ const ScheduleTaskCard: React.FC<Props> = ({
         )}
       </Box>
 
+      {/* Spacer - pushes actions to bottom */}
+      <Box sx={{ flex: 1 }} />
+
       {/* CTA Button - Start Progress */}
       {permissions.canStart && onStartProgress && !isInSelectionMode && (
         <Button
@@ -361,6 +386,7 @@ const ScheduleTaskCard: React.FC<Props> = ({
             fontWeight: 500,
             fontSize: '0.875rem',
             py: 1,
+            mt: 'auto',
             background: isDark ? 'rgba(10, 132, 255, 0.2)' : 'rgba(10, 132, 255, 0.1)',
             color: '#0A84FF',
             border: isDark ? '1px solid rgba(10, 132, 255, 0.3)' : '1px solid rgba(10, 132, 255, 0.2)',

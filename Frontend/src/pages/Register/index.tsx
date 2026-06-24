@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import { useAppDispatch } from '../../store/store';
 import { loginUser } from '../../store/slices/authSlice';
@@ -20,6 +20,22 @@ import {
 import { LockOutlined, Visibility, VisibilityOff } from '@mui/icons-material';
 import Swal from 'sweetalert2';
 
+interface FormErrors {
+  userName: string;
+  userLastName: string;
+  email: string;
+  password: string;
+  confirmPassword: string;
+}
+
+interface FormTouched {
+  userName: boolean;
+  userLastName: boolean;
+  email: boolean;
+  password: boolean;
+  confirmPassword: boolean;
+}
+
 const Register = () => {
   const [formData, setFormData] = useState({
     userName: '',
@@ -30,6 +46,20 @@ const Register = () => {
     userPhone1: '',
     selectedRole: 'Moderator', // Default to Moderator
   });
+  const [errors, setErrors] = useState<FormErrors>({
+    userName: '',
+    userLastName: '',
+    email: '',
+    password: '',
+    confirmPassword: '',
+  });
+  const [touched, setTouched] = useState<FormTouched>({
+    userName: false,
+    userLastName: false,
+    email: false,
+    password: false,
+    confirmPassword: false,
+  });
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -39,8 +69,16 @@ const Register = () => {
     Admin: 0,
     Superadmin: 0
   });
+  
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
+  
+  // Refs for scrolling to error fields
+  const userNameRef = useRef<HTMLInputElement>(null);
+  const userLastNameRef = useRef<HTMLInputElement>(null);
+  const emailRef = useRef<HTMLInputElement>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
+  const confirmPasswordRef = useRef<HTMLInputElement>(null);
 
   // Fetch role counts on component mount
   useEffect(() => {
@@ -89,64 +127,139 @@ const Register = () => {
       ...prev,
       [name]: value
     }));
+    // Clear error when user starts typing
+    if (errors[name as keyof FormErrors]) {
+      setErrors(prev => ({
+        ...prev,
+        [name]: ''
+      }));
+    }
   };
 
-  const validateForm = async () => {
-    if (formData.password !== formData.confirmPassword) {
-      await Swal.fire({
-        icon: 'error',
-        title: 'Password Mismatch',
-        text: 'Passwords do not match',
-        customClass: {
-          popup: 'swal2-error-dialog'
-        },
-        html: true
-      });
-      return false;
+  const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    const { name } = e.target;
+    setTouched(prev => ({
+      ...prev,
+      [name]: true
+    }));
+    validateField(name, formData[name as keyof typeof formData]);
+  };
+
+  const validateField = (name: string, value: string): boolean => {
+    let isValid = true;
+    let errorMessage = '';
+
+    switch (name) {
+      case 'userName':
+        if (!value.trim()) {
+          errorMessage = 'กรุณากรอกชื่อ';
+          isValid = false;
+        }
+        break;
+      case 'userLastName':
+        if (!value.trim()) {
+          errorMessage = 'กรุณากรอกนามสกุล';
+          isValid = false;
+        }
+        break;
+      case 'email':
+        if (!value.trim()) {
+          errorMessage = 'กรุณากรอกอีเมล';
+          isValid = false;
+        } else if (!/\S+@\S+\.\S+/.test(value)) {
+          errorMessage = 'รูปแบบอีเมลไม่ถูกต้อง';
+          isValid = false;
+        }
+        break;
+      case 'password':
+        if (!value) {
+          errorMessage = 'กรุณากรอกรหัสผ่าน';
+          isValid = false;
+        } else if (value.length < 8) {
+          errorMessage = 'รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร';
+          isValid = false;
+        }
+        break;
+      case 'confirmPassword':
+        if (!value) {
+          errorMessage = 'กรุณากรอกยืนยันรหัสผ่าน';
+          isValid = false;
+        } else if (value !== formData.password) {
+          errorMessage = 'รหัสผ่านไม่ตรงกัน';
+          isValid = false;
+        }
+        break;
     }
-    if (formData.password.length < 8) {
-      await Swal.fire({
-        icon: 'error',
-        title: 'Password Too Short',
-        text: 'Password must be at least 8 characters long',
-        customClass: {
-          popup: 'swal2-error-dialog'
-        },
-        html: true
-      });
-      return false;
+
+    setErrors(prev => ({
+      ...prev,
+      [name]: errorMessage
+    }));
+
+    return isValid;
+  };
+
+  const scrollToFirstError = (errorFields: (keyof FormErrors)[]) => {
+    const fieldRefs: Record<string, React.RefObject<HTMLInputElement | null>> = {
+      userName: userNameRef,
+      userLastName: userLastNameRef,
+      email: emailRef,
+      password: passwordRef,
+      confirmPassword: confirmPasswordRef,
+    };
+
+    // Find the first field with error
+    for (const fieldName of errorFields) {
+      if (errors[fieldName] && fieldRefs[fieldName]?.current) {
+        const element = fieldRefs[fieldName].current;
+        element.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'center' 
+        });
+        element.focus();
+        break;
+      }
     }
-    if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      await Swal.fire({
-        icon: 'error',
-        title: 'Invalid Email',
-        text: 'Please enter a valid email address',
-        customClass: {
-          popup: 'swal2-error-dialog'
-        },
-        html: true
-      });
-      return false;
+  };
+
+  const validateForm = (): boolean => {
+    // Validate all fields
+    const fieldsToValidate: (keyof typeof formData)[] = ['userName', 'userLastName', 'email', 'password', 'confirmPassword'];
+    const errorFields: (keyof FormErrors)[] = [];
+    
+    let allValid = true;
+
+    fieldsToValidate.forEach((field) => {
+      const isValid = validateField(field, formData[field] as string);
+      if (!isValid) {
+        errorFields.push(field as keyof FormErrors);
+        allValid = false;
+      }
+    });
+
+    // Mark all fields as touched
+    setTouched({
+      userName: true,
+      userLastName: true,
+      email: true,
+      password: true,
+      confirmPassword: true,
+    } as FormTouched);
+
+    // Scroll to first error if any
+    if (!allValid) {
+      setTimeout(() => scrollToFirstError(errorFields), 100);
     }
-    if (!formData.userName.trim() || !formData.userLastName.trim()) {
-      await Swal.fire({
-        icon: 'error',
-        title: 'Missing Name',
-        text: 'Please enter your full name',
-        customClass: {
-          popup: 'swal2-error-dialog'
-        },
-        html: true
-      });
-      return false;
-    }
-    return true;
+
+    return allValid;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!(await validateForm())) return;
+    if (!validateForm()) {
+      return;
+    }
 
     try {
       setIsLoading(true);
@@ -184,7 +297,6 @@ const Register = () => {
         customClass: {
           popup: 'swal2-success-dialog'
         },
-        // html: true
       });
 
       // Automatically log in the user after registration
@@ -227,8 +339,48 @@ const Register = () => {
     }
   };
 
+  // Shake animation style for error fields
+  const shakeAnimation = {
+    '@keyframes shake': {
+      '0%, 100%': { transform: 'translateX(0)' },
+      '10%, 30%, 50%, 70%, 90%': { transform: 'translateX(-4px)' },
+      '20%, 40%, 60%, 80%': { transform: 'translateX(4px)' },
+    },
+  };
+
+  const getTextFieldSx = (fieldName: keyof FormErrors) => ({
+    ...(errors[fieldName] && touched[fieldName] ? {
+      animation: 'shake 0.5s cubic-bezier(.36,.07,.19,.97) both',
+      '& .MuiOutlinedInput-root': {
+        '& fieldset': {
+          borderColor: '#f44336',
+          borderWidth: '2px',
+        },
+        '&:hover fieldset': {
+          borderColor: '#f44336',
+        },
+        '&.Mui-focused fieldset': {
+          borderColor: '#f44336',
+          borderWidth: '2px',
+          boxShadow: '0 0 0 4px rgba(244, 67, 54, 0.2)',
+        },
+      },
+    } : {}),
+  });
+
   return (
     <Container component="main" maxWidth="sm">
+      {/* Add shake animation styles */}
+      <style>
+        {`
+          @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); }
+            20%, 40%, 60%, 80% { transform: translateX(4px); }
+          }
+        `}
+      </style>
+      
       <Box
         sx={{
           marginTop: 8,
@@ -312,7 +464,12 @@ const Register = () => {
                 autoFocus
                 value={formData.userName}
                 onChange={handleChange}
+                onBlur={handleBlur}
+                inputRef={userNameRef}
+                error={Boolean(errors.userName && touched.userName)}
+                helperText={errors.userName && touched.userName ? errors.userName : undefined}
                 disabled={isLoading}
+                sx={getTextFieldSx('userName')}
               />
               <TextField
                 margin="normal"
@@ -324,7 +481,12 @@ const Register = () => {
                 autoComplete="family-name"
                 value={formData.userLastName}
                 onChange={handleChange}
+                onBlur={handleBlur}
+                inputRef={userLastNameRef}
+                error={Boolean(errors.userLastName && touched.userLastName)}
+                helperText={errors.userLastName && touched.userLastName ? errors.userLastName : undefined}
                 disabled={isLoading}
+                sx={getTextFieldSx('userLastName')}
               />
             </Box>
             
@@ -338,7 +500,12 @@ const Register = () => {
               autoComplete="email"
               value={formData.email}
               onChange={handleChange}
+              onBlur={handleBlur}
+              inputRef={emailRef}
+                error={Boolean(errors.email && touched.email)}
+                helperText={errors.email && touched.email ? errors.email : undefined}
               disabled={isLoading}
+              sx={getTextFieldSx('email')}
             />
             
             <RoleSelector
@@ -361,8 +528,12 @@ const Register = () => {
               autoComplete="new-password"
               value={formData.password}
               onChange={handleChange}
+              onBlur={handleBlur}
+              inputRef={passwordRef}
+                error={Boolean(errors.password && touched.password)}
+                helperText={errors.password && touched.password ? errors.password : 'Minimum 8 characters'}
               disabled={isLoading}
-              helperText="Minimum 8 characters"
+              sx={getTextFieldSx('password')}
               InputProps={{
                 endAdornment: (
                   <InputAdornment position="end">
@@ -387,7 +558,12 @@ const Register = () => {
               id="confirmPassword"
               value={formData.confirmPassword}
               onChange={handleChange}
+              onBlur={handleBlur}
+              inputRef={confirmPasswordRef}
+                error={Boolean(errors.confirmPassword && touched.confirmPassword)}
+                helperText={errors.confirmPassword && touched.confirmPassword ? errors.confirmPassword : undefined}
               disabled={isLoading}
+              sx={getTextFieldSx('confirmPassword')}
               InputProps={{
                 endAdornment: (
                   <InputAdornment position="end">

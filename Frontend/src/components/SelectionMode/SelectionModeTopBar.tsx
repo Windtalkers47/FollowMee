@@ -9,8 +9,10 @@ import {
   Tooltip,
   Menu,
   MenuItem,
+  Button,
   Divider,
 } from '@mui/material';
+import Swal from 'sweetalert2';
 import { useLiquidGlass } from '../../contexts/LiquidGlassContext';
 import { gradientPresets } from '../../styles/liquidGlassStyles';
 import {
@@ -20,6 +22,8 @@ import {
   MoreVert as MoreIcon,
   Schedule as ScheduleIcon,
   Delete as DeleteIcon,
+  CheckBoxOutlineBlank as SelectAllIcon,
+  CheckBox as UnselectAllIcon,
 } from '@mui/icons-material';
 
 interface SelectionModeTopBarProps {
@@ -29,13 +33,13 @@ interface SelectionModeTopBarProps {
   onSelectAll: () => void;
   onDeselectAll: () => void;
   onClose: () => void;
-  onBulkAction: (action: 'delete' | 'done' | 'start' | 'more') => void;
+  onBulkAction: (action: 'delete' | 'done' | 'start' | 'more' | 'draft' | 'todo' | 'in_progress' | 'review' | 'cancelled') => void;
   isVisible?: boolean;
 }
 
 export const SelectionModeTopBar: React.FC<SelectionModeTopBarProps> = ({
   selectedCount,
-  totalCount: _totalCount,
+  totalCount,
   areAllSelected,
   onSelectAll,
   onDeselectAll,
@@ -56,9 +60,54 @@ export const SelectionModeTopBar: React.FC<SelectionModeTopBarProps> = ({
     setAnchorEl(null);
   };
 
-  const handleActionClick = (action: 'delete' | 'done' | 'start' | 'more') => {
+  const handleActionClick = (action: 'delete' | 'done' | 'start' | 'more' | 'draft' | 'todo' | 'in_progress' | 'review' | 'cancelled') => {
     handleMenuClose();
     onBulkAction(action);
+  };
+
+  const handleMoveToClick = async () => {
+    handleMenuClose();
+    
+    const result = await Swal.fire({
+      title: 'Move Tasks to...',
+      html: `
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; padding: 20px 0;">
+          <button class="swal2-status-btn" data-status="draft" style="padding: 12px; border-radius: 8px; border: none; background: linear-gradient(135deg, #9e9e9e 0%, #757575 100%); color: #fff; font-weight: 600; cursor: pointer; transition: all 0.2s;">Draft</button>
+          <button class="swal2-status-btn" data-status="todo" style="padding: 12px; border-radius: 8px; border: none; background: linear-gradient(135deg, #2196f3 0%, #1976d2 100%); color: #fff; font-weight: 600; cursor: pointer; transition: all 0.2s;">To Do</button>
+          <button class="swal2-status-btn" data-status="in_progress" style="padding: 12px; border-radius: 8px; border: none; background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%); color: #fff; font-weight: 600; cursor: pointer; transition: all 0.2s;">In Progress</button>
+          <button class="swal2-status-btn" data-status="review" style="padding: 12px; border-radius: 8px; border: none; background: linear-gradient(135deg, #9c27b0 0%, #7b1fa2 100%); color: #fff; font-weight: 600; cursor: pointer; transition: all 0.2s;">Review</button>
+          <button class="swal2-status-btn" data-status="done" style="padding: 12px; border-radius: 8px; border: none; background: linear-gradient(135deg, #4caf50 0%, #388e3c 100%); color: #fff; font-weight: 600; cursor: pointer; transition: all 0.2s;">Done</button>
+          <button class="swal2-status-btn" data-status="cancelled" style="padding: 12px; border-radius: 8px; border: none; background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%); color: #fff; font-weight: 600; cursor: pointer; transition: all 0.2s;">Cancelled</button>
+        </div>
+      `,
+      showCancelButton: true,
+      confirmButtonText: 'Cancel',
+      cancelButtonText: 'Cancel',
+      showConfirmButton: false,
+      customClass: {
+        popup: 'swal2-move-to-popup',
+        title: 'swal2-move-to-title',
+        actions: 'swal2-move-to-actions',
+      },
+      didOpen: () => {
+        // Add click listeners to status buttons
+        document.querySelectorAll('.swal2-status-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const status = btn.getAttribute('data-status') as any;
+            onBulkAction(status);
+            Swal.close();
+          });
+          
+          // Add hover effect
+          btn.addEventListener('mouseenter', () => {
+            (btn as HTMLElement).style.transform = 'scale(1.05)';
+          });
+          btn.addEventListener('mouseleave', () => {
+            (btn as HTMLElement).style.transform = 'scale(1)';
+          });
+        });
+      },
+    });
   };
 
   if (selectedCount === 0) {
@@ -93,7 +142,7 @@ export const SelectionModeTopBar: React.FC<SelectionModeTopBarProps> = ({
           gap: { xs: 1, sm: 2 },
         }}
       >
-        {/* Left Section: Status (Close + Count + Text) */}
+        {/* Left Section: Count + Select All/Unselect All */}
         <Box
           sx={{ 
             display: 'flex', 
@@ -102,32 +151,6 @@ export const SelectionModeTopBar: React.FC<SelectionModeTopBarProps> = ({
             width: { xs: '100%', sm: 'auto' },
           }}
         >
-          {/* Close Button */}
-          <Tooltip title="Close Selection Mode">
-            <IconButton
-              onClick={onClose}
-              aria-label="Close selection mode"
-              sx={{
-                width: { xs: 40, sm: 40 },
-                height: { xs: 40, sm: 40 },
-                borderRadius: 2.5,
-                background: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
-                color: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.6)',
-                '&:hover': {
-                  background: theme.palette.mode === 'dark' ? 'rgba(255,59,48,0.2)' : 'rgba(255,59,48,0.15)',
-                  color: '#FF3B30',
-                  transform: 'scale(1.05)',
-                },
-                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                '&:active': {
-                  transform: 'scale(0.95)',
-                },
-              }}
-            >
-              <CloseIcon />
-            </IconButton>
-          </Tooltip>
-
           {/* Count Badge/Chip */}
           <Chip
             label={selectedCount}
@@ -154,6 +177,37 @@ export const SelectionModeTopBar: React.FC<SelectionModeTopBarProps> = ({
           >
             Selected
           </Typography>
+
+          {/* Select All / Unselect All Toggle Button */}
+          <Button
+            onClick={() => {
+              if (areAllSelected) {
+                onDeselectAll();
+              } else {
+                onSelectAll();
+              }
+            }}
+            variant="outlined"
+            size="small"
+            startIcon={areAllSelected ? <UnselectAllIcon /> : <SelectAllIcon />}
+            sx={{
+              borderRadius: 2,
+              textTransform: 'none',
+              fontWeight: 500,
+              fontSize: '0.8125rem',
+              px: 2,
+              py: 0.75,
+              color: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.7)',
+              borderColor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.15)',
+              '&:hover': {
+                background: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)',
+                borderColor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.2)',
+              },
+              transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+            }}
+          >
+            {areAllSelected ? 'Unselect All' : 'Select All'}
+          </Button>
         </Box>
 
         {/* Divider (Desktop only) */}
@@ -167,7 +221,7 @@ export const SelectionModeTopBar: React.FC<SelectionModeTopBarProps> = ({
           }} 
         />
 
-        {/* Right Section: Actions (Start + Done + More) */}
+        {/* Right Section: Actions (Start + Done + More + Close) */}
         <Box
           sx={{ 
             display: 'flex', 
@@ -259,6 +313,32 @@ export const SelectionModeTopBar: React.FC<SelectionModeTopBarProps> = ({
               <MoreIcon fontSize={theme.breakpoints.down('sm') ? 'medium' : 'small'} />
             </IconButton>
           </Tooltip>
+
+          {/* Close Button (Rightmost) */}
+          <Tooltip title="Close Selection Mode">
+            <IconButton
+              onClick={onClose}
+              aria-label="Close selection mode"
+              sx={{
+                width: { xs: 48, sm: 40 },
+                height: { xs: 48, sm: 40 },
+                borderRadius: 2.5,
+                background: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
+                color: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.6)',
+                '&:hover': {
+                  background: theme.palette.mode === 'dark' ? 'rgba(255,59,48,0.2)' : 'rgba(255,59,48,0.15)',
+                  color: '#FF3B30',
+                  transform: 'scale(1.05)',
+                },
+                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                '&:active': {
+                  transform: 'scale(0.95)',
+                },
+              }}
+            >
+              <CloseIcon />
+            </IconButton>
+          </Tooltip>
         </Box>
 
         {/* More Actions Menu */}
@@ -278,6 +358,7 @@ export const SelectionModeTopBar: React.FC<SelectionModeTopBarProps> = ({
               boxShadow: '0 16px 48px rgba(0, 0, 0, 0.15)',
               mt: 1,
               overflow: 'visible',
+              minWidth: 280,
             }
           }}
           transformOrigin={{ horizontal: 'right', vertical: 'top' }}
@@ -319,14 +400,14 @@ export const SelectionModeTopBar: React.FC<SelectionModeTopBarProps> = ({
             </Box>
           </MenuItem>
 
+          <Divider sx={{ my: 0.5 }} />
+
           <MenuItem 
-            onClick={() => handleActionClick('more')}
+            onClick={handleMoveToClick}
             sx={{
               py: 1.5,
               px: 2,
               gap: 2,
-              borderTop: `1px solid ${theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)'}`,
-              mt: 0.5,
               '&:hover': {
                 background: theme.palette.mode === 'dark' ? 'rgba(10, 132, 255, 0.1)' : 'rgba(10, 132, 255, 0.08)',
               },
@@ -337,12 +418,12 @@ export const SelectionModeTopBar: React.FC<SelectionModeTopBarProps> = ({
                 width: 36,
                 height: 36,
                 borderRadius: 2.5,
-                background: `linear-gradient(135deg, ${preset.primary}, ${preset.secondary})`,
+                background: `linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)`,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 color: '#fff',
-                boxShadow: `0 2px 8px ${preset.primary}66`,
+                boxShadow: `0 2px 8px rgba(59, 130, 246, 0.4)`,
               }}
             >
               <ScheduleIcon sx={{ fontSize: 20 }} />

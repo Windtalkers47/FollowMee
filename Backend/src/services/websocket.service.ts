@@ -94,6 +94,27 @@ export class WebSocketService {
   }
 
   /**
+   * Emit profile update event to a specific user
+   * Used when user updates their profile (e.g., profile image)
+   */
+  emitProfileUpdate(userId: number, data: { userId: number; userImageUrl?: string | null }) {
+    if (!this.io) return;
+    
+    this.io.to(`user:${userId}`).emit('profile:updated', data);
+    console.log(`Profile update event sent to user ${userId}`);
+  }
+
+  /**
+   * Broadcast profile update to all users (for leaderboard refresh)
+   */
+  broadcastProfileUpdate(data: { userId: number; userImageUrl?: string | null }) {
+    if (!this.io) return;
+    
+    this.io.emit('profile:updated', data);
+    console.log(`Profile update broadcast to all users for user ${data.userId}`);
+  }
+
+  /**
    * Check if a user is currently connected
    */
   isUserOnline(userId: number): boolean {

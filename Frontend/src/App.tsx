@@ -1,4 +1,4 @@
-import React, { useEffect, Suspense } from 'react';
+import React, { useEffect, Suspense, useRef } from 'react';
 import { Routes, Route, Navigate, useLocation, Outlet } from 'react-router-dom';
 import { Box, CircularProgress } from '@mui/material';
 import { useAppDispatch, useAppSelector } from './store/store';
@@ -8,6 +8,7 @@ import MainLayout from './layouts/MainLayout';
 import { API_BASE_URL } from './api/config';
 import { ErrorBoundary } from './components/ErrorBoundary/ErrorBoundary';
 import { AsyncErrorBoundary } from './components/ErrorBoundary/AsyncErrorBoundary';
+import { webSocketService } from './services/websocket.service';
 
 // Lazy load pages
 const LoginPage = React.lazy(() => import('./pages/Login'));
@@ -108,6 +109,26 @@ const App = () => {
       dispatch(disconnectWebSocket());
     }
   }, [isAuthenticated, currentUser?.userId, dispatch]);
+
+  /* Global WebSocket profile update listener - broadcast to all components via window event */
+  useEffect(() => {
+    if (!isAuthenticated || !currentUser?.userId) return;
+
+    // Connect WebSocket for profile updates
+    webSocketService.connect(currentUser.userId);
+
+    // Register global listener
+    const handleProfileUpdate = (data: { userId: number; userImageUrl?: string | null }) => {
+      window.dispatchEvent(new CustomEvent('followmee:profile-updated', { detail: data }));
+    };
+
+    webSocketService.onProfileUpdated(handleProfileUpdate);
+
+    // Cleanup on unmount
+    return () => {
+      webSocketService.offProfileUpdated(handleProfileUpdate);
+    };
+  }, [isAuthenticated, currentUser?.userId]);
 
   if (checkingSession) {
     return <LoadingSpinner />;

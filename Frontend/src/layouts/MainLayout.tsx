@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../store/store';
 import { ThemeToggle } from '../components/ThemeToggle';
@@ -8,6 +8,7 @@ import Swal from 'sweetalert2';
 import SmartAvatar from '../components/SmartAvatar';
 import NotificationBell from '../components/NotificationBell/NotificationBell';
 import NotificationDropdown from '../components/NotificationDropdown/NotificationDropdown';
+import { clearCache } from '../services/api/dashboardApi';
 
 import {
   Box,
@@ -96,6 +97,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
+  const [profileUpdateKey, setProfileUpdateKey] = useState(0); // Force re-render on profile update
   const [profileData, setProfileData] = useState({
     userName: currentUser?.userName || '',
     userLastName: currentUser?.userLastName || '',
@@ -288,6 +290,32 @@ const MainLayout = ({ children }: MainLayoutProps) => {
     }
   }, [currentUser, profileData, dispatch]);
   
+  // Listen for global profile update events (broadcast from App.tsx)
+  useEffect(() => {
+    const handleProfileUpdate = (event: CustomEvent<{ userId: number; userImageUrl?: string | null }>) => {
+      setProfileData(prev => ({
+        ...prev,
+        userImageUrl: event.detail.userImageUrl || null
+      }));
+      
+      if (currentUser) {
+        dispatch(updateUser({
+          ...currentUser,
+          userImageUrl: event.detail.userImageUrl || undefined
+        }));
+      }
+      
+      clearCache('leaderboard');
+      setProfileUpdateKey(prev => prev + 1);
+    };
+    
+    window.addEventListener('followmee:profile-updated', handleProfileUpdate as EventListener);
+    
+    return () => {
+      window.removeEventListener('followmee:profile-updated', handleProfileUpdate as EventListener);
+    };
+  }, [currentUser, dispatch]);
+
   const handleAccountDelete = useCallback(async () => {
     try {
       if (!currentUser?.userId) {

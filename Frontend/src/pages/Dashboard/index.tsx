@@ -42,6 +42,7 @@ import {
   getDashboardStats,
   getLeaderboard,
   getPendingTasks,
+  clearCache,
   DashboardStats,
   LeaderboardData,
   PendingTask,
@@ -149,27 +150,24 @@ const DashboardPage: React.FC = () => {
     };
   }, [timeRange, fetchStatsOnly]);
 
-  // WebSocket integration for realtime updates
+  // Listen for global profile update events (broadcast from App.tsx)
   useEffect(() => {
-    if (!user?.userId || hasInitializedWebSocket.current) return;
+    if (!user?.userId) return;
     
-    // Initialize WebSocket connection
-    webSocketService.connect(user.userId);
-    hasInitializedWebSocket.current = true;
-    
-    // Listen for real-time updates - refresh เฉพาะ static data เมื่อมี notification
-    const handleDashboardUpdate = () => {
+    const handleProfileUpdate = (event: CustomEvent<{ userId: number; userImageUrl?: string | null }>) => {
+      // Clear leaderboard cache เพื่อให้ได้ข้อมูลใหม่จาก server
+      clearCache('leaderboard');
       // Refresh เฉพาะ Leaderboard และ Pending Tasks (ไม่ refresh Stats)
       fetchStaticData();
     };
     
-    webSocketService.onNotificationNew(handleDashboardUpdate);
+    window.addEventListener('followmee:profile-updated', handleProfileUpdate as EventListener);
     
     // Cleanup
     return () => {
-      webSocketService.offNotificationNew(handleDashboardUpdate);
+      window.removeEventListener('followmee:profile-updated', handleProfileUpdate as EventListener);
     };
-  }, [user?.userId, fetchStaticData]);
+  }, [user?.userId]);
 
   // Refresh static data เป็นระยะ (ทุก 2 นาที) เพื่อข้อมูลที่เป็นปัจจุบัน
   useEffect(() => {

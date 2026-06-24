@@ -6,6 +6,7 @@ import { UserResponseDto } from '../dtos/user-response.dto';
 import { uploadBase64Image, deleteFromCloudinary } from '../config/cloudinary.config';
 import AppDataSource from '../config/database';
 import { User } from '../entities/User';
+import { webSocketService } from '../services/websocket.service';
 
 export class UserController {
   constructor(private readonly userService: UserService) {}
@@ -180,6 +181,15 @@ export class UserController {
       }
       
       const user = await this.userService.updateUser(userId, updateUserDto);
+      
+      // Broadcast profile update event if image was changed
+      if (updateUserDto.userImageUrl !== undefined) {
+        webSocketService.broadcastProfileUpdate({ 
+          userId, 
+          userImageUrl: updateUserDto.userImageUrl 
+        });
+      }
+      
       res.status(200).json({ 
         success: true, 
         data: user,
@@ -233,6 +243,15 @@ export class UserController {
       }
       
       const user = await this.userService.updateUser(Number(userId), updateUserDto);
+      
+      // Broadcast profile update event if image was changed
+      if (updateUserDto.userImageUrl !== undefined) {
+        webSocketService.broadcastProfileUpdate({ 
+          userId: Number(userId), 
+          userImageUrl: updateUserDto.userImageUrl 
+        });
+      }
+      
       res.status(200).json({ 
         success: true, 
         data: user,

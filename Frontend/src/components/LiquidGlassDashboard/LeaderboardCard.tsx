@@ -1,9 +1,10 @@
 import React from 'react';
-import { Box, Typography, Avatar, SxProps, Theme } from '@mui/material';
+import { Box, Typography, SxProps, Theme } from '@mui/material';
 import { LiquidGlassCard } from './LiquidGlassCard';
 import { LeaderboardItem } from '../../services/api/dashboardApi';
 import { GradientPresetKey } from '../../styles/liquidGlassStyles';
 import { EmojiEvents } from '@mui/icons-material';
+import SmartAvatar from '../../components/SmartAvatar';
 
 interface LeaderboardCardProps {
   topPerformers: LeaderboardItem[];
@@ -114,19 +115,20 @@ export const LeaderboardCard: React.FC<LeaderboardCardProps> = ({
             </Box>
 
             {/* Avatar */}
-            <Avatar
-              src={performer.userImageUrl}
-              alt={`${performer.userName} ${performer.userLastName}`}
-              sx={{ 
-                width: 44, 
-                height: 44, 
+            <SmartAvatar
+              user={{
+                userName: performer.userName,
+                userLastName: performer.userLastName,
+                userImageUrl: performer.userImageUrl,
+              }}
+              avatarVariant="glass"
+              size={44}
+              sx={{
                 mr: 2,
                 border: performer.rank <= 3 ? `2px solid ${getRankNumberColor(performer.rank)}` : 'none',
                 boxShadow: performer.rank <= 3 ? `0 2px 8px ${getRankNumberColor(performer.rank)}60` : 'none',
               }}
-            >
-              {performer.userName.charAt(0)}
-            </Avatar>
+            />
 
             {/* Info */}
             <Box flex={1} minWidth={0}>

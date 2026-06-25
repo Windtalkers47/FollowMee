@@ -519,7 +519,7 @@ const CustomerPage = () => {
             value={totalCustomers}
             subtitle={`${getStatusCount('active')} active`}
             icon={<GroupIcon sx={{ fontSize: 32 }} />}
-            iconBg="rgba(16, 185, 129, 0.15)"
+            iconBg="rgba(16, 185, 129, 0.12)"
             iconColor="#10b981"
             liquidGlassSettings={liquidGlassSettings}
             isDarkMode={isDarkMode}
@@ -529,7 +529,7 @@ const CustomerPage = () => {
             value={getStatusCount('active')}
             subtitle={totalCustomers > 0 ? `${Math.round((getStatusCount('active') / totalCustomers) * 100)}% of total` : '0% of total'}
             icon={<CheckCircleIcon sx={{ fontSize: 32 }} />}
-            iconBg="rgba(16, 185, 129, 0.15)"
+            iconBg="rgba(16, 185, 129, 0.12)"
             iconColor="#10b981"
             trend={{ value: 5, direction: 'up' }}
             liquidGlassSettings={liquidGlassSettings}
@@ -980,7 +980,7 @@ const CustomerPage = () => {
                     border: isItemSelected ? `2px solid ${theme.palette.primary.main}` : '1px solid rgba(255,255,255,0.5)',
                     '&:hover': {
                       transform: 'translateY(-4px)',
-                      boxShadow: '0 8px 32px 0 rgba(16, 185, 129, 0.15)',
+                      boxShadow: '0 8px 32px 0 rgba(16, 185, 129, 0.12)',
                     },
                   }}
                 >

@@ -8,6 +8,7 @@ import {
   ToggleButtonGroup,
   ToggleButton,
   useTheme,
+  Avatar,
 } from '@mui/material';
 import {
   People as PeopleIcon,
@@ -542,8 +543,17 @@ const DashboardPage: React.FC = () => {
             }}
             onClick={handleCreateTask}
           >
-            <Avatar sx={{ bgcolor: '#10b981', width: 44, height: 44 }}>
-              <AddIcon />
+            <Avatar
+              sx={{
+                width: 44,
+                height: 44,
+                bgcolor: 'rgba(16, 185, 129, 0.2)',
+                border: '2px solid rgba(16, 185, 129, 0.3)',
+                backdropFilter: 'blur(8px)',
+                WebkitBackdropFilter: 'blur(8px)',
+              }}
+            >
+              <AddIcon sx={{ fontSize: 24, color: '#10b981' }} />
             </Avatar>
             <Box>
               <Typography variant="subtitle2" fontWeight={600}>
@@ -570,8 +580,17 @@ const DashboardPage: React.FC = () => {
             }}
             onClick={handleViewCustomers}
           >
-            <Avatar sx={{ bgcolor: '#2196F3', width: 44, height: 44 }}>
-              <ListIcon />
+            <Avatar
+              sx={{
+                width: 44,
+                height: 44,
+                bgcolor: 'rgba(33, 150, 243, 0.2)',
+                border: '2px solid rgba(33, 150, 243, 0.3)',
+                backdropFilter: 'blur(8px)',
+                WebkitBackdropFilter: 'blur(8px)',
+              }}
+            >
+              <ListIcon sx={{ fontSize: 24, color: '#2196F3' }} />
             </Avatar>
             <Box>
               <Typography variant="subtitle2" fontWeight={600}>
@@ -775,12 +794,5 @@ const DashboardPage: React.FC = () => {
     </Container>
   );
 };
-
-// Avatar component for quick actions
-const Avatar: React.FC<{ children: React.ReactNode; sx?: any }> = ({ children, sx }) => (
-  <Box sx={{ ...sx, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-    {children}
-  </Box>
-);
 
 export default DashboardPage;

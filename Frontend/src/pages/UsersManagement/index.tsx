@@ -358,8 +358,13 @@ const UsersPage = () => {
                     <TableCell>
                       <Chip
                         label={user.isActive ? 'Active' : 'Inactive'}
-                        color={user.isActive ? 'success' : 'error'}
                         size="small"
+                        sx={{
+                          bgcolor: user.isActive ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+                          color: user.isActive ? '#10b981' : '#ef4444',
+                          border: `1px solid ${user.isActive ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
+                          fontWeight: 600,
+                        }}
                       />
                     </TableCell>
                     <TableCell>

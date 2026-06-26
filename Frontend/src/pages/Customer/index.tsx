@@ -201,6 +201,11 @@ const CustomerPage = () => {
   
   const emptyRows = page > 0 ? Math.max(0, (1 + page) * pageSize - customers.length) : 0;
 
+  // Fetch status stats on mount to populate tab counts
+  useEffect(() => {
+    refetch();
+  }, []);
+
   useEffect(() => {
     if (isInitialMount.current) {
       isInitialMount.current = false;
@@ -710,13 +715,14 @@ const CustomerPage = () => {
                 variant="contained"
                 startIcon={<CheckCircleIcon />}
                 sx={{ 
-                  bgcolor: 'rgba(255,255,255,0.2)', 
+                  bgcolor: '#10b981', 
                   color: 'white',
                   fontWeight: 600,
                   px: 2,
                   '&:hover': { 
-                    bgcolor: 'rgba(255,255,255,0.3)',
-                    transform: 'translateY(-1px)',
+                    bgcolor: '#059669',
+                    transform: 'translateY(-2px)',
+                    boxShadow: '0 4px 12px rgba(16, 185, 129, 0.4)',
                   }
                 }}
                 onClick={async () => {
@@ -780,13 +786,14 @@ const CustomerPage = () => {
                 variant="contained"
                 startIcon={<AccessTimeIcon />}
                 sx={{ 
-                  bgcolor: 'rgba(255,255,255,0.2)', 
+                  bgcolor: '#f59e0b', 
                   color: 'white',
                   fontWeight: 600,
                   px: 2,
                   '&:hover': { 
-                    bgcolor: 'rgba(255,255,255,0.3)',
-                    transform: 'translateY(-1px)',
+                    bgcolor: '#d97706',
+                    transform: 'translateY(-2px)',
+                    boxShadow: '0 4px 12px rgba(245, 158, 11, 0.4)',
                   }
                 }}
                 onClick={async () => {
@@ -850,13 +857,14 @@ const CustomerPage = () => {
                 variant="contained"
                 startIcon={<BlockIcon />}
                 sx={{
-                  bgcolor: 'rgba(255,255,255,0.2)',
+                  bgcolor: '#ef4444',
                   color: 'white',
                   fontWeight: 600,
                   px: 2,
                   '&:hover': {
-                    bgcolor: 'rgba(255,255,255,0.3)',
-                    transform: 'translateY(-1px)',
+                    bgcolor: '#dc2626',
+                    transform: 'translateY(-2px)',
+                    boxShadow: '0 4px 12px rgba(239, 68, 68, 0.4)',
                   }
                 }}
                 onClick={async () => {
@@ -900,15 +908,15 @@ const CustomerPage = () => {
               </Button>
               <Button
                 size="small"
-                variant="text"
+                variant="outlined"
                 sx={{
                   color: 'white',
-                  borderColor: 'rgba(255,255,255,0.5)',
-                  borderWidth: 1,
-                  borderStyle: 'solid',
+                  borderColor: 'rgba(255,255,255,0.6)',
+                  borderWidth: 1.5,
                   '&:hover': {
-                    bgcolor: 'rgba(255,255,255,0.1)',
-                    borderColor: 'white'
+                    bgcolor: 'rgba(255,255,255,0.15)',
+                    borderColor: 'white',
+                    transform: 'translateY(-2px)',
                   }
                 }}
                 onClick={() => setSelected([])}
@@ -1136,125 +1144,194 @@ const CustomerPage = () => {
                         </Box>
                       </Box>
                       
-                      {/* Social Media & Actions - Scrollable on mobile */}
+                      {/* Social Media & Actions - Consistent Grid Layout */}
                       <Box 
                         display="flex" 
                         alignItems="center" 
                         gap={0.5}
                         sx={{ 
                           width: { xs: '100%', sm: 'auto' },
-                          overflowX: { xs: 'auto', sm: 'visible' },
                           pt: { xs: 1, sm: 0 },
-                          pb: { xs: 0.5, sm: 0 },
-                          '&::-webkit-scrollbar': { display: 'none' },
-                          scrollbarWidth: 'none',
                         }}
                       >
-                        {customer.customerFacebook && (
-                          <Tooltip title="Facebook" arrow>
-                            <IconButton
-                              size="small"
-                              href={customer.customerFacebook}
-                              target="_blank"
-                              onClick={(e) => e.stopPropagation()}
-                              sx={{
-                                bgcolor: '#1877F2',
-                                color: 'white',
-                                width: { xs: 30, sm: 32 },
-                                height: { xs: 30, sm: 32 },
-                                flexShrink: 0,
-                                '&:hover': { bgcolor: '#166FE5', transform: 'scale(1.1)' },
-                                transition: 'all 0.2s ease',
-                              }}
-                            >
-                              <FacebookIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        )}
-                        {customer.customerInstagram && (
-                          <Tooltip title="Instagram" arrow>
-                            <IconButton
-                              size="small"
-                              href={customer.customerInstagram}
-                              target="_blank"
-                              onClick={(e) => e.stopPropagation()}
-                              sx={{
-                                background: 'radial-gradient(circle at 30% 107%, #fdf497 0%, #fdf497 5%, #fd5949 45%,#d6249f 60%,#285AEB 90%)',
-                                color: 'white',
-                                width: { xs: 30, sm: 32 },
-                                height: { xs: 30, sm: 32 },
-                                flexShrink: 0,
-                                '&:hover': { opacity: 0.9, transform: 'scale(1.1)' },
-                                transition: 'all 0.2s ease',
-                              }}
-                            >
-                              <InstagramIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        )}
-                        {customer.customerTikTok && (
-                          <Tooltip title="TikTok" arrow>
-                            <IconButton
-                              size="small"
-                              href={customer.customerTikTok}
-                              target="_blank"
-                              onClick={(e) => e.stopPropagation()}
-                              sx={{
-                                bgcolor: '#000000',
-                                color: 'white',
-                                width: { xs: 30, sm: 32 },
-                                height: { xs: 30, sm: 32 },
-                                flexShrink: 0,
-                                '&:hover': { bgcolor: '#333333', transform: 'scale(1.1)' },
-                                transition: 'all 0.2s ease',
-                              }}
-                            >
-                              <MusicNoteIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        )}
-                        {customer.customerLine && (
-                          <Tooltip title="Line" arrow>
-                            <IconButton
-                              size="small"
-                              href={`https://line.me/ti/p/${customer.customerLine}`}
-                              target="_blank"
-                              onClick={(e) => e.stopPropagation()}
-                              sx={{
-                                bgcolor: '#06C755',
-                                color: 'white',
-                                width: { xs: 30, sm: 32 },
-                                height: { xs: 30, sm: 32 },
-                                flexShrink: 0,
-                                '&:hover': { bgcolor: '#05a548', transform: 'scale(1.1)' },
-                                transition: 'all 0.2s ease',
-                              }}
-                            >
-                              <MessageIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        )}
-                        {customer.customerX && (
-                          <Tooltip title="X (Twitter)" arrow>
-                            <IconButton
-                              size="small"
-                              href={customer.customerX}
-                              target="_blank"
-                              onClick={(e) => e.stopPropagation()}
-                              sx={{
-                                bgcolor: '#000000',
-                                color: 'white',
-                                width: { xs: 30, sm: 32 },
-                                height: { xs: 30, sm: 32 },
-                                flexShrink: 0,
-                                '&:hover': { bgcolor: '#333333', transform: 'scale(1.1)' },
-                                transition: 'all 0.2s ease',
-                              }}
-                            >
-                              <TwitterIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        )}
+                        {/* Facebook */}
+                        <Tooltip 
+                          title={customer.customerFacebook ? "Facebook" : "ยังไม่มีข้อมูล Facebook"} 
+                          arrow
+                        >
+                          <Box
+                            component={customer.customerFacebook ? 'a' : 'span'}
+                            href={customer.customerFacebook || undefined}
+                            target={customer.customerFacebook ? "_blank" : undefined}
+                            onClick={(e: React.MouseEvent) => {
+                              e.stopPropagation();
+                            }}
+                            sx={{
+                              width: { xs: 30, sm: 32 },
+                              height: { xs: 30, sm: 32 },
+                              borderRadius: '50%',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              flexShrink: 0,
+                              bgcolor: customer.customerFacebook ? '#1877F2' : 'rgba(128, 128, 128, 0.3)',
+                              color: customer.customerFacebook ? 'white' : 'rgba(255, 255, 255, 0.5)',
+                              opacity: customer.customerFacebook ? 1 : 0.5,
+                              cursor: customer.customerFacebook ? 'pointer' : 'not-allowed',
+                              transition: 'all 0.2s ease',
+                              '&:hover': customer.customerFacebook ? { 
+                                bgcolor: '#166FE5', 
+                                transform: 'scale(1.1)',
+                              } : {},
+                            }}
+                          >
+                            <FacebookIcon fontSize="small" />
+                          </Box>
+                        </Tooltip>
+
+                        {/* Instagram */}
+                        <Tooltip 
+                          title={customer.customerInstagram ? "Instagram" : "ยังไม่มีข้อมูล Instagram"} 
+                          arrow
+                        >
+                          <Box
+                            component={customer.customerInstagram ? 'a' : 'span'}
+                            href={customer.customerInstagram || undefined}
+                            target={customer.customerInstagram ? "_blank" : undefined}
+                            onClick={(e: React.MouseEvent) => {
+                              e.stopPropagation();
+                            }}
+                            sx={{
+                              width: { xs: 30, sm: 32 },
+                              height: { xs: 30, sm: 32 },
+                              borderRadius: '50%',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              flexShrink: 0,
+                              background: customer.customerInstagram 
+                                ? 'radial-gradient(circle at 30% 107%, #fdf497 0%, #fdf497 5%, #fd5949 45%,#d6249f 60%,#285AEB 90%)'
+                                : 'rgba(128, 128, 128, 0.3)',
+                              color: customer.customerInstagram ? 'white' : 'rgba(255, 255, 255, 0.5)',
+                              opacity: customer.customerInstagram ? 1 : 0.5,
+                              cursor: customer.customerInstagram ? 'pointer' : 'not-allowed',
+                              transition: 'all 0.2s ease',
+                              '&:hover': customer.customerInstagram ? { 
+                                opacity: 0.9,
+                                transform: 'scale(1.1)',
+                              } : {},
+                            }}
+                          >
+                            <InstagramIcon fontSize="small" />
+                          </Box>
+                        </Tooltip>
+
+                        {/* TikTok */}
+                        <Tooltip 
+                          title={customer.customerTikTok ? "TikTok" : "ยังไม่มีข้อมูล TikTok"} 
+                          arrow
+                        >
+                          <Box
+                            component={customer.customerTikTok ? 'a' : 'span'}
+                            href={customer.customerTikTok || undefined}
+                            target={customer.customerTikTok ? "_blank" : undefined}
+                            onClick={(e: React.MouseEvent) => {
+                              e.stopPropagation();
+                            }}
+                            sx={{
+                              width: { xs: 30, sm: 32 },
+                              height: { xs: 30, sm: 32 },
+                              borderRadius: '50%',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              flexShrink: 0,
+                              bgcolor: customer.customerTikTok ? '#000000' : 'rgba(128, 128, 128, 0.3)',
+                              color: customer.customerTikTok ? 'white' : 'rgba(255, 255, 255, 0.5)',
+                              opacity: customer.customerTikTok ? 1 : 0.5,
+                              cursor: customer.customerTikTok ? 'pointer' : 'not-allowed',
+                              transition: 'all 0.2s ease',
+                              '&:hover': customer.customerTikTok ? { 
+                                bgcolor: '#333333',
+                                transform: 'scale(1.1)',
+                              } : {},
+                            }}
+                          >
+                            <MusicNoteIcon fontSize="small" />
+                          </Box>
+                        </Tooltip>
+
+                        {/* Line */}
+                        <Tooltip 
+                          title={customer.customerLine ? "Line" : "ยังไม่มีข้อมูล Line"} 
+                          arrow
+                        >
+                          <Box
+                            component={customer.customerLine ? 'a' : 'span'}
+                            href={customer.customerLine ? `https://line.me/ti/p/${customer.customerLine}` : undefined}
+                            target={customer.customerLine ? "_blank" : undefined}
+                            onClick={(e: React.MouseEvent) => {
+                              e.stopPropagation();
+                            }}
+                            sx={{
+                              width: { xs: 30, sm: 32 },
+                              height: { xs: 30, sm: 32 },
+                              borderRadius: '50%',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              flexShrink: 0,
+                              bgcolor: customer.customerLine ? '#06C755' : 'rgba(128, 128, 128, 0.3)',
+                              color: customer.customerLine ? 'white' : 'rgba(255, 255, 255, 0.5)',
+                              opacity: customer.customerLine ? 1 : 0.5,
+                              cursor: customer.customerLine ? 'pointer' : 'not-allowed',
+                              transition: 'all 0.2s ease',
+                              '&:hover': customer.customerLine ? { 
+                                bgcolor: '#05a548',
+                                transform: 'scale(1.1)',
+                              } : {},
+                            }}
+                          >
+                            <MessageIcon fontSize="small" />
+                          </Box>
+                        </Tooltip>
+
+                        {/* X (Twitter) */}
+                        <Tooltip 
+                          title={customer.customerX ? "X (Twitter)" : "ยังไม่มีข้อมูล X (Twitter)"} 
+                          arrow
+                        >
+                          <Box
+                            component={customer.customerX ? 'a' : 'span'}
+                            href={customer.customerX || undefined}
+                            target={customer.customerX ? "_blank" : undefined}
+                            onClick={(e: React.MouseEvent) => {
+                              e.stopPropagation();
+                            }}
+                            sx={{
+                              width: { xs: 30, sm: 32 },
+                              height: { xs: 30, sm: 32 },
+                              borderRadius: '50%',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              flexShrink: 0,
+                              bgcolor: customer.customerX ? '#000000' : 'rgba(128, 128, 128, 0.3)',
+                              color: customer.customerX ? 'white' : 'rgba(255, 255, 255, 0.5)',
+                              opacity: customer.customerX ? 1 : 0.5,
+                              cursor: customer.customerX ? 'pointer' : 'not-allowed',
+                              transition: 'all 0.2s ease',
+                              '&:hover': customer.customerX ? { 
+                                bgcolor: '#333333',
+                                transform: 'scale(1.1)',
+                              } : {},
+                            }}
+                          >
+                            <TwitterIcon fontSize="small" />
+                          </Box>
+                        </Tooltip>
+
+                        {/* More Actions */}
                         <Tooltip title="More actions">
                           <IconButton 
                             size="small"

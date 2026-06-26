@@ -53,16 +53,23 @@ export class CustomerController {
    * - Default limit = 100 (show all data up to 100 items)
    * - Return all results on page=1 (no pagination by default)
    * - Pagination only applied when explicitly requested (page > 1)
+   * 
+   * Status Filter:
+   * - No status or 'all': show all customers
+   * - 'active': show only active customers (isActive = true)
+   * - 'inactive': show only inactive customers (isActive = false)
+   * - 'canceled': show canceled customers (isActive = false)
    */
   async getCustomers(req: Request, res: Response) {
     try {
       const page = parseInt(req.query.page as string) || 1;
       // iOS 2026: Default limit = 100 for showing all data
       const limit = parseInt(req.query.limit as string) || 100;
-      const includeInactive = req.query.status === 'inactive';
+      const status = req.query.status as 'active' | 'inactive' | 'canceled' | undefined;
+      const search = req.query.search as string | undefined;
       
-      // Get customers
-      const customers = await this.customerService.findAll(includeInactive);
+      // Get customers with status filter
+      const customers = await this.customerService.findAll({ status, search });
       
       // Apply pagination on client side since service doesn't support it yet
       const total = customers.length;

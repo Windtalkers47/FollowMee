@@ -13,10 +13,54 @@ export class CustomerService {
     this.customerRepository = new CustomerRepository();
   }
 
-  async findAll(includeInactive = false): Promise<CustomerResponseDto[]> {
-    const customers = includeInactive
-      ? await this.customerRepository.findMany({ order: { createdAt: 'DESC' } } as any)
-      : await this.customerRepository.findActive();
+  async findAll(options?: { 
+    status?: 'active' | 'inactive' | 'canceled' | 'all';
+    search?: string;
+  }): Promise<CustomerResponseDto[]> {
+    const { status, search } = options || {};
+    
+    // Build filter conditions
+    const whereConditions: any = {};
+    
+    // Filter by status if provided
+    // Note: 'all' or undefined means show all customers (no status filter)
+    if (status && status !== 'all') {
+      // Use the status field directly instead of isActive
+      whereConditions.status = status;
+    }
+    // If status is 'all' or undefined, don't set status filter (show all)
+    
+    // Filter by search query if provided
+    if (search) {
+      const searchLower = search.toLowerCase();
+      const customers = await this.customerRepository.findMany({ 
+        where: whereConditions,
+        order: { createdAt: 'DESC' }
+      } as any);
+      
+      const filtered = customers.filter(c => 
+        c.customerName?.toLowerCase().includes(searchLower) ||
+        c.customerLastName?.toLowerCase().includes(searchLower) ||
+        c.customerEmail?.toLowerCase().includes(searchLower) ||
+        c.customerPhone1?.toLowerCase().includes(searchLower) ||
+        c.customerAddress?.toLowerCase().includes(searchLower) ||
+        c.customerFacebook?.toLowerCase().includes(searchLower) ||
+        c.customerInstagram?.toLowerCase().includes(searchLower) ||
+        c.customerTikTok?.toLowerCase().includes(searchLower) ||
+        c.customerLine?.toLowerCase().includes(searchLower) ||
+        c.customerX?.toLowerCase().includes(searchLower)
+      );
+      
+      return filtered.map(c => new CustomerResponseDto({
+        ...c,
+        userId: c.userId ?? undefined
+      }));
+    }
+    
+    const customers = await this.customerRepository.findMany({ 
+      where: whereConditions,
+      order: { createdAt: 'DESC' }
+    } as any);
 
     return customers.map(c => new CustomerResponseDto({
       ...c,

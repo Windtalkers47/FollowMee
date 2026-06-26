@@ -91,7 +91,10 @@ export const useCustomers = () => {
       status: updatedFilter.status === 'all' ? undefined : updatedFilter.status,
       search: updatedFilter.search 
     }));
-  }, [dispatch, pageSize, filter.status, filter.search]);
+    
+    // Also fetch status stats to update tab counts
+    dispatch(fetchStatusStats());
+  }, [dispatch, pageSize, filter]);
 
   // ===============================
   // Refetch data
@@ -110,6 +113,7 @@ export const useCustomers = () => {
     };
     
     dispatch(fetchCustomers(currentState));
+    dispatch(fetchStatusStats());
   }, [dispatch, filter.status, filter.search]);
 
   // ===============================

@@ -50,6 +50,25 @@ export class UserNotificationSettings {
   @Column({ name: 'pushEnabled', type: 'boolean', default: true })
   pushEnabled: boolean = true;
 
+  // U4-PREFERENCES: Do Not Disturb mode
+  @Column({ name: 'doNotDisturbEnabled', type: 'boolean', default: false })
+  doNotDisturbEnabled: boolean = false;
+
+  // U4-PREFERENCES: Digest mode (none, hourly, daily)
+  @Column({ name: 'digestMode', type: 'varchar', length: 20, default: 'none' })
+  digestMode: 'none' | 'hourly' | 'daily' = 'none';
+
+  // U4-PREFERENCES: Quiet hours
+  @Column({ name: 'quietHoursStart', type: 'int', default: 22, nullable: true })
+  quietHoursStart: number | null = 22; // 10 PM
+
+  @Column({ name: 'quietHoursEnd', type: 'int', default: 7, nullable: true })
+  quietHoursEnd: number | null = 7; // 7 AM
+
+  // U4-PREFERENCES: Priority filtering (all, high, none)
+  @Column({ name: 'priorityFilter', type: 'varchar', length: 20, default: 'all' })
+  priorityFilter: 'all' | 'high' | 'none' = 'all';
+
   @CreateDateColumn({ name: 'createdAt', type: 'timestamp' })
   createdAt!: Date;
 

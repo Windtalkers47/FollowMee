@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsOptional, IsBoolean, IsArray } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsBoolean, IsArray, IsInt, IsDateString } from 'class-validator';
 
 export class CreateNotificationDto {
   @IsString()
@@ -43,6 +43,22 @@ export class CreateNotificationDto {
   @IsArray()
   @IsOptional()
   groupActorUserIds?: number[];
+
+  /**
+   * Use queue for aggregation (default: false)
+   * If true, notification will be queued for potential aggregation
+   */
+  @IsOptional()
+  @IsBoolean()
+  useQueue?: boolean;
+
+  /**
+   * Skip queue and send immediately (default: false)
+   * Takes precedence over useQueue if both are true
+   */
+  @IsOptional()
+  @IsBoolean()
+  skipQueue?: boolean;
 }
 
 export class UpdateNotificationRecipientDto {
@@ -99,6 +115,27 @@ export class UpdateUserNotificationSettingsDto {
   @IsOptional()
   @IsBoolean()
   pushEnabled?: boolean;
+
+  // U4-PREFERENCES: New preference fields
+  @IsOptional()
+  @IsBoolean()
+  doNotDisturbEnabled?: boolean;
+
+  @IsOptional()
+  @IsString()
+  digestMode?: 'none' | 'hourly' | 'daily';
+
+  @IsOptional()
+  @IsString()
+  quietHoursStart?: number;
+
+  @IsOptional()
+  @IsString()
+  quietHoursEnd?: number;
+
+  @IsOptional()
+  @IsString()
+  priorityFilter?: 'all' | 'high' | 'none';
 }
 
 export class NotificationQueryDto {
@@ -110,4 +147,51 @@ export class NotificationQueryDto {
 
   @IsOptional()
   unreadOnly?: string;
+}
+
+/**
+ * DTO สำหรับ tracking open event
+ */
+export class TrackOpenDto {
+  @IsInt()
+  @IsNotEmpty()
+  recipientId!: number;
+
+  @IsInt()
+  @IsNotEmpty()
+  notificationId!: number;
+}
+
+/**
+ * DTO สำหรับ tracking click event
+ */
+export class TrackClickDto {
+  @IsInt()
+  @IsNotEmpty()
+  recipientId!: number;
+
+  @IsInt()
+  @IsNotEmpty()
+  notificationId!: number;
+}
+
+/**
+ * DTO สำหรับ analytics query
+ */
+export class AnalyticsQueryDto {
+  @IsOptional()
+  @IsDateString()
+  startDate?: string;
+
+  @IsOptional()
+  @IsDateString()
+  endDate?: string;
+
+  @IsOptional()
+  @IsInt()
+  notificationId?: number;
+
+  @IsOptional()
+  @IsInt()
+  userId?: number;
 }

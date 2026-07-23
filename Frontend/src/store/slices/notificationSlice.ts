@@ -1,8 +1,7 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { notificationApi } from '../../api/notification.api';
-import {
+import type {
   NotificationRecipient,
-  NotificationListResponse,
   UserNotificationSettings,
   UpdateUserNotificationSettingsDto,
 } from '../../types/notification.types';
@@ -18,6 +17,7 @@ interface NotificationState {
   settingsLoading: boolean;
   settingsError: string | null;
   dropdownOpen: boolean;
+  lastOffset?: number; // Track last offset for pagination (U2-PAGINATION FIX)
 }
 
 const initialState: NotificationState = {
@@ -30,35 +30,39 @@ const initialState: NotificationState = {
   settingsLoading: false,
   settingsError: null,
   dropdownOpen: false,
+  lastOffset: 0,
 };
 
 // Async thunks
 export const fetchNotifications = createAsyncThunk(
   'notifications/fetchNotifications',
-  async (params?: { limit?: number; offset?: number; unreadOnly?: boolean }) => {
-    return await notificationApi.getNotifications(params);
+  async (params: { limit?: number; offset?: number; unreadOnly?: boolean } = {}) => {
+    const response = await notificationApi.getNotifications(params.limit, params.offset, params.unreadOnly);
+    return response.data ?? { notifications: [], total: 0, unreadCount: 0 };
   }
 );
 
 export const fetchUnreadCount = createAsyncThunk(
   'notifications/fetchUnreadCount',
   async () => {
-    const result = await notificationApi.getUnreadCount();
-    return result.count;
+    const response = await notificationApi.getUnreadCount();
+    return (response.data?.count) ?? 0;
   }
 );
 
 export const markAsRead = createAsyncThunk(
   'notifications/markAsRead',
   async (recipientId: number) => {
-    return await notificationApi.markAsRead(recipientId);
+    const response = await notificationApi.markAsRead(recipientId);
+    return response.data;
   }
 );
 
 export const markAsSeen = createAsyncThunk(
   'notifications/markAsSeen',
   async (recipientId: number) => {
-    return await notificationApi.markAsSeen(recipientId);
+    const response = await notificationApi.markAsSeen(recipientId);
+    return response.data;
   }
 );
 
@@ -72,28 +76,32 @@ export const markAllAsRead = createAsyncThunk(
 export const archiveNotification = createAsyncThunk(
   'notifications/archiveNotification',
   async (recipientId: number) => {
-    return await notificationApi.archiveNotification(recipientId);
+    const response = await notificationApi.archiveNotification(recipientId);
+    return response.data;
   }
 );
 
 export const deleteNotification = createAsyncThunk(
   'notifications/deleteNotification',
   async (recipientId: number) => {
-    return await notificationApi.deleteNotification(recipientId);
+    const response = await notificationApi.deleteNotification(recipientId);
+    return response.data;
   }
 );
 
 export const fetchSettings = createAsyncThunk(
   'notifications/fetchSettings',
   async () => {
-    return await notificationApi.getSettings();
+    const response = await notificationApi.getNotificationSettings();
+    return response.data;
   }
 );
 
 export const updateSettings = createAsyncThunk(
   'notifications/updateSettings',
   async (dto: UpdateUserNotificationSettingsDto) => {
-    return await notificationApi.updateSettings(dto);
+    const response = await notificationApi.updateNotificationSettings(dto);
+    return response.data;
   }
 );
 
@@ -147,15 +155,34 @@ const notificationSlice = createSlice({
   extraReducers: (builder) => {
     // Fetch notifications
     builder
-      .addCase(fetchNotifications.pending, (state) => {
+      .addCase(fetchNotifications.pending, (state, action) => {
         state.loading = true;
         state.error = null;
+        // Store the offset from the request
+        state.lastOffset = action.meta.arg?.offset || 0;
       })
-      .addCase(fetchNotifications.fulfilled, (state, action: PayloadAction<NotificationListResponse>) => {
+      .addCase(fetchNotifications.fulfilled, (state, action) => {
         state.loading = false;
-        state.notifications = action.payload.notifications;
-        state.total = action.payload.total;
-        state.unreadCount = action.payload.unreadCount;
+        const payload = action.payload;
+        const notifications = payload.notifications ?? [];
+        const total = payload.total ?? 0;
+        const unreadCount = payload.unreadCount ?? 0;
+        
+        // Check if this is a pagination request by checking the offset argument (U2-PAGINATION FIX)
+        const offset = action.meta.arg?.offset;
+        const isPagination = offset !== undefined && offset > 0;
+        
+        if (isPagination) {
+          // Append new notifications for pagination
+          state.notifications = [...state.notifications, ...notifications];
+        } else {
+          // Replace notifications for initial load
+          state.notifications = notifications;
+        }
+        
+        state.total = total;
+        state.unreadCount = unreadCount;
+        state.lastOffset = offset || 0;
       })
       .addCase(fetchNotifications.rejected, (state, action) => {
         state.loading = false;
@@ -170,13 +197,15 @@ const notificationSlice = createSlice({
 
     // Mark as read
     builder
-      .addCase(markAsRead.fulfilled, (state, action: PayloadAction<NotificationRecipient>) => {
+      .addCase(markAsRead.fulfilled, (state, action) => {
+        const payload = action.payload;
+        if (!payload) return;
         const index = state.notifications.findIndex(
-          (n) => n.recipientId === action.payload.recipientId
+          (n) => n.recipientId === payload.recipientId
         );
         if (index !== -1) {
-          state.notifications[index] = action.payload;
-          if (action.payload.isRead && !state.notifications[index].isRead) {
+          state.notifications[index] = payload;
+          if (payload.isRead && !state.notifications[index].isRead) {
             state.unreadCount = Math.max(0, state.unreadCount - 1);
           }
         }
@@ -184,12 +213,14 @@ const notificationSlice = createSlice({
 
     // Mark as seen
     builder
-      .addCase(markAsSeen.fulfilled, (state, action: PayloadAction<NotificationRecipient>) => {
+      .addCase(markAsSeen.fulfilled, (state, action) => {
+        const payload = action.payload;
+        if (!payload) return;
         const index = state.notifications.findIndex(
-          (n) => n.recipientId === action.payload.recipientId
+          (n) => n.recipientId === payload.recipientId
         );
         if (index !== -1) {
-          state.notifications[index] = action.payload;
+          state.notifications[index] = payload;
         }
       });
 
@@ -206,24 +237,28 @@ const notificationSlice = createSlice({
 
     // Archive notification
     builder
-      .addCase(archiveNotification.fulfilled, (state, action: PayloadAction<NotificationRecipient>) => {
+      .addCase(archiveNotification.fulfilled, (state, action) => {
+        const payload = action.payload;
+        if (!payload) return;
         const index = state.notifications.findIndex(
-          (n) => n.recipientId === action.payload.recipientId
+          (n) => n.recipientId === payload.recipientId
         );
         if (index !== -1) {
-          state.notifications[index] = action.payload;
+          state.notifications[index] = payload;
         }
       });
 
     // Delete notification
     builder
-      .addCase(deleteNotification.fulfilled, (state, action: PayloadAction<NotificationRecipient>) => {
+      .addCase(deleteNotification.fulfilled, (state, action) => {
+        const payload = action.payload;
+        if (!payload) return;
         const index = state.notifications.findIndex(
-          (n) => n.recipientId === action.payload.recipientId
+          (n) => n.recipientId === payload.recipientId
         );
         if (index !== -1) {
           state.notifications.splice(index, 1);
-          if (!action.payload.isRead) {
+          if (!payload.isRead) {
             state.unreadCount = Math.max(0, state.unreadCount - 1);
           }
           state.total = Math.max(0, state.total - 1);
@@ -236,9 +271,11 @@ const notificationSlice = createSlice({
         state.settingsLoading = true;
         state.settingsError = null;
       })
-      .addCase(fetchSettings.fulfilled, (state, action: PayloadAction<UserNotificationSettings>) => {
+      .addCase(fetchSettings.fulfilled, (state, action) => {
         state.settingsLoading = false;
-        state.settings = action.payload;
+        if (action.payload) {
+          state.settings = action.payload;
+        }
       })
       .addCase(fetchSettings.rejected, (state, action) => {
         state.settingsLoading = false;
@@ -251,9 +288,11 @@ const notificationSlice = createSlice({
         state.settingsLoading = true;
         state.settingsError = null;
       })
-      .addCase(updateSettings.fulfilled, (state, action: PayloadAction<UserNotificationSettings>) => {
+      .addCase(updateSettings.fulfilled, (state, action) => {
         state.settingsLoading = false;
-        state.settings = action.payload;
+        if (action.payload) {
+          state.settings = action.payload;
+        }
       })
       .addCase(updateSettings.rejected, (state, action) => {
         state.settingsLoading = false;

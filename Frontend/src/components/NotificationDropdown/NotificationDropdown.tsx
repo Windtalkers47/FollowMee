@@ -1,17 +1,19 @@
 import { Box, Typography, Button, Divider, CircularProgress, useTheme } from '@mui/material';
-import { CheckCircle } from '@mui/icons-material';
+import { CheckCircle, KeyboardArrowDown } from '@mui/icons-material';
 import { useAppDispatch, useAppSelector } from '../../store/store';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   selectNotifications,
   selectNotificationLoading,
   selectUnreadCount,
   selectDropdownOpen,
+  selectTotalCount,
   setDropdownOpen,
   markAsRead,
   markAllAsRead,
   deleteNotification,
   archiveNotification,
+  fetchNotifications,
 } from '../../store/slices/notificationSlice';
 import NotificationItem from '../NotificationItem/NotificationItem';
 
@@ -21,8 +23,15 @@ const NotificationDropdown = () => {
   const notifications = useAppSelector(selectNotifications);
   const loading = useAppSelector(selectNotificationLoading);
   const unreadCount = useAppSelector(selectUnreadCount);
+  const totalCount = useAppSelector(selectTotalCount);
   const dropdownOpen = useAppSelector(selectDropdownOpen);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+  
+  // Pagination state (U2-PAGINATION)
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -40,7 +49,35 @@ const NotificationDropdown = () => {
     };
   }, [dropdownOpen, dispatch]);
 
+  // Check if there are more notifications to load
+  useEffect(() => {
+    const displayedCount = notifications.length;
+    const expectedPageSize = 20;
+    setHasMore(displayedCount >= page * expectedPageSize && displayedCount < totalCount);
+  }, [notifications.length, page, totalCount]);
+
+  // Reset pagination when dropdown closes
+  useEffect(() => {
+    if (!dropdownOpen) {
+      setPage(1);
+      setHasMore(true);
+      setIsLoadingMore(false);
+    }
+  }, [dropdownOpen]);
+
   if (!dropdownOpen) return null;
+
+  const handleLoadMore = async () => {
+    if (isLoadingMore || !hasMore) return;
+    
+    setIsLoadingMore(true);
+    const nextPage = page + 1;
+    
+    await dispatch(fetchNotifications({ limit: 20, offset: notifications.length }));
+    
+    setPage(nextPage);
+    setIsLoadingMore(false);
+  };
 
   const handleMarkAsRead = (recipientId: number) => {
     dispatch(markAsRead(recipientId));
@@ -132,6 +169,7 @@ const NotificationDropdown = () => {
 
       {/* Notifications List */}
       <Box
+        ref={listRef}
         sx={{
           maxHeight: 400,
           overflowY: 'auto',
@@ -147,7 +185,7 @@ const NotificationDropdown = () => {
           },
         }}
       >
-        {loading ? (
+        {loading && page === 1 ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
             <CircularProgress size={24} />
           </Box>
@@ -161,15 +199,48 @@ const NotificationDropdown = () => {
             </Typography>
           </Box>
         ) : (
-          notifications.map((recipient) => (
-            <NotificationItem
-              key={recipient.recipientId}
-              recipient={recipient}
-              onMarkAsRead={handleMarkAsRead}
-              onDelete={handleDelete}
-              onArchive={handleArchive}
-            />
-          ))
+          <>
+            {notifications.map((recipient) => (
+              <NotificationItem
+                key={recipient.recipientId}
+                recipient={recipient}
+                onMarkAsRead={handleMarkAsRead}
+                onDelete={handleDelete}
+                onArchive={handleArchive}
+              />
+            ))}
+            
+            {/* Load More Button (U2-PAGINATION) */}
+            {hasMore && (
+              <Box sx={{ p: 2, display: 'flex', justifyContent: 'center' }}>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  endIcon={isLoadingMore ? <CircularProgress size={16} /> : <KeyboardArrowDown />}
+                  onClick={handleLoadMore}
+                  disabled={isLoadingMore}
+                  sx={{
+                    textTransform: 'none',
+                    minWidth: 120,
+                  }}
+                >
+                  {isLoadingMore ? 'Loading...' : 'Load More'}
+                </Button>
+              </Box>
+            )}
+            
+            {/* No more notifications message */}
+            {!hasMore && notifications.length > 0 && (
+              <Box sx={{ p: 2, textAlign: 'center' }}>
+                <Typography 
+                  variant="caption" 
+                  sx={{ color: theme.palette.mode === 'dark' ? 'text.secondary' : '#9ca3af' }}
+                >
+                  No more notifications
+                </Typography>
+              </Box>
+            )}
+          </>
         )}
       </Box>
 
@@ -182,7 +253,7 @@ const NotificationDropdown = () => {
               variant="caption" 
               sx={{ color: theme.palette.mode === 'dark' ? 'text.secondary' : '#64748b' }}
             >
-              Showing {notifications.length} notifications
+              Showing {notifications.length} of {totalCount} notifications
             </Typography>
           </Box>
         </>

@@ -59,4 +59,33 @@ export class NotificationRepository extends BaseRepository<Notification> {
     
     return parseInt(result?.count || '0', 10);
   }
+
+  /**
+   * Find duplicate notification by type, entity, and actor within time window
+   * P1-DEDUPLICATION: Used for preventing duplicate notifications
+   */
+  async findDuplicate(
+    notificationType: string,
+    entityType: string,
+    entityId: string,
+    actorUserId: number | undefined,
+    title: string | undefined,
+    since: Date
+  ): Promise<Notification | null> {
+    const query = this.repository
+      .createQueryBuilder('notification')
+      .where('notification.notificationType = :type', { type: notificationType })
+      .andWhere('notification.entityType = :entityType', { entityType: entityType || '' })
+      .andWhere('notification.entityId = :entityId', { entityId: entityId || '' })
+      .andWhere('notification.actorUserId = :actorUserId', { actorUserId })
+      .andWhere('notification.createdAt >= :since', { since })
+      .orderBy('notification.createdAt', 'DESC');
+
+    // Also check by title if provided
+    if (title) {
+      query.andWhere('notification.title = :title', { title });
+    }
+
+    return query.getOne();
+  }
 }

@@ -4,6 +4,7 @@ import SmartAvatar from '../SmartAvatar/SmartAvatar';
 import { NotificationRecipient } from '../../types/notification.types';
 import { formatDistanceToNow } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
+import { trackOpen, trackClick } from '../../api/notification.api';
 
 interface NotificationItemProps {
   recipient: NotificationRecipient;
@@ -17,8 +18,13 @@ const NotificationItem = ({ recipient, onMarkAsRead, onDelete, onArchive }: Noti
   const navigate = useNavigate();
   const { notification } = recipient;
 
-  const handleClick = () => {
+  const handleClick = async () => {
+    // W5-METRICS: Track open event
+    await trackOpen(recipient.recipientId, notification.notificationId);
+
     if (notification.actionUrl) {
+      // W5-METRICS: Track click event before navigate
+      await trackClick(recipient.recipientId, notification.notificationId);
       navigate(notification.actionUrl);
     }
     if (!recipient.isRead) {

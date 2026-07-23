@@ -13,6 +13,8 @@ import { processObjectDates } from './utils/date.utils';
 import { NotificationHelper } from './utils/notification.util';
 import { NotificationService } from './services/notification.service';
 import { webSocketService } from './services/websocket.service';
+import { notificationQueueService } from './services/notification-queue.service';
+import { notificationCleanupService } from './services/notification-cleanup.service';
 import { createServer } from 'http';
 import { Server as SocketIOServer } from 'socket.io';
 
@@ -55,6 +57,9 @@ class App {
       const notificationService = new NotificationService(this.database);
       NotificationHelper.initialize(notificationService);
 
+      // Initialize notification services
+      this.initializeNotificationServices(notificationService);
+
       // Then set up other middleware and routes
       this.initializeMiddlewares();
       this.initializeRoutes();
@@ -71,6 +76,35 @@ class App {
   // Get the port number
   public getPort(): number {
     return this.port;
+  }
+
+  // Initialize notification services
+  private async initializeNotificationServices(notificationService: NotificationService): Promise<void> {
+    // Initialize notification queue service (W2-RATE-LIMIT - Database backed)
+    notificationQueueService.initialize(notificationService);
+    await notificationQueueService.loadPending();
+
+    // Initialize notification cleanup service (NEW-SOFT-DELETE-CLEANUP)
+    notificationCleanupService.start();
+  }
+
+  // Graceful shutdown
+  public async gracefulShutdown(): Promise<void> {
+    logger.info('Starting graceful shutdown...');
+
+    try {
+      // Flush all queued notifications
+      await notificationQueueService.flushAll();
+      notificationQueueService.clearAll();
+
+      // Stop cleanup service
+      notificationCleanupService.stop();
+
+      logger.info('Graceful shutdown completed');
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.error(`Error during graceful shutdown: ${errorMessage}`);
+    }
   }
 
   // Initialize database connection
@@ -103,10 +137,11 @@ class App {
         ].filter(Boolean) as string[];
 
         // Check for exact match or if origin starts with allowed origin (for subdomains)
-        if (allowedOrigins.includes(origin) || allowedOrigins.some(allowed => origin?.startsWith(allowed))) {
+        const isAllowed = allowedOrigins.includes(origin) || allowedOrigins.some(allowed => origin?.startsWith(allowed));
+        if (isAllowed) {
           callback(null, true);
         } else {
-          callback(new Error('Not allowed by CORS'));
+          callback(null, false);
         }
       },
       credentials: true,
@@ -260,6 +295,20 @@ class App {
 
       logger.info('WebSocket service initialized');
 
+      // Set up graceful shutdown handlers
+      const appInstance = this;
+      process.on('SIGTERM', async () => {
+        logger.info('SIGTERM received, shutting down gracefully...');
+        await appInstance.gracefulShutdown();
+        process.exit(0);
+      });
+
+      process.on('SIGINT', async () => {
+        logger.info('SIGINT received, shutting down gracefully...');
+        await appInstance.gracefulShutdown();
+        process.exit(0);
+      });
+
       // Start the server
       return new Promise((resolve) => {
         httpServer.listen(this.port, () => {
@@ -271,7 +320,7 @@ class App {
         });
       });
     } catch (error) {
-      const errorMessage = error instanceof Error ? error : new Error('Failed to start the server');
+      const errorMessage = error instanceof Error ? error : Error(error instanceof Error ? error.message : String(error));
       logger.error(`Server startup error: ${errorMessage.message}`);
       process.exit(1);
     }

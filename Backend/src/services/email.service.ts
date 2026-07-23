@@ -1,114 +1,630 @@
-import nodemailer from 'nodemailer';
-import * as dotenv from 'dotenv';
+import nodemailer, { Transporter, SendMailOptions } from 'nodemailer';
+import { UserNotificationSettings } from '../entities/UserNotificationSettings';
 
-dotenv.config();
+/**
+ * Email Service
+ * 
+ * Sends email notifications using Nodemailer with SendGrid SMTP.
+ * 
+ * NEW-EMAIL-QUEUE: Email notification service
+ * Cost: Free tier (SendGrid 100 emails/day)
+ */
+
+interface EmailRecipient {
+  email: string;
+  name?: string;
+}
+
+interface EmailData {
+  to: EmailRecipient;
+  subject: string;
+  html: string;
+  text?: string;
+}
 
 class EmailService {
-  private transporter: nodemailer.Transporter;
+  private transporter: Transporter | null = null;
+  private isConfigured: boolean = false;
+  private dailyEmailCount: number = 0;
+  private readonly DAILY_EMAIL_LIMIT = 100; // SendGrid free tier limit
+  private lastResetDate: string = new Date().toDateString();
 
   constructor() {
-    this.transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST || 'smtp.gmail.com',
-      port: parseInt(process.env.SMTP_PORT || '587'),
-      secure: process.env.SMTP_SECURE === 'true',
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASSWORD,
-      },
-    });
+    this.initializeTransporter();
   }
 
-  async sendPasswordResetEmail(email: string, token: string): Promise<boolean> {
-    try {
+  /**
+   * Initialize email transporter
+   * Uses SendGrid SMTP or falls back to local SMTP
+   */
+  private initializeTransporter(): void {
+    const sendgridApiKey = process.env.SENDGRID_API_KEY;
+    const sendgridFromEmail = process.env.SENDGRID_FROM_EMAIL || 'noreply@followmee.com';
 
-      const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${token}`;
-      const currentYear = new Date().getFullYear();
-      
-      const mailOptions = {
-        from: `"FollowMee" <${process.env.SMTP_FROM || process.env.SMTP_USER}>`,
-        to: email,
-        subject: '🔑 Reset Your FollowMee Password',
-        html: `
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Password Reset - FollowMee</title>
-            <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600&display=swap" rel="stylesheet">
-        </head>
-        <body style="margin: 0; padding: 0; font-family: 'Kanit', Arial, sans-serif; background-color: #f5f7fa; color: #333;">
-            <table width="100%" cellspacing="0" cellpadding="0" style="max-width: 600px; margin: 0 auto; background-color: #ffffff;">
-                <!-- Header -->
-                <tr>
-                    <td style="background: linear-gradient(135deg, #4f46e5, #7c3aed); padding: 30px 20px; text-align: center;">
-                        <h1 style="color: white; margin: 0; font-size: 28px; font-weight: 600;">FollowMee</h1>
-                        <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0; font-size: 16px;">Your Journey, Your Way</p>
-                    </td>
-                </tr>
-                
-                <!-- Content -->
-                <tr>
-                    <td style="padding: 40px 30px;">
-                        <h2 style="color: #2d3748; margin-top: 0; font-size: 24px; font-weight: 600;">Reset Your Password</h2>
-                        <p style="font-size: 16px; line-height: 1.6; color: #4a5568;">Hello,</p>
-                        <p style="font-size: 16px; line-height: 1.6; color: #4a5568;">We received a request to reset your FollowMee account password. Click the button below to set a new password:</p>
-                        
-                        <!-- Button -->
-                        <table cellspacing="0" cellpadding="0" style="margin: 30px 0;">
-                            <tr>
-                                <td align="center" style="border-radius: 8px;" bgcolor="#4f46e5">
-                                    <a href="${resetUrl}" target="_blank" style="font-size: 16px; font-weight: 500; color: #ffffff; text-decoration: none; border-radius: 8px; padding: 12px 30px; border: 1px solid #4f46e5; display: inline-block; background: #4f46e5;">
-                                        Reset Password
-                                    </a>
-                                </td>
-                            </tr>
-                        </table>
-                        
-                        <p style="font-size: 14px; line-height: 1.6; color: #718096;">Or copy and paste this link into your browser:</p>
-                        <p style="font-size: 14px; word-break: break-all; color: #4a5568; background-color: #f7fafc; padding: 12px; border-radius: 6px; border-left: 4px solid #e2e8f0;">
-                            ${resetUrl}
-                        </p>
-                        
-                        <p style="font-size: 14px; color: #718096; margin-top: 30px;">
-                            <strong>Note:</strong> This link will expire in 1 hour for security reasons.
-                        </p>
-                        
-                        <p style="font-size: 14px; color: #718096; margin: 30px 0 0;">
-                            If you didn't request this, you can safely ignore this email. Your password will remain unchanged.
-                        </p>
-                    </td>
-                </tr>
-                
-                <!-- Footer -->
-                <tr>
-                    <td style="padding: 20px; background-color: #f8fafc; text-align: center; font-size: 12px; color: #718096; border-top: 1px solid #e2e8f0;">
-                        <p style="margin: 0 0 10px;">© ${currentYear} FollowMee. All rights reserved.</p>
-                        <p style="margin: 0; font-size: 11px; color: #a0aec0;">
-                            FollowMee, 123 Digital Road, Bangkok 10110, Thailand
-                        </p>
-                    </td>
-                </tr>
-            </table>
-        </body>
-        </html>
-        `,
-      };
-      
-      console.log('Sending email with options:', {
-        from: mailOptions.from,
-        to: mailOptions.to,
-        subject: mailOptions.subject
+    if (sendgridApiKey) {
+      // Use SendGrid
+      this.transporter = nodemailer.createTransport({
+        host: 'smtp.sendgrid.net',
+        port: 587,
+        secure: false,
+        auth: {
+          user: 'apikey',
+          pass: sendgridApiKey,
+        },
       });
-      
-      const info = await this.transporter.sendMail(mailOptions);
+      this.isConfigured = true;
+      console.log('[EmailService] SendGrid SMTP configured');
+    } else {
+      // Fallback to local SMTP (for development)
+      console.log('[EmailService] SendGrid not configured, using development mode');
+      this.transporter = nodemailer.createTransport({
+        host: process.env.SMTP_HOST || 'localhost',
+        port: parseInt(process.env.SMTP_PORT || '587'),
+        secure: false,
+        auth: process.env.SMTP_USER ? {
+          user: process.env.SMTP_USER,
+          pass: process.env.SMTP_PASS,
+        } : undefined,
+      });
+      this.isConfigured = true;
+    }
+  }
 
+  /**
+   * Check if email service is available
+   */
+  isAvailable(): boolean {
+    return this.isConfigured && this.transporter !== null;
+  }
+
+  /**
+   * Check if we can send more emails today (NEW-EMAIL-QUEUE: Cost control)
+   */
+  canSendEmail(): boolean {
+    // Reset count if it's a new day
+    const today = new Date().toDateString();
+    if (today !== this.lastResetDate) {
+      this.dailyEmailCount = 0;
+      this.lastResetDate = today;
+    }
+
+    return this.dailyEmailCount < this.DAILY_EMAIL_LIMIT;
+  }
+
+  /**
+   * Get current email usage
+   */
+  getEmailUsage(): {
+    sent: number;
+    limit: number;
+    remaining: number;
+  } {
+    return {
+      sent: this.dailyEmailCount,
+      limit: this.DAILY_EMAIL_LIMIT,
+      remaining: this.DAILY_EMAIL_LIMIT - this.dailyEmailCount,
+    };
+  }
+
+  /**
+   * Send email notification
+   * 
+   * NEW-EMAIL-QUEUE: Respects daily limit
+   */
+  async sendEmail(data: EmailData): Promise<boolean> {
+    if (!this.isAvailable()) {
+      console.warn('[EmailService] Service not available');
+      return false;
+    }
+
+    if (!this.canSendEmail()) {
+      console.warn('[EmailService] Daily email limit reached');
+      return false;
+    }
+
+    try {
+      const mailOptions: SendMailOptions = {
+        from: process.env.SENDGRID_FROM_EMAIL || 'noreply@followmee.com',
+        to: data.to.email,
+        subject: data.subject,
+        html: data.html,
+        text: data.text,
+      };
+
+      await this.transporter!.sendMail(mailOptions);
+      this.dailyEmailCount++;
+
+      console.log(`[EmailService] Email sent to ${data.to.email} (${this.dailyEmailCount}/${this.DAILY_EMAIL_LIMIT})`);
       return true;
     } catch (error) {
-      console.error('Error sending password reset email:', error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error('[EmailService] Failed to send email:', errorMessage);
       return false;
     }
   }
+
+  /**
+   * Send notification email
+   * 
+   * NEW-EMAIL-QUEUE: Formatted notification email
+   */
+  async sendNotificationEmail(
+    recipient: { email: string; name?: string },
+    notification: {
+      title: string;
+      message: string;
+      type: string;
+      actionUrl?: string;
+    },
+    settings?: UserNotificationSettings | null
+  ): Promise<boolean> {
+    // Check if user has email enabled in settings
+    if (settings && !settings.emailEnabled) {
+      console.log('[EmailService] User has email disabled');
+      return false;
+    }
+
+    const subject = `FollowMee: ${notification.title}`;
+    const html = this.createNotificationEmailHtml(notification);
+    const text = this.createNotificationEmailText(notification);
+
+    return this.sendEmail({
+      to: recipient,
+      subject,
+      html,
+      text,
+    });
+  }
+
+  /**
+   * Create HTML email body for notification
+   */
+  private createNotificationEmailHtml(notification: {
+    title: string;
+    message: string;
+    type: string;
+    actionUrl?: string;
+  }): string {
+    const actionButton = notification.actionUrl
+      ? `<a href="${notification.actionUrl}" style="display: inline-block; padding: 10px 20px; background-color: #10b981; color: white; text-decoration: none; border-radius: 5px; margin-top: 15px;">ดูรายละเอียด</a>`
+      : '';
+
+    return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .container {
+      background: #ffffff;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 24px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    .header {
+      border-bottom: 2px solid #10b981;
+      padding-bottom: 15px;
+      margin-bottom: 20px;
+    }
+    .logo {
+      font-size: 24px;
+      font-weight: bold;
+      color: #10b981;
+    }
+    .title {
+      font-size: 20px;
+      font-weight: 600;
+      margin-bottom: 10px;
+      color: #1f2937;
+    }
+    .message {
+      font-size: 16px;
+      color: #4b5563;
+      margin-bottom: 20px;
+    }
+    .footer {
+      margin-top: 25px;
+      padding-top: 15px;
+      border-top: 1px solid #e5e7eb;
+      font-size: 12px;
+      color: #9ca3af;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="logo">FollowMee</div>
+    </div>
+    
+    <div class="title">${this.escapeHtml(notification.title)}</div>
+    <div class="message">${this.escapeHtml(notification.message)}</div>
+    
+    ${actionButton}
+    
+    <div class="footer">
+      <p>คุณได้รับอีเมลนี้เนื่องจากคุณได้เปิดการแจ้งเตือนทางอีเมลใน FollowMee</p>
+      <p>© ${new Date().getFullYear()} FollowMee. All rights reserved.</p>
+    </div>
+  </div>
+</body>
+</html>
+    `.trim();
+  }
+
+  /**
+   * Create plain text email body for notification
+   */
+  private createNotificationEmailText(notification: {
+    title: string;
+    message: string;
+    type: string;
+    actionUrl?: string;
+  }): string {
+    let text = `FollowMee Notification\n\n`;
+    text += `หัวข้อ: ${notification.title}\n\n`;
+    text += `ข้อความ: ${notification.message}\n\n`;
+    
+    if (notification.actionUrl) {
+      text += `ดูรายละเอียด: ${notification.actionUrl}\n\n`;
+    }
+    
+    text += `--\n`;
+    text += `คุณได้รับอีเมลนี้เนื่องจากคุณได้เปิดการแจ้งเตือนทางอีเมลใน FollowMee\n`;
+    text += `© ${new Date().getFullYear()} FollowMee. All rights reserved.`;
+    
+    return text;
+  }
+
+  /**
+   * Escape HTML special characters
+   */
+  private escapeHtml(text: string): string {
+    const map: Record<string, string> = {
+      '&': '&',
+      '<': '<',
+      '>': '>',
+      '"': '"',
+      "'": '&#039;',
+    };
+    return text.replace(/[&<>"']/g, (m) => map[m]);
+  }
+
+  /**
+   * Send password reset email
+   * 
+   * NEW-EMAIL-QUEUE: Password reset email (counted against daily limit)
+   */
+  async sendPasswordResetEmail(
+    email: string,
+    resetToken: string
+  ): Promise<boolean> {
+    const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password?token=${resetToken}`;
+    
+    const subject = 'FollowMee: Password Reset Request';
+    const html = this.createPasswordResetEmailHtml(resetUrl);
+    const text = this.createPasswordResetEmailText(resetUrl);
+
+    return this.sendEmail({
+      to: { email },
+      subject,
+      html,
+      text,
+    });
+  }
+
+  /**
+   * Create HTML body for password reset email
+   */
+  private createPasswordResetEmailHtml(resetUrl: string): string {
+    return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .container {
+      background: #ffffff;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 24px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    .header {
+      border-bottom: 2px solid #10b981;
+      padding-bottom: 15px;
+      margin-bottom: 20px;
+    }
+    .logo {
+      font-size: 24px;
+      font-weight: bold;
+      color: #10b981;
+    }
+    .title {
+      font-size: 20px;
+      font-weight: 600;
+      margin-bottom: 10px;
+      color: #1f2937;
+    }
+    .message {
+      font-size: 16px;
+      color: #4b5563;
+      margin-bottom: 20px;
+    }
+    .button {
+      display: inline-block;
+      padding: 12px 24px;
+      background-color: #10b981;
+      color: white;
+      text-decoration: none;
+      border-radius: 5px;
+      margin-top: 15px;
+    }
+    .footer {
+      margin-top: 25px;
+      padding-top: 15px;
+      border-top: 1px solid #e5e7eb;
+      font-size: 12px;
+      color: #9ca3af;
+    }
+    .warning {
+      background-color: #fef3c7;
+      border: 1px solid #f59e0b;
+      border-radius: 5px;
+      padding: 10px;
+      margin-top: 15px;
+      font-size: 14px;
+      color: #92400e;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="logo">FollowMee</div>
+    </div>
+    
+    <div class="title">Password Reset Request</div>
+    <div class="message">
+      You have requested to reset your password. Click the button below to reset it:
+    </div>
+    
+    <a href="${resetUrl}" class="button">Reset Password</a>
+    
+    <div class="warning">
+      <strong>⚠️ Important:</strong> This link will expire in 1 hour. If you didn't request this reset, please ignore this email.
+    </div>
+    
+    <div class="footer">
+      <p>© ${new Date().getFullYear()} FollowMee. All rights reserved.</p>
+    </div>
+  </div>
+</body>
+</html>
+    `.trim();
+  }
+
+  /**
+   * Create plain text body for password reset email
+   */
+  private createPasswordResetEmailText(resetUrl: string): string {
+    let text = `FollowMee Password Reset\n\n`;
+    text += `You have requested to reset your password.\n\n`;
+    text += `Click the link below to reset your password:\n`;
+    text += `${resetUrl}\n\n`;
+    text += `This link will expire in 1 hour.\n\n`;
+    text += `If you didn't request this reset, please ignore this email.\n\n`;
+    text += `--\n`;
+    text += `© ${new Date().getFullYear()} FollowMee. All rights reserved.`;
+    
+    return text;
+  }
+
+  /**
+   * Send batch digest email (W4-BATCH-DELIVERY)
+   * 
+   * Combines multiple notifications into a single digest email
+   */
+  async sendDigestEmail(
+    recipient: { email: string; name?: string },
+    notifications: Array<{
+      title: string;
+      message: string;
+      type: string;
+      actionUrl?: string;
+      createdAt: Date;
+    }>,
+    digestPeriod: 'hourly' | 'daily' = 'hourly'
+  ): Promise<boolean> {
+    const subject = `FollowMee: ${digestPeriod === 'hourly' ? 'สรุปการแจ้งเตือนรายชั่วโมง' : 'สรุปการแจ้งเตือนรายวัน'}`;
+    const html = this.createDigestEmailHtml(recipient, notifications, digestPeriod);
+    const text = this.createDigestEmailText(recipient, notifications, digestPeriod);
+
+    return this.sendEmail({
+      to: recipient,
+      subject,
+      html,
+      text,
+    });
+  }
+
+  /**
+   * Create HTML body for digest email
+   */
+  private createDigestEmailHtml(
+    recipient: { email: string; name?: string },
+    notifications: Array<{
+      title: string;
+      message: string;
+      type: string;
+      actionUrl?: string;
+      createdAt: Date;
+    }>,
+    digestPeriod: 'hourly' | 'daily'
+  ): string {
+    const notificationItems = notifications.map(n => `
+      <div style="border-left: 3px solid #10b981; padding-left: 15px; margin-bottom: 20px;">
+        <div style="font-size: 16px; font-weight: 600; color: #1f2937; margin-bottom: 5px;">
+          ${this.escapeHtml(n.title)}
+        </div>
+        <div style="font-size: 14px; color: #4b5563; margin-bottom: 8px;">
+          ${this.escapeHtml(n.message)}
+        </div>
+        ${n.actionUrl ? `<a href="${n.actionUrl}" style="font-size: 14px; color: #10b981; text-decoration: none;">ดูรายละเอียด →</a>` : ''}
+        <div style="font-size: 12px; color: #9ca3af; margin-top: 8px;">
+          ${new Date(n.createdAt).toLocaleString('th-TH')}
+        </div>
+      </div>
+    `).join('');
+
+    return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .container {
+      background: #ffffff;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 24px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    .header {
+      border-bottom: 2px solid #10b981;
+      padding-bottom: 15px;
+      margin-bottom: 20px;
+    }
+    .logo {
+      font-size: 24px;
+      font-weight: bold;
+      color: #10b981;
+    }
+    .greeting {
+      font-size: 18px;
+      color: #1f2937;
+      margin-bottom: 10px;
+    }
+    .summary {
+      font-size: 14px;
+      color: #6b7280;
+      margin-bottom: 20px;
+    }
+    .footer {
+      margin-top: 25px;
+      padding-top: 15px;
+      border-top: 1px solid #e5e7eb;
+      font-size: 12px;
+      color: #9ca3af;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="logo">FollowMee</div>
+    </div>
+    
+    <div class="greeting">สวัสดีค่ะ, ${recipient.name || 'คุณ'} 👋</div>
+    <div class="summary">
+      นี่คือสรุปการแจ้งเตือน${digestPeriod === 'hourly' ? 'รายชั่วโมง' : 'รายวัน'}ของคุณ มีทั้งหมด ${notifications.length} การแจ้งเตือน
+    </div>
+    
+    ${notificationItems}
+    
+    <div class="footer">
+      <p>คุณได้รับอีเมลนี้เนื่องจากคุณได้เปิดการแจ้งเตือนทางอีเมลใน FollowMee</p>
+      <p>© ${new Date().getFullYear()} FollowMee. All rights reserved.</p>
+    </div>
+  </div>
+</body>
+</html>
+    `.trim();
+  }
+
+  /**
+   * Create plain text body for digest email
+   */
+  private createDigestEmailText(
+    recipient: { email: string; name?: string },
+    notifications: Array<{
+      title: string;
+      message: string;
+      type: string;
+      actionUrl?: string;
+      createdAt: Date;
+    }>,
+    digestPeriod: 'hourly' | 'daily'
+  ): string {
+    let text = `FollowMee ${digestPeriod === 'hourly' ? 'Hourly' : 'Daily'} Digest\n\n`;
+    text += `สวัสดีค่ะ, ${recipient.name || 'คุณ'}\n\n`;
+    text += `นี่คือสรุปการแจ้งเตือน${digestPeriod === 'hourly' ? 'รายชั่วโมง' : 'รายวัน'}ของคุณ:\n\n`;
+    text += `มีทั้งหมด ${notifications.length} การแจ้งเตือน\n\n`;
+    text += `${'─'.repeat(40)}\n\n`;
+    
+    notifications.forEach((n, i) => {
+      text += `${i + 1}. ${n.title}\n`;
+      text += `   ${n.message}\n`;
+      if (n.actionUrl) text += `   ${n.actionUrl}\n`;
+      text += `   ${new Date(n.createdAt).toLocaleString('th-TH')}\n\n`;
+    });
+    
+    text += `${'─'.repeat(40)}\n\n`;
+    text += `คุณได้รับอีเมลนี้เนื่องจากคุณได้เปิดการแจ้งเตือนทางอีเมลใน FollowMee\n`;
+    text += `© ${new Date().getFullYear()} FollowMee. All rights reserved.`;
+    
+    return text;
+  }
+
+  /**
+   * Send batch emails (W4-BATCH-DELIVERY: For future use)
+   */
+  async sendBatchEmails(emails: EmailData[]): Promise<{
+    sent: number;
+    failed: number;
+  }> {
+    let sent = 0;
+    let failed = 0;
+
+    for (const email of emails) {
+      if (await this.sendEmail(email)) {
+        sent++;
+      } else {
+        failed++;
+      }
+    }
+
+    return { sent, failed };
+  }
 }
 
-export default new EmailService();
+// Singleton instance
+export const emailService = new EmailService();

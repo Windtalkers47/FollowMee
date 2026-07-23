@@ -78,4 +78,11 @@ export class NotificationRecipientRepository extends BaseRepository<Notification
     recipient.deletedAt = new Date();
     return this.repository.save(recipient);
   }
+
+  /**
+   * Get the underlying TypeORM repository (for cleanup service)
+   */
+  getRepository(): Repository<NotificationRecipient> {
+    return this.repository;
+  }
 }

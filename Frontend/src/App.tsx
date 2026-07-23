@@ -22,6 +22,7 @@ const CustomerPage = React.lazy(() => import('./pages/Customer'));
 const CustomerProfilePage = React.lazy(() => import('./pages/CustomerProfile/CustomerProfilePage'));
 const UsersPage = React.lazy(() => import('./pages/UsersManagement'));
 const SettingsPage = React.lazy(() => import('./pages/Settings'));
+const NotificationAnalytics = React.lazy(() => import('./pages/NotificationAnalytics'));
 
 const LoadingSpinner = () => (
   <Box
@@ -241,6 +242,7 @@ const App = () => {
                   <Route path="/settings" element={<SettingsPage />} />
                   <Route path="/customer-profile" element={<CustomerProfilePage />} />
                   <Route path="/customer/:customerId/profile" element={<CustomerProfilePage />} />
+                  <Route path="/notification-analytics" element={<NotificationAnalytics />} />
                 </Route>
 
                 {/* Public profile routes */}

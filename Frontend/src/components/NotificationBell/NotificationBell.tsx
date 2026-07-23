@@ -8,7 +8,10 @@ import {
   selectDropdownOpen,
   setDropdownOpen,
   fetchNotifications,
+  connectWebSocket,
+  disconnectWebSocket,
 } from '../../store/slices/notificationSlice';
+import { selectCurrentUser } from '../../store/slices/authSlice';
 
 interface NotificationBellProps {
   onDropdownToggle?: (open: boolean) => void;
@@ -18,17 +21,28 @@ const NotificationBell = ({ onDropdownToggle }: NotificationBellProps) => {
   const theme = useTheme();
   const dispatch = useAppDispatch();
   const unreadCount = useAppSelector(selectUnreadCount);
+  const dropdownOpen = useAppSelector(selectDropdownOpen);
+  const user = useAppSelector(selectCurrentUser);
   
   // Ensure badgeContent is a number, not an object
   const badgeCount = typeof unreadCount === 'number' 
     ? unreadCount 
     : (unreadCount as any)?.count || 0;
-  const dropdownOpen = useAppSelector(selectDropdownOpen);
 
   useEffect(() => {
     // Fetch unread count on mount (initial load)
     dispatch(fetchUnreadCount());
-  }, [dispatch]);
+    
+    // Connect WebSocket for real-time updates (U3-REALTIME-COUNT)
+    if (user?.userId) {
+      dispatch(connectWebSocket(user.userId));
+    }
+    
+    // Cleanup on unmount
+    return () => {
+      dispatch(disconnectWebSocket());
+    };
+  }, [dispatch, user?.userId]);
 
   const handleClick = () => {
     const newOpen = !dropdownOpen;

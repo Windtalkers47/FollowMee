@@ -68,10 +68,17 @@ export class BaseRepository<T extends ObjectLiteral> {
   }
 
   /**
-   * Save an entity
+   * Save a single entity
    */
   async save(entity: T): Promise<T> {
     return this.repository.save(entity);
+  }
+
+  /**
+   * Save multiple entities at once (batch save)
+   */
+  async saveMany(entities: T[]): Promise<T[]> {
+    return this.repository.save(entities);
   }
 
   /**

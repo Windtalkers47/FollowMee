@@ -2,6 +2,9 @@ import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import authApi from '../../api/auth.api';
 import type { LoginResponse, ApiResponse } from '../../types/api.types';
 
+// Token refresh event type (U1-RECONNECT: Token Refresh Integration)
+export const TOKEN_REFRESH_EVENT = 'auth:tokenRefresh';
+
 /* =====================
    Types
 ===================== */
@@ -183,3 +186,13 @@ export const selectLastActivity = (state: { auth: AuthState }) =>
   state.auth.lastActivity;
 export const selectCheckingSession = (state: { auth: AuthState }) =>
   state.auth.checkingSession;
+
+/* =====================
+   Token Refresh Helper (U1-RECONNECT: Token Refresh Integration)
+   
+   Call this when token is refreshed to notify WebSocket service
+   ===================== */
+export const emitTokenRefreshEvent = () => {
+  // Dispatch custom event for WebSocket to listen
+  window.dispatchEvent(new CustomEvent(TOKEN_REFRESH_EVENT));
+};

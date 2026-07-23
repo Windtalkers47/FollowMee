@@ -18,6 +18,8 @@ import { Notification } from '../entities/Notification';
 import { NotificationRecipient } from '../entities/NotificationRecipient';
 import { NotificationGroupActor } from '../entities/NotificationGroupActor';
 import { UserNotificationSettings } from '../entities/UserNotificationSettings';
+import { NotificationQueue } from '../entities/NotificationQueue';
+import { NotificationMetric } from '../entities/NotificationMetric';
 
 dotenv.config();
 
@@ -30,7 +32,7 @@ const dataSourceOptions: DataSourceOptions = {
   username: process.env.DB_USERNAME || 'root',
   password: process.env.DB_PASSWORD || '',
   database: process.env.DB_NAME || 'followmee',
-  synchronize: !isProduction, // Set to false in production
+  synchronize: false, // Always use migrations instead of auto-sync
 
   // วิธีเปิดปิด logging ใน Terminal
   // logging: !isProduction,
@@ -54,6 +56,8 @@ const dataSourceOptions: DataSourceOptions = {
     NotificationRecipient,
     NotificationGroupActor,
     UserNotificationSettings,
+    NotificationQueue,
+    NotificationMetric,
     // Other entities will be loaded automatically by the glob pattern
     path.join(__dirname, '../entities/**/*.entity{.ts,.js}')
   ],

@@ -10,7 +10,7 @@ import { User } from './User';
 
 @Entity('notifications')
 export class Notification {
-  @PrimaryGeneratedColumn()
+  @PrimaryGeneratedColumn('increment', { type: 'bigint' })
   notificationId!: number;
 
   @Column({ name: 'notificationType', type: 'varchar', length: 50, nullable: false })

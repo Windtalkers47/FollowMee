@@ -53,6 +53,7 @@ import {
   Delete as DeleteIcon,
   Close as CloseIcon,
   CloudUpload,
+  Analytics,
 } from '@mui/icons-material';
 
 const drawerWidth = 260;
@@ -70,6 +71,7 @@ const menuItems = [
   { text: 'Customer', icon: <Group />, path: '/customer', exact: true },
   { text: 'User Management', icon: <PeopleAlt />, path: '/users', exact: true },
   { text: 'Profiles', icon: <AccountCircle />, path: '/customer-profile', exact: false },
+  { text: 'Analytics', icon: <Analytics />, path: '/notification-analytics', exact: true },
 ];
 
 const MainLayout = ({ children }: MainLayoutProps) => {

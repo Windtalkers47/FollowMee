@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { validationResult } from 'express-validator';
 import { AuthService, TokenPayload } from '../services/auth.service';
-import emailService from '../services/email.service';
+import { emailService } from '../services/email.service';
 import auditService from '../services/audit.service';
 import AppDataSource from '../config/database';
 import { User } from '../entities/User';

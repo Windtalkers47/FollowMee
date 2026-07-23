@@ -4,7 +4,15 @@ import AppDataSource from '../config/database';
 import { User } from '../entities/User';
 import { UserSession } from '../entities/UserSession';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+// Fail fast: JWT_SECRET is required for production security
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  throw new Error(
+    'JWT_SECRET environment variable is required. ' +
+    'Please set JWT_SECRET in your .env file. ' +
+    'For development, you can use a random string like: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"'
+  );
+}
 
 // Extend Express Request type
 declare global {

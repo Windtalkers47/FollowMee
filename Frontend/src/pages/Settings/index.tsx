@@ -12,6 +12,7 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  Button,
 } from '@mui/material';
 import {
   Settings as SettingsIcon,
@@ -20,6 +21,7 @@ import {
   BlurOn as BlurIcon,
   Contrast as ContrastIcon,
   BorderAll as BorderAllIcon,
+  SchoolRounded as SchoolRoundedIcon,
 } from '@mui/icons-material';
 // useLiquidGlass is imported above with GradientPresetKey
 import LiquidGlassSettings from '../../components/LiquidGlassSettings';
@@ -33,6 +35,7 @@ import {
 import { useEffect } from 'react';
 import { gradientPresets, GradientPresetKey } from '../../styles/liquidGlassStyles';
 import { useLiquidGlass } from '../../contexts/LiquidGlassContext';
+import { REPLAY_TOUR_EVENT } from '../../components/ProductTour/ProductTour';
 
 // Default settings for fallback
 const defaultLiquidGlassSettings = {
@@ -86,6 +89,28 @@ const SettingsPage = () => {
           Settings
         </Typography>
       </Box>
+
+      <Paper sx={{ p: { xs: 2, sm: 3 }, mb: 3 }}>
+        <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap' }}>
+          <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start' }}>
+            <SchoolRoundedIcon color="primary" />
+            <Box>
+              <Typography variant="h6" fontWeight={600}>
+                Product guide
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                Replay the introduction to navigation, notifications and appearance controls.
+              </Typography>
+            </Box>
+          </Box>
+          <Button
+            variant="outlined"
+            onClick={() => window.dispatchEvent(new Event(REPLAY_TOUR_EVENT))}
+          >
+            Replay guide
+          </Button>
+        </Box>
+      </Paper>
 
       {/* Liquid Glass UI Toggle */}
       <Paper sx={{ p: 3, mb: 3 }}>

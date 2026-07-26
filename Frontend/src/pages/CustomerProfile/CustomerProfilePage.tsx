@@ -17,7 +17,6 @@ import {
   CircularProgress,
 } from '@mui/material';
 import {
-  Edit as EditIcon,
   ContentCopy,
   Facebook,
   Instagram,
@@ -57,19 +56,32 @@ async function fetchCustomerById(customerId: string, isPublic = false): Promise<
 
 /* ================= Social ================= */
 
-const socials = [
-  { key: 'customerFacebook', icon: <Facebook />, label: 'Facebook' },
-  { key: 'customerInstagram', icon: <Instagram />, label: 'Instagram' },
-  { key: 'customerTikTok', icon: <MusicNote />, label: 'TikTok' },
-  { key: 'customerLine', icon: <Message />, label: 'Line' },
-  { key: 'customerX', icon: <Twitter />, label: 'X' },
-] as const;
+const socialUrl = (
+  platform: 'facebook' | 'instagram' | 'tiktok' | 'line' | 'x',
+  value?: string | null
+) => {
+  const input = value?.trim();
+  if (!input) return undefined;
+  if (/^https?:\/\//i.test(input)) return input;
+
+  const handle = input.replace(/^@/, '');
+  const bases = {
+    facebook: 'https://facebook.com/',
+    instagram: 'https://instagram.com/',
+    tiktok: 'https://tiktok.com/@',
+    line: 'https://line.me/ti/p/',
+    x: 'https://x.com/',
+  };
+
+  return `${bases[platform]}${handle}`;
+};
 
 /* ================= Component ================= */
 
 const CustomerProfilePage: React.FC = () => {
   const { customerId } = useParams<{ customerId?: string }>();
   const navigate = useNavigate();
+  const theme = useTheme();
 
   const [customers, setCustomers] = useState<CustomerData[]>([]);
   const [customer, setCustomer] = useState<CustomerData | null>(null);
@@ -100,20 +112,12 @@ const CustomerProfilePage: React.FC = () => {
     try {
       const data = await fetchAllCustomers(q);
       setCustomers(data);
-      // If we have a customerId in the URL but no customer data yet, try to load it
-      if (customerId && !customer) {
-        const customerData = await fetchCustomerById(customerId, true);
-        if (customerData) {
-          setCustomer(customerData);
-          setProfileUrl(`${window.location.origin}/customer-profile/${customerId}`);
-        }
-      }
     } catch (error) {
       console.error('Error loading customers:', error);
     } finally {
       setLoading(false);
     }
-  }, [customerId, customer]);
+  }, []);
 
   const loadCustomerById = useCallback(async (id: string, isPublicAccess = false) => {
     setLoading(true);
@@ -139,12 +143,12 @@ const CustomerProfilePage: React.FC = () => {
 
   useEffect(() => {
     if (customerId) {
-      // First try to load with authentication
-      loadCustomerById(customerId, false);
+      // Public profile URLs must work without producing an avoidable 401 first.
+      loadCustomerById(customerId, true);
     } else {
       loadCustomers('');
     }
-  }, [customerId]);
+  }, [customerId, loadCustomerById, loadCustomers]);
 
   const copyUrl = async () => {
     try {
@@ -222,8 +226,6 @@ const CustomerProfilePage: React.FC = () => {
       
       await Promise.all(
         Array.from(images).map(img => {
-          const htmlImg = img as HTMLImageElement;
-          
           // Skip already hidden images
           if (img.style.display === 'none') {
             return Promise.resolve();
@@ -278,7 +280,7 @@ const CustomerProfilePage: React.FC = () => {
         timer: 2000,
         timerProgressBar: true,
         toast: true,
-        background: 'linear-gradient(135deg, #28a745 0%, #20c997 100%)',
+        background: 'linear-gradient(135deg, #34C759 0%, #30D158 100%)',
         color: 'white',
       });
     } catch (error) {
@@ -294,7 +296,7 @@ const CustomerProfilePage: React.FC = () => {
         timer: 3000,
         timerProgressBar: true,
         toast: true,
-        background: 'linear-gradient(135deg, #dc3545 0%, #c82333 100%)',
+        background: 'linear-gradient(135deg, #FF3B30 0%, #FF453A 100%)',
         color: 'white',
       });
     }
@@ -347,13 +349,12 @@ const CustomerProfilePage: React.FC = () => {
   /* ================= SINGLE PROFILE ================= */
 
   if (customerId && customer) {
-    const hasSocialMedia = customer.customerFacebook || customer.customerInstagram || 
-                         customer.customerTikTok || customer.customerLine || customer.customerX;
-    
     // Instagram Story dimensions: 1080x1350 (9:16 aspect ratio)
     const storyStyle = {
-      width: '540px',
-      height: '675px', // 9:16 aspect ratio (540:960)
+      width: '100%',
+      maxWidth: '540px',
+      height: { xs: 'min(680px, calc(100svh - 32px))', sm: '675px' },
+      minHeight: { xs: 590, sm: 675 },
       mx: 'auto',
       position: 'relative',
       overflow: 'hidden',
@@ -374,17 +375,28 @@ const CustomerProfilePage: React.FC = () => {
         background: 'linear-gradient(90deg, transparent, rgba(100, 181, 246, 0.6), transparent)',
         opacity: 0.7,
       },
-      '&:hover': {
+      '@media (hover: hover)': {
+        '&:hover': {
         transform: 'translateY(-2px) scale(1.02)',
         boxShadow: '0 12px 40px 0 rgba(31, 38, 135, 0.45), inset 0 1px 0 0 rgba(255, 255, 255, 0.15)',
         '& .edit-button': {
           opacity: 1,
         },
       },
+      },
     } as const;
 
     return (
-      <Box sx={{ p: 2, maxWidth: '600px', mx: 'auto' }}>
+      <Box
+        sx={{
+          width: '100%',
+          maxWidth: 600,
+          mx: 'auto',
+          px: { xs: 0, sm: 2 },
+          py: { xs: 1, sm: 2 },
+          color: 'text.primary',
+        }}
+      >
         {/* Hidden Render for Image Capture */}
         <Box
           sx={{
@@ -415,8 +427,8 @@ const CustomerProfilePage: React.FC = () => {
               top: 0,
               left: 0,
               right: 0,
-              width: '540px',
-              height: '960px',
+              width: '100%',
+              height: '100%',
               borderRadius: 4,
               overflow: 'hidden',
               background: `linear-gradient(160deg, ${gradientPresets[selectedGradient].colors.join(', ')})`,
@@ -441,7 +453,7 @@ const CustomerProfilePage: React.FC = () => {
               height: '100%',
               display: 'flex',
               flexDirection: 'column',
-              p: 3,
+              p: { xs: 2, sm: 3 },
               color: '#1e293b',
               textAlign: 'center',
             }}
@@ -496,18 +508,26 @@ const CustomerProfilePage: React.FC = () => {
             </Box>
 
             {/* Color Preset Selector */}
-            <Box sx={{ mt: 2, mb: 2 }}>
+            <Box sx={{ mt: { xs: 0.5, sm: 2 }, mb: { xs: 1, sm: 2 } }}>
               <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.8)', mb: 1, textAlign: 'center' }}>
                 Choose Background Style
               </Typography>
-              <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center', flexWrap: 'wrap', px: 2 }}>
+              <Box
+                sx={{
+                  display: 'grid',
+                  gridTemplateColumns: { xs: 'repeat(5, 28px)', sm: 'repeat(10, 32px)' },
+                  gap: { xs: 0.75, sm: 1 },
+                  justifyContent: 'center',
+                  px: 1,
+                }}
+              >
                 {gradientPresets.map((preset, index) => (
                   <Tooltip key={index} title={preset.name} arrow>
                     <Box
                       onClick={() => setSelectedGradient(index)}
                       sx={{
-                        width: 32,
-                        height: 32,
+                        width: { xs: 28, sm: 32 },
+                        height: { xs: 28, sm: 32 },
                         borderRadius: '50%',
                         background: `linear-gradient(135deg, ${preset.colors.join(', ')})`,
                         border: selectedGradient === index ? '3px solid white' : '2px solid rgba(255,255,255,0.3)',
@@ -525,7 +545,7 @@ const CustomerProfilePage: React.FC = () => {
             </Box>
 
             {/* Profile Picture */}
-            <Box sx={{ mt: 6, mb: 4, position: 'relative' }}>
+            <Box sx={{ mt: { xs: 2, sm: 5 }, mb: { xs: 2, sm: 3 }, position: 'relative' }}>
               {/* Radial Light Background */}
               <Box
                 sx={{
@@ -533,8 +553,8 @@ const CustomerProfilePage: React.FC = () => {
                   top: '50%',
                   left: '50%',
                   transform: 'translate(-50%, -50%)',
-                  width: 280,
-                  height: 280,
+                  width: { xs: 190, sm: 280 },
+                  height: { xs: 190, sm: 280 },
                   background: 'radial-gradient(circle at center, rgba(255,255,255,0.25), transparent 70%)',
                   borderRadius: '50%',
                   zIndex: 0,
@@ -550,9 +570,9 @@ const CustomerProfilePage: React.FC = () => {
                   if (target) target.src = '';
                 }}
                 sx={{
-                  width: 200,
-                  height: 200,
-                  fontSize: 80,
+                  width: { xs: 138, sm: 200 },
+                  height: { xs: 138, sm: 200 },
+                  fontSize: { xs: 54, sm: 80 },
                   mx: 'auto',
                   border: '6px solid rgba(255,255,255,0.8)',
                   boxShadow: '0 8px 24px rgba(0,0,0,0.25)',
@@ -575,7 +595,12 @@ const CustomerProfilePage: React.FC = () => {
 
             {/* Name and Title */}
             <Box sx={{ mb: 2 }}>
-              <Typography variant="h3" fontWeight={900} letterSpacing={1} sx={{ mb: 1, color: '#1f2937' }}>
+              <Typography
+                variant="h3"
+                fontWeight={900}
+                letterSpacing={0.5}
+                sx={{ mb: 1, color: '#1f2937', fontSize: { xs: '1.7rem', sm: '2.35rem' } }}
+              >
                 {customer.customerName} {customer.customerLastName}
               </Typography>
               {/* <Typography variant="subtitle1" sx={{ opacity: 0.7 }}>
@@ -587,14 +612,15 @@ const CustomerProfilePage: React.FC = () => {
             <Box sx={{ 
               display: 'flex', 
               justifyContent: 'center', 
-              gap: 3,
+              gap: { xs: 1.25, sm: 3 },
               mt: 'auto',
-              mb: 4,
+              mb: { xs: 2.5, sm: 4 },
               }}>
                 {customer.customerFacebook && (
                   <Tooltip title="Facebook" arrow>
                     <IconButton
-                      href={customer.customerFacebook}
+                      component="a"
+                      href={socialUrl('facebook', customer.customerFacebook)}
                       target="_blank"
                       onClick={(e) => e.stopPropagation()}
                       sx={{
@@ -606,8 +632,8 @@ const CustomerProfilePage: React.FC = () => {
                           transform: 'translateY(-2px)',
                         },
                         transition: 'all 0.3s ease',
-                        width: 56,
-                        height: 56
+                        width: { xs: 46, sm: 56 },
+                        height: { xs: 46, sm: 56 }
                       }}
                     >
                       <Facebook />
@@ -617,7 +643,8 @@ const CustomerProfilePage: React.FC = () => {
                 {customer.customerInstagram && (
                   <Tooltip title="Instagram" arrow>
                     <IconButton
-                      href={customer.customerInstagram}
+                      component="a"
+                      href={socialUrl('instagram', customer.customerInstagram)}
                       target="_blank"
                       onClick={(e) => e.stopPropagation()}
                       sx={{
@@ -629,8 +656,8 @@ const CustomerProfilePage: React.FC = () => {
                           transform: 'translateY(-2px)',
                         },
                         transition: 'all 0.3s ease',
-                        width: 56,
-                        height: 56
+                        width: { xs: 46, sm: 56 },
+                        height: { xs: 46, sm: 56 }
                       }}
                     >
                       <Instagram />
@@ -640,7 +667,8 @@ const CustomerProfilePage: React.FC = () => {
                 {customer.customerTikTok && (
                   <Tooltip title="TikTok" arrow>
                     <IconButton
-                      href={customer.customerTikTok}
+                      component="a"
+                      href={socialUrl('tiktok', customer.customerTikTok)}
                       target="_blank"
                       onClick={(e) => e.stopPropagation()}
                       sx={{
@@ -652,8 +680,8 @@ const CustomerProfilePage: React.FC = () => {
                           transform: 'translateY(-2px)',
                         },
                         transition: 'all 0.3s ease',
-                        width: 56,
-                        height: 56
+                        width: { xs: 46, sm: 56 },
+                        height: { xs: 46, sm: 56 }
                       }}
                     >
                       <MusicNote />
@@ -663,7 +691,8 @@ const CustomerProfilePage: React.FC = () => {
                 {customer.customerLine && (
                   <Tooltip title="Line" arrow>
                     <IconButton
-                      href={`https://line.me/ti/p/${customer.customerLine}`}
+                      component="a"
+                      href={socialUrl('line', customer.customerLine)}
                       target="_blank"
                       onClick={(e) => e.stopPropagation()}
                       sx={{
@@ -675,8 +704,8 @@ const CustomerProfilePage: React.FC = () => {
                           transform: 'translateY(-2px)',
                         },
                         transition: 'all 0.3s ease',
-                        width: 56,
-                        height: 56
+                        width: { xs: 46, sm: 56 },
+                        height: { xs: 46, sm: 56 }
                       }}
                     >
                       <Message />
@@ -686,7 +715,8 @@ const CustomerProfilePage: React.FC = () => {
                 {customer.customerX && (
                   <Tooltip title="X (Twitter)" arrow>
                     <IconButton
-                      href={customer.customerX}
+                      component="a"
+                      href={socialUrl('x', customer.customerX)}
                       target="_blank"
                       onClick={(e) => e.stopPropagation()}
                       sx={{
@@ -698,8 +728,8 @@ const CustomerProfilePage: React.FC = () => {
                           transform: 'translateY(-2px)',
                         },
                         transition: 'all 0.3s ease',
-                        width: 56,
-                        height: 56
+                        width: { xs: 46, sm: 56 },
+                        height: { xs: 46, sm: 56 }
                       }}
                     >
                       <Twitter />
@@ -718,7 +748,7 @@ const CustomerProfilePage: React.FC = () => {
       </Paper>
 
       {/* Action Buttons - Apple HIG Style */}
-      <Box sx={{ mt: 4, px: 3 }}>
+      <Box sx={{ mt: { xs: 2, sm: 4 }, px: { xs: 0, sm: 3 } }}>
             {/* Primary Action - Save as Story (Hero Button) */}
             <Button
               variant="contained"
@@ -730,15 +760,15 @@ const CustomerProfilePage: React.FC = () => {
                 borderRadius: 4,
                 py: 2,
                 mb: 2,
-                background: 'linear-gradient(135deg, #007AFF 0%, #5856D6 100%)',
+                background: 'linear-gradient(135deg, #34C759 0%, #30D158 100%)',
                 color: 'white',
                 fontWeight: 600,
                 fontSize: '1.05rem',
-                boxShadow: '0 4px 14px rgba(0, 122, 255, 0.4)',
+                boxShadow: '0 4px 14px rgba(52, 199, 89, 0.32)',
                 '&:hover': {
-                  background: 'linear-gradient(135deg, #0063d1 0%, #4a47b3 100%)',
+                  background: 'linear-gradient(135deg, #2DBA50 0%, #28B94A 100%)',
                   transform: 'translateY(-2px)',
-                  boxShadow: '0 6px 20px rgba(0, 122, 255, 0.5)',
+                  boxShadow: '0 6px 20px rgba(52, 199, 89, 0.42)',
                 },
                 transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
               }}
@@ -757,9 +787,9 @@ const CustomerProfilePage: React.FC = () => {
                 borderRadius: 3,
                 py: 1.5,
                 mb: 1,
-                color: '#007AFF',
+                color: theme.palette.mode === 'dark' ? '#9ec5ff' : '#007AFF',
                 fontWeight: 500,
-                bgcolor: 'rgba(0, 122, 255, 0.08)',
+                bgcolor: theme.palette.mode === 'dark' ? 'rgba(120, 170, 255, 0.12)' : 'rgba(0, 122, 255, 0.08)',
                 '&:hover': {
                   bgcolor: 'rgba(0, 122, 255, 0.12)',
                   transform: 'translateY(-1px)',
@@ -985,8 +1015,8 @@ const CustomerProfilePage: React.FC = () => {
               py={0.5}
               borderRadius={1}
               sx={{
-                bgcolor: '#10b98120',
-                color: '#10b981',
+                bgcolor: 'rgba(52, 199, 89, .12)',
+                color: '#248A3D',
               }}
               fontSize={12}
               fontWeight={600}

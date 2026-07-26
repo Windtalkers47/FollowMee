@@ -4,6 +4,7 @@ import { LiquidGlassCard } from './LiquidGlassCard';
 import { PendingTask } from '../../services/api/dashboardApi';
 import { GradientPresetKey } from '../../styles/liquidGlassStyles';
 import { AccessTime, CheckCircle, ArrowForward, Flag } from '@mui/icons-material';
+import { brandColors } from '../../styles/designTokens';
 
 interface PendingTasksListProps {
   tasks: PendingTask[];
@@ -14,11 +15,11 @@ interface PendingTasksListProps {
 }
 
 const statusColors: Record<string, string> = {
-  todo: '#FFC107',
-  in_progress: '#2196F3',
-  review: '#9C27B0',
-  done: '#4CAF50',
-  cancelled: '#F44336',
+  todo: brandColors.amber,
+  in_progress: brandColors.blue,
+  review: brandColors.indigo,
+  done: brandColors.iosGreen,
+  cancelled: brandColors.red,
 };
 
 const statusLabels: Record<string, string> = {
@@ -39,11 +40,11 @@ export const PendingTasksList: React.FC<PendingTasksListProps> = ({
   const getPriorityColor = (priority: string) => {
     switch (priority) {
       case 'high':
-        return '#F44336';
+        return brandColors.red;
       case 'medium':
-        return '#FF9800';
+        return brandColors.amber;
       case 'low':
-        return '#4CAF50';
+        return brandColors.iosGreen;
       default:
         return '#9E9E9E';
     }
@@ -52,11 +53,11 @@ export const PendingTasksList: React.FC<PendingTasksListProps> = ({
   const getPriorityGradient = (priority: string) => {
     switch (priority) {
       case 'high':
-        return 'linear-gradient(135deg, rgba(244, 67, 54, 0.2), rgba(244, 67, 54, 0.05))';
+        return 'linear-gradient(135deg, rgba(255, 59, 48, 0.16), rgba(255, 59, 48, 0.04))';
       case 'medium':
-        return 'linear-gradient(135deg, rgba(255, 152, 0, 0.2), rgba(255, 152, 0, 0.05))';
+        return 'linear-gradient(135deg, rgba(255, 159, 10, 0.16), rgba(255, 159, 10, 0.04))';
       case 'low':
-        return 'linear-gradient(135deg, rgba(76, 175, 80, 0.2), rgba(76, 175, 80, 0.05))';
+        return 'linear-gradient(135deg, rgba(52, 199, 89, 0.16), rgba(52, 199, 89, 0.04))';
       default:
         return isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)';
     }
@@ -83,11 +84,11 @@ export const PendingTasksList: React.FC<PendingTasksListProps> = ({
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
     if (diffDays < 0) {
-      return { text: `${Math.abs(diffDays)}d overdue`, color: '#F44336' };
+      return { text: `${Math.abs(diffDays)}d overdue`, color: brandColors.red };
     } else if (diffDays === 0) {
-      return { text: 'Today', color: '#FF9800' };
+      return { text: 'Today', color: brandColors.amber };
     } else if (diffDays === 1) {
-      return { text: 'Tomorrow', color: '#2196F3' };
+      return { text: 'Tomorrow', color: brandColors.blue };
     } else {
       return { text: `In ${diffDays}d`, color: isDarkMode ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)' };
     }
@@ -104,7 +105,7 @@ export const PendingTasksList: React.FC<PendingTasksListProps> = ({
     >
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
         <Box display="flex" alignItems="center" gap={1}>
-          <AccessTime sx={{ color: '#10b981', fontSize: 20 }} />
+          <AccessTime sx={{ color: 'primary.main', fontSize: 20 }} />
           <Typography variant="h6" sx={{ fontWeight: 700, color: isDarkMode ? '#fff' : '#1a1a1a' }}>
             Pending Tasks
           </Typography>
@@ -130,7 +131,7 @@ export const PendingTasksList: React.FC<PendingTasksListProps> = ({
           py={4}
           sx={{ color: isDarkMode ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)' }}
         >
-          <CheckCircle sx={{ fontSize: 48, mb: 2, opacity: 0.5, color: '#10b981' }} />
+          <CheckCircle sx={{ fontSize: 48, mb: 2, opacity: 0.5, color: 'primary.main' }} />
           <Typography variant="body1" sx={{ fontWeight: 600, color: isDarkMode ? '#fff' : '#1a1a1a' }}>
             All caught up!
           </Typography>

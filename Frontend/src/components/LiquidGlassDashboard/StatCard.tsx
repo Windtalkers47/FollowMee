@@ -93,11 +93,12 @@ export const StatCard: React.FC<StatCardProps> = ({
               label={trend.value}
               size="small"
               sx={{
-                bgcolor: trend.isPositive ? 'rgba(76, 175, 80, 0.2)' : 'rgba(244, 67, 54, 0.2)',
-                color: trend.isPositive ? '#4caf50' : '#f44336',
+                bgcolor: trend.isPositive ? 'rgba(52, 199, 89, 0.14)' : 'rgba(255, 59, 48, 0.14)',
+                color: trend.isPositive ? 'success.main' : 'error.main',
                 fontWeight: 600,
                 fontSize: '0.7rem',
-                border: `1px solid ${trend.isPositive ? '#4caf50' : '#f44336'}`,
+                border: '1px solid',
+                borderColor: trend.isPositive ? 'success.main' : 'error.main',
                 height: 24,
               }}
             />

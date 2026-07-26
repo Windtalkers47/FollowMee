@@ -17,11 +17,11 @@
   --swal-glass-bg: rgba(255,255,255,0.95);
   --swal-glass-border: rgba(255,255,255,0.2);
 
-  --swal-primary: #667eea;
-  --swal-primary-2: #764ba2;
+  --swal-primary: #34C759;
+  --swal-primary-2: #30B950;
 
-  --swal-success: #28a745;
-  --swal-error: #dc3545;
+  --swal-success: #34C759;
+  --swal-error: #FF3B30;
 
   --swal-text: #333;
   --swal-text-light: #666;
@@ -117,11 +117,7 @@
 
 .swal2-confirm-button{
 
-  background:linear-gradient(
-    135deg,
-    var(--swal-primary),
-    var(--swal-primary-2)
-  );
+  background:var(--swal-primary);
 
   color:white;
   border:none;
@@ -132,12 +128,12 @@
   font-weight:600;
 
   transition:var(--swal-transition);
-  box-shadow:0 4px 14px rgba(102,126,234,0.35);
+  box-shadow:0 4px 14px rgba(52,199,89,0.28);
 }
 
 .swal2-confirm-button:hover{
-  transform:translateY(-2px);
-  box-shadow:0 6px 18px rgba(102,126,234,0.45);
+  background:var(--swal-primary-2);
+  box-shadow:0 6px 18px rgba(52,199,89,0.36);
 }
 
 .swal2-cancel-button{
@@ -181,7 +177,7 @@
   border-color:var(--swal-primary);
 
   box-shadow:
-    0 0 0 3px rgba(102,126,234,0.15);
+    0 0 0 3px rgba(52,199,89,0.15);
 }
 
 
@@ -207,46 +203,30 @@
 
 .swal2-success-toast{
 
-  background:linear-gradient(
-    135deg,
-    var(--swal-primary),
-    var(--swal-primary-2)
-  );
+  background:var(--swal-success);
 
   color:white;
 
-  box-shadow:0 8px 32px rgba(102,126,234,0.3);
+  box-shadow:0 8px 32px rgba(52,199,89,0.25);
 }
 
 .swal2-error-toast{
 
-  background:linear-gradient(
-    135deg,
-    #f093fb,
-    #f5576c
-  );
+  background:#FF3B30;
 
   color:white;
 }
 
 .swal2-warning-toast{
 
-  background:linear-gradient(
-    135deg,
-    #fa709a,
-    #fee140
-  );
+  background:#FF9F0A;
 
   color:white;
 }
 
 .swal2-info-toast{
 
-  background:linear-gradient(
-    135deg,
-    #4facfe,
-    #00f2fe
-  );
+  background:#007AFF;
 
   color:white;
 }
@@ -318,6 +298,10 @@
 
 /* Dark mode - controlled by app theme class */
 [data-theme="dark"] {
+    --swal-primary: #30D158;
+    --swal-primary-2: #28B94A;
+    --swal-success: #30D158;
+    --swal-error: #FF453A;
     --swal-glass-bg: rgba(30, 30, 30, 0.95);
     --swal-glass-border: rgba(255, 255, 255, 0.08);
     --swal-text: #ffffff;

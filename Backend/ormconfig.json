@@ -5,14 +5,14 @@
     "username": "root",
     "password": "",
     "database": "followmee",
-    "synchronize": true,
+    "synchronize": false,
     "logging": false,
     "entities": ["src/entities/**/*.ts"],
-    "migrations": ["src/migration/**/*.ts"],
+    "migrations": ["src/migrations/**/*.ts"],
     "subscribers": ["src/subscriber/**/*.ts"],
     "cli": {
       "entitiesDir": "src/entities",
-      "migrationsDir": "src/migration",
+      "migrationsDir": "src/migrations",
       "subscribersDir": "src/subscriber"
     }
   }

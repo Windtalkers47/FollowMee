@@ -20,7 +20,7 @@ export class Customer {
   @Column({ name: 'customerLastName', type: 'varchar', length: 50, nullable: true })
   customerLastName?: string;
 
-  @Column({ name: 'customerEmail', type: 'varchar', length: 100, unique: true, nullable: false })
+  @Column({ name: 'customerEmail', type: 'varchar', length: 100, nullable: false })
   customerEmail!: string;
 
   @Column({ name: 'customerPhone1', type: 'varchar', length: 20, nullable: true })

@@ -5,6 +5,7 @@ import { LeaderboardItem } from '../../services/api/dashboardApi';
 import { GradientPresetKey } from '../../styles/liquidGlassStyles';
 import { EmojiEvents } from '@mui/icons-material';
 import SmartAvatar from '../../components/SmartAvatar';
+import { brandColors } from '../../styles/designTokens';
 
 interface LeaderboardCardProps {
   topPerformers: LeaderboardItem[];
@@ -64,7 +65,7 @@ export const LeaderboardCard: React.FC<LeaderboardCardProps> = ({
       }}
     >
       <Box display="flex" alignItems="center" gap={1} mb={3}>
-        <EmojiEvents sx={{ color: '#10b981', fontSize: 24 }} />
+        <EmojiEvents sx={{ color: 'primary.main', fontSize: 24 }} />
         <Typography variant="h6" sx={{ fontWeight: 700, color: isDarkMode ? '#fff' : '#1a1a1a' }}>
           Leaderboard
         </Typography>
@@ -187,9 +188,9 @@ export const LeaderboardCard: React.FC<LeaderboardCardProps> = ({
         sx={{
           borderRadius: 3,
           background: isDarkMode 
-            ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(16, 185, 129, 0.05))' 
-            : 'linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(16, 185, 129, 0.02))',
-          border: `1px solid ${isDarkMode ? 'rgba(16, 185, 129, 0.4)' : 'rgba(16, 185, 129, 0.3)'}`,
+            ? 'linear-gradient(135deg, rgba(52, 199, 89, 0.18), rgba(52, 199, 89, 0.04))'
+            : 'linear-gradient(135deg, rgba(52, 199, 89, 0.1), rgba(52, 199, 89, 0.02))',
+          border: `1px solid ${isDarkMode ? 'rgba(48, 209, 88, 0.4)' : 'rgba(52, 199, 89, 0.3)'}`,
         }}
       >
         <Box display="flex" justifyContent="space-between" alignItems="center" mb={1.5}>
@@ -199,7 +200,7 @@ export const LeaderboardCard: React.FC<LeaderboardCardProps> = ({
             </Typography>
             {myRank.rank <= 3 && <span>{getRankBadge(myRank.rank)}</span>}
           </Box>
-          <Typography variant="body2" sx={{ fontWeight: 700, color: '#10b981', fontSize: '1.1rem' }}>
+          <Typography variant="body2" sx={{ fontWeight: 700, color: 'primary.main', fontSize: '1.1rem' }}>
             {myRank.score} pts
           </Typography>
         </Box>
@@ -224,8 +225,8 @@ export const LeaderboardCard: React.FC<LeaderboardCardProps> = ({
                 height: '100%',
                 width: `${Math.min(myRank.progressToNext, 100)}%`,
                 background: myRank.progressToNext === 100 
-                  ? 'linear-gradient(90deg, #10b981, #34d399)' 
-                  : 'linear-gradient(90deg, #3b82f6, #60a5fa)',
+                  ? `linear-gradient(90deg, ${brandColors.iosGreen}, ${brandColors.iosGreenDark})`
+                  : `linear-gradient(90deg, ${brandColors.blue}, ${brandColors.indigo})`,
                 borderRadius: 5,
                 transition: 'width 0.5s ease',
               }}
@@ -237,7 +238,7 @@ export const LeaderboardCard: React.FC<LeaderboardCardProps> = ({
               ml: 1.5, 
               minWidth: 45,
               fontWeight: 600,
-              color: myRank.progressToNext === 100 ? '#10b981' : '#3b82f6',
+              color: myRank.progressToNext === 100 ? brandColors.iosGreen : brandColors.blue,
             }}
           >
             {myRank.progressToNext}%

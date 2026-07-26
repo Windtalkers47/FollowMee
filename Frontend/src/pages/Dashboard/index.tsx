@@ -50,6 +50,7 @@ import {
 } from '../../services/api/dashboardApi';
 import { gradientPresets } from '../../styles/liquidGlassStyles';
 import { webSocketService } from '../../services/websocket.service';
+import { brandColors } from '../../styles/designTokens';
 
 // Register ChartJS components (once, at module level)
 ChartJS.register(
@@ -218,16 +219,16 @@ const DashboardPage: React.FC = () => {
           backgroundColor: (context: any) => {
             const ctx = context.chart.ctx;
             const gradient = ctx.createLinearGradient(0, 0, 0, 300);
-            gradient.addColorStop(0, 'rgba(16, 185, 129, 0.4)');
-            gradient.addColorStop(1, 'rgba(16, 185, 129, 0.0)');
+            gradient.addColorStop(0, 'rgba(52, 199, 89, 0.4)');
+            gradient.addColorStop(1, 'rgba(52, 199, 89, 0.0)');
             return gradient;
           },
-          borderColor: '#10b981',
+          borderColor: brandColors.iosGreen,
           borderWidth: 2,
           tension: 0.4,
           pointRadius: 0,
           pointHoverRadius: 4,
-          pointHoverBackgroundColor: '#10b981',
+          pointHoverBackgroundColor: brandColors.iosGreen,
           pointHoverBorderColor: '#fff',
           pointHoverBorderWidth: 2,
         },
@@ -238,16 +239,16 @@ const DashboardPage: React.FC = () => {
           backgroundColor: (context: any) => {
             const ctx = context.chart.ctx;
             const gradient = ctx.createLinearGradient(0, 0, 0, 300);
-            gradient.addColorStop(0, 'rgba(59, 130, 246, 0.3)');
-            gradient.addColorStop(1, 'rgba(59, 130, 246, 0.0)');
+            gradient.addColorStop(0, 'rgba(94, 92, 230, 0.3)');
+            gradient.addColorStop(1, 'rgba(94, 92, 230, 0.0)');
             return gradient;
           },
-          borderColor: '#3b82f6',
+          borderColor: brandColors.indigo,
           borderWidth: 2,
           tension: 0.4,
           pointRadius: 0,
           pointHoverRadius: 4,
-          pointHoverBackgroundColor: '#3b82f6',
+          pointHoverBackgroundColor: brandColors.indigo,
           pointHoverBorderColor: '#fff',
           pointHoverBorderWidth: 2,
         },
@@ -271,36 +272,36 @@ const DashboardPage: React.FC = () => {
               (context: any) => {
                 const ctx = context.chart.ctx;
                 const gradient = ctx.createLinearGradient(0, 0, 200, 0);
-                gradient.addColorStop(0, 'rgba(255, 193, 7, 0.8)');
-                gradient.addColorStop(1, 'rgba(255, 193, 7, 0.3)');
+                gradient.addColorStop(0, 'rgba(255, 159, 10, 0.8)');
+                gradient.addColorStop(1, 'rgba(255, 159, 10, 0.3)');
                 return gradient;
               },
               (context: any) => {
                 const ctx = context.chart.ctx;
                 const gradient = ctx.createLinearGradient(0, 0, 200, 0);
-                gradient.addColorStop(0, 'rgba(33, 150, 243, 0.8)');
-                gradient.addColorStop(1, 'rgba(33, 150, 243, 0.3)');
+                gradient.addColorStop(0, 'rgba(0, 122, 255, 0.8)');
+                gradient.addColorStop(1, 'rgba(0, 122, 255, 0.3)');
                 return gradient;
               },
               (context: any) => {
                 const ctx = context.chart.ctx;
                 const gradient = ctx.createLinearGradient(0, 0, 200, 0);
-                gradient.addColorStop(0, 'rgba(156, 39, 176, 0.8)');
-                gradient.addColorStop(1, 'rgba(156, 39, 176, 0.3)');
+                gradient.addColorStop(0, 'rgba(94, 92, 230, 0.8)');
+                gradient.addColorStop(1, 'rgba(94, 92, 230, 0.3)');
                 return gradient;
               },
               (context: any) => {
                 const ctx = context.chart.ctx;
                 const gradient = ctx.createLinearGradient(0, 0, 200, 0);
-                gradient.addColorStop(0, 'rgba(76, 175, 80, 0.8)');
-                gradient.addColorStop(1, 'rgba(76, 175, 80, 0.3)');
+                gradient.addColorStop(0, 'rgba(52, 199, 89, 0.8)');
+                gradient.addColorStop(1, 'rgba(52, 199, 89, 0.3)');
                 return gradient;
               },
               (context: any) => {
                 const ctx = context.chart.ctx;
                 const gradient = ctx.createLinearGradient(0, 0, 200, 0);
-                gradient.addColorStop(0, 'rgba(244, 67, 54, 0.8)');
-                gradient.addColorStop(1, 'rgba(244, 67, 54, 0.3)');
+                gradient.addColorStop(0, 'rgba(255, 59, 48, 0.8)');
+                gradient.addColorStop(1, 'rgba(255, 59, 48, 0.3)');
                 return gradient;
               },
             ],
@@ -481,7 +482,7 @@ const DashboardPage: React.FC = () => {
           background: gradientPresets.freshGreen.light,
         }}
       >
-        <CircularProgress sx={{ color: '#10b981' }} />
+        <CircularProgress color="primary" />
       </Box>
     );
   }
@@ -507,7 +508,7 @@ const DashboardPage: React.FC = () => {
             gutterBottom
             sx={{
               color: isDarkMode ? '#fff' : '#1a1a1a',
-              background: 'linear-gradient(135deg, #10b981, #34d399)',
+              background: `linear-gradient(135deg, ${brandColors.iosGreen}, ${brandColors.iosGreenDark})`,
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
               backgroundClip: 'text',
@@ -547,13 +548,13 @@ const DashboardPage: React.FC = () => {
               sx={{
                 width: 44,
                 height: 44,
-                bgcolor: 'rgba(16, 185, 129, 0.2)',
-                border: '2px solid rgba(16, 185, 129, 0.3)',
+                bgcolor: 'rgba(52, 199, 89, 0.14)',
+                border: '2px solid rgba(52, 199, 89, 0.24)',
                 backdropFilter: 'blur(8px)',
                 WebkitBackdropFilter: 'blur(8px)',
               }}
             >
-              <AddIcon sx={{ fontSize: 24, color: '#10b981' }} />
+              <AddIcon sx={{ fontSize: 24, color: 'primary.main' }} />
             </Avatar>
             <Box>
               <Typography variant="subtitle2" fontWeight={600}>
@@ -584,13 +585,13 @@ const DashboardPage: React.FC = () => {
               sx={{
                 width: 44,
                 height: 44,
-                bgcolor: 'rgba(33, 150, 243, 0.2)',
-                border: '2px solid rgba(33, 150, 243, 0.3)',
+                bgcolor: 'rgba(94, 92, 230, 0.14)',
+                border: '2px solid rgba(94, 92, 230, 0.24)',
                 backdropFilter: 'blur(8px)',
                 WebkitBackdropFilter: 'blur(8px)',
               }}
             >
-              <ListIcon sx={{ fontSize: 24, color: '#2196F3' }} />
+              <ListIcon sx={{ fontSize: 24, color: 'secondary.main' }} />
             </Avatar>
             <Box>
               <Typography variant="subtitle2" fontWeight={600}>
@@ -611,7 +612,7 @@ const DashboardPage: React.FC = () => {
                 title="Total Customers"
                 value={dashboardStats?.customerStats.totalCustomers.toLocaleString() || '0'}
                 icon={<PeopleIcon />}
-                color="#10b981"
+                color={brandColors.iosGreen}
                 trend={{
                   value: `+${dashboardStats?.customerStats.customersByStatus.newThisWeek || 0} this period`,
                   isPositive: true,
@@ -626,7 +627,7 @@ const DashboardPage: React.FC = () => {
                 title="Pending Tasks"
                 value={dashboardStats?.taskStats.pendingTasks.toLocaleString() || '0'}
                 icon={<TaskIcon />}
-                color="#f59e0b"
+                color={brandColors.amber}
                 trend={{
                   value: `${dashboardStats?.taskStats.completionRate || 0}% completion rate`,
                   isPositive: true,
@@ -641,7 +642,7 @@ const DashboardPage: React.FC = () => {
                 title="My Rank"
                 value={`#${dashboardStats?.userRank.rank || '-'}`}
                 icon={<EmojiEventsIcon />}
-                color="#8b5cf6"
+                color={brandColors.indigo}
                 trend={{
                   value: `${dashboardStats?.userRank.completedTasks || 0} tasks`,
                   isPositive: true,
@@ -656,7 +657,7 @@ const DashboardPage: React.FC = () => {
                 title="Total Tasks"
                 value={dashboardStats?.taskStats.totalTasks.toLocaleString() || '0'}
                 icon={<TrendingUpIcon />}
-                color="#3b82f6"
+                color={brandColors.blue}
                 trend={{
                   value: `${dashboardStats?.taskStats.tasksByStatus.done || 0} completed`,
                   isPositive: true,
@@ -685,7 +686,7 @@ const DashboardPage: React.FC = () => {
                       {getChartTitle()}
                     </Typography>
                     {isStatsLoading && (
-                      <CircularProgress size={16} sx={{ color: '#10b981' }} />
+                      <CircularProgress size={16} color="primary" />
                     )}
                   </Box>
                   <ToggleButtonGroup
@@ -696,21 +697,21 @@ const DashboardPage: React.FC = () => {
                     sx={{
                       flexWrap: 'wrap',
                       '& .MuiToggleButton-root': {
-                        border: '1px solid rgba(16, 185, 129, 0.3)',
+                        border: '1px solid rgba(52, 199, 89, 0.3)',
                         borderRadius: '6px',
                         padding: '4px 8px',
                         minWidth: { xs: '36px', sm: '42px' },
                         fontSize: { xs: '0.7rem', sm: '0.8rem' },
                         '&.Mui-selected': {
-                          backgroundColor: 'rgba(16, 185, 129, 0.25)',
-                          color: '#10b981',
+                          backgroundColor: 'rgba(52, 199, 89, 0.18)',
+                          color: 'primary.main',
                           fontWeight: 600,
                           '&:hover': {
-                            backgroundColor: 'rgba(16, 185, 129, 0.35)',
+                            backgroundColor: 'rgba(52, 199, 89, 0.26)',
                           },
                         },
                         '&:hover': {
-                          backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                          backgroundColor: 'rgba(52, 199, 89, 0.1)',
                         },
                       },
                     }}

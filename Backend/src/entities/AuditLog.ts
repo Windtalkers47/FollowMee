@@ -6,7 +6,7 @@ export class AuditLog {
   @PrimaryGeneratedColumn()
   logId!: number;
 
-  @ManyToOne(() => User, { onDelete: 'CASCADE' })
+  @ManyToOne(() => User, { onDelete: 'SET NULL', nullable: true })
   @JoinColumn({ name: 'userId' })
   user!: User;
 
@@ -43,4 +43,3 @@ export class AuditLog {
   @CreateDateColumn({ type: 'timestamp' })
   createdAt!: Date;
 }
-

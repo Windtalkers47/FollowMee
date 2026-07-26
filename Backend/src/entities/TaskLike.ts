@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, Unique } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, JoinColumn, ManyToOne, Unique } from 'typeorm';
 import { User } from './User';
 import { Task } from './Task';
 
@@ -26,9 +26,11 @@ export class TaskLike {
   createdAt!: Date;
 
   // Relations
-  @ManyToOne(() => Task, task => task.likes)
+  @ManyToOne(() => Task, task => task.likes, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'taskId' })
   task!: Task;
 
-  @ManyToOne(() => User, user => user.taskLikes)
+  @ManyToOne(() => User, user => user.taskLikes, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'userId' })
   user!: User;
 }

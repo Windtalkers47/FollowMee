@@ -91,8 +91,8 @@ export class NotificationCleanupService {
         .getRepository()
         .createQueryBuilder('r')
         .delete()
-        .where('r.isDeleted = :isDeleted', { isDeleted: true })
-        .andWhere('r.deletedAt < :cutoffDate', { cutoffDate })
+        .where('isDeleted = :isDeleted', { isDeleted: true })
+        .andWhere('deletedAt < :cutoffDate', { cutoffDate })
         .execute();
 
       const deletedCount = result.affected || 0;
@@ -122,9 +122,9 @@ export class NotificationCleanupService {
           isArchived: true,
           archivedAt: () => 'CURRENT_TIMESTAMP',
         })
-        .where('r.isRead = :isRead', { isRead: true })
-        .andWhere('r.isArchived = :isArchived', { isArchived: false })
-        .andWhere('r.readAt < :cutoffDate', { cutoffDate })
+        .where('isRead = :isRead', { isRead: true })
+        .andWhere('isArchived = :isArchived', { isArchived: false })
+        .andWhere('readAt < :cutoffDate', { cutoffDate })
         .execute();
 
       const archivedCount = result.affected || 0;

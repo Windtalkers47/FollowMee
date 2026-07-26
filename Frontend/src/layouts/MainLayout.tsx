@@ -34,6 +34,9 @@ import {
   TextField,
   Button,
   CircularProgress,
+  useMediaQuery,
+  BottomNavigation,
+  BottomNavigationAction,
 } from '@mui/material';
 
 import {
@@ -55,10 +58,13 @@ import {
   CloudUpload,
   Analytics,
 } from '@mui/icons-material';
+import ProductTour from '../components/ProductTour/ProductTour';
+import { semanticHex } from '../styles/designTokens';
 
 const drawerWidth = 260;
 const collapsedWidth = 76;
 const APP_BAR_HEIGHT = 64;
+const MOBILE_NAV_HEIGHT = 68;
 
 interface MainLayoutProps {
   children?: React.ReactNode;
@@ -79,6 +85,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
   const navigate = useNavigate();
   const location = useLocation();
   const dispatch = useAppDispatch();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   // Get current user to check role
   const currentUser = useAppSelector((state) => state.auth.user);
@@ -94,12 +101,13 @@ const MainLayout = ({ children }: MainLayoutProps) => {
   });
 
   const [open, setOpen] = useState(true);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const showDrawerLabels = isMobile || open;
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
-  const [profileUpdateKey, setProfileUpdateKey] = useState(0); // Force re-render on profile update
   const [profileData, setProfileData] = useState({
     userName: currentUser?.userName || '',
     userLastName: currentUser?.userLastName || '',
@@ -111,7 +119,13 @@ const MainLayout = ({ children }: MainLayoutProps) => {
     userImageUrl: currentUser?.userImageUrl || null,
   });
 
-  const handleDrawerToggle = useCallback(() => setOpen(p => !p), []);
+  const handleDrawerToggle = useCallback(() => {
+    if (isMobile) {
+      setMobileOpen((value) => !value);
+      return;
+    }
+    setOpen((value) => !value);
+  }, [isMobile, setMobileOpen, setOpen]);
   const handleProfileMenuOpen = useCallback((e: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(e.currentTarget);
   }, []);
@@ -148,8 +162,8 @@ const MainLayout = ({ children }: MainLayoutProps) => {
       text: 'Are you sure you want to remove your profile image? It will be deleted from Cloudinary and database.',
       icon: 'warning',
       showCancelButton: true,
-      confirmButtonColor: '#d33',
-      cancelButtonColor: '#308',
+      confirmButtonColor: semanticHex.error,
+      cancelButtonColor: '#8E8E93',
       confirmButtonText: 'Yes, remove it!',
       cancelButtonText: 'Cancel',
     });
@@ -183,7 +197,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
           icon: 'error',
           title: 'User not found',
           text: 'Please try again or contact support.',
-          confirmButtonColor: '#d33',
+          confirmButtonColor: semanticHex.error,
         });
         return;
       }
@@ -195,7 +209,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
             icon: 'error',
             title: 'Password Mismatch',
             text: 'The passwords you entered do not match. Please try again.',
-            confirmButtonColor: '#d33',
+            confirmButtonColor: semanticHex.error,
           });
           return;
         }
@@ -236,7 +250,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
         icon: 'warning',
         title: 'No Changes',
         text: 'No changes were made to your profile.',
-        confirmButtonColor: '#3085d6',
+        confirmButtonColor: semanticHex.primary,
       });
         return;
       }
@@ -285,7 +299,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
         icon: 'error',
         title: 'Update Failed',
         text: 'Failed to update your profile. Please try again.',
-        confirmButtonColor: '#d33',
+        confirmButtonColor: semanticHex.error,
       });
     } finally {
       setIsUpdatingProfile(false);
@@ -308,7 +322,6 @@ const MainLayout = ({ children }: MainLayoutProps) => {
       }
       
       clearCache('leaderboard');
-      setProfileUpdateKey(prev => prev + 1);
     };
     
     window.addEventListener('followmee:profile-updated', handleProfileUpdate as EventListener);
@@ -325,7 +338,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
           icon: 'error',
           title: 'User not found',
           text: 'Please try again or contact support.',
-          confirmButtonColor: '#d33',
+          confirmButtonColor: semanticHex.error,
         });
         return;
       }
@@ -347,7 +360,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
         icon: 'error',
         title: 'Deletion Failed',
         text: 'Failed to delete your account. Please try again.',
-        confirmButtonColor: '#d33',
+        confirmButtonColor: semanticHex.error,
       });
     }
   }, [currentUser, handleLogout]);
@@ -363,16 +376,29 @@ const MainLayout = ({ children }: MainLayoutProps) => {
           px: 2,
           display: 'flex',
           alignItems: 'center',
-          justifyContent: open ? 'space-between' : 'center',
+          justifyContent: showDrawerLabels ? 'space-between' : 'center',
         }}
       >
         <Box
           onClick={() => navigate('/')}
-          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer', minWidth: 0 }}
         >
-          <Home color="primary" />
-          {open && (
-            <Typography ml={1} fontWeight={700}>
+          <Box
+            sx={{
+              width: 34,
+              height: 34,
+              borderRadius: '11px',
+              display: 'grid',
+              placeItems: 'center',
+              color: '#07120A',
+              bgcolor: 'primary.main',
+              boxShadow: (currentTheme) => `0 8px 18px ${currentTheme.palette.primary.main}40`,
+            }}
+          >
+            <Home sx={{ fontSize: 21 }} />
+          </Box>
+          {showDrawerLabels && (
+            <Typography ml={1.25} fontWeight={750} letterSpacing="-0.025em">
               FollowMee
             </Typography>
           )}
@@ -395,27 +421,21 @@ const MainLayout = ({ children }: MainLayoutProps) => {
           return (
             <ListItem key={item.text} disablePadding>
               <ListItemButton
-                onClick={() => navigate(item.path)}
+                selected={active}
+                onClick={() => {
+                  navigate(item.path);
+                  if (isMobile) setMobileOpen(false);
+                }}
                 sx={{
-                  borderRadius: 2,
                   my: 0.5,
-                  justifyContent: open ? 'flex-start' : 'center',
-                  '&.Mui-selected': {
-                    bgcolor: 'primary.light',
-                    color: 'primary.main',
-                    '&:hover': {
-                      bgcolor: 'primary.light',
-                    },
-                    '& .MuiListItemIcon-root': {
-                      color: 'primary.main',
-                    },
-                  },
+                  justifyContent: showDrawerLabels ? 'flex-start' : 'center',
+                  '&.Mui-selected .MuiListItemIcon-root': { color: 'primary.main' },
                 }}
               >
                 <ListItemIcon
                   sx={{
                     minWidth: 0,
-                    mr: open ? 1.5 : 0,
+                    mr: showDrawerLabels ? 1.5 : 0,
                     color: active ? 'primary.main' : 'text.secondary',
                     justifyContent: 'center',
                   }}
@@ -423,7 +443,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
                   {item.icon}
                 </ListItemIcon>
 
-                {open && (
+                {showDrawerLabels && (
                   <ListItemText
                     primary={item.text}
                     primaryTypographyProps={{
@@ -448,10 +468,10 @@ const MainLayout = ({ children }: MainLayoutProps) => {
             sx={{ borderRadius: 2 }}
             onClick={() => navigate('/settings')}
           >
-            <ListItemIcon sx={{ minWidth: 0, mr: open ? 1.5 : 0 }}>
+            <ListItemIcon sx={{ minWidth: 0, mr: showDrawerLabels ? 1.5 : 0 }}>
               <Settings />
             </ListItemIcon>
-            {open && <ListItemText primary="Settings" />}
+            {showDrawerLabels && <ListItemText primary="Settings" />}
           </ListItemButton>
         </ListItem>
 
@@ -460,15 +480,15 @@ const MainLayout = ({ children }: MainLayoutProps) => {
             onClick={handleLogout}
             sx={{ borderRadius: 2 }}
           >
-            <ListItemIcon sx={{ minWidth: 0, mr: open ? 1.5 : 0 }}>
+            <ListItemIcon sx={{ minWidth: 0, mr: showDrawerLabels ? 1.5 : 0 }}>
               <Logout />
             </ListItemIcon>
-            {open && <ListItemText primary="Logout" />}
+            {showDrawerLabels && <ListItemText primary="Logout" />}
           </ListItemButton>
         </ListItem>
       </List>
     </Box>
-  ), [open, location.pathname]);
+  ), [filteredMenuItems, handleDrawerToggle, handleLogout, location.pathname, navigate, open, showDrawerLabels]);
 
   /* ================= Layout ================= */
 
@@ -486,14 +506,6 @@ const MainLayout = ({ children }: MainLayoutProps) => {
         elevation={0}
         sx={{
           height: APP_BAR_HEIGHT,
-          bgcolor: theme.palette.mode === 'light' 
-            ? '#ffffff' 
-            : theme.palette.background.paper,
-          backdropFilter: 'blur(10px)',
-          borderBottom: '1px solid',
-          borderColor: theme.palette.mode === 'light' 
-            ? 'rgba(0, 0, 0, 0.08)' 
-            : 'rgba(255, 255, 255, 0.08)',
           ml: { sm: open ? drawerWidth : collapsedWidth },
           width: {
             sm: `calc(100% - ${open ? drawerWidth : collapsedWidth}px)`,
@@ -501,13 +513,15 @@ const MainLayout = ({ children }: MainLayoutProps) => {
           transition: theme.transitions.create(['width', 'margin', 'background-color', 'border-color'], {
             duration: theme.transitions.duration.shorter,
           }),
-          boxShadow: theme.palette.mode === 'light'
-            ? '0 1px 3px rgba(0, 0, 0, 0.1)'
-            : '0 1px 3px rgba(0, 0, 0, 0.3)',
         }}
       >
         <Toolbar>
-          <IconButton sx={{ display: { sm: 'none' } }} onClick={handleDrawerToggle}>
+          <IconButton
+            aria-label="Open navigation"
+            data-tour="mobile-navigation"
+            sx={{ display: { sm: 'none' } }}
+            onClick={handleDrawerToggle}
+          >
             <MenuIcon />
           </IconButton>
 
@@ -515,7 +529,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
 
           <ThemeToggle />
 
-          <Box sx={{ position: 'relative' }}>
+          <Box data-tour="notifications" sx={{ position: 'relative' }}>
             <NotificationBell />
             <NotificationDropdown />
           </Box>
@@ -545,7 +559,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
               avatarVariant="main"
               size={32}
             />
-            <Box>
+            <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
               <Typography 
                 variant="subtitle2" 
                 fontWeight={600} 
@@ -573,8 +587,25 @@ const MainLayout = ({ children }: MainLayoutProps) => {
 
       {/* Drawer */}
       <Drawer
+        variant="temporary"
+        open={mobileOpen}
+        onClose={() => setMobileOpen(false)}
+        ModalProps={{ keepMounted: true }}
+        sx={{
+          display: { xs: 'block', sm: 'none' },
+          '& .MuiDrawer-paper': {
+            width: drawerWidth,
+            overflowX: 'hidden',
+          },
+        }}
+      >
+        {drawerContent}
+      </Drawer>
+
+      <Drawer
         variant="permanent"
         sx={{
+          display: { xs: 'none', sm: 'block' },
           width: open ? drawerWidth : collapsedWidth,
           '& .MuiDrawer-paper': {
             width: open ? drawerWidth : collapsedWidth,
@@ -594,20 +625,61 @@ const MainLayout = ({ children }: MainLayoutProps) => {
           mt: `${APP_BAR_HEIGHT}px`,
           height: `calc(100vh - ${APP_BAR_HEIGHT}px)`,
           overflowY: 'auto',
-          bgcolor: theme.palette.background.default,
+          bgcolor: 'transparent',
+          pb: { xs: `${MOBILE_NAV_HEIGHT}px`, sm: 0 },
         }}
       >
         <Box
           sx={{
-            maxWidth: 1200,
+            maxWidth: 1360,
             mx: 'auto',
-            px: { xs: 2, sm: 3, md: 4 },
-            py: 3,
+            px: { xs: 1.5, sm: 3, md: 4 },
+            py: { xs: 2, sm: 3 },
           }}
         >
           {children}
         </Box>
       </Box>
+
+      <BottomNavigation
+        showLabels
+        value={
+          ['/dashboard', '/posts', '/schedule', '/customer'].find((path) =>
+            location.pathname.startsWith(path)
+          ) || false
+        }
+        onChange={(_event, value) => navigate(value)}
+        sx={{
+          display: { xs: 'flex', sm: 'none' },
+          position: 'fixed',
+          zIndex: theme.zIndex.appBar,
+          left: 10,
+          right: 10,
+          bottom: 'max(8px, env(safe-area-inset-bottom))',
+          height: MOBILE_NAV_HEIGHT,
+          border: '1px solid',
+          borderColor: 'divider',
+          borderRadius: '20px',
+          bgcolor: theme.palette.mode === 'dark' ? 'rgba(23,28,26,.9)' : 'rgba(255,255,255,.9)',
+          backdropFilter: 'blur(24px) saturate(150%)',
+          boxShadow: theme.palette.mode === 'dark'
+            ? '0 18px 45px rgba(0,0,0,.42)'
+            : '0 18px 45px rgba(35,65,45,.16)',
+          '& .MuiBottomNavigationAction-root': {
+            minWidth: 0,
+            color: 'text.secondary',
+            '&.Mui-selected': { color: 'primary.dark' },
+          },
+          '& .MuiBottomNavigationAction-label': { fontSize: '0.68rem' },
+        }}
+      >
+        <BottomNavigationAction label="Home" value="/dashboard" icon={<Dashboard />} />
+        <BottomNavigationAction label="Posts" value="/posts" icon={<PostAdd />} />
+        <BottomNavigationAction label="Schedule" value="/schedule" icon={<Schedule />} />
+        <BottomNavigationAction label="Customers" value="/customer" icon={<Group />} />
+      </BottomNavigation>
+
+      <ProductTour userKey={currentUser?.userId || currentUser?.userEmail || 'guest'} />
 
       {/* Profile Menu */}
       <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleMenuClose}>
@@ -935,7 +1007,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
             disabled={isUpdatingProfile || isUploadingImage}
             startIcon={isUpdatingProfile ? <CircularProgress size={16} /> : undefined}
             sx={{
-              background: 'linear-gradient(135deg, rgba(74, 108, 247, 0.8), rgba(166, 77, 255, 0.8))',
+              background: 'linear-gradient(135deg, #34C759, #30D158)',
             }}
           >
             {isUpdatingProfile ? 'Updating...' : 'Save Changes'}

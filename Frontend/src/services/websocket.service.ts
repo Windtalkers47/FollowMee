@@ -19,14 +19,18 @@ class WebSocketService {
   private readonly HEARTBEAT_INTERVAL = 30000; // 30 seconds
   private userId: number | null = null;
   private tokenRefreshListener: ((event: Event) => void) | null = null;
+  private domainListeners = new Map<string, Set<(data: any) => void>>();
 
   /**
    * Connect to WebSocket server
    * U1-RECONNECT: Sets up token refresh listener
    */
   connect(userId: number) {
-    if (this.socket?.connected) {
+    if (this.socket) {
       this.userId = userId;
+      if (!this.socket.connected) {
+        this.socket.connect();
+      }
       return;
     }
 
@@ -53,18 +57,18 @@ class WebSocketService {
     this.socket = io(wsUrl, {
       withCredentials: true,
       transports: ['websocket', 'polling'],
-      reconnection: false, // We handle reconnection manually with exponential backoff
+      reconnection: true,
       reconnectionDelay: this.baseReconnectDelay,
+      reconnectionDelayMax: this.maxReconnectDelay,
       reconnectionAttempts: this.maxReconnectAttempts,
+    });
+    this.domainListeners.forEach((callbacks, event) => {
+      callbacks.forEach(callback => this.socket?.on(event, callback));
     });
 
     this.socket.on('connect', () => {
       console.log('[WebSocket] Connected');
       this.reconnectAttempts = 0;
-      
-      // Join user's personal room
-      this.socket?.emit('user:join', userId);
-      
       // Start heartbeat
       this.startHeartbeat();
     });
@@ -72,13 +76,11 @@ class WebSocketService {
     this.socket.on('disconnect', (reason) => {
       console.log(`[WebSocket] Disconnected: ${reason}`);
       this.stopHeartbeat();
-      this.attemptReconnect();
     });
 
     this.socket.on('connect_error', (error) => {
       console.error(`[WebSocket] Connection error: ${error.message}`);
       this.stopHeartbeat();
-      this.attemptReconnect();
     });
 
     this.socket.on('reconnect', (attemptNumber: number) => {
@@ -205,10 +207,8 @@ class WebSocketService {
       // Reconnect WebSocket with new token
       if (this.userId !== null) {
         console.log('[WebSocket] Reconnecting after token refresh...');
-        this.disconnect();
-        setTimeout(() => {
-          this.connect(this.userId!);
-        }, 1000);
+        this.socket?.disconnect();
+        this.socket?.connect();
       }
     };
 
@@ -232,6 +232,25 @@ class WebSocketService {
 
   onNotificationUnreadCount(callback: (data: { count: number }) => void) {
     this.socket?.on('notification:unread_count', callback);
+  }
+
+  onDomainEvent(event: string, callback: (data: any) => void) {
+    if (!this.domainListeners.has(event)) {
+      this.domainListeners.set(event, new Set());
+    }
+    const callbacks = this.domainListeners.get(event)!;
+    if (callbacks.has(callback)) return;
+    callbacks.add(callback);
+    this.socket?.on(event, callback);
+  }
+
+  offDomainEvent(event: string, callback: (data: any) => void) {
+    const callbacks = this.domainListeners.get(event);
+    callbacks?.delete(callback);
+    if (callbacks?.size === 0) {
+      this.domainListeners.delete(event);
+    }
+    this.socket?.off(event, callback);
   }
 
   /**

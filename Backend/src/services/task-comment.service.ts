@@ -7,6 +7,9 @@ import { CloudinaryUtil } from '../utils/cloudinary.util';
 import { TaskCommentRepository } from '../repositories/task-comment.repository';
 import { TaskRepository } from '../repositories/task.repository';
 import { UserRepository } from '../repositories/user.repository';
+import { NotificationHelper } from '../utils/notification.util';
+import { webSocketService } from './websocket.service';
+import { In } from 'typeorm';
 
 export class TaskCommentService {
   private taskCommentRepository: TaskCommentRepository;
@@ -24,6 +27,14 @@ export class TaskCommentService {
     createCommentDto: CreateTaskCommentDto,
     userId: number
   ): Promise<TaskCommentResponseDto> {
+    const commentText = createCommentDto.comment?.trim();
+    if (!commentText) {
+      throw new Error('Comment cannot be empty');
+    }
+    if (commentText.length > 1000) {
+      throw new Error('Comment cannot exceed 1000 characters');
+    }
+
     // Verify task exists
     const task = await this.taskRepository.findOne({ where: { taskId, isActive: true } });
     if (!task) {
@@ -33,7 +44,11 @@ export class TaskCommentService {
     // If it's a reply, verify parent comment exists
     if (createCommentDto.parentCommentId) {
       const parentComment = await this.taskCommentRepository.findOne({
-        where: { commentId: createCommentDto.parentCommentId }
+        where: {
+          commentId: createCommentDto.parentCommentId,
+          taskId,
+          isActive: true
+        }
       });
       if (!parentComment) {
         throw new Error('Parent comment not found');
@@ -43,14 +58,74 @@ export class TaskCommentService {
     const comment = new TaskComment();
     comment.taskId = taskId;
     comment.userId = userId;
-    comment.comment = createCommentDto.comment;
+    comment.comment = commentText;
     comment.parentCommentId = createCommentDto.parentCommentId;
     comment.commentImageUrl = createCommentDto.commentImageUrl;
     comment.isActive = true;
 
     const savedComment = await this.taskCommentRepository.save(comment);
+    const hydratedComment = await this.taskCommentRepository.findOneWithRelations({
+      commentId: savedComment.commentId,
+      isActive: true
+    });
+    const response = this.mapToResponseDto(hydratedComment || savedComment);
 
-    return this.mapToResponseDto(savedComment);
+    const recipients = new Set<number>();
+    if (task.createdBy !== userId) recipients.add(task.createdBy);
+    if (task.assignedTo && task.assignedTo !== userId) recipients.add(task.assignedTo);
+
+    if (createCommentDto.parentCommentId) {
+      const parent = await this.taskCommentRepository.findOne({
+        where: { commentId: createCommentDto.parentCommentId, taskId, isActive: true }
+      });
+      if (parent && parent.userId !== userId) {
+        recipients.add(parent.userId);
+        await NotificationHelper.notifyCommentReply(
+          task.title,
+          `/posts/${taskId}`,
+          userId,
+          [parent.userId],
+          parent.commentId
+        );
+      }
+    } else if (recipients.size > 0) {
+      await NotificationHelper.notifyTaskComment(
+        task.title,
+        `/posts/${taskId}`,
+        userId,
+        [...recipients]
+      );
+    }
+
+    const mentionedHandles = [...commentText.matchAll(/@([\p{L}\p{N}._-]+)/gu)]
+      .map(match => match[1].toLowerCase());
+    if (mentionedHandles.length > 0) {
+      const mentionedUsers = await this.userRepository.getRepository().find({
+        where: {
+          userName: In(mentionedHandles),
+          isActive: true
+        } as any
+      });
+      const mentionedUserIds = mentionedUsers
+        .filter(mentioned => mentioned.userId !== userId)
+        .map(mentioned => mentioned.userId);
+      if (mentionedUserIds.length > 0) {
+        await NotificationHelper.notifyMention(
+          task.title,
+          `/posts/${taskId}`,
+          userId,
+          mentionedUserIds
+        );
+      }
+    }
+
+    webSocketService.emitDomainEvent('comment:created', {
+      taskId,
+      commentId: savedComment.commentId,
+      actorUserId: userId
+    });
+
+    return response;
   }
 
   async getCommentsByTask(taskId: string): Promise<TaskCommentResponseDto[]> {
@@ -61,7 +136,8 @@ export class TaskCommentService {
   async updateComment(
     commentId: number,
     updateCommentDto: UpdateTaskCommentDto,
-    userId: number
+    userId: number,
+    taskId?: string
   ): Promise<TaskCommentResponseDto> {
     const comment = await this.taskCommentRepository.findOneWithRelations({ commentId });
     if (!comment) {
@@ -71,19 +147,34 @@ export class TaskCommentService {
     if (comment.userId !== userId) {
       throw new Error('Unauthorized');
     }
+    if (taskId && comment.taskId !== taskId) {
+      throw new Error('Comment does not belong to this task');
+    }
 
     if (updateCommentDto.comment !== undefined) {
-      comment.comment = updateCommentDto.comment;
+      const commentText = updateCommentDto.comment.trim();
+      if (!commentText) {
+        throw new Error('Comment cannot be empty');
+      }
+      if (commentText.length > 1000) {
+        throw new Error('Comment cannot exceed 1000 characters');
+      }
+      comment.comment = commentText;
     }
     if (updateCommentDto.commentImageUrl !== undefined) {
       comment.commentImageUrl = updateCommentDto.commentImageUrl;
     }
 
     const updated = await this.taskCommentRepository.save(comment);
+    webSocketService.emitDomainEvent('comment:updated', {
+      taskId: comment.taskId,
+      commentId,
+      actorUserId: userId
+    });
     return this.mapToResponseDto(updated);
   }
 
-  async deleteComment(commentId: number, userId: number): Promise<{ message: string }> {
+  async deleteComment(commentId: number, userId: number, taskId?: string): Promise<{ message: string }> {
     const comment = await this.taskCommentRepository.findOne({ commentId });
     if (!comment) {
       throw new Error('Comment not found');
@@ -92,11 +183,19 @@ export class TaskCommentService {
     if (comment.userId !== userId) {
       throw new Error('Unauthorized');
     }
+    if (taskId && comment.taskId !== taskId) {
+      throw new Error('Comment does not belong to this task');
+    }
 
     // Soft delete - mark as inactive
     comment.isActive = false;
     comment.deletedAt = new Date();
     await this.taskCommentRepository.save(comment);
+    webSocketService.emitDomainEvent('comment:deleted', {
+      taskId: comment.taskId,
+      commentId,
+      actorUserId: userId
+    });
 
     return { message: 'Comment deleted successfully' };
   }
@@ -124,6 +223,7 @@ export class TaskCommentService {
         userId: comment.user.userId,
         userName: comment.user.userName,
         userLastName: comment.user.userLastName,
+        userImageUrl: comment.user.userImageUrl || undefined,
       } : undefined,
       reactions: comment.reactions?.map(reaction => this.mapReactionToResponseDto(reaction, comment.commentId)) || []
     };

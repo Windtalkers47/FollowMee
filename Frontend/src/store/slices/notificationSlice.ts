@@ -137,6 +137,9 @@ const notificationSlice = createSlice({
       state.dropdownOpen = action.payload;
     },
     addNotification: (state, action: PayloadAction<NotificationRecipient>) => {
+      if (state.notifications.some(item => item.recipientId === action.payload.recipientId)) {
+        return;
+      }
       state.notifications.unshift(action.payload);
       if (!action.payload.isRead) {
         state.unreadCount += 1;
@@ -204,8 +207,9 @@ const notificationSlice = createSlice({
           (n) => n.recipientId === payload.recipientId
         );
         if (index !== -1) {
+          const wasUnread = !state.notifications[index].isRead;
           state.notifications[index] = payload;
-          if (payload.isRead && !state.notifications[index].isRead) {
+          if (payload.isRead && wasUnread) {
             state.unreadCount = Math.max(0, state.unreadCount - 1);
           }
         }

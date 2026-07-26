@@ -239,6 +239,9 @@ CREATE TABLE `tasks` (
   `imageUrl` VARCHAR(512) NULL,
   `isActive` TINYINT(1) NOT NULL DEFAULT 1,
   `deletedAt` DATETIME NULL,
+  `completedAt` DATETIME NULL,
+  `completionScore` INT NOT NULL DEFAULT 0,
+  `reopenedCount` INT NOT NULL DEFAULT 0,
   `createdAt` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   `updatedAt` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)
     ON UPDATE CURRENT_TIMESTAMP(6),
@@ -246,6 +249,7 @@ CREATE TABLE `tasks` (
   KEY `idx_tasks_assignee_status_due` (`assignedTo`, `status`, `dueDate`),
   KEY `idx_tasks_creator_created` (`createdBy`, `createdAt`),
   KEY `idx_tasks_status_deleted_due` (`status`, `deletedAt`, `dueDate`),
+  KEY `idx_tasks_leaderboard` (`status`, `assignedTo`, `completionScore`, `completedAt`),
   CONSTRAINT `fk_tasks_assignee`
     FOREIGN KEY (`assignedTo`) REFERENCES `users` (`userId`)
     ON DELETE SET NULL ON UPDATE CASCADE,
@@ -253,7 +257,9 @@ CREATE TABLE `tasks` (
     FOREIGN KEY (`createdBy`) REFERENCES `users` (`userId`)
     ON DELETE RESTRICT ON UPDATE CASCADE,
   CONSTRAINT `chk_tasks_date_range`
-    CHECK (`startDate` IS NULL OR `endDate` IS NULL OR `endDate` >= `startDate`)
+    CHECK (`startDate` IS NULL OR `endDate` IS NULL OR `endDate` >= `startDate`),
+  CONSTRAINT `chk_tasks_completion_score` CHECK (`completionScore` >= 0),
+  CONSTRAINT `chk_tasks_reopened_count` CHECK (`reopenedCount` >= 0)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `task_comments` (
@@ -572,7 +578,8 @@ INSERT INTO `migrations` (`timestamp`, `name`) VALUES
   (1785000000000, 'AddNotificationRecipientColumns1785000000000'),
   (1790000000000, 'RepairSchemaDrift1790000000000'),
   (1791000000000, 'CreatePublicProfiles1791000000000'),
-  (1792000000000, 'RepairUserIdentity1792000000000');
+  (1792000000000, 'RepairUserIdentity1792000000000'),
+  (1793000000000, 'AddVerifiedTaskScoring1793000000000');
 
 INSERT INTO `roles` (`roleName`, `description`, `roleLevel`) VALUES
   ('Superadmin', 'Full system access', 999),

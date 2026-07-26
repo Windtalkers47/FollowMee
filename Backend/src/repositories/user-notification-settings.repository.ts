@@ -58,6 +58,8 @@ export class UserNotificationSettingsRepository extends BaseRepository<UserNotif
         return settings.notifyCommentReply;
       case 'COMMENT_REACTION':
         return settings.notifyCommentReaction;
+      case 'MENTION':
+        return settings.notifyCommentReply;
       case 'SYSTEM_ALERT':
         return settings.notifySystemAlert;
       case 'ROLE_CHANGED':

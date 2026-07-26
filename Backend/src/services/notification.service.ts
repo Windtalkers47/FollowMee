@@ -59,15 +59,16 @@ export class NotificationService {
 
     // Step 2: Filter recipients by their notification settings (W1-SETTINGS-CHECK)
     if (recipientUserIds.length > 0 && !dto.isGlobal) {
-      const settingKey = this.getSettingKey(dto.notificationType);
-      const usersWithSettings = await this.userRepository
-        .createQueryBuilder('user')
-        .innerJoin('user.notificationSettings', 'settings')
-        .where('user.userId IN (:...userIds)', { userIds: recipientUserIds })
-        .andWhere(`settings.${settingKey} = true`)
-        .getMany();
-      
-      recipientUserIds = usersWithSettings.map(u => u.userId);
+      const preferenceChecks = await Promise.all(
+        recipientUserIds.map(async userId => ({
+          userId,
+          enabled: await this.notificationSettingsRepository.checkNotificationPreference(
+            userId,
+            dto.notificationType
+          )
+        }))
+      );
+      recipientUserIds = preferenceChecks.filter(item => item.enabled).map(item => item.userId);
     }
 
     // Step 3: Create notification
@@ -111,12 +112,23 @@ export class NotificationService {
 
     // Step 6: Send WebSocket notification (batch) - P3-PIPELINE: Realtime delivery
     if (recipientUserIds.length > 0) {
-      webSocketService.emitNotificationToUsers(recipientUserIds, {
-        notificationId: savedNotification.notificationId,
-        type: savedNotification.notificationType,
-        title: savedNotification.title,
-        message: savedNotification.message,
+      recipients.forEach(recipient => {
+        webSocketService.emitNotificationToUser(recipient.userId, {
+          recipientId: recipient.recipientId,
+          notificationId: savedNotification.notificationId,
+          userId: recipient.userId,
+          notification: this.mapToResponseDto(savedNotification),
+          isRead: false,
+          isSeen: false,
+          isArchived: false,
+          isDeleted: false,
+          deliveredAt: recipient.deliveredAt || new Date()
+        });
       });
+      await Promise.all(recipientUserIds.map(async userId => {
+        const count = await this.notificationRepository.countUnreadByUser(userId);
+        webSocketService.emitUnreadCount(userId, count);
+      }));
       console.log(`[Notification] WebSocket sent to ${recipientUserIds.length} users`);
     }
 
@@ -380,8 +392,8 @@ export class NotificationService {
   /**
    * Mark notification as read
    */
-  async markAsRead(userId: number, notificationId: number): Promise<NotificationRecipientResponseDto | null> {
-    const recipient = await this.notificationRecipientRepository.findByUserAndNotification(userId, notificationId);
+  async markAsRead(userId: number, recipientId: number): Promise<NotificationRecipientResponseDto | null> {
+    const recipient = await this.notificationRecipientRepository.findOwnedRecipient(userId, recipientId);
     if (!recipient) {
       return null;
     }
@@ -391,6 +403,27 @@ export class NotificationService {
       return null;
     }
 
+    updated.notification = recipient.notification;
+    const count = await this.notificationRepository.countUnreadByUser(userId);
+    webSocketService.emitUnreadCount(userId, count);
+    return this.mapRecipientToResponseDto(updated);
+  }
+
+  async markAsSeen(userId: number, recipientId: number): Promise<NotificationRecipientResponseDto | null> {
+    const recipient = await this.notificationRecipientRepository.findOwnedRecipient(userId, recipientId);
+    if (!recipient) return null;
+    const updated = await this.notificationRecipientRepository.markAsSeen(recipientId);
+    if (!updated) return null;
+    updated.notification = recipient.notification;
+    return this.mapRecipientToResponseDto(updated);
+  }
+
+  async archiveNotification(userId: number, recipientId: number): Promise<NotificationRecipientResponseDto | null> {
+    const recipient = await this.notificationRecipientRepository.findOwnedRecipient(userId, recipientId);
+    if (!recipient) return null;
+    const updated = await this.notificationRecipientRepository.archive(recipientId);
+    if (!updated) return null;
+    updated.notification = recipient.notification;
     return this.mapRecipientToResponseDto(updated);
   }
 
@@ -399,6 +432,7 @@ export class NotificationService {
    */
   async markAllAsRead(userId: number): Promise<{ success: boolean }> {
     await this.notificationRecipientRepository.markAllAsRead(userId);
+    webSocketService.emitUnreadCount(userId, 0);
     return { success: true };
   }
 
@@ -435,14 +469,18 @@ export class NotificationService {
   /**
    * Delete notification (soft delete by marking recipient as deleted)
    */
-  async deleteNotification(userId: number, notificationId: number): Promise<{ success: boolean }> {
-    const recipient = await this.notificationRecipientRepository.findByUserAndNotification(userId, notificationId);
+  async deleteNotification(userId: number, recipientId: number): Promise<NotificationRecipientResponseDto | null> {
+    const recipient = await this.notificationRecipientRepository.findOwnedRecipient(userId, recipientId);
     if (!recipient) {
-      throw new Error('Notification recipient not found');
+      return null;
     }
 
-    await this.notificationRecipientRepository.deleteForUser(recipient.recipientId);
-    return { success: true };
+    const updated = await this.notificationRecipientRepository.deleteForUser(recipient.recipientId);
+    if (!updated) return null;
+    updated.notification = recipient.notification;
+    const count = await this.notificationRepository.countUnreadByUser(userId);
+    webSocketService.emitUnreadCount(userId, count);
+    return this.mapRecipientToResponseDto(updated);
   }
 
   private mapToResponseDto(notification: Notification): NotificationResponseDto {

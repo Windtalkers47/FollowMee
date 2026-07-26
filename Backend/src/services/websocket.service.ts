@@ -1,4 +1,26 @@
 import { Server as SocketIOServer, Socket } from 'socket.io';
+import jwt, { JwtPayload } from 'jsonwebtoken';
+
+interface AuthenticatedSocket extends Socket {
+  data: {
+    userId: number;
+    email?: string;
+    roles?: string[];
+  };
+}
+
+const parseCookies = (cookieHeader?: string): Record<string, string> => {
+  if (!cookieHeader) return {};
+
+  return cookieHeader.split(';').reduce<Record<string, string>>((cookies, item) => {
+    const separatorIndex = item.indexOf('=');
+    if (separatorIndex < 0) return cookies;
+    const key = item.slice(0, separatorIndex).trim();
+    const value = item.slice(separatorIndex + 1).trim();
+    cookies[key] = decodeURIComponent(value);
+    return cookies;
+  }, {});
+};
 
 export class WebSocketService {
   private io: SocketIOServer | null = null;
@@ -7,27 +29,47 @@ export class WebSocketService {
   initialize(io: SocketIOServer) {
     this.io = io;
 
-    io.on('connection', (socket: Socket) => {
+    io.use((socket, next) => {
+      const secret = process.env.JWT_SECRET;
+      if (!secret) {
+        return next(new Error('WebSocket authentication is unavailable'));
+      }
+
+      const accessToken = parseCookies(socket.handshake.headers.cookie).access_token;
+      if (!accessToken) {
+        return next(new Error('Authentication required'));
+      }
+
+      try {
+        const decoded = jwt.verify(accessToken, secret) as JwtPayload;
+        const userId = Number(decoded.userId);
+        if (!Number.isInteger(userId) || userId <= 0) {
+          return next(new Error('Invalid authentication token'));
+        }
+
+        socket.data.userId = userId;
+        socket.data.email = decoded.email;
+        socket.data.roles = Array.isArray(decoded.roles) ? decoded.roles : [];
+        next();
+      } catch {
+        next(new Error('Invalid or expired authentication token'));
+      }
+    });
+
+    io.on('connection', (rawSocket: Socket) => {
+      const socket = rawSocket as AuthenticatedSocket;
+      const userId = socket.data.userId;
       console.log('Client connected:', socket.id);
 
-      // User joins their personal room
-      socket.on('user:join', (userId: number) => {
-        socket.join(`user:${userId}`);
-        
-        // Track socket for this user
-        if (!this.userSockets.has(userId)) {
-          this.userSockets.set(userId, new Set());
-        }
-        this.userSockets.get(userId)!.add(socket.id);
-        
-        console.log(`User ${userId} joined with socket ${socket.id}`);
-      });
+      socket.join(`user:${userId}`);
+      if (!this.userSockets.has(userId)) {
+        this.userSockets.set(userId, new Set());
+      }
+      this.userSockets.get(userId)!.add(socket.id);
+      console.log(`User ${userId} joined with socket ${socket.id}`);
 
-      // User leaves their personal room
-      socket.on('user:leave', (userId: number) => {
+      socket.on('user:leave', () => {
         socket.leave(`user:${userId}`);
-        
-        // Remove socket tracking
         const sockets = this.userSockets.get(userId);
         if (sockets) {
           sockets.delete(socket.id);
@@ -35,19 +77,16 @@ export class WebSocketService {
             this.userSockets.delete(userId);
           }
         }
-        
         console.log(`User ${userId} left with socket ${socket.id}`);
       });
 
       socket.on('disconnect', () => {
         console.log('Client disconnected:', socket.id);
-        
-        // Clean up socket from all users
-        for (const [userId, sockets] of this.userSockets.entries()) {
+
+        const sockets = this.userSockets.get(userId);
+        if (sockets) {
           sockets.delete(socket.id);
-          if (sockets.size === 0) {
-            this.userSockets.delete(userId);
-          }
+          if (sockets.size === 0) this.userSockets.delete(userId);
         }
       });
     });
@@ -91,6 +130,19 @@ export class WebSocketService {
     if (!this.io) return;
     
     this.io.emit(event, data);
+  }
+
+  emitDomainEvent(event: string, data: any, userIds?: number[]) {
+    if (!this.io) return;
+
+    if (!userIds || userIds.length === 0) {
+      this.io.emit(event, data);
+      return;
+    }
+
+    [...new Set(userIds)].forEach(userId => {
+      this.io!.to(`user:${userId}`).emit(event, data);
+    });
   }
 
   /**

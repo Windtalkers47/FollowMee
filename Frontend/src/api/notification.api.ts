@@ -160,8 +160,7 @@ export const markAllAsRead = async (): Promise<ApiResponse<void>> => {
  * Returns the updated recipient for Redux state update
  */
 export const archiveNotification = async (recipientId: number): Promise<ApiResponse<NotificationRecipient>> => {
-  // Backend may not have archive endpoint yet, using read as fallback
-  const response = await fetch(`${apiConfig.baseURL}/notifications/${recipientId}/read`, {
+  const response = await fetch(`${apiConfig.baseURL}/notifications/${recipientId}/archive`, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',

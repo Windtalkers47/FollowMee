@@ -29,6 +29,14 @@ export class TaskCommentController {
         res.status(401).json({ message: 'User not authenticated' });
         return;
       }
+      if (
+        typeof createCommentDto.comment !== 'string' ||
+        !createCommentDto.comment.trim() ||
+        createCommentDto.comment.trim().length > 1000
+      ) {
+        res.status(400).json({ message: 'Comment must contain between 1 and 1000 characters' });
+        return;
+      }
 
       // Check if user is active
       const isUserActive = await this.checkUserActive(userId);
@@ -47,6 +55,11 @@ export class TaskCommentController {
   async getTaskComments(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { taskId } = req.params;
+      const userId = req.user?.userId;
+      if (!userId || !(await this.checkUserActive(userId))) {
+        res.status(403).json({ message: 'User account is not active' });
+        return;
+      }
       const result = await this.taskCommentService.getCommentsByTask(taskId);
       res.status(200).json({ success: true, data: result });
     } catch (error) {
@@ -56,11 +69,19 @@ export class TaskCommentController {
 
   async updateComment(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { commentId } = req.params;
+      const { taskId, commentId } = req.params;
       const updateCommentDto: UpdateTaskCommentDto = req.body;
       const userId = req.user?.userId;
       if (!userId) {
         res.status(401).json({ message: 'User not authenticated' });
+        return;
+      }
+      if (
+        typeof updateCommentDto.comment !== 'string' ||
+        !updateCommentDto.comment.trim() ||
+        updateCommentDto.comment.trim().length > 1000
+      ) {
+        res.status(400).json({ message: 'Comment must contain between 1 and 1000 characters' });
         return;
       }
 
@@ -71,7 +92,7 @@ export class TaskCommentController {
         return;
       }
 
-      const result = await this.taskCommentService.updateComment(Number(commentId), updateCommentDto, userId);
+      const result = await this.taskCommentService.updateComment(Number(commentId), updateCommentDto, userId, taskId);
       res.status(200).json({ success: true, data: result });
     } catch (error) {
       next(error);
@@ -80,7 +101,7 @@ export class TaskCommentController {
 
   async deleteComment(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { commentId } = req.params;
+      const { taskId, commentId } = req.params;
       const userId = req.user?.userId;
       if (!userId) {
         res.status(401).json({ message: 'User not authenticated' });
@@ -94,7 +115,7 @@ export class TaskCommentController {
         return;
       }
 
-      await this.taskCommentService.deleteComment(Number(commentId), userId);
+      await this.taskCommentService.deleteComment(Number(commentId), userId, taskId);
       res.status(200).json({ success: true, message: 'Comment deleted successfully' });
     } catch (error) {
       next(error);

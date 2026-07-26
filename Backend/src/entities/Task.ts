@@ -56,6 +56,15 @@ export class Task {
   @Column({ name: 'deletedAt', type: 'datetime', nullable: true })
   deletedAt?: Date;
 
+  @Column({ name: 'completedAt', type: 'datetime', nullable: true })
+  completedAt?: Date;
+
+  @Column({ name: 'completionScore', type: 'int', default: 0 })
+  completionScore: number = 0;
+
+  @Column({ name: 'reopenedCount', type: 'int', default: 0 })
+  reopenedCount: number = 0;
+
   @CreateDateColumn({ name: 'createdAt' })
   createdAt!: Date;
 

@@ -9,6 +9,7 @@ import { API_BASE_URL } from './api/config';
 import { ErrorBoundary } from './components/ErrorBoundary/ErrorBoundary';
 import { AsyncErrorBoundary } from './components/ErrorBoundary/AsyncErrorBoundary';
 import { webSocketService } from './services/websocket.service';
+import { useQueryClient } from '@tanstack/react-query';
 
 // Lazy load pages
 const LoginPage = React.lazy(() => import('./pages/Login'));
@@ -60,6 +61,7 @@ const ProtectedRoute = () => {
 const App = () => {
   const location = useLocation();
   const dispatch = useAppDispatch();
+  const queryClient = useQueryClient();
 
   const { checkingSession, isAuthenticated } = useAppSelector((state) => ({
     checkingSession: state.auth.checkingSession,
@@ -106,12 +108,14 @@ const App = () => {
 
   /* Connect/disconnect WebSocket based on auth state */
   useEffect(() => {
+    if (checkingSession) return;
+
     if (isAuthenticated && currentUser?.userId) {
       dispatch(connectWebSocket(currentUser.userId));
     } else {
       dispatch(disconnectWebSocket());
     }
-  }, [isAuthenticated, currentUser?.userId, dispatch]);
+  }, [checkingSession, isAuthenticated, currentUser?.userId, dispatch]);
 
   /* Global WebSocket profile update listener - broadcast to all components via window event */
   useEffect(() => {
@@ -132,6 +136,42 @@ const App = () => {
       webSocketService.offProfileUpdated(handleProfileUpdate);
     };
   }, [isAuthenticated, currentUser?.userId]);
+
+  /* Keep task, activity and comment data synchronized across pages and browsers. */
+  useEffect(() => {
+    if (!isAuthenticated || !currentUser?.userId) return;
+
+    const taskHandler = () => {
+      queryClient.invalidateQueries({ queryKey: ['all-tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['assigned-tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['top-performers'] });
+      queryClient.invalidateQueries({ queryKey: ['user-rank'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+    };
+    const commentHandler = (data: { taskId?: string }) => {
+      if (data?.taskId) {
+        queryClient.invalidateQueries({ queryKey: ['task-comments', data.taskId] });
+      }
+      taskHandler();
+    };
+    const reactionHandler = (data: { taskId?: string }) => {
+      commentHandler(data);
+      window.dispatchEvent(new CustomEvent('followmee:reaction-updated', { detail: data }));
+    };
+
+    const taskEvents = ['task:created', 'task:updated', 'task:deleted'];
+    const commentEvents = ['comment:created', 'comment:updated', 'comment:deleted'];
+    taskEvents.forEach(event => webSocketService.onDomainEvent(event, taskHandler));
+    commentEvents.forEach(event => webSocketService.onDomainEvent(event, commentHandler));
+    webSocketService.onDomainEvent('reaction:updated', reactionHandler);
+
+    return () => {
+      taskEvents.forEach(event => webSocketService.offDomainEvent(event, taskHandler));
+      commentEvents.forEach(event => webSocketService.offDomainEvent(event, commentHandler));
+      webSocketService.offDomainEvent('reaction:updated', reactionHandler);
+    };
+  }, [isAuthenticated, currentUser?.userId, queryClient]);
 
   if (checkingSession) {
     return <LoadingSpinner />;

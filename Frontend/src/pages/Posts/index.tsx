@@ -148,6 +148,7 @@ const TaskFeedCard: React.FC<TaskFeedCardProps> = ({
       onUpdateTaskStatus={onUpdateTaskStatus}
       showActions={showActions}
       compact={false} // Use full width for better social media feel
+      showWorkflowActions={false}
     />
   );
 };
@@ -344,6 +345,21 @@ const PostsPage = () => {
       console.error('Error fetching like summary:', error);
     }
   };
+
+  useEffect(() => {
+    const handleRealtimeReaction = async (event: Event) => {
+      const taskId = (event as CustomEvent<{ taskId?: string }>).detail?.taskId;
+      if (!taskId) return;
+      try {
+        const summary = await likeApi.getTaskLikeSummary(taskId);
+        setTaskLikeSummaries(prev => ({ ...prev, [taskId]: summary }));
+      } catch (error) {
+        console.error('Unable to refresh reaction summary:', error);
+      }
+    };
+    window.addEventListener('followmee:reaction-updated', handleRealtimeReaction);
+    return () => window.removeEventListener('followmee:reaction-updated', handleRealtimeReaction);
+  }, []);
 
   // Update top performers when data changes
   useEffect(() => {
@@ -615,12 +631,12 @@ const PostsPage = () => {
 
   const bookedDates = getBookedDates(editingTask);
 
-  const assignedTasksList = assignedTasks || [];
+  const assignedTasksList = (assignedTasks || []).filter((task) => task.status === 'done');
   const completedTasksList = isSearching ? (searchResults?.tasks || []) : (allTasksResponse?.tasks || []);
 
   const tabs = [
-    { label: 'My Tasks', key: 'assigned' },
-    { label: 'Team Feed', key: 'feed' },
+    { label: 'My activity', key: 'assigned' },
+    { label: 'Team activity', key: 'feed' },
   ];
 
   return (
@@ -640,13 +656,13 @@ const PostsPage = () => {
           gutterBottom
           sx={{ color: getTextColor('primary') }}
         >
-          Completed work
+          Team activity
         </Typography>
         <Typography color="text.secondary" sx={{ mb: 1.5 }}>
-          Review completed assignments, feedback and team progress in one place.
+          Celebrate approved work, share feedback and follow team progress in one place.
         </Typography>
         <Chip 
-          label={`${assignedTasksList.filter(t => t.status === 'done').length} Completed Tasks`}
+          label={`${assignedTasksList.length} completed by you`}
           size="small"
           sx={{
             bgcolor: 'action.selected',
@@ -728,7 +744,7 @@ const PostsPage = () => {
                       variant="body2" 
                       sx={{ color: getTextColor('secondary') }}
                     >
-                      {performer.completedTasks} completed tasks
+                      {performer.completedTasks} completed · {performer.score || performer.completedTasks * 10} pts
                     </Typography>
                   </Box>
                 </Box>
@@ -814,6 +830,9 @@ const PostsPage = () => {
               {userRank.completedTasks}
             </Typography>
             <Typography color="text.secondary" sx={{ mb: 1 }}>tasks completed</Typography>
+            <Typography variant="subtitle2" color="primary.main" sx={{ mb: 1 }}>
+              {userRank.score || 0} verified points
+            </Typography>
             <Typography 
               variant="h6" 
               mb={1}
@@ -980,10 +999,10 @@ const PostsPage = () => {
               <Grid size={{ xs: 12 }}>
                 <Box textAlign="center" py={4}>
                   <Typography variant="h6" color="text.secondary">
-                    No tasks assigned to you yet
+                    No approved work from you yet
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    Check back later for new assignments
+                    Completed tasks appear here after the task owner approves them.
                   </Typography>
                 </Box>
               </Grid>
@@ -1030,7 +1049,7 @@ const PostsPage = () => {
                     {isSearching ? 'No tasks found matching your search' : 'No completed tasks yet'}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    {isSearching ? 'Try different keywords or clear the search to see all tasks' : 'Be the first to complete a task and start the competition!'}
+                    {isSearching ? 'Try different keywords or clear the search to see all tasks' : 'Approved work will appear here for the team to recognize and discuss.'}
                   </Typography>
                 </Box>
               </Grid>

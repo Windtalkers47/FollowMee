@@ -7,6 +7,7 @@ import { CloudinaryUtil } from '../utils/cloudinary.util';
 import AppDataSource from '../config/database';
 
 export class TaskImageService {
+  private static readonly MAX_IMAGES_PER_TASK = 10;
   private taskImageRepository: Repository<TaskImage>;
   private taskRepository: Repository<Task>;
 
@@ -24,6 +25,16 @@ export class TaskImageService {
     const task = await this.taskRepository.findOne({ where: { taskId, isActive: true } as any });
     if (!task) {
       throw new Error('Task not found');
+    }
+    if (task.createdBy !== userId && task.assignedTo !== userId) {
+      throw new Error('You can only add images to tasks you created or are assigned to');
+    }
+
+    const activeImageCount = await this.taskImageRepository.count({
+      where: { taskId, isActive: true } as any
+    });
+    if (activeImageCount >= TaskImageService.MAX_IMAGES_PER_TASK) {
+      throw new Error(`A task can contain at most ${TaskImageService.MAX_IMAGES_PER_TASK} images`);
     }
 
     // Use the provided imageOrder, or get the highest current order

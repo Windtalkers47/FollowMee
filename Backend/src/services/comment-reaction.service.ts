@@ -3,14 +3,19 @@ import { TaskComment } from '../entities/TaskComment';
 import { CommentReactionResponseDto, CreateCommentReactionDto } from '../dtos/task-comment.dto';
 import { CommentReactionRepository } from '../repositories/comment-reaction.repository';
 import { TaskCommentRepository } from '../repositories/task-comment.repository';
+import { TaskRepository } from '../repositories/task.repository';
+import { NotificationHelper } from '../utils/notification.util';
+import { webSocketService } from './websocket.service';
 
 export class CommentReactionService {
   private commentReactionRepository: CommentReactionRepository;
   private taskCommentRepository: TaskCommentRepository;
+  private taskRepository: TaskRepository;
 
   constructor() {
     this.commentReactionRepository = new CommentReactionRepository();
     this.taskCommentRepository = new TaskCommentRepository();
+    this.taskRepository = new TaskRepository();
   }
 
   async createOrUpdateReaction(
@@ -33,6 +38,7 @@ export class CommentReactionService {
       // Update existing reaction
       existingReaction.reactionType = createReactionDto.reactionType;
       const savedReaction = await this.commentReactionRepository.save(existingReaction);
+      await this.afterReactionChanged(comment, userId);
       return this.mapToResponseDto(savedReaction);
     } else {
       // Create new reaction
@@ -42,6 +48,7 @@ export class CommentReactionService {
       reaction.reactionType = createReactionDto.reactionType;
 
       const savedReaction = await this.commentReactionRepository.save(reaction);
+      await this.afterReactionChanged(comment, userId);
       return this.mapToResponseDto(savedReaction);
     }
   }
@@ -59,7 +66,38 @@ export class CommentReactionService {
     }
 
     await this.commentReactionRepository.deleteReaction(commentId, userId);
+    const comment = await this.taskCommentRepository.findOne({
+      where: { commentId, isActive: true }
+    });
+    if (comment) {
+      webSocketService.emitDomainEvent('reaction:updated', {
+        taskId: comment.taskId,
+        commentId,
+        actorUserId: userId
+      });
+    }
     return { message: 'Reaction removed successfully' };
+  }
+
+  private async afterReactionChanged(comment: TaskComment, userId: number): Promise<void> {
+    if (comment.userId !== userId) {
+      const task = await this.taskRepository.findById(comment.taskId);
+      if (task) {
+        await NotificationHelper.notifyCommentReaction(
+          task.title,
+          `/posts/${task.taskId}`,
+          userId,
+          [comment.userId],
+          comment.commentId
+        );
+      }
+    }
+
+    webSocketService.emitDomainEvent('reaction:updated', {
+      taskId: comment.taskId,
+      commentId: comment.commentId,
+      actorUserId: userId
+    });
   }
 
   /**

@@ -76,7 +76,7 @@ const menuItems = [
   { text: 'Customers', icon: <Group />, path: '/customer', exact: true, group: 'Workspace' },
   { text: 'Profile Cards', icon: <AccountCircle />, path: '/customer-profile', exact: false, group: 'Workspace' },
   { text: 'Analytics', icon: <Analytics />, path: '/notification-analytics', exact: true, group: 'Insights' },
-  { text: 'Completed Work', icon: <PostAdd />, path: '/posts', exact: true, group: 'Insights' },
+  { text: 'Team Activity', icon: <PostAdd />, path: '/posts', exact: true, group: 'Insights' },
   { text: 'User Management', icon: <PeopleAlt />, path: '/users', exact: true, group: 'Administration' },
 ];
 
@@ -514,9 +514,9 @@ const MainLayout = ({ children }: MainLayoutProps) => {
         elevation={0}
         sx={{
           height: APP_BAR_HEIGHT,
-          ml: { sm: open ? drawerWidth : collapsedWidth },
+          ml: { md: open ? drawerWidth : collapsedWidth },
           width: {
-            sm: `calc(100% - ${open ? drawerWidth : collapsedWidth}px)`,
+            md: `calc(100% - ${open ? drawerWidth : collapsedWidth}px)`,
           },
           transition: theme.transitions.create(['width', 'margin', 'background-color', 'border-color'], {
             duration: theme.transitions.duration.shorter,
@@ -527,7 +527,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
           <IconButton
             aria-label="Open navigation"
             data-tour="mobile-navigation"
-            sx={{ display: { sm: 'none' } }}
+            sx={{ display: { md: 'none' } }}
             onClick={handleDrawerToggle}
           >
             <MenuIcon />
@@ -600,7 +600,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
         onClose={() => setMobileOpen(false)}
         ModalProps={{ keepMounted: true }}
         sx={{
-          display: { xs: 'block', sm: 'none' },
+          display: { xs: 'block', md: 'none' },
           '& .MuiDrawer-paper': {
             width: drawerWidth,
             overflowX: 'hidden',
@@ -613,7 +613,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
       <Drawer
         variant="permanent"
         sx={{
-          display: { xs: 'none', sm: 'block' },
+          display: { xs: 'none', md: 'block' },
           width: open ? drawerWidth : collapsedWidth,
           '& .MuiDrawer-paper': {
             width: open ? drawerWidth : collapsedWidth,
@@ -634,7 +634,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
           height: `calc(100vh - ${APP_BAR_HEIGHT}px)`,
           overflowY: 'auto',
           bgcolor: 'transparent',
-          pb: { xs: `${MOBILE_NAV_HEIGHT}px`, sm: 0 },
+          pb: { xs: `${MOBILE_NAV_HEIGHT}px`, md: 0 },
         }}
       >
         <Box
@@ -658,7 +658,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
         }
         onChange={(_event, value) => navigate(value)}
         sx={{
-          display: { xs: 'flex', sm: 'none' },
+          display: { xs: 'flex', md: 'none' },
           position: 'fixed',
           zIndex: theme.zIndex.appBar,
           left: 10,

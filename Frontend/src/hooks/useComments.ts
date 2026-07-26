@@ -81,8 +81,8 @@ export function useComments({
     queryKey: ['task-comments', taskId],
     queryFn: () => commentApi.getTaskComments(taskId),
     enabled,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    refetchOnWindowFocus: false,
+    staleTime: 15 * 1000,
+    refetchOnWindowFocus: true,
   });
 
   // Simple tree building for nested comments from backend

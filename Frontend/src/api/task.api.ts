@@ -171,6 +171,7 @@ export interface TaskListResponse {
     userName: string;
     userLastName: string;
     completedTasks: number;
+    score?: number;
   }[];
 }
 
@@ -192,6 +193,7 @@ export interface UserRank {
   rank: number;
   completedTasks: number;
   totalUsers: number;
+  score?: number;
 }
 
 export interface MarkTaskDoneResponse {
@@ -384,6 +386,7 @@ export const taskApi = {
     userName: string;
     userLastName: string;
     completedTasks: number;
+    score?: number;
   }[]> => {
     const response = await axios.get(`${API_BASE_URL}/tasks/top-performers`, {
       params: { limit },

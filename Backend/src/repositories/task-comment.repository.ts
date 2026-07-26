@@ -24,8 +24,9 @@ export class TaskCommentRepository {
    */
   async findByTaskId(taskId: string): Promise<TaskComment[]> {
     return this._repository.find({
-      where: { taskId } as unknown as FindOptionsWhere<TaskComment>,
-      relations: ['user', 'parentComment', 'reactions']
+      where: { taskId, isActive: true } as unknown as FindOptionsWhere<TaskComment>,
+      relations: ['user', 'parentComment', 'reactions', 'reactions.user'],
+      order: { createdAt: 'ASC' }
     });
   }
 
@@ -65,7 +66,7 @@ export class TaskCommentRepository {
    */
   async countByTaskId(taskId: string): Promise<number> {
     return this._repository.count({
-      where: { taskId } as unknown as FindOptionsWhere<TaskComment>
+      where: { taskId, isActive: true } as unknown as FindOptionsWhere<TaskComment>
     });
   }
 }

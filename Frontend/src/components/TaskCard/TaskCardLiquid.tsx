@@ -31,6 +31,7 @@ interface TaskCardLiquidProps {
   onUpdateTaskStatus?: (taskId: string, status: Task['status']) => void;
   showActions?: boolean;
   compact?: boolean;
+  showWorkflowActions?: boolean;
 }
 
 const TaskCardLiquid: React.FC<TaskCardLiquidProps> = ({
@@ -51,6 +52,7 @@ const TaskCardLiquid: React.FC<TaskCardLiquidProps> = ({
   onUpdateTaskStatus,
   showActions = true,
   compact = false,
+  showWorkflowActions = true,
 }) => {
   const theme = useTheme();
   const { isLiquidGlassEnabled, liquidGlassSettings } = useLiquidGlass();
@@ -189,13 +191,15 @@ const TaskCardLiquid: React.FC<TaskCardLiquidProps> = ({
           )}
 
           {/* Glass Mark Done/Undone Buttons - Positioned at Bottom Right */}
-          <TaskActions
-            task={task}
-            permissions={permissions}
-            onMarkDone={onMarkDone}
-            onMarkUndone={onMarkUndone}
-            onApproveTask={onApproveTask}
-          />
+          {showWorkflowActions && (
+            <TaskActions
+              task={task}
+              permissions={permissions}
+              onMarkDone={onMarkDone}
+              onMarkUndone={onMarkUndone}
+              onApproveTask={onApproveTask}
+            />
+          )}
         </Box>
       </Box>
 

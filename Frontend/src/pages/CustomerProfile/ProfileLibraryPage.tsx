@@ -176,7 +176,10 @@ const ProfileLibraryPage = () => {
           gap: 2,
         }}
       >
-        {filtered.map((profile) => (
+        {filtered.map((profile) => {
+          const template = getProfileTemplate(profile.templateKey);
+          const avatar = profile.avatarUrl || profile.customer?.customerImageUrl || undefined;
+          return (
           <Card
             key={profile.profileId}
             variant="outlined"
@@ -189,35 +192,76 @@ const ProfileLibraryPage = () => {
           >
             <Box
               sx={{
-                height: 92,
+                minHeight: 184,
                 m: 1.25,
                 mb: 0,
                 borderRadius: 2.5,
-                background: getProfileTemplate(profile.templateKey).background,
+                background: template.background,
                 border: '1px solid',
                 borderColor: 'divider',
-                display: 'grid',
-                placeItems: 'center',
+                p: 2,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                textAlign: 'center',
+                color: template.text,
               }}
             >
+              <Avatar
+                src={avatar}
+                sx={{
+                  width: 54,
+                  height: 54,
+                  bgcolor: template.surface,
+                  color: template.text,
+                  border: '2px solid rgba(255,255,255,.72)',
+                  boxShadow: '0 8px 20px rgba(15,23,42,.12)',
+                }}
+              >
+                {profile.displayName.slice(0, 2).toUpperCase()}
+              </Avatar>
+              <Typography variant="subtitle1" fontWeight={850} sx={{ mt: 1, color: template.text }}>
+                {profile.displayName}
+              </Typography>
+              <Typography
+                variant="caption"
+                sx={{
+                  color: template.muted,
+                  maxWidth: 240,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {profile.headline || 'Add a short headline'}
+              </Typography>
               <Box
                 sx={{
-                  width: '68%',
-                  height: 48,
-                  borderRadius: 2,
-                  bgcolor: getProfileTemplate(profile.templateKey).surface,
-                  border: '1px solid rgba(255,255,255,.5)',
+                  mt: 1.25,
+                  minWidth: 112,
+                  px: 1.5,
+                  py: 0.65,
+                  borderRadius: 99,
+                  bgcolor: template.accent,
+                  color: template.accentText,
+                  fontSize: 12,
+                  fontWeight: 800,
                 }}
-              />
+              >
+                {profile.primaryCtaLabel || 'Connect'}
+              </Box>
             </Box>
             <CardContent sx={{ p: 2.5 }}>
               <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
-                <Avatar
-                  src={profile.avatarUrl || profile.customer?.customerImageUrl || undefined}
-                  sx={{ width: 64, height: 64, bgcolor: 'primary.light', color: 'primary.dark' }}
-                >
-                  {profile.displayName.slice(0, 2).toUpperCase()}
-                </Avatar>
+                <Box>
+                  <Typography variant="h6" fontWeight={800}>
+                    {profile.displayName}
+                  </Typography>
+                  <Typography color="text.secondary" variant="body2">
+                    /p/{profile.slug}
+                  </Typography>
+                </Box>
                 <IconButton
                   aria-label="Profile actions"
                   onClick={(event) => {
@@ -228,12 +272,6 @@ const ProfileLibraryPage = () => {
                   <MoreHorizRounded />
                 </IconButton>
               </Stack>
-              <Typography variant="h6" fontWeight={800} sx={{ mt: 2 }}>
-                {profile.displayName}
-              </Typography>
-              <Typography color="text.secondary" noWrap sx={{ minHeight: 24 }}>
-                {profile.headline || 'Add a short headline'}
-              </Typography>
               <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap" sx={{ mt: 2 }}>
                 <Chip
                   size="small"
@@ -274,7 +312,8 @@ const ProfileLibraryPage = () => {
               )}
             </CardActions>
           </Card>
-        ))}
+          );
+        })}
       </Box>
 
       {!filtered.length && (

@@ -13,6 +13,11 @@ export class NotificationController {
     try {
       const dto: CreateNotificationDto = req.body;
       const userId = req.user?.userId;
+      const roles = (req.user?.roles || []).map(role => role.toLowerCase());
+      if (!roles.some(role => role === 'admin' || role === 'superadmin')) {
+        res.status(403).json({ message: 'Admin permission is required' });
+        return;
+      }
 
       // If no actorUserId provided, use current user
       if (!dto.actorUserId && userId) {
@@ -76,7 +81,7 @@ export class NotificationController {
 
   /**
    * Mark a notification as read
-   * PUT /api/notifications/:notificationId/read
+   * PUT /api/notifications/:recipientId/read
    */
   async markAsRead(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
@@ -86,14 +91,50 @@ export class NotificationController {
         return;
       }
 
-      const notificationId = parseInt(req.params.notificationId);
-      const result = await this.notificationService.markAsRead(userId, notificationId);
+      const recipientId = parseInt(req.params.recipientId);
+      const result = await this.notificationService.markAsRead(userId, recipientId);
 
       if (!result) {
         res.status(404).json({ message: 'Notification not found' });
         return;
       }
 
+      res.status(200).json({ success: true, data: result });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async markAsSeen(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const userId = req.user?.userId;
+      if (!userId) {
+        res.status(401).json({ message: 'User not authenticated' });
+        return;
+      }
+      const result = await this.notificationService.markAsSeen(userId, parseInt(req.params.recipientId));
+      if (!result) {
+        res.status(404).json({ message: 'Notification not found' });
+        return;
+      }
+      res.status(200).json({ success: true, data: result });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async archiveNotification(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const userId = req.user?.userId;
+      if (!userId) {
+        res.status(401).json({ message: 'User not authenticated' });
+        return;
+      }
+      const result = await this.notificationService.archiveNotification(userId, parseInt(req.params.recipientId));
+      if (!result) {
+        res.status(404).json({ message: 'Notification not found' });
+        return;
+      }
       res.status(200).json({ success: true, data: result });
     } catch (error) {
       next(error);
@@ -121,7 +162,7 @@ export class NotificationController {
 
   /**
    * Delete a notification (soft delete)
-   * DELETE /api/notifications/:notificationId
+   * DELETE /api/notifications/:recipientId
    */
   async deleteNotification(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
@@ -131,8 +172,8 @@ export class NotificationController {
         return;
       }
 
-      const notificationId = parseInt(req.params.notificationId);
-      const result = await this.notificationService.deleteNotification(userId, notificationId);
+      const recipientId = parseInt(req.params.recipientId);
+      const result = await this.notificationService.deleteNotification(userId, recipientId);
 
       if (!result) {
         res.status(404).json({ message: 'Notification not found' });

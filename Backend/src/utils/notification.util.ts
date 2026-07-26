@@ -18,6 +18,7 @@ export enum NotificationType {
   COMMENT_REPLY = 'COMMENT_REPLY',
   TASK_LIKE = 'TASK_LIKE',
   COMMENT_REACTION = 'COMMENT_REACTION',
+  MENTION = 'MENTION',
   TASK_IMAGE_UPLOADED = 'TASK_IMAGE_UPLOADED',
 
   // Admin/System
@@ -85,7 +86,7 @@ export enum NotificationType {
       message: `${taskTitle} has a new comment`,
       actionUrl: taskUrl,
       recipientUserIds,
-      useQueue: true, // Aggregate comments
+      skipQueue: true,
     });
   }
 
@@ -110,7 +111,7 @@ export enum NotificationType {
       actionUrl: taskUrl,
       recipientUserIds,
       groupActorUserIds,
-      useQueue: true, // Aggregate likes
+      skipQueue: true,
     });
   }
 
@@ -134,7 +135,46 @@ export enum NotificationType {
       message: `Someone replied to your comment on "${taskTitle}"`,
       actionUrl: taskUrl,
       recipientUserIds,
-      useQueue: true, // Aggregate replies
+      skipQueue: true,
+    });
+  }
+
+  static async notifyCommentReaction(
+    taskTitle: string,
+    taskUrl: string,
+    actorUserId: number,
+    recipientUserIds: number[],
+    commentId: number
+  ): Promise<void> {
+    await this.createNotification({
+      notificationType: NotificationType.COMMENT_REACTION,
+      actorUserId,
+      entityType: 'comment',
+      entityId: String(commentId),
+      title: 'New reaction',
+      message: `Your comment on "${taskTitle}" received a reaction`,
+      actionUrl: taskUrl,
+      recipientUserIds,
+      skipQueue: true,
+    });
+  }
+
+  static async notifyMention(
+    taskTitle: string,
+    taskUrl: string,
+    actorUserId: number,
+    recipientUserIds: number[]
+  ): Promise<void> {
+    await this.createNotification({
+      notificationType: NotificationType.MENTION,
+      actorUserId,
+      entityType: 'task_comment',
+      entityId: taskUrl.split('/').pop() || '',
+      title: 'You were mentioned',
+      message: `You were mentioned in a comment on "${taskTitle}"`,
+      actionUrl: taskUrl,
+      recipientUserIds,
+      skipQueue: true,
     });
   }
 

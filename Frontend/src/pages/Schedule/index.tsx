@@ -658,6 +658,8 @@ const SchedulePage = () => {
             onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
             variant="outlined"
             sx={{
+              flex: 1,
+              minWidth: 0,
               '& .MuiInputBase-root': { fontSize: '0.9375rem', background: 'transparent' },
               '& .MuiOutlinedInput-root': {
                 border: 'none',

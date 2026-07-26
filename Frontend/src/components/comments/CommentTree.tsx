@@ -1,7 +1,7 @@
 import React from 'react';
-import { Box, Typography, IconButton, useTheme } from '@mui/material';
-import { CommentDataContext, CommentActionContext } from '../../contexts';
-import { Send as SendIcon } from '@mui/icons-material';
+import { Alert, Box, IconButton, Stack, TextField, Typography } from '@mui/material';
+import { Send } from '@mui/icons-material';
+import { CommentActionContext, CommentDataContext } from '../../contexts';
 import { useComments } from '../../hooks/useComments';
 import { flattenCommentTree } from '../../utils/flattenCommentTreeForVirtualization';
 import { useAppSelector } from '../../store/store';
@@ -14,303 +14,106 @@ interface CommentTreeProps {
   maxDepth?: number;
 }
 
-/**
- * Reddit-style comment tree container
- * Uses the new consolidated architecture
- */
-const CommentTreeComponent: React.FC<CommentTreeProps> = ({
-  taskId,
-  maxDepth = 2
-}) => {
-  const theme = useTheme();
+const CommentTreeComponent: React.FC<CommentTreeProps> = ({ taskId, maxDepth = 2 }) => {
   const commentData = useComments({ taskId, maxDepth });
   const currentUser = useAppSelector(selectCurrentUser);
   const {
     visibleTree,
     isLoading,
     error,
-    addComment,
     newCommentText,
     setNewCommentText,
-    collapsedThreads,
-    hiddenReplyCount,
-    refetch
+    handleAddComment,
   } = commentData;
-  
-  // Glass morphism presets
-  const glassOpacity = 0.7;
-  const finalOpacity = glassOpacity;
-  const finalBlur = 20;
-  const finalBorderOpacity = 0.3;
 
-  // Flatten the tree for rendering - ALWAYS call hooks before any conditional returns
-  const flatRows = React.useMemo(() => 
-    visibleTree ? flattenCommentTree(visibleTree.nodes) : [],
+  const flatRows = React.useMemo(
+    () => visibleTree ? flattenCommentTree(visibleTree.nodes) : [],
     [visibleTree]
   );
 
-  // Memoize context values - ALWAYS call hooks before any conditional returns
   const dataContextValue = React.useMemo(() => ({
     comments: commentData.comments,
     commentTree: commentData.commentTree,
     visibleTree,
     isLoading,
     error,
-    refetch,
-    collapsedThreads,
-    hiddenReplyCount
-  }), [commentData.comments, commentData.commentTree, visibleTree, isLoading, error, refetch, collapsedThreads, hiddenReplyCount]);
+    refetch: commentData.refetch,
+    collapsedThreads: commentData.collapsedThreads,
+    hiddenReplyCount: commentData.hiddenReplyCount,
+  }), [
+    commentData.comments,
+    commentData.commentTree,
+    visibleTree,
+    isLoading,
+    error,
+    commentData.refetch,
+    commentData.collapsedThreads,
+    commentData.hiddenReplyCount,
+  ]);
 
-  const handleAddComment = async () => {
-    if (newCommentText.trim()) {
-      await addComment(newCommentText);
-    }
+  const submit = () => {
+    if (newCommentText.trim()) void handleAddComment(newCommentText);
   };
-
-  if (isLoading) {
-    return (
-      <Box sx={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        p: 4,
-        background: theme.palette.mode === 'dark' 
-          ? `rgba(255, 255, 255, ${finalOpacity * 0.05})`
-          : `rgba(255, 255, 255, ${finalOpacity * 0.3})`,
-        backdropFilter: `blur(${finalBlur}px)`,
-        WebkitBackdropFilter: `blur(${finalBlur}px)`,
-        borderRadius: 2,
-        border: `1px solid ${theme.palette.mode === 'dark' 
-          ? `rgba(255, 255, 255, ${finalBorderOpacity * 0.1})` 
-          : `rgba(255, 255, 255, ${finalBorderOpacity * 0.3})`}`,
-      }}>
-        <Typography sx={{ color: theme.palette.mode === 'dark' ? '#fff' : 'rgba(0, 0, 0, 0.6)' }}>
-          Loading comments...
-        </Typography>
-      </Box>
-    );
-  }
-
-  if (error) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-        Error loading comments: {error instanceof Error ? error.message : 'Unknown error'}
-      </Box>
-    );
-  }
-
-  if (!visibleTree?.nodes.length) {
-    return (
-      <CommentDataContext.Provider value={dataContextValue}>
-        <CommentActionContext.Provider value={commentData}>
-          <Box>
-            <Box sx={{ textAlign: 'center', py: 4 }}>
-              <Typography variant="body2" color="text.secondary">
-                No comments yet. Be the first to comment!
-              </Typography>
-            </Box>
-            
-            {/* Glass Main Comment Input */}
-            <Box sx={{ 
-              mt: 3, 
-              pt: 2, 
-              borderTop: `1px solid ${theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'}`
-            }}>
-              <Typography 
-                variant="subtitle2" 
-                sx={{ 
-                  mb: 1.5, 
-                  fontWeight: 600,
-                  color: theme.palette.mode === 'dark' ? '#fff' : 'rgba(0, 0, 0, 0.8)',
-                  textShadow: theme.palette.mode === 'dark' 
-                    ? '0 1px 2px rgba(0, 0, 0, 0.3)' 
-                    : '0 1px 2px rgba(255, 255, 255, 0.5)',
-                }}
-              >
-                Add a comment
-              </Typography>
-              <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'flex-end' }}>
-                <SmartAvatar 
-                  user={currentUser}
-                  avatarVariant="glass"
-                  size={32}
-                />
-                <Box flex={1}>
-                  <input
-                    type="text"
-                    placeholder="Write a comment..."
-                    value={newCommentText}
-                    onChange={(e) => setNewCommentText(e.target.value)}
-                    onKeyPress={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        handleAddComment();
-                      }
-                    }}
-                    style={{
-                      width: '100%',
-                      padding: '12px 16px',
-                      border: `1px solid ${theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.2)'}`,
-                      borderRadius: '12px',
-                      backgroundColor: theme.palette.mode === 'dark' 
-                        ? `rgba(255, 255, 255, ${finalOpacity * 0.1})`
-                        : `rgba(255, 255, 255, ${finalOpacity * 0.8})`,
-                      backdropFilter: `blur(${finalBlur}px)`,
-                      WebkitBackdropFilter: `blur(${finalBlur}px)`,
-                      color: theme.palette.mode === 'dark' ? '#fff' : 'rgba(0, 0, 0, 0.8)',
-                      fontSize: '0.875rem',
-                      outline: 'none',
-                      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                      boxShadow: theme.palette.mode === 'dark'
-                        ? '0 2px 8px rgba(0, 0, 0, 0.2)'
-                        : '0 2px 8px rgba(31, 38, 135, 0.1)',
-                    }}
-                    onFocus={(e) => {
-                      e.target.style.borderColor = theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.4)' : 'rgba(0, 0, 0, 0.4)';
-                      e.target.style.transform = 'translateY(-1px)';
-                      e.target.style.boxShadow = theme.palette.mode === 'dark'
-                        ? '0 4px 16px rgba(0, 0, 0, 0.3)'
-                        : '0 4px 16px rgba(31, 38, 135, 0.2)';
-                    }}
-                    onBlur={(e) => {
-                      e.target.style.borderColor = theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.2)';
-                      e.target.style.transform = 'translateY(0)';
-                      e.target.style.boxShadow = theme.palette.mode === 'dark'
-                        ? '0 2px 8px rgba(0, 0, 0, 0.2)'
-                        : '0 2px 8px rgba(31, 38, 135, 0.1)';
-                    }}
-                  />
-                </Box>
-                <IconButton
-                  onClick={handleAddComment}
-                  disabled={!newCommentText.trim()}
-                  color="primary"
-                  sx={{ 
-                    width: 44, 
-                    height: 44,
-                    background: theme.palette.mode === 'dark'
-                      ? 'rgba(25, 118, 210, 0.2)'
-                      : 'rgba(25, 118, 210, 0.15)',
-                    backdropFilter: 'blur(8px)',
-                    WebkitBackdropFilter: 'blur(8px)',
-                    border: `1px solid ${theme.palette.mode === 'dark' 
-                      ? 'rgba(25, 118, 210, 0.3)' 
-                      : 'rgba(25, 118, 210, 0.4)'}`,
-                    borderRadius: '50%',
-                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                    '&:hover:not(:disabled)': {
-                      transform: 'scale(1.1)',
-                      background: theme.palette.mode === 'dark'
-                        ? 'rgba(25, 118, 210, 0.3)'
-                        : 'rgba(25, 118, 210, 0.25)',
-                      boxShadow: theme.palette.mode === 'dark'
-                        ? '0 4px 16px rgba(25, 118, 210, 0.4)'
-                        : '0 4px 16px rgba(25, 118, 210, 0.3)',
-                    },
-                    '&:disabled': {
-                      background: theme.palette.mode === 'dark'
-                        ? 'rgba(255, 255, 255, 0.05)'
-                        : 'rgba(0, 0, 0, 0.05)',
-                      border: `1px solid ${theme.palette.mode === 'dark' 
-                        ? 'rgba(255, 255, 255, 0.1)' 
-                        : 'rgba(0, 0, 0, 0.1)'}`,
-                      opacity: 0.5,
-                    }
-                  }}
-                >
-                  <SendIcon fontSize="small" />
-                </IconButton>
-              </Box>
-            </Box>
-          </Box>
-        </CommentActionContext.Provider>
-      </CommentDataContext.Provider>
-    );
-  }
 
   return (
     <CommentDataContext.Provider value={dataContextValue}>
       <CommentActionContext.Provider value={commentData}>
         <Box>
-          {/* Comment count header */}
-          <Box sx={{ mb: 2, pb: 1, borderBottom: '1px solid', borderColor: 'divider' }}>
-            <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600 }}>
-              {visibleTree.totalComments} {visibleTree.totalComments === 1 ? 'Comment' : 'Comments'}
+          <Stack direction="row" spacing={1.25} alignItems="flex-start">
+            <SmartAvatar user={currentUser} avatarVariant="glass" size={34} />
+            <TextField
+              value={newCommentText}
+              onChange={(event) => setNewCommentText(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' && !event.shiftKey) {
+                  event.preventDefault();
+                  submit();
+                }
+              }}
+              placeholder="Write a comment or mention @username…"
+              size="small"
+              multiline
+              maxRows={5}
+              fullWidth
+            />
+            <IconButton
+              color="primary"
+              aria-label="Send comment"
+              disabled={!newCommentText.trim()}
+              onClick={submit}
+            >
+              <Send />
+            </IconButton>
+          </Stack>
+
+          <Box sx={{ mt: 2.5, pb: 1, borderBottom: '1px solid', borderColor: 'divider' }}>
+            <Typography variant="subtitle1" fontWeight={750}>
+              {visibleTree?.totalComments || 0} {(visibleTree?.totalComments || 0) === 1 ? 'comment' : 'comments'}
             </Typography>
           </Box>
 
-          {/* Render flattened comments using YouTubeThreadedRow */}
-          {flatRows.map((row) => (
+          {isLoading && (
+            <Typography color="text.secondary" sx={{ py: 3, textAlign: 'center' }}>
+              Loading comments…
+            </Typography>
+          )}
+          {error && (
+            <Alert severity="error" sx={{ mt: 2 }}>
+              Unable to load comments. Please try again.
+            </Alert>
+          )}
+          {!isLoading && !error && flatRows.length === 0 && (
+            <Typography color="text.secondary" sx={{ py: 3, textAlign: 'center' }}>
+              No comments yet. Start the conversation.
+            </Typography>
+          )}
+          {!isLoading && !error && flatRows.map(row => (
             <YouTubeThreadedRow key={row.comment.comment.commentId} row={row} />
           ))}
-        
-        {/* Main Comment Input */}
-        <Box sx={{ mt: 3, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
-          <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 500 }}>
-            Add a comment
-          </Typography>
-          <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'flex-end' }}>
-            <SmartAvatar 
-              user={currentUser}
-              avatarVariant="glass"
-              size={32}
-            />
-            <Box flex={1}>
-              <input
-                type="text"
-                placeholder="Write a comment..."
-                value={newCommentText}
-                onChange={(e) => setNewCommentText(e.target.value)}
-                onKeyPress={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    handleAddComment();
-                  }
-                }}
-                style={{
-                  width: '100%',
-                  padding: '10px 14px',
-                  border: '1px solid rgba(0, 0, 0, 0.2)',
-                  borderRadius: '8px',
-                  backgroundColor: 'rgba(255, 255, 255, 0.9)',
-                  color: 'rgba(0, 0, 0, 0.8)',
-                  fontSize: '0.875rem',
-                  outline: 'none',
-                  transition: 'border-color 0.2s ease',
-                }}
-                onFocus={(e) => {
-                  e.target.style.borderColor = 'rgba(0, 0, 0, 0.4)';
-                }}
-                onBlur={(e) => {
-                  e.target.style.borderColor = 'rgba(0, 0, 0, 0.2)';
-                }}
-              />
-            </Box>
-            <IconButton
-              onClick={handleAddComment}
-              disabled={!newCommentText.trim()}
-              color="primary"
-              sx={{ 
-                width: 40, 
-                height: 40,
-                backgroundColor: 'rgba(25, 118, 210, 0.05)',
-                '&:hover': {
-                  backgroundColor: 'rgba(25, 118, 210, 0.1)',
-                },
-                '&:disabled': {
-                  backgroundColor: 'transparent',
-                }
-              }}
-            >
-              <SendIcon fontSize="small" />
-            </IconButton>
-          </Box>
         </Box>
-      </Box>
-    </CommentActionContext.Provider>
-  </CommentDataContext.Provider>
+      </CommentActionContext.Provider>
+    </CommentDataContext.Provider>
   );
 };
 
-CommentTreeComponent.displayName = 'CommentTree';
-
-export default CommentTreeComponent;
+export default React.memo(CommentTreeComponent);

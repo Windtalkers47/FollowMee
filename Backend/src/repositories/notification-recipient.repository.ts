@@ -33,6 +33,13 @@ export class NotificationRecipientRepository extends BaseRepository<Notification
     });
   }
 
+  async findOwnedRecipient(userId: number, recipientId: number): Promise<NotificationRecipient | null> {
+    return this.repository.findOne({
+      where: { userId, recipientId },
+      relations: ['notification', 'notification.actorUser'],
+    });
+  }
+
   async markAsRead(recipientId: number): Promise<NotificationRecipient | null> {
     const recipient = await this.repository.findOne({ where: { recipientId } });
     if (!recipient) return null;

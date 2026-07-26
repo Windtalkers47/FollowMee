@@ -6,6 +6,7 @@ import { CreateTaskLikeDto, UpdateTaskLikeDto } from '../dtos/task-like.dto';
 import { TaskLikeResponseDto, TaskLikeSummaryDto } from '../dtos/task-like.dto';
 import { NotificationHelper } from '../utils/notification.util';
 import AppDataSource from '../config/database';
+import { webSocketService } from './websocket.service';
 
 export class TaskLikeService {
   private taskLikeRepository: Repository<TaskLike>;
@@ -47,7 +48,7 @@ export class TaskLikeService {
         ...savedLike,
         user
       };
-      
+      webSocketService.emitDomainEvent('reaction:updated', { taskId, actorUserId: userId });
       return this.mapToResponseDto(likeWithUser as any);
     } else {
       // Create new like
@@ -60,7 +61,7 @@ export class TaskLikeService {
 
       // Send notification to task creator if liker is not the creator
       if (task.createdBy !== userId) {
-        NotificationHelper.notifyTaskLike(
+        await NotificationHelper.notifyTaskLike(
           task.title,
           `/posts/${taskId}`,
           userId,
@@ -79,6 +80,7 @@ export class TaskLikeService {
         user
       };
 
+      webSocketService.emitDomainEvent('reaction:updated', { taskId, actorUserId: userId });
       return this.mapToResponseDto(likeWithUser as any);
     }
   }
@@ -93,6 +95,7 @@ export class TaskLikeService {
     }
 
     await this.taskLikeRepository.delete(like.likeId as any);
+    webSocketService.emitDomainEvent('reaction:updated', { taskId, actorUserId: userId });
   }
 
   async getTaskLikes(taskId: string): Promise<TaskLikeResponseDto[]> {

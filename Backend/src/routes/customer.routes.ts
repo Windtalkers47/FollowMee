@@ -37,6 +37,9 @@ router.get('/status-stats', (req, res) =>
   customerController.getCustomerStatusStats(req, res)
 );
 
+router.patch('/bulk/status', (req, res) => customerController.bulkUpdateStatus(req, res));
+router.post('/bulk/delete', (req, res) => customerController.bulkDelete(req, res));
+
 router.get('/:id', (req, res) =>
   customerController.getCustomerById(req, res)
 );

@@ -25,7 +25,9 @@ import {
   FormControl,
   InputLabel,
   Select,
-  MenuItem
+  MenuItem,
+  TextField,
+  Alert
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import {
@@ -44,28 +46,11 @@ import Swal from 'sweetalert2';
 // Styled components
 const StyledCard = styled(Card)(({ theme }) => ({
   borderRadius: 12,
-  background: 'rgba(255, 255, 255, 0.1)',
-  backdropFilter: 'blur(25px) saturate(200%)',
-  WebkitBackdropFilter: 'blur(25px) saturate(200%)',
-  border: '1px solid rgba(255, 255, 255, 0.2)',
-  boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.37), inset 0 1px 0 0 rgba(255, 255, 255, 0.1)',
+  background: theme.palette.background.paper,
+  border: `1px solid ${theme.palette.divider}`,
+  boxShadow: 'none',
   position: 'relative',
   overflow: 'hidden',
-  transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-  '&::before': {
-    content: '""',
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: '1px',
-    background: 'linear-gradient(90deg, transparent, rgba(100, 181, 246, 0.6), transparent)',
-    opacity: 0.7,
-  },
-  '&:hover': {
-    transform: 'translateY(-2px) scale(1.02)',
-    boxShadow: '0 12px 40px 0 rgba(31, 38, 135, 0.45), inset 0 1px 0 0 rgba(255, 255, 255, 0.15)',
-  },
 }));
 
 const getRoleIcon = (role: string) => {
@@ -104,8 +89,22 @@ const UsersPage = () => {
     fetchUsers,
     assignRoleToUser,
     removeRoleFromUser,
+    createUser,
     deleteUser
   } = useUsersManagement();
+
+  const emptyNewUser = {
+    userName: '',
+    userLastName: '',
+    userEmail: '',
+    userPassword: '',
+    userPhone1: '',
+    roleId: 0
+  };
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [newUser, setNewUser] = useState(emptyNewUser);
+  const [creatingUser, setCreatingUser] = useState(false);
+  const [createError, setCreateError] = useState('');
 
   // Calculate role counts
   const getRoleCounts = () => {
@@ -161,6 +160,30 @@ const UsersPage = () => {
       availableRoles: []
     });
   }, []);
+
+  const handleCreateUser = async () => {
+    if (!newUser.userName.trim() || !newUser.userLastName.trim() ||
+        !newUser.userEmail.trim() || newUser.userPassword.length < 8 || !newUser.roleId) {
+      setCreateError('Complete all required fields and use a password of at least 8 characters.');
+      return;
+    }
+    setCreatingUser(true);
+    setCreateError('');
+    const ok = await createUser({
+      userName: newUser.userName.trim(),
+      userLastName: newUser.userLastName.trim(),
+      userEmail: newUser.userEmail.trim(),
+      userPassword: newUser.userPassword,
+      userPhone1: newUser.userPhone1.trim() || undefined
+    }, newUser.roleId);
+    setCreatingUser(false);
+    if (ok) {
+      setCreateDialogOpen(false);
+      setNewUser(emptyNewUser);
+    } else {
+      setCreateError('The user could not be created. Check the email and try again.');
+    }
+  };
 
   const handleAssignRoleConfirm = useCallback(async () => {
     if (!assignRoleDialog.user || !assignRoleDialog.selectedRole) return;
@@ -288,18 +311,48 @@ const UsersPage = () => {
       <Typography variant="h4" gutterBottom fontWeight={600}>
         User Management
       </Typography>
+      <Typography color="text.secondary" sx={{ mb: 2 }}>
+        Roles define what each person can view or change. Super Admin is limited to one account.
+      </Typography>
 
-      <Box mb={3}>
+      {roles.length > 0 && (
         <Button
           variant="contained"
           startIcon={<PersonAddIcon />}
-          sx={{ mr: 2 }}
+          onClick={() => {
+            setCreateError('');
+            setNewUser({ ...emptyNewUser, roleId: roles.find((role) => role.roleName === 'Customer')?.roleId || 0 });
+            setCreateDialogOpen(true);
+          }}
+          sx={{ mb: 3 }}
         >
-          Add User
+          Add user
         </Button>
+      )}
+
+      <Box sx={{ display: { xs: 'grid', md: 'none' }, gap: 1.5, mb: 2 }}>
+        {users?.map((user) => (
+          <Paper key={user.userId} variant="outlined" sx={{ p: 2, borderRadius: 3 }}>
+            <Box display="flex" alignItems="flex-start" gap={1.5}>
+              <Avatar src={user.userImageUrl || undefined}>{user.userName.charAt(0)}</Avatar>
+              <Box flex={1} minWidth={0}>
+                <Typography fontWeight={700}>{user.userName} {user.userLastName}</Typography>
+                <Typography variant="body2" color="text.secondary" noWrap>{user.userEmail}</Typography>
+                <Box display="flex" gap={0.75} flexWrap="wrap" sx={{ mt: 1.5 }}>
+                  {user.roles?.map((role) => <Chip key={role} label={role.replace('_', ' ')} size="small" variant="outlined" />)}
+                  <Chip label={user.isActive ? 'Active' : 'Inactive'} size="small" color={user.isActive ? 'success' : 'default'} variant="outlined" />
+                </Box>
+              </Box>
+              <Box>
+                <IconButton size="small" aria-label="Manage roles" onClick={() => handleAssignRoleOpen(user)}><EditIcon fontSize="small" /></IconButton>
+                <IconButton size="small" aria-label="Delete user" color="error" onClick={() => handleDeleteUser(user)}><DeleteIcon fontSize="small" /></IconButton>
+              </Box>
+            </Box>
+          </Paper>
+        ))}
       </Box>
 
-      <StyledCard>
+      <StyledCard sx={{ display: { xs: 'none', md: 'block' } }}>
         <CardContent sx={{ p: 0 }}>
           <TableContainer>
             <Table>
@@ -403,24 +456,43 @@ const UsersPage = () => {
         </CardContent>
       </StyledCard>
 
+      <Dialog open={createDialogOpen} onClose={() => !creatingUser && setCreateDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Add a team member</DialogTitle>
+        <DialogContent>
+          <Typography color="text.secondary" sx={{ mb: 2 }}>
+            Create a managed account and share the temporary password securely with the user.
+          </Typography>
+          {createError && <Alert severity="error" sx={{ mb: 2 }}>{createError}</Alert>}
+          <Box component="form" autoComplete="off" sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
+            <TextField required autoComplete="off" label="First name" value={newUser.userName} onChange={(e) => setNewUser((value) => ({ ...value, userName: e.target.value }))} />
+            <TextField required autoComplete="off" label="Last name" value={newUser.userLastName} onChange={(e) => setNewUser((value) => ({ ...value, userLastName: e.target.value }))} />
+            <TextField required type="email" autoComplete="off" label="Email" value={newUser.userEmail} onChange={(e) => setNewUser((value) => ({ ...value, userEmail: e.target.value }))} sx={{ gridColumn: { sm: '1 / -1' } }} />
+            <TextField required type="password" autoComplete="new-password" label="Temporary password" helperText="At least 8 characters" value={newUser.userPassword} onChange={(e) => setNewUser((value) => ({ ...value, userPassword: e.target.value }))} />
+            <TextField autoComplete="off" label="Phone (optional)" value={newUser.userPhone1} onChange={(e) => setNewUser((value) => ({ ...value, userPhone1: e.target.value }))} />
+            <FormControl required sx={{ gridColumn: { sm: '1 / -1' } }}>
+              <InputLabel>Role</InputLabel>
+              <Select label="Role" value={newUser.roleId || ''} onChange={(e) => setNewUser((value) => ({ ...value, roleId: Number(e.target.value) }))}>
+                {roles.filter((role) => role.roleName !== 'Superadmin').map((role) => (
+                  <MenuItem key={role.roleId} value={role.roleId}>{role.roleName}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button color="inherit" onClick={() => setCreateDialogOpen(false)} disabled={creatingUser}>Cancel</Button>
+          <Button variant="contained" onClick={handleCreateUser} disabled={creatingUser}>
+            {creatingUser ? 'Creating…' : 'Create user'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       {/* Assign Role Dialog */}
       <Dialog
         open={assignRoleDialog.open}
         onClose={handleAssignRoleClose}
         maxWidth="sm"
         fullWidth
-        PaperProps={{
-          sx: {
-            background: theme.palette.mode === 'dark' 
-              ? 'rgba(255, 255, 255, 0.1)' 
-              : 'rgba(255, 255, 255, 0.95)',
-            backdropFilter: 'blur(25px) saturate(200%)',
-            WebkitBackdropFilter: 'blur(25px) saturate(200%)',
-            border: '1px solid rgba(255, 255, 255, 0.2)',
-            boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.37), inset 0 1px 0 0 rgba(255, 255, 255, 0.1)',
-            borderRadius: 4,
-          }
-        }}
       >
         <DialogTitle>
           Manage Roles - {assignRoleDialog.user?.userName} {assignRoleDialog.user?.userLastName}
@@ -443,7 +515,7 @@ const UsersPage = () => {
                       <AdminIcon fontSize="small" />
                       <Box>
                         <Typography variant="body2" sx={{ 
-                          color: '#F44336',
+                          color: 'text.primary',
                           fontWeight: 'bold',
                           textShadow: theme.palette.mode === 'dark' ? '0 1px 2px rgba(0,0,0,0.3)' : 'none'
                         }}>
@@ -455,7 +527,7 @@ const UsersPage = () => {
                           )}
                         </Typography>
                         <Typography variant="caption" color="text.secondary" display="block">
-                          🔥 Complete system control. Only one allowed.
+                          Complete system control. Only one allowed.
                         </Typography>
                       </Box>
                     </Box>
@@ -473,12 +545,12 @@ const UsersPage = () => {
                       <SupervisorIcon fontSize="small" />
                       <Box>
                         <Typography variant="body2" sx={{ 
-                          color: '#2196F3',
+                          color: 'text.primary',
                           fontWeight: 'bold',
                           textShadow: theme.palette.mode === 'dark' ? '0 1px 2px rgba(0,0,0,0.3)' : 'none'
                         }}>Admin</Typography>
                         <Typography variant="caption" color="text.secondary" display="block">
-                          ⚙️ Can manage users, customers, tasks, and system settings.
+                          Can manage users, customers, tasks, and system settings.
                         </Typography>
                       </Box>
                     </Box>
@@ -496,12 +568,12 @@ const UsersPage = () => {
                       <PersonAddIcon fontSize="small" />
                       <Box>
                         <Typography variant="body2" sx={{ 
-                          color: '#FF9800',
+                          color: 'text.primary',
                           fontWeight: 'bold',
                           textShadow: theme.palette.mode === 'dark' ? '0 1px 2px rgba(0,0,0,0.3)' : 'none'
                         }}>Moderator</Typography>
                         <Typography variant="caption" color="text.secondary" display="block">
-                          🛡️ Can view and moderate users, customers, and tasks.
+                          Can view and moderate users, customers, and tasks.
                         </Typography>
                       </Box>
                     </Box>
@@ -519,12 +591,12 @@ const UsersPage = () => {
                       <PersonIcon fontSize="small" />
                       <Box>
                         <Typography variant="body2" sx={{ 
-                          color: '#4CAF50',
+                          color: 'text.primary',
                           fontWeight: 'bold',
                           textShadow: theme.palette.mode === 'dark' ? '0 1px 2px rgba(0,0,0,0.3)' : 'none'
                         }}>Customer</Typography>
                         <Typography variant="caption" color="text.secondary" display="block">
-                          👤 Regular user access with basic features.
+                          Regular user access with basic features.
                         </Typography>
                       </Box>
                     </Box>

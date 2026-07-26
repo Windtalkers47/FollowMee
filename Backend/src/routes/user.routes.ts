@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { UserController } from '../controllers/user.controller';
 import { UserService } from '../services/user.service';
 import { authenticateToken } from '../middleware/auth.middleware';
+import { checkPermission } from '../middleware/permission.middleware';
 
 const router = Router();
 
@@ -13,25 +14,25 @@ const userController = new UserController(userService);
 router.use(authenticateToken);
 
 // Get all users
-router.get('/', (req, res, next) => userController.getAllUsers(req, res, next));
+router.get('/', checkPermission('VIEW_USERS'), (req, res, next) => userController.getAllUsers(req, res, next));
 
 // Get current user's profile
 router.get('/me', (req, res, next) => userController.getProfile(req, res, next));
 
 // Get user by ID
-router.get('/:userId', (req, res, next) => userController.getUserById(req, res, next));
+router.get('/:userId', checkPermission('VIEW_USERS'), (req, res, next) => userController.getUserById(req, res, next));
 
 // Create new user (admin only)
-router.post('/', (req, res, next) => userController.createUser(req, res, next));
+router.post('/', checkPermission('CREATE_USERS'), (req, res, next) => userController.createUser(req, res, next));
 
 // Update current user's profile
 router.put('/me', (req, res, next) => userController.updateProfile(req, res, next));
 
 // Update user by ID (admin only)
-router.put('/:userId', (req, res, next) => userController.updateUser(req, res, next));
+router.put('/:userId', checkPermission('UPDATE_USERS'), (req, res, next) => userController.updateUser(req, res, next));
 
 // Delete user (admin only)
-router.delete('/:userId', (req, res, next) => userController.deleteUser(req, res, next));
+router.delete('/:userId', checkPermission('DELETE_USERS'), (req, res, next) => userController.deleteUser(req, res, next));
 
 // Change password
 router.post('/change-password', (req, res, next) => userController.changePassword(req, res, next));

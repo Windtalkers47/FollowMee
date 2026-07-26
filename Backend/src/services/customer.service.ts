@@ -5,6 +5,8 @@ import { CustomerRepository } from '../repositories/customer.repository';
 import { CustomerResponseDto } from '../dtos/customer-response.dto';
 import { StatusCountsResponse } from '../types/status.types';
 import { CloudinaryUtil } from '../utils/cloudinary.util';
+import dataSource from '../config/database';
+import { In } from 'typeorm';
 
 export class CustomerService {
   private customerRepository: CustomerRepository;
@@ -89,17 +91,14 @@ export class CustomerService {
         'customerId',
         'customerName',
         'customerLastName',
-        'customerEmail',
-        'customerPhone1',
-        'customerPhone2',
+        'customerImageUrl',
         'customerFacebook',
         'customerInstagram',
         'customerTikTok',
         'customerLine',
         'customerX',
-        'customerAddress',
-        'createdAt',
-        'updatedAt',
+        'status',
+        'isActive',
       ],
     });
 
@@ -111,17 +110,14 @@ export class CustomerService {
       customerId: customer.customerId,
       customerName: customer.customerName,
       customerLastName: customer.customerLastName,
-      customerEmail: customer.customerEmail,
-      customerPhone1: customer.customerPhone1,
-      customerPhone2: customer.customerPhone2,
+      customerImageUrl: customer.customerImageUrl,
       customerFacebook: customer.customerFacebook,
       customerInstagram: customer.customerInstagram,
       customerTikTok: customer.customerTikTok,
       customerLine: customer.customerLine,
       customerX: customer.customerX,
-      customerAddress: customer.customerAddress,
-      createdAt: customer.createdAt,
-      updatedAt: customer.updatedAt,
+      status: customer.status,
+      isActive: customer.isActive,
     };
   }
 
@@ -160,6 +156,26 @@ export class CustomerService {
     // Soft delete by marking as inactive
     customer.isActive = false;
     await this.customerRepository.save(customer);
+  }
+
+  async bulkUpdateStatus(customerIds: string[], status: 'active' | 'inactive') {
+    const ids = [...new Set(customerIds)].filter(Boolean).slice(0, 500);
+    if (!ids.length) throw new Error('At least one customer is required');
+    const result = await dataSource.getRepository(Customer).update(
+      { customerId: In(ids) },
+      { status, isActive: status === 'active' }
+    );
+    return { requested: ids.length, updated: result.affected || 0 };
+  }
+
+  async bulkDelete(customerIds: string[]) {
+    const ids = [...new Set(customerIds)].filter(Boolean).slice(0, 500);
+    if (!ids.length) throw new Error('At least one customer is required');
+    const result = await dataSource.getRepository(Customer).update(
+      { customerId: In(ids) },
+      { isActive: false }
+    );
+    return { requested: ids.length, updated: result.affected || 0 };
   }
 
   async getCustomerWithProfile(id: string): Promise<CustomerResponseDto | null> {

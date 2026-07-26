@@ -49,7 +49,7 @@ export const StatCard: React.FC<StatCardProps> = ({
             color="text.secondary"
             gutterBottom
             sx={{
-              color: isDarkMode ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.6)',
+              color: 'text.secondary',
               fontWeight: 500,
             }}
           >
@@ -60,7 +60,7 @@ export const StatCard: React.FC<StatCardProps> = ({
             component="div"
             sx={{
               fontWeight: 700,
-              color: isDarkMode ? '#fff' : '#1a1a1a',
+              color: 'text.primary',
             }}
           >
             {value}
@@ -107,7 +107,7 @@ export const StatCard: React.FC<StatCardProps> = ({
             <Typography
               variant="body2"
               sx={{
-                color: isDarkMode ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)',
+                color: 'text.secondary',
                 fontSize: '0.8rem',
                 lineHeight: 1.4,
               }}

@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { alpha, createTheme, ThemeProvider as MuiThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { useLiquidGlass } from './LiquidGlassContext';
-import { brandColors } from '../styles/designTokens';
+import { brandColors, layoutTokens, radii, shadows } from '../styles/designTokens';
 
 type ThemeMode = 'light' | 'dark';
 
@@ -24,6 +24,10 @@ export const CustomThemeProvider = ({ children }: { children: ReactNode }) => {
     localStorage.getItem('theme') === 'dark' ? 'dark' : 'light'
   );
   const { isLiquidGlassEnabled, liquidGlassSettings } = useLiquidGlass();
+
+  useEffect(() => {
+    localStorage.setItem('theme', mode);
+  }, [mode]);
 
   const colorMode = useMemo(
     () => ({
@@ -98,9 +102,7 @@ export const CustomThemeProvider = ({ children }: { children: ReactNode }) => {
               minHeight: '100%',
               margin: 0,
               backgroundColor: isDark ? '#0D1110' : '#F4F8F5',
-              backgroundImage: isDark
-                ? 'radial-gradient(circle at 12% 0%, rgba(48,209,88,.08), transparent 30%), radial-gradient(circle at 92% 18%, rgba(125,122,255,.08), transparent 26%)'
-                : 'radial-gradient(circle at 12% 0%, rgba(52,199,89,.10), transparent 30%), radial-gradient(circle at 92% 18%, rgba(94,92,230,.08), transparent 26%)',
+              backgroundImage: 'none',
               backgroundAttachment: 'fixed',
             },
             '*': { boxSizing: 'border-box' },
@@ -135,24 +137,24 @@ export const CustomThemeProvider = ({ children }: { children: ReactNode }) => {
         MuiPaper: {
           styleOverrides: {
             root: { backgroundImage: 'none' },
-            rounded: { borderRadius: 18 },
+            rounded: { borderRadius: radii.card },
           },
         },
         MuiCard: {
           styleOverrides: {
             root: {
               border: `1px solid ${border}`,
-              borderRadius: 20,
+              borderRadius: radii.card,
               boxShadow: isDark
-                ? '0 16px 40px rgba(0,0,0,.18)'
-                : '0 14px 34px rgba(35,65,45,.07)',
+                ? shadows.cardDark
+                : shadows.cardLight,
             },
           },
         },
         MuiButton: {
           defaultProps: { disableElevation: true },
           styleOverrides: {
-            root: { minHeight: 42, borderRadius: 12, paddingInline: 18 },
+            root: { minHeight: layoutTokens.controlHeight, borderRadius: radii.control, paddingInline: 18 },
             containedPrimary: {
               color: '#07120A',
               backgroundColor: primary,
@@ -167,7 +169,7 @@ export const CustomThemeProvider = ({ children }: { children: ReactNode }) => {
         MuiIconButton: {
           styleOverrides: {
             root: {
-              borderRadius: 12,
+              borderRadius: radii.control,
               '&:hover': { backgroundColor: alpha(primary, 0.1) },
             },
           },
@@ -190,12 +192,11 @@ export const CustomThemeProvider = ({ children }: { children: ReactNode }) => {
           styleOverrides: {
             paper: {
               border: `1px solid ${border}`,
-              background: isDark ? alpha('#171C1A', 0.94) : alpha('#FFFFFF', 0.94),
-              backdropFilter: 'blur(24px) saturate(140%)',
-              WebkitBackdropFilter: 'blur(24px) saturate(140%)',
+              borderRadius: radii.modal,
+              background: isDark ? '#171C1A' : '#FFFFFF',
               boxShadow: isDark
-                ? '0 30px 80px rgba(0,0,0,.45)'
-                : '0 30px 80px rgba(27,65,38,.16)',
+                ? shadows.floatingDark
+                : shadows.floatingLight,
             },
           },
         },
@@ -205,7 +206,7 @@ export const CustomThemeProvider = ({ children }: { children: ReactNode }) => {
         MuiOutlinedInput: {
           styleOverrides: {
             root: {
-              borderRadius: 12,
+              borderRadius: radii.control,
               backgroundColor: isDark ? alpha('#FFFFFF', 0.035) : alpha('#17211A', 0.025),
               '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
                 borderWidth: 2,
@@ -215,7 +216,16 @@ export const CustomThemeProvider = ({ children }: { children: ReactNode }) => {
           },
         },
         MuiChip: {
-          styleOverrides: { root: { borderRadius: 10, fontWeight: 600 } },
+          styleOverrides: { root: { borderRadius: radii.control, fontWeight: 650 } },
+        },
+        MuiTableCell: {
+          styleOverrides: {
+            head: { color: isDark ? '#C7D1CA' : '#435249', fontWeight: 700, backgroundColor: isDark ? '#1C2320' : '#F7FAF8' },
+            root: { borderColor: border },
+          },
+        },
+        MuiAlert: {
+          styleOverrides: { root: { borderRadius: radii.control, boxShadow: 'none' } },
         },
         MuiTooltip: {
           styleOverrides: {

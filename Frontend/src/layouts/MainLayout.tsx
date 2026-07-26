@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../store/store';
 import { ThemeToggle } from '../components/ThemeToggle';
@@ -71,13 +71,13 @@ interface MainLayoutProps {
 }
 
 const menuItems = [
-  { text: 'Dashboard', icon: <Dashboard />, path: '/dashboard', exact: true },
-  { text: 'Posts', icon: <PostAdd />, path: '/posts', exact: true },
-  { text: 'Schedule', icon: <Schedule />, path: '/schedule', exact: true },
-  { text: 'Customer', icon: <Group />, path: '/customer', exact: true },
-  { text: 'User Management', icon: <PeopleAlt />, path: '/users', exact: true },
-  { text: 'Profiles', icon: <AccountCircle />, path: '/customer-profile', exact: false },
-  { text: 'Analytics', icon: <Analytics />, path: '/notification-analytics', exact: true },
+  { text: 'Dashboard', icon: <Dashboard />, path: '/dashboard', exact: true, group: 'Workspace' },
+  { text: 'Tasks & Schedule', icon: <Schedule />, path: '/schedule', exact: true, group: 'Workspace' },
+  { text: 'Customers', icon: <Group />, path: '/customer', exact: true, group: 'Workspace' },
+  { text: 'Profile Cards', icon: <AccountCircle />, path: '/customer-profile', exact: false, group: 'Workspace' },
+  { text: 'Analytics', icon: <Analytics />, path: '/notification-analytics', exact: true, group: 'Insights' },
+  { text: 'Completed Work', icon: <PostAdd />, path: '/posts', exact: true, group: 'Insights' },
+  { text: 'User Management', icon: <PeopleAlt />, path: '/users', exact: true, group: 'Administration' },
 ];
 
 const MainLayout = ({ children }: MainLayoutProps) => {
@@ -90,11 +90,12 @@ const MainLayout = ({ children }: MainLayoutProps) => {
   // Get current user to check role
   const currentUser = useAppSelector((state) => state.auth.user);
   const isSuperAdmin = currentUser?.roles?.includes('Superadmin') || false;
+  const canManageUsers = isSuperAdmin || currentUser?.roles?.includes('Admin') || false;
 
   // Filter menu items based on user role
   const filteredMenuItems = menuItems.filter((item) => {
-    // Hide User Management for non-super-admin users
-    if (item.path === '/users' && !isSuperAdmin) {
+    // Admins can manage users; only Superadmin can manage privileged roles.
+    if (item.path === '/users' && !canManageUsers) {
       return false;
     }
     return true;
@@ -413,46 +414,53 @@ const MainLayout = ({ children }: MainLayoutProps) => {
 
       {/* Menu */}
       <List sx={{ px: 1, pt: 1 }}>
-        {filteredMenuItems.map(item => {
+        {filteredMenuItems.map((item, index) => {
           const active = item.exact 
             ? location.pathname === item.path
             : location.pathname.startsWith(item.path);
 
           return (
-            <ListItem key={item.text} disablePadding>
-              <ListItemButton
-                selected={active}
-                onClick={() => {
-                  navigate(item.path);
-                  if (isMobile) setMobileOpen(false);
-                }}
-                sx={{
-                  my: 0.5,
-                  justifyContent: showDrawerLabels ? 'flex-start' : 'center',
-                  '&.Mui-selected .MuiListItemIcon-root': { color: 'primary.main' },
-                }}
-              >
-                <ListItemIcon
+            <React.Fragment key={item.text}>
+              {showDrawerLabels && (index === 0 || item.group !== filteredMenuItems[index - 1].group) && (
+                <Typography variant="overline" color="text.secondary" sx={{ display: 'block', px: 2, pt: index === 0 ? 1 : 2, pb: 0.25, letterSpacing: '.08em' }}>
+                  {item.group}
+                </Typography>
+              )}
+              <ListItem disablePadding>
+                <ListItemButton
+                  selected={active}
+                  onClick={() => {
+                    navigate(item.path);
+                    if (isMobile) setMobileOpen(false);
+                  }}
                   sx={{
-                    minWidth: 0,
-                    mr: showDrawerLabels ? 1.5 : 0,
-                    color: active ? 'primary.main' : 'text.secondary',
-                    justifyContent: 'center',
+                    my: 0.5,
+                    justifyContent: showDrawerLabels ? 'flex-start' : 'center',
+                    '&.Mui-selected .MuiListItemIcon-root': { color: 'primary.main' },
                   }}
                 >
-                  {item.icon}
-                </ListItemIcon>
-
-                {showDrawerLabels && (
-                  <ListItemText
-                    primary={item.text}
-                    primaryTypographyProps={{
-                      fontWeight: active ? 600 : 500,
+                  <ListItemIcon
+                    sx={{
+                      minWidth: 0,
+                      mr: showDrawerLabels ? 1.5 : 0,
+                      color: active ? 'primary.main' : 'text.secondary',
+                      justifyContent: 'center',
                     }}
-                  />
-                )}
-              </ListItemButton>
-            </ListItem>
+                  >
+                    {item.icon}
+                  </ListItemIcon>
+
+                  {showDrawerLabels && (
+                    <ListItemText
+                      primary={item.text}
+                      primaryTypographyProps={{
+                        fontWeight: active ? 600 : 500,
+                      }}
+                    />
+                  )}
+                </ListItemButton>
+              </ListItem>
+            </React.Fragment>
           );
         })}
       </List>
@@ -644,7 +652,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
       <BottomNavigation
         showLabels
         value={
-          ['/dashboard', '/posts', '/schedule', '/customer'].find((path) =>
+          ['/dashboard', '/schedule', '/customer', '/customer-profile'].find((path) =>
             location.pathname.startsWith(path)
           ) || false
         }
@@ -674,9 +682,9 @@ const MainLayout = ({ children }: MainLayoutProps) => {
         }}
       >
         <BottomNavigationAction label="Home" value="/dashboard" icon={<Dashboard />} />
-        <BottomNavigationAction label="Posts" value="/posts" icon={<PostAdd />} />
-        <BottomNavigationAction label="Schedule" value="/schedule" icon={<Schedule />} />
+        <BottomNavigationAction label="Tasks" value="/schedule" icon={<Schedule />} />
         <BottomNavigationAction label="Customers" value="/customer" icon={<Group />} />
+        <BottomNavigationAction label="Profiles" value="/customer-profile" icon={<AccountCircle />} />
       </BottomNavigation>
 
       <ProductTour userKey={currentUser?.userId || currentUser?.userEmail || 'guest'} />

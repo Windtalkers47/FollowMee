@@ -16,6 +16,7 @@
     "db:migrate": "ts-node scripts/migrate-db.ts",
     "db:migrate:export": "ts-node scripts/migrate-db.ts export",
     "db:migrate:import": "ts-node scripts/migrate-db.ts import",
+    "db:schema:verify": "node scripts/verify-clean-schema.cjs",
     "prod": "npm run build && npm run start"
   },
   "keywords": [],

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { userApi } from '../api/user.api';
+import { userApi, CreateUserPayload } from '../api/user.api';
 
 export interface User {
   userId: number;
@@ -190,6 +190,22 @@ export const useUsersManagement = () => {
     }
   };
 
+  const createUser = async (payload: CreateUserPayload, roleId: number): Promise<boolean> => {
+    try {
+      const created = await userApi.createUser({ ...payload, isActive: true });
+      const assigned = await assignRoleToUser(created.userId, roleId);
+      if (!assigned) {
+        throw new Error('User was created, but the selected role could not be assigned');
+      }
+      await fetchUsers();
+      return true;
+    } catch (err) {
+      console.error('Error creating user:', err);
+      setError(err instanceof Error ? err.message : 'Failed to create user');
+      return false;
+    }
+  };
+
   const deleteUser = useCallback(async (userId: number): Promise<boolean> => {
     try {
       await userApi.deleteUser(userId);
@@ -218,6 +234,7 @@ export const useUsersManagement = () => {
     fetchRoles,
     assignRoleToUser,
     removeRoleFromUser,
+    createUser,
     deleteUser,
   };
 };

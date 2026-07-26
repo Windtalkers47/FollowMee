@@ -31,6 +31,7 @@ import taskLikeRoutes from './routes/task-like.routes';
 import commentReactionRoutes from './routes/comment-reaction.routes';
 import notificationRoutes from './routes/notification.routes';
 import dashboardRoutes from './routes/dashboard.routes';
+import publicProfileRoutes from './routes/public-profile.routes';
 
 // Load environment variables
 dotenv.config();
@@ -204,6 +205,9 @@ class App {
 
     // Customer routes
     this.app.use('/api/customers', customerRoutes);
+
+    // Public profile management and public landing-card delivery
+    this.app.use('/api/public-profiles', publicProfileRoutes);
 
     // User management routes
     this.app.use('/api/user-management', userManagementRoutes);

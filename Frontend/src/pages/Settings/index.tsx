@@ -13,6 +13,9 @@ import {
   Select,
   MenuItem,
   Button,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
 } from '@mui/material';
 import {
   Settings as SettingsIcon,
@@ -22,6 +25,7 @@ import {
   Contrast as ContrastIcon,
   BorderAll as BorderAllIcon,
   SchoolRounded as SchoolRoundedIcon,
+  ExpandMoreRounded as ExpandMoreRoundedIcon,
 } from '@mui/icons-material';
 // useLiquidGlass is imported above with GradientPresetKey
 import LiquidGlassSettings from '../../components/LiquidGlassSettings';
@@ -91,6 +95,7 @@ const SettingsPage = () => {
       </Box>
 
       <Paper sx={{ p: { xs: 2, sm: 3 }, mb: 3 }}>
+        <Typography variant="overline" color="text.secondary">Help</Typography>
         <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap' }}>
           <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start' }}>
             <SchoolRoundedIcon color="primary" />
@@ -114,11 +119,12 @@ const SettingsPage = () => {
 
       {/* Liquid Glass UI Toggle */}
       <Paper sx={{ p: 3, mb: 3 }}>
+        <Typography variant="overline" color="text.secondary">Appearance</Typography>
         <Typography variant="h6" fontWeight={600} sx={{ mb: 2 }}>
-          Enhanced Liquid Glass UI
+          Depth & transparency effects
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-          Enable the iOS-style Liquid Glass UI with customizable transparency, blur, and visual effects.
+          Add subtle depth to navigation and feature surfaces. Reading areas stay clear and high contrast.
         </Typography>
         
         <FormControlLabel
@@ -132,7 +138,7 @@ const SettingsPage = () => {
           label={
             <Box>
               <Typography variant="body1" fontWeight={500}>
-                Enable Liquid Glass UI
+                Enable depth effects
               </Typography>
               <Typography variant="body2" color="text.secondary">
                 {isLiquidGlassEnabled ? 'Enhanced theme is active' : 'Using regular theme'}
@@ -145,7 +151,7 @@ const SettingsPage = () => {
         {isLiquidGlassEnabled && (
           <Alert severity="info" sx={{ mb: 2 }}>
             <Typography variant="body2">
-              🎨 <strong>Liquid Glass UI is now active!</strong> Customize the appearance below with adjustable transparency, blur intensity, borders, and more.
+              <strong>Depth effects are active.</strong> Advanced appearance controls are available below.
             </Typography>
           </Alert>
         )}
@@ -153,13 +159,16 @@ const SettingsPage = () => {
 
       {/* Liquid Glass UI Controls */}
       {isLiquidGlassEnabled && (
-        <Paper sx={{ p: 3, mb: 3 }}>
-          <Typography variant="h6" fontWeight={600} sx={{ mb: 2 }}>
-            Liquid Glass Appearance
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-            Customize the Liquid Glass UI with gradient presets and accessibility options:
-          </Typography>
+        <Accordion disableGutters elevation={0} sx={{ mb: 3, border: '1px solid', borderColor: 'divider', '&::before': { display: 'none' } }}>
+          <AccordionSummary expandIcon={<ExpandMoreRoundedIcon />}>
+            <Box>
+              <Typography variant="h6" fontWeight={600}>Advanced appearance</Typography>
+              <Typography variant="body2" color="text.secondary">
+                Fine-tune visual effects and accessibility. Most users can keep the defaults.
+              </Typography>
+            </Box>
+          </AccordionSummary>
+          <AccordionDetails>
           
           <FormGroup>
             {/* Gradient Preset Selector */}
@@ -264,15 +273,17 @@ const SettingsPage = () => {
             contrastLevel={liquidGlassSettings.contrastLevel}
             setContrastLevel={(value) => updateLiquidGlassSettings({ contrastLevel: value })}
           />
-        </Paper>
+          </AccordionDetails>
+        </Accordion>
       )}
 
       {/* Notification Settings */}
       <Paper sx={{ p: 3, mb: 3 }}>
+        <Typography variant="overline" color="text.secondary">Notifications</Typography>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
           <NotificationsIcon sx={{ fontSize: 24, color: 'primary.main' }} />
           <Typography variant="h6" fontWeight={600}>
-            Notification Settings
+            Notification preferences
           </Typography>
         </Box>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
@@ -406,19 +417,15 @@ const SettingsPage = () => {
         )}
       </Paper>
 
-      {/* Other Settings Sections */}
-      {/* <Paper sx={{ p: 3 }}>
+      <Paper sx={{ p: 3 }}>
+        <Typography variant="overline" color="text.secondary">Account</Typography>
         <Typography variant="h6" fontWeight={600} sx={{ mb: 2 }}>
-          Account Settings
+          Account & security
         </Typography>
         <Typography variant="body2" color="text.secondary">
-          Manage your account preferences and security settings.
+          Profile details and role access are managed from the account menu. Contact a Super Admin to change permissions.
         </Typography>
-        <Divider sx={{ my: 2 }} />
-        <Typography variant="body2" color="text.secondary">
-          More settings coming soon...
-        </Typography>
-      </Paper> */}
+      </Paper>
     </Box>
   );
 };

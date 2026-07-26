@@ -20,6 +20,9 @@ import { NotificationGroupActor } from '../entities/NotificationGroupActor';
 import { UserNotificationSettings } from '../entities/UserNotificationSettings';
 import { NotificationQueue } from '../entities/NotificationQueue';
 import { NotificationMetric } from '../entities/NotificationMetric';
+import { PublicProfile } from '../entities/PublicProfile';
+import { PublicProfileLink } from '../entities/PublicProfileLink';
+import { PublicProfileEvent } from '../entities/PublicProfileEvent';
 
 dotenv.config();
 
@@ -58,6 +61,9 @@ const dataSourceOptions: DataSourceOptions = {
     UserNotificationSettings,
     NotificationQueue,
     NotificationMetric,
+    PublicProfile,
+    PublicProfileLink,
+    PublicProfileEvent,
     // Other entities will be loaded automatically by the glob pattern
     path.join(__dirname, '../entities/**/*.entity{.ts,.js}')
   ],

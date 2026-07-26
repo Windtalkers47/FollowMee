@@ -1,9 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import { useAppDispatch } from '../../store/store';
 import { loginUser } from '../../store/slices/authSlice';
 import authApi, { LoginCredentials, RegisterCredentials } from '../../api/auth.api';
-import RoleSelector from '../../components/RoleSelector';
 import {
   Container,
   Box,
@@ -44,7 +43,6 @@ const Register = () => {
     password: '',
     confirmPassword: '',
     userPhone1: '',
-    selectedRole: 'Moderator', // Default to Moderator
   });
   const [errors, setErrors] = useState<FormErrors>({
     userName: '',
@@ -63,12 +61,6 @@ const Register = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [roleCounts, setRoleCounts] = useState({
-    Customer: 0,
-    Moderator: 0,
-    Admin: 0,
-    Superadmin: 0
-  });
   
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
@@ -79,47 +71,6 @@ const Register = () => {
   const emailRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
   const confirmPasswordRef = useRef<HTMLInputElement>(null);
-
-  // Fetch role counts on component mount
-  useEffect(() => {
-    const fetchRoleCounts = async () => {
-      try {
-        const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-        const response = await fetch(`${API_BASE_URL}/user-management/users`, {
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
-
-        if (response.ok) {
-          const result = await response.json();
-          if (result.success) {
-            const counts = {
-              Customer: 0,
-              Moderator: 0,
-              Admin: 0,
-              Superadmin: 0
-            };
-
-            result.data.forEach((user: any) => {
-              user.roles.forEach((role: string) => {
-                if (counts.hasOwnProperty(role)) {
-                  counts[role as keyof typeof counts]++;
-                }
-              });
-            });
-
-            setRoleCounts(counts);
-          }
-        }
-      } catch (error) {
-        console.error('Error fetching role counts:', error);
-      }
-    };
-
-    fetchRoleCounts();
-  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -273,8 +224,7 @@ const Register = () => {
         userName: formData.userName,
         userLastName: formData.userLastName,
         userPassword: formData.password,
-        userPhone1: formData.userPhone1 || undefined,
-        selectedRole: formData.selectedRole
+        userPhone1: formData.userPhone1 || undefined
       };
       
       const response = await authApi.register(registrationData);
@@ -394,22 +344,16 @@ const Register = () => {
             sx={{
               width: 56,
               height: 56,
-              borderRadius: '50%',
-              background: 'linear-gradient(135deg, rgba(74, 108, 247, 0.8), rgba(166, 77, 255, 0.8))',
-              backdropFilter: 'blur(10px)',
-              WebkitBackdropFilter: 'blur(10px)',
-              border: '1px solid rgba(255, 255, 255, 0.3)',
+              borderRadius: 3,
+              backgroundColor: 'primary.main',
+              border: '1px solid',
+              borderColor: 'primary.dark',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               mx: 'auto',
               mb: 1.5,
-              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-              animation: 'float 3s ease-in-out infinite',
-              '&:hover': {
-                transform: 'scale(1.1)',
-                boxShadow: '0 8px 25px rgba(74, 108, 247, 0.4)',
-              }
+              boxShadow: 'none',
             }}
           >
             <LockOutlined sx={{ color: 'white' }} />
@@ -422,33 +366,14 @@ const Register = () => {
           </Typography>
         </Box>
 
-        <Paper elevation={3} sx={{ 
+        <Paper variant="outlined" sx={{
           p: 4, 
           mt: 3, 
           width: '100%',
-          background: 'rgba(255, 255, 255, 0.1)',
-          backdropFilter: 'blur(25px) saturate(200%)',
-          WebkitBackdropFilter: 'blur(25px) saturate(200%)',
-          border: '1px solid rgba(255, 255, 255, 0.2)',
-          boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.37), inset 0 1px 0 0 rgba(255, 255, 255, 0.1)',
-          borderRadius: 4,
-          position: 'relative',
-          overflow: 'hidden',
-          transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-          '&::before': {
-            content: '""',
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            height: '1px',
-            background: 'linear-gradient(90deg, transparent, rgba(100, 181, 246, 0.6), transparent)',
-            opacity: 0.7,
-          },
-          '&:hover': {
-            transform: 'translateY(-2px) scale(1.02)',
-            boxShadow: '0 12px 40px 0 rgba(31, 38, 135, 0.45), inset 0 1px 0 0 rgba(255, 255, 255, 0.15)',
-          }
+          backgroundColor: 'background.paper',
+          borderColor: 'divider',
+          borderRadius: 3,
+          boxShadow: 'none',
         }}>
           
           <Box component="form" onSubmit={handleSubmit} noValidate>
@@ -506,15 +431,6 @@ const Register = () => {
                 helperText={errors.email && touched.email ? errors.email : undefined}
               disabled={isLoading}
               sx={getTextFieldSx('email')}
-            />
-            
-            <RoleSelector
-              value={formData.selectedRole}
-              onChange={(value) => setFormData(prev => ({ ...prev, selectedRole: value }))}
-              disabled={isLoading}
-              roleCounts={roleCounts}
-              showCounts={true}
-              currentUserRole=""
             />
             
             <TextField

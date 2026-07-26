@@ -11,7 +11,6 @@ export interface RegisterCredentials {
   userLastName: string;
   userPassword: string;
   userPhone1?: string;
-  selectedRole?: string;
 }
 
 export interface LoginCredentials {

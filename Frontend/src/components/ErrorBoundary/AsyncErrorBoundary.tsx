@@ -158,7 +158,7 @@ export const AsyncErrorBoundary: React.FC<AsyncErrorBoundaryProps> = ({
               startIcon={<RefreshIcon />}
               onClick={() => setState({ hasError: false, error: null, retryCount: 0 })}
               sx={{
-                background: 'linear-gradient(135deg, rgba(74, 108, 247, 0.8), rgba(166, 77, 255, 0.8))',
+                background: 'linear-gradient(135deg, #34C759, #30D158)',
               }}
             >
               Reset and Try Again
@@ -219,7 +219,7 @@ export const AsyncErrorBoundary: React.FC<AsyncErrorBoundaryProps> = ({
             onClick={handleRetry}
             disabled={isRetrying}
             sx={{
-              background: 'linear-gradient(135deg, rgba(74, 108, 247, 0.8), rgba(166, 77, 255, 0.8))',
+              background: 'linear-gradient(135deg, #34C759, #30D158)',
             }}
           >
             {isRetrying ? 'Retrying...' : 'Retry'}

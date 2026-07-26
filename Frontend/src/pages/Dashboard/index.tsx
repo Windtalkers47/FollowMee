@@ -9,6 +9,7 @@ import {
   ToggleButton,
   useTheme,
   Avatar,
+  Button,
 } from '@mui/material';
 import {
   People as PeopleIcon,
@@ -269,41 +270,11 @@ const DashboardPage: React.FC = () => {
               dashboardStats.taskStats.tasksByStatus.cancelled,
             ],
             backgroundColor: [
-              (context: any) => {
-                const ctx = context.chart.ctx;
-                const gradient = ctx.createLinearGradient(0, 0, 200, 0);
-                gradient.addColorStop(0, 'rgba(255, 159, 10, 0.8)');
-                gradient.addColorStop(1, 'rgba(255, 159, 10, 0.3)');
-                return gradient;
-              },
-              (context: any) => {
-                const ctx = context.chart.ctx;
-                const gradient = ctx.createLinearGradient(0, 0, 200, 0);
-                gradient.addColorStop(0, 'rgba(0, 122, 255, 0.8)');
-                gradient.addColorStop(1, 'rgba(0, 122, 255, 0.3)');
-                return gradient;
-              },
-              (context: any) => {
-                const ctx = context.chart.ctx;
-                const gradient = ctx.createLinearGradient(0, 0, 200, 0);
-                gradient.addColorStop(0, 'rgba(94, 92, 230, 0.8)');
-                gradient.addColorStop(1, 'rgba(94, 92, 230, 0.3)');
-                return gradient;
-              },
-              (context: any) => {
-                const ctx = context.chart.ctx;
-                const gradient = ctx.createLinearGradient(0, 0, 200, 0);
-                gradient.addColorStop(0, 'rgba(52, 199, 89, 0.8)');
-                gradient.addColorStop(1, 'rgba(52, 199, 89, 0.3)');
-                return gradient;
-              },
-              (context: any) => {
-                const ctx = context.chart.ctx;
-                const gradient = ctx.createLinearGradient(0, 0, 200, 0);
-                gradient.addColorStop(0, 'rgba(255, 59, 48, 0.8)');
-                gradient.addColorStop(1, 'rgba(255, 59, 48, 0.3)');
-                return gradient;
-              },
+              brandColors.amber,
+              brandColors.blue,
+              brandColors.indigo,
+              brandColors.iosGreen,
+              brandColors.red,
             ],
             borderRadius: 8,
             barThickness: 28,
@@ -334,7 +305,7 @@ const DashboardPage: React.FC = () => {
         cornerRadius: 8,
         titleFont: {
           size: 13,
-          weight: '600',
+          weight: 'bold' as const,
         },
         bodyFont: {
           size: 12,
@@ -408,7 +379,7 @@ const DashboardPage: React.FC = () => {
         cornerRadius: 8,
         titleFont: {
           size: 13,
-          weight: '600',
+          weight: 'bold' as const,
         },
         bodyFont: {
           size: 12,
@@ -489,15 +460,8 @@ const DashboardPage: React.FC = () => {
 
   return (
     <Container maxWidth="xl" sx={{ py: 4, minHeight: '100vh' }}>
-      {/* Fade-in animation */}
       <Box
-        sx={{
-          animation: 'fadeIn 0.6s ease-out',
-          '@keyframes fadeIn': {
-            '0%': { opacity: 0, transform: 'translateY(20px)' },
-            '100%': { opacity: 1, transform: 'translateY(0)' },
-          },
-        }}
+        sx={{ width: '100%' }}
       >
         {/* Header - Welcome only */}
         <Box mb={4}>
@@ -507,14 +471,10 @@ const DashboardPage: React.FC = () => {
             fontWeight="bold"
             gutterBottom
             sx={{
-              color: isDarkMode ? '#fff' : '#1a1a1a',
-              background: `linear-gradient(135deg, ${brandColors.iosGreen}, ${brandColors.iosGreenDark})`,
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              backgroundClip: 'text',
+              color: 'text.primary',
             }}
           >
-            Welcome back, {user?.userName || 'User'}! 👋
+            Welcome back, {user?.userName || 'User'}
           </Typography>
           <Typography
             variant="subtitle1"
@@ -538,9 +498,6 @@ const DashboardPage: React.FC = () => {
               gap: 2,
               p: 2,
               cursor: 'pointer',
-              '&:hover': {
-                transform: 'translateY(-3px)',
-              },
             }}
             onClick={handleCreateTask}
           >
@@ -550,8 +507,6 @@ const DashboardPage: React.FC = () => {
                 height: 44,
                 bgcolor: 'rgba(52, 199, 89, 0.14)',
                 border: '2px solid rgba(52, 199, 89, 0.24)',
-                backdropFilter: 'blur(8px)',
-                WebkitBackdropFilter: 'blur(8px)',
               }}
             >
               <AddIcon sx={{ fontSize: 24, color: 'primary.main' }} />
@@ -575,9 +530,6 @@ const DashboardPage: React.FC = () => {
               gap: 2,
               p: 2,
               cursor: 'pointer',
-              '&:hover': {
-                transform: 'translateY(-3px)',
-              },
             }}
             onClick={handleViewCustomers}
           >
@@ -585,13 +537,11 @@ const DashboardPage: React.FC = () => {
               sx={{
                 width: 44,
                 height: 44,
-                bgcolor: 'rgba(94, 92, 230, 0.14)',
-                border: '2px solid rgba(94, 92, 230, 0.24)',
-                backdropFilter: 'blur(8px)',
-                WebkitBackdropFilter: 'blur(8px)',
+                bgcolor: 'rgba(52, 199, 89, 0.14)',
+                border: '2px solid rgba(52, 199, 89, 0.24)',
               }}
             >
-              <ListIcon sx={{ fontSize: 24, color: 'secondary.main' }} />
+              <ListIcon sx={{ fontSize: 24, color: 'primary.main' }} />
             </Avatar>
             <Box>
               <Typography variant="subtitle2" fontWeight={600}>
@@ -727,11 +677,15 @@ const DashboardPage: React.FC = () => {
                   </ToggleButtonGroup>
                 </Box>
                 <Box height={{ xs: 220, sm: 280, md: 300 }}>
-                  {customerTrendData ? (
+                  {customerTrendData?.labels?.length ? (
                     <Line data={customerTrendData} options={chartOptions} />
                   ) : (
-                    <Box display="flex" justifyContent="center" alignItems="center" height="100%">
-                      <CircularProgress size={40} />
+                    <Box display="flex" flexDirection="column" justifyContent="center" alignItems="center" height="100%" textAlign="center">
+                      <Typography fontWeight={700}>No customer history yet</Typography>
+                      <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, mb: 2 }}>
+                        Add a customer to begin tracking growth.
+                      </Typography>
+                      <Button variant="outlined" onClick={handleViewCustomers}>View customers</Button>
                     </Box>
                   )}
                 </Box>
@@ -746,15 +700,19 @@ const DashboardPage: React.FC = () => {
               >
                 <Box display="flex" alignItems="center" gap={1} mb={3}>
                   <Typography variant="h6" sx={{ fontWeight: 700, color: isDarkMode ? '#fff' : '#1a1a1a', fontSize: { xs: '1rem', sm: '1.125rem' } }}>
-                    📊 Task Status
+                    Task status
                   </Typography>
                 </Box>
                 <Box height={{ xs: 220, sm: 280, md: 300 }}>
-                  {taskStatusData ? (
+                  {taskStatusData && taskStatusData.datasets[0].data.some((value) => value > 0) ? (
                     <Bar data={taskStatusData} options={barChartOptions} />
                   ) : (
-                    <Box display="flex" justifyContent="center" alignItems="center" height="100%">
-                      <CircularProgress size={40} />
+                    <Box display="flex" flexDirection="column" justifyContent="center" alignItems="center" height="100%" textAlign="center">
+                      <Typography fontWeight={700}>No task activity yet</Typography>
+                      <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, mb: 2 }}>
+                        Create a task to see status insights here.
+                      </Typography>
+                      <Button variant="outlined" onClick={handleCreateTask}>Create task</Button>
                     </Box>
                   )}
                 </Box>

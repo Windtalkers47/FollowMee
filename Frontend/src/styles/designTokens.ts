@@ -38,3 +38,34 @@ export const semanticHex = {
   error: brandColors.red,
 } as const;
 
+export const statusColors = {
+  draft: '#8E8E93',
+  todo: brandColors.blue,
+  inProgress: brandColors.amber,
+  review: brandColors.indigo,
+  done: brandColors.iosGreen,
+  cancelled: brandColors.red,
+} as const;
+
+export const radii = {
+  control: 12,
+  card: 16,
+  panel: 20,
+  modal: 24,
+  pill: 999,
+} as const;
+
+export const shadows = {
+  none: 'none',
+  cardLight: '0 8px 24px rgba(35, 65, 45, 0.06)',
+  cardDark: '0 10px 28px rgba(0, 0, 0, 0.18)',
+  floatingLight: '0 20px 52px rgba(27, 65, 38, 0.14)',
+  floatingDark: '0 24px 60px rgba(0, 0, 0, 0.42)',
+} as const;
+
+export const layoutTokens = {
+  pageMaxWidth: 1440,
+  readableMaxWidth: 760,
+  controlHeight: 44,
+  mobileTapTarget: 44,
+} as const;

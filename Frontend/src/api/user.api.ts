@@ -14,6 +14,15 @@ export interface User {
   fullName?: string;
 }
 
+export interface CreateUserPayload {
+  userName: string;
+  userLastName: string;
+  userEmail: string;
+  userPassword: string;
+  userPhone1?: string;
+  isActive?: boolean;
+}
+
 export const userApi = {
   // Get all users
   getUsers: async (): Promise<User[]> => {
@@ -32,7 +41,7 @@ export const userApi = {
   },
 
   // Create new user
-  createUser: async (userData: Omit<User, 'userId' | 'createdAt' | 'updatedAt'>): Promise<User> => {
+  createUser: async (userData: CreateUserPayload): Promise<User> => {
     const response = await axios.post(`${API_BASE_URL}/users`, userData, {
       withCredentials: true,
     });

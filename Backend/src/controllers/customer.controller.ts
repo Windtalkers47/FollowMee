@@ -185,7 +185,7 @@ export class CustomerController {
       }
       
       // Create the customer
-      const customer = await this.customerService.create(createCustomerDto);
+      const customer = await this.customerService.create(createCustomerDto, req.user?.userId);
       
       // If there's a base64 image, upload it and update the customer
       if (base64Image) {
@@ -470,6 +470,30 @@ export class CustomerController {
         message: 'Failed to deactivate customer',
         error: errorMessage
       });
+    }
+  }
+
+  async bulkUpdateStatus(req: Request, res: Response) {
+    try {
+      const customerIds = Array.isArray(req.body?.customerIds) ? req.body.customerIds : [];
+      const status = req.body?.status;
+      if (!['active', 'inactive'].includes(status)) {
+        return res.status(400).json({ success: false, message: 'Status must be active or inactive' });
+      }
+      const data = await this.customerService.bulkUpdateStatus(customerIds, status);
+      return res.json({ success: true, data });
+    } catch (error) {
+      return res.status(400).json({ success: false, message: error instanceof Error ? error.message : 'Bulk update failed' });
+    }
+  }
+
+  async bulkDelete(req: Request, res: Response) {
+    try {
+      const customerIds = Array.isArray(req.body?.customerIds) ? req.body.customerIds : [];
+      const data = await this.customerService.bulkDelete(customerIds);
+      return res.json({ success: true, data });
+    } catch (error) {
+      return res.status(400).json({ success: false, message: error instanceof Error ? error.message : 'Bulk delete failed' });
     }
   }
 

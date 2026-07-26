@@ -131,7 +131,7 @@ export class ErrorBoundary extends Component<Props, State> {
                   startIcon={<RefreshIcon />}
                   onClick={this.handleRetry}
                   sx={{
-                    background: 'linear-gradient(135deg, rgba(74, 108, 247, 0.8), rgba(166, 77, 255, 0.8))',
+                    background: 'linear-gradient(135deg, #34C759, #30D158)',
                   }}
                 >
                   Try Again

@@ -40,7 +40,7 @@ const transformCustomerData = (data: any): any => {
 export const customerApi = {
   // Get all customers with pagination
   getCustomers: async (page: number = 1, limit: number = 10, search?: string) => {
-    const url = new URL(`${apiConfig.baseURL}/api/customers`);
+    const url = new URL(`${apiConfig.baseURL}/customers`);
     url.searchParams.append('page', page.toString());
     url.searchParams.append('limit', limit.toString());
     if (search) url.searchParams.append('search', search);
@@ -58,7 +58,7 @@ export const customerApi = {
 
   // Get single customer by ID
   getCustomerById: async (customerId: string) => {
-    const response = await fetch(`${apiConfig.baseURL}/api/customers/${customerId}`, {
+    const response = await fetch(`${apiConfig.baseURL}/customers/${customerId}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -71,7 +71,7 @@ export const customerApi = {
 
   // Create new customer
   createCustomer: async (customerData: Omit<CustomerData, 'customerId'>) => {
-    const response = await fetch(`${apiConfig.baseURL}/api/customers`, {
+    const response = await fetch(`${apiConfig.baseURL}/customers`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -85,7 +85,7 @@ export const customerApi = {
 
   // Update customer
   updateCustomer: async (customerId: string, customerData: Partial<CustomerData>) => {
-    const response = await fetch(`${apiConfig.baseURL}/api/customers/${customerId}`, {
+    const response = await fetch(`${apiConfig.baseURL}/customers/${customerId}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -99,13 +99,33 @@ export const customerApi = {
 
   // Delete customer (soft delete)
   deleteCustomer: async (customerId: string) => {
-    const response = await fetch(`${apiConfig.baseURL}/api/customers/${customerId}`, {
+    const response = await fetch(`${apiConfig.baseURL}/customers/${customerId}`, {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${localStorage.getItem('token')}`,
       },
       credentials: 'include',
+    });
+    return handleResponse(response);
+  },
+
+  bulkUpdateStatus: async (customerIds: string[], status: 'active' | 'inactive') => {
+    const response = await fetch(`${apiConfig.baseURL}/customers/bulk/status`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ customerIds, status }),
+    });
+    return handleResponse(response);
+  },
+
+  bulkDelete: async (customerIds: string[]) => {
+    const response = await fetch(`${apiConfig.baseURL}/customers/bulk/delete`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ customerIds }),
     });
     return handleResponse(response);
   },

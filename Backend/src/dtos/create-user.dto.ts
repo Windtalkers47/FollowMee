@@ -1,4 +1,4 @@
-import { IsEmail, IsNotEmpty, IsOptional, IsString, MaxLength, MinLength, IsIn } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 
 export class CreateUserDto {
   // This computed property will be used to satisfy the fullName requirement
@@ -44,7 +44,4 @@ export class CreateUserDto {
   @MaxLength(500)
   userImageUrl: string | null = null;
 
-  @IsOptional()
-  @IsIn(['Superadmin', 'Admin', 'Moderator', 'Customer'])
-  selectedRole?: string;
 }

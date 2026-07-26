@@ -1,4 +1,5 @@
 -- FollowMee clean schema
+-- Schema version: 2026-07-26 / Public Profile major update
 -- MySQL 8.0+ / MariaDB 10.6+
 --
 -- WARNING: This script drops every FollowMee table and all data in it.
@@ -31,6 +32,9 @@ DROP TABLE IF EXISTS `permissions`;
 DROP TABLE IF EXISTS `roles`;
 DROP TABLE IF EXISTS `user_sessions`;
 DROP TABLE IF EXISTS `user_audit_logs`;
+DROP TABLE IF EXISTS `public_profile_events`;
+DROP TABLE IF EXISTS `public_profile_links`;
+DROP TABLE IF EXISTS `public_profiles`;
 DROP TABLE IF EXISTS `customers`;
 DROP TABLE IF EXISTS `users`;
 DROP TABLE IF EXISTS `migrations`;
@@ -93,6 +97,84 @@ CREATE TABLE `customers` (
   CONSTRAINT `fk_customers_owner`
     FOREIGN KEY (`userId`) REFERENCES `users` (`userId`)
     ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Customer is private CRM data. Public profiles are an explicit publishing
+-- layer with independent lifecycle, privacy controls and analytics.
+CREATE TABLE `public_profiles` (
+  `profileId` VARCHAR(36) NOT NULL,
+  `userId` INT NOT NULL,
+  `customerId` VARCHAR(36) NULL,
+  `slug` VARCHAR(64) NOT NULL,
+  `displayName` VARCHAR(100) NOT NULL,
+  `headline` VARCHAR(140) NULL,
+  `bio` VARCHAR(500) NULL,
+  `avatarUrl` VARCHAR(512) NULL,
+  `templateKey` VARCHAR(32) NOT NULL DEFAULT 'soft-mint',
+  `themeConfig` JSON NULL,
+  `status` ENUM('draft', 'published') NOT NULL DEFAULT 'draft',
+  `visibility` ENUM('public', 'unlisted', 'private') NOT NULL DEFAULT 'private',
+  `primaryCtaLabel` VARCHAR(60) NULL,
+  `primaryCtaUrl` VARCHAR(512) NULL,
+  `secondaryCtaLabel` VARCHAR(60) NULL,
+  `secondaryCtaUrl` VARCHAR(512) NULL,
+  `showEmail` TINYINT(1) NOT NULL DEFAULT 0,
+  `showPhone` TINYINT(1) NOT NULL DEFAULT 0,
+  `showAddress` TINYINT(1) NOT NULL DEFAULT 0,
+  `seoTitle` VARCHAR(70) NULL,
+  `seoDescription` VARCHAR(160) NULL,
+  `viewCount` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  `publishedAt` DATETIME NULL,
+  `deletedAt` DATETIME NULL,
+  `createdAt` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updatedAt` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`profileId`),
+  UNIQUE KEY `UQ_public_profiles_slug` (`slug`),
+  UNIQUE KEY `UQ_public_profiles_customer` (`customerId`),
+  KEY `IDX_public_profiles_owner_status` (`userId`, `status`),
+  CONSTRAINT `FK_public_profiles_user`
+    FOREIGN KEY (`userId`) REFERENCES `users` (`userId`)
+    ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `FK_public_profiles_customer`
+    FOREIGN KEY (`customerId`) REFERENCES `customers` (`customerId`)
+    ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `public_profile_links` (
+  `linkId` INT NOT NULL AUTO_INCREMENT,
+  `profileId` VARCHAR(36) NOT NULL,
+  `platform` VARCHAR(32) NOT NULL,
+  `label` VARCHAR(60) NOT NULL,
+  `url` VARCHAR(512) NOT NULL,
+  `sortOrder` SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  `isVisible` TINYINT(1) NOT NULL DEFAULT 1,
+  `createdAt` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updatedAt` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`linkId`),
+  KEY `IDX_public_profile_links_order` (`profileId`, `sortOrder`),
+  CONSTRAINT `FK_public_profile_links_profile`
+    FOREIGN KEY (`profileId`) REFERENCES `public_profiles` (`profileId`)
+    ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `public_profile_events` (
+  `eventId` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `profileId` VARCHAR(36) NOT NULL,
+  `eventType` VARCHAR(32) NOT NULL,
+  `target` VARCHAR(128) NULL,
+  `deviceType` VARCHAR(20) NOT NULL DEFAULT 'unknown',
+  `ipHash` CHAR(64) NULL,
+  `userAgentHash` CHAR(64) NULL,
+  `referrer` VARCHAR(512) NULL,
+  `occurredAt` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`eventId`),
+  KEY `IDX_public_profile_events_profile_date` (`profileId`, `occurredAt`),
+  KEY `IDX_public_profile_events_profile_type` (`profileId`, `eventType`),
+  CONSTRAINT `FK_public_profile_events_profile`
+    FOREIGN KEY (`profileId`) REFERENCES `public_profiles` (`profileId`)
+    ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `roles` (
@@ -476,6 +558,21 @@ CREATE TABLE `migrations` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 START TRANSACTION;
+
+-- This clean schema already contains the final state of every migration below.
+-- Recording the ledger prevents TypeORM from trying to recreate these tables
+-- when the backend starts against a freshly restored database.
+INSERT INTO `migrations` (`timestamp`, `name`) VALUES
+  (1719388800000, 'AddNotificationQueue1719388800000'),
+  (1719388900000, 'AddNotificationIndexes1719388900000'),
+  (1719389000000, 'AddUserPreferences1719389000000'),
+  (1719389100000, 'AddNotificationMetrics1719389100000'),
+  (1736764800000, 'AddPushSubscription1736764800000'),
+  (1770104312494, 'InitialSchema1770104312494'),
+  (1785000000000, 'AddNotificationRecipientColumns1785000000000'),
+  (1790000000000, 'RepairSchemaDrift1790000000000'),
+  (1791000000000, 'CreatePublicProfiles1791000000000'),
+  (1792000000000, 'RepairUserIdentity1792000000000');
 
 INSERT INTO `roles` (`roleName`, `description`, `roleLevel`) VALUES
   ('Superadmin', 'Full system access', 999),

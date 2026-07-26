@@ -11,10 +11,11 @@ import {
   MenuItem,
   Button,
   Divider,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from '@mui/material';
-import Swal from 'sweetalert2';
-import { useLiquidGlass } from '../../contexts/LiquidGlassContext';
-import { gradientPresets } from '../../styles/liquidGlassStyles';
 import {
   Close as CloseIcon,
   PlayArrow as StartIcon,
@@ -48,9 +49,18 @@ export const SelectionModeTopBar: React.FC<SelectionModeTopBarProps> = ({
   isVisible = true
 }) => {
   const theme = useTheme();
-  const { liquidGlassSettings } = useLiquidGlass();
-  const preset = gradientPresets[liquidGlassSettings.gradientPreset];
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
+  const [moveDialogOpen, setMoveDialogOpen] = React.useState(false);
+  const [selectedStatus, setSelectedStatus] = React.useState<'draft' | 'todo' | 'in_progress' | 'review' | 'done' | 'cancelled' | null>(null);
+
+  const statusOptions = [
+    { value: 'draft' as const, label: 'Draft', description: 'Keep work private before planning', color: '#8E8E93' },
+    { value: 'todo' as const, label: 'To do', description: 'Ready to be picked up', color: '#007AFF' },
+    { value: 'in_progress' as const, label: 'In progress', description: 'Work is currently underway', color: '#FF9F0A' },
+    { value: 'review' as const, label: 'Review', description: 'Waiting for feedback or approval', color: '#5E5CE6' },
+    { value: 'done' as const, label: 'Done', description: 'Work has been completed', color: '#34C759' },
+    { value: 'cancelled' as const, label: 'Cancelled', description: 'Work will not continue', color: '#FF3B30' },
+  ];
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
@@ -65,49 +75,10 @@ export const SelectionModeTopBar: React.FC<SelectionModeTopBarProps> = ({
     onBulkAction(action);
   };
 
-  const handleMoveToClick = async () => {
+  const handleMoveToClick = () => {
     handleMenuClose();
-    
-    const result = await Swal.fire({
-      title: 'Move Tasks to...',
-      html: `
-        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; padding: 20px 0;">
-          <button class="swal2-status-btn" data-status="draft" style="padding: 12px; border-radius: 8px; border: none; background: linear-gradient(135deg, #9e9e9e 0%, #757575 100%); color: #fff; font-weight: 600; cursor: pointer; transition: all 0.2s;">Draft</button>
-          <button class="swal2-status-btn" data-status="todo" style="padding: 12px; border-radius: 8px; border: none; background: linear-gradient(135deg, #2196f3 0%, #1976d2 100%); color: #fff; font-weight: 600; cursor: pointer; transition: all 0.2s;">To Do</button>
-          <button class="swal2-status-btn" data-status="in_progress" style="padding: 12px; border-radius: 8px; border: none; background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%); color: #fff; font-weight: 600; cursor: pointer; transition: all 0.2s;">In Progress</button>
-          <button class="swal2-status-btn" data-status="review" style="padding: 12px; border-radius: 8px; border: none; background: linear-gradient(135deg, #9c27b0 0%, #7b1fa2 100%); color: #fff; font-weight: 600; cursor: pointer; transition: all 0.2s;">Review</button>
-          <button class="swal2-status-btn" data-status="done" style="padding: 12px; border-radius: 8px; border: none; background: linear-gradient(135deg, #4caf50 0%, #388e3c 100%); color: #fff; font-weight: 600; cursor: pointer; transition: all 0.2s;">Done</button>
-          <button class="swal2-status-btn" data-status="cancelled" style="padding: 12px; border-radius: 8px; border: none; background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%); color: #fff; font-weight: 600; cursor: pointer; transition: all 0.2s;">Cancelled</button>
-        </div>
-      `,
-      showCancelButton: true,
-      confirmButtonText: 'Cancel',
-      cancelButtonText: 'Cancel',
-      showConfirmButton: false,
-      customClass: {
-        popup: 'swal2-move-to-popup',
-        title: 'swal2-move-to-title',
-        actions: 'swal2-move-to-actions',
-      },
-      didOpen: () => {
-        // Add click listeners to status buttons
-        document.querySelectorAll('.swal2-status-btn').forEach(btn => {
-          btn.addEventListener('click', () => {
-            const status = btn.getAttribute('data-status') as any;
-            onBulkAction(status);
-            Swal.close();
-          });
-          
-          // Add hover effect
-          btn.addEventListener('mouseenter', () => {
-            (btn as HTMLElement).style.transform = 'scale(1.05)';
-          });
-          btn.addEventListener('mouseleave', () => {
-            (btn as HTMLElement).style.transform = 'scale(1)';
-          });
-        });
-      },
-    });
+    setSelectedStatus(null);
+    setMoveDialogOpen(true);
   };
 
   if (selectedCount === 0) {
@@ -126,13 +97,10 @@ export const SelectionModeTopBar: React.FC<SelectionModeTopBarProps> = ({
           left: { xs: 0, sm: 'var(--sidebar-width, 0px)' },
           width: { xs: '100%', sm: 'calc(100% - var(--sidebar-width, 0px))' },
           height: { xs: 100, sm: 64 },
-          background: theme.palette.mode === 'dark' 
-            ? 'rgba(30, 30, 30, 0.95)' 
-            : 'rgba(255, 255, 255, 0.95)',
-          backdropFilter: 'blur(40px) saturate(180%)',
-          WebkitBackdropFilter: 'blur(40px) saturate(180%)',
-          borderTop: `1px solid ${theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)'}`,
-          boxShadow: '0 -4px 24px rgba(0, 0, 0, 0.12)',
+          backgroundColor: 'background.paper',
+          borderTop: '1px solid',
+          borderColor: 'divider',
+          boxShadow: '0 -2px 12px rgba(0, 0, 0, 0.08)',
           zIndex: theme.zIndex.appBar + 1,
           display: 'flex',
           flexDirection: { xs: 'column', sm: 'row' },
@@ -160,9 +128,9 @@ export const SelectionModeTopBar: React.FC<SelectionModeTopBarProps> = ({
               height: 32,
               fontWeight: 700,
               fontSize: '0.9375rem',
-              background: `linear-gradient(135deg, ${preset.primary}, ${preset.secondary})`,
-              color: '#fff',
-              boxShadow: `0 2px 8px ${preset.primary}66`,
+              backgroundColor: 'primary.main',
+              color: 'primary.contrastText',
+              boxShadow: 'none',
             }}
           />
 
@@ -203,7 +171,7 @@ export const SelectionModeTopBar: React.FC<SelectionModeTopBarProps> = ({
                 background: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)',
                 borderColor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.2)',
               },
-              transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+              transition: 'background-color 0.2s ease, border-color 0.2s ease',
             }}
           >
             {areAllSelected ? 'Unselect All' : 'Select All'}
@@ -237,25 +205,22 @@ export const SelectionModeTopBar: React.FC<SelectionModeTopBarProps> = ({
               onClick={() => onBulkAction('start')}
               aria-label="Start progress on selected tasks"
               sx={{
-                width: { xs: 48, sm: 40 },
+                width: { xs: 'auto', sm: 40 },
                 height: { xs: 48, sm: 40 },
                 borderRadius: 2.5,
-                background: `linear-gradient(135deg, ${preset.primary}, ${preset.secondary})`,
-                color: '#fff',
-                boxShadow: `0 2px 8px ${preset.primary}66`,
+                backgroundColor: 'primary.main',
+                color: 'primary.contrastText',
+                boxShadow: 'none',
                 flex: { xs: 1, sm: 'none' },
-                '&:hover': {
-                  background: `linear-gradient(135deg, ${preset.secondary}, ${preset.primary})`,
-                  boxShadow: `0 4px 12px ${preset.primary}99`,
-                  transform: 'scale(1.05)',
-                },
-                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                '&:hover': { backgroundColor: 'primary.dark' },
+                transition: 'background-color 0.2s ease',
                 '&:active': {
                   transform: 'scale(0.95)',
                 },
               }}
             >
-              <StartIcon fontSize={theme.breakpoints.down('sm') ? 'medium' : 'small'} />
+              <StartIcon fontSize="small" />
+              <Typography component="span" sx={{ display: { xs: 'inline', sm: 'none' }, ml: 0.5, fontSize: '0.75rem', fontWeight: 700 }}>Start</Typography>
             </IconButton>
           </Tooltip>
 
@@ -265,25 +230,22 @@ export const SelectionModeTopBar: React.FC<SelectionModeTopBarProps> = ({
               onClick={() => onBulkAction('done')}
               aria-label="Mark selected tasks as done"
               sx={{
-                width: { xs: 48, sm: 40 },
+                width: { xs: 'auto', sm: 40 },
                 height: { xs: 48, sm: 40 },
                 borderRadius: 2.5,
-                background: 'linear-gradient(135deg, #34C759 0%, #248A3D 100%)',
-                color: '#fff',
-                boxShadow: '0 2px 8px rgba(52, 199, 89, 0.4)',
+                backgroundColor: 'success.main',
+                color: 'success.contrastText',
+                boxShadow: 'none',
                 flex: { xs: 1, sm: 'none' },
-                '&:hover': {
-                  background: 'linear-gradient(135deg, #30D158 0%, #34C759 100%)',
-                  boxShadow: '0 4px 12px rgba(52, 199, 89, 0.5)',
-                  transform: 'scale(1.05)',
-                },
-                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                '&:hover': { backgroundColor: 'success.dark' },
+                transition: 'background-color 0.2s ease',
                 '&:active': {
                   transform: 'scale(0.95)',
                 },
               }}
             >
-              <DoneIcon fontSize={theme.breakpoints.down('sm') ? 'medium' : 'small'} />
+              <DoneIcon fontSize="small" />
+              <Typography component="span" sx={{ display: { xs: 'inline', sm: 'none' }, ml: 0.5, fontSize: '0.75rem', fontWeight: 700 }}>Done</Typography>
             </IconButton>
           </Tooltip>
 
@@ -294,7 +256,7 @@ export const SelectionModeTopBar: React.FC<SelectionModeTopBarProps> = ({
               aria-label="More bulk actions"
               aria-haspopup="true"
               sx={{
-                width: { xs: 48, sm: 40 },
+                width: { xs: 'auto', sm: 40 },
                 height: { xs: 48, sm: 40 },
                 borderRadius: 2.5,
                 background: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
@@ -302,15 +264,12 @@ export const SelectionModeTopBar: React.FC<SelectionModeTopBarProps> = ({
                 flex: { xs: 1, sm: 'none' },
                 '&:hover': {
                   background: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.1)',
-                  transform: 'scale(1.05)',
                 },
-                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                '&:active': {
-                  transform: 'scale(0.95)',
-                },
+                transition: 'background-color 0.2s ease',
               }}
             >
-              <MoreIcon fontSize={theme.breakpoints.down('sm') ? 'medium' : 'small'} />
+              <MoreIcon fontSize="small" />
+              <Typography component="span" sx={{ display: { xs: 'inline', sm: 'none' }, ml: 0.5, fontSize: '0.75rem', fontWeight: 700 }}>More</Typography>
             </IconButton>
           </Tooltip>
 
@@ -320,7 +279,7 @@ export const SelectionModeTopBar: React.FC<SelectionModeTopBarProps> = ({
               onClick={onClose}
               aria-label="Close selection mode"
               sx={{
-                width: { xs: 48, sm: 40 },
+                width: { xs: 'auto', sm: 40 },
                 height: { xs: 48, sm: 40 },
                 borderRadius: 2.5,
                 background: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
@@ -328,15 +287,12 @@ export const SelectionModeTopBar: React.FC<SelectionModeTopBarProps> = ({
                 '&:hover': {
                   background: theme.palette.mode === 'dark' ? 'rgba(255,59,48,0.2)' : 'rgba(255,59,48,0.15)',
                   color: '#FF3B30',
-                  transform: 'scale(1.05)',
                 },
-                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                '&:active': {
-                  transform: 'scale(0.95)',
-                },
+                transition: 'background-color 0.2s ease, color 0.2s ease',
               }}
             >
-              <CloseIcon />
+              <CloseIcon fontSize="small" />
+              <Typography component="span" sx={{ display: { xs: 'inline', sm: 'none' }, ml: 0.5, fontSize: '0.75rem', fontWeight: 700 }}>Cancel</Typography>
             </IconButton>
           </Tooltip>
         </Box>
@@ -349,13 +305,10 @@ export const SelectionModeTopBar: React.FC<SelectionModeTopBarProps> = ({
           PaperProps={{
             sx: {
               borderRadius: 3,
-              background: theme.palette.mode === 'dark' 
-                ? 'rgba(30, 30, 30, 0.98)' 
-                : 'rgba(255, 255, 255, 0.98)',
-              backdropFilter: 'blur(40px)',
-              WebkitBackdropFilter: 'blur(40px)',
-              border: `1px solid ${theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)'}`,
-              boxShadow: '0 16px 48px rgba(0, 0, 0, 0.15)',
+              backgroundColor: 'background.paper',
+              border: '1px solid',
+              borderColor: 'divider',
+              boxShadow: '0 8px 24px rgba(0, 0, 0, 0.12)',
               mt: 1,
               overflow: 'visible',
               minWidth: 280,
@@ -366,8 +319,8 @@ export const SelectionModeTopBar: React.FC<SelectionModeTopBarProps> = ({
         >
           <MenuItem 
             onClick={() => handleActionClick('delete')}
-            sx={{
-              py: 1.5,
+                sx={{
+                  py: 1.5,
               px: 2,
               gap: 2,
               '&:hover': {
@@ -380,12 +333,12 @@ export const SelectionModeTopBar: React.FC<SelectionModeTopBarProps> = ({
                 width: 36,
                 height: 36,
                 borderRadius: 2.5,
-                background: `linear-gradient(135deg, #ef4444 0%, #dc2626 100%)`,
+                backgroundColor: 'error.main',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 color: '#fff',
-                boxShadow: '0 2px 8px rgba(239, 68, 68, 0.3)',
+                boxShadow: 'none',
               }}
             >
               <DeleteIcon sx={{ fontSize: 20 }} />
@@ -418,12 +371,12 @@ export const SelectionModeTopBar: React.FC<SelectionModeTopBarProps> = ({
                 width: 36,
                 height: 36,
                 borderRadius: 2.5,
-                background: `linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)`,
+                backgroundColor: 'primary.main',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 color: '#fff',
-                boxShadow: `0 2px 8px rgba(59, 130, 246, 0.4)`,
+                boxShadow: 'none',
               }}
             >
               <ScheduleIcon sx={{ fontSize: 20 }} />
@@ -438,6 +391,69 @@ export const SelectionModeTopBar: React.FC<SelectionModeTopBarProps> = ({
             </Box>
           </MenuItem>
         </Menu>
+
+        <Dialog
+          open={moveDialogOpen}
+          onClose={() => setMoveDialogOpen(false)}
+          fullWidth
+          maxWidth="sm"
+          aria-labelledby="move-tasks-title"
+          PaperProps={{ sx: { borderRadius: { xs: 3, sm: 4 }, m: { xs: 1.5, sm: 3 } } }}
+        >
+          <DialogTitle id="move-tasks-title" sx={{ pb: 1 }}>
+            <Typography variant="h5" fontWeight={800}>Move selected tasks</Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+              Choose a new status for {selectedCount} selected {selectedCount === 1 ? 'task' : 'tasks'}.
+            </Typography>
+          </DialogTitle>
+          <DialogContent sx={{ pt: '12px !important' }}>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' }, gap: 1.25 }}>
+              {statusOptions.map((option) => {
+                const selected = selectedStatus === option.value;
+                return (
+                  <Button
+                    key={option.value}
+                    variant="outlined"
+                    onClick={() => setSelectedStatus(option.value)}
+                    aria-pressed={selected}
+                    sx={{
+                      justifyContent: 'flex-start',
+                      alignItems: 'flex-start',
+                      textAlign: 'left',
+                      minHeight: 76,
+                      px: 2,
+                      borderWidth: selected ? 2 : 1,
+                      borderColor: selected ? 'primary.main' : 'divider',
+                      bgcolor: selected ? 'action.selected' : 'background.paper',
+                      color: 'text.primary',
+                      '&:hover': { borderColor: selected ? 'primary.main' : 'text.secondary', bgcolor: 'action.hover' },
+                    }}
+                  >
+                    <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: option.color, mt: 0.6, mr: 1.5, flexShrink: 0 }} />
+                    <Box>
+                      <Typography fontWeight={750}>{option.label}</Typography>
+                      <Typography variant="caption" color="text.secondary">{option.description}</Typography>
+                    </Box>
+                  </Button>
+                );
+              })}
+            </Box>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, pb: 3, pt: 1.5 }}>
+            <Button onClick={() => setMoveDialogOpen(false)} color="inherit">Cancel</Button>
+            <Button
+              variant="contained"
+              disabled={!selectedStatus}
+              onClick={() => {
+                if (!selectedStatus) return;
+                onBulkAction(selectedStatus);
+                setMoveDialogOpen(false);
+              }}
+            >
+              Move {selectedCount === 1 ? 'task' : `${selectedCount} tasks`}
+            </Button>
+          </DialogActions>
+        </Dialog>
       </Box>
     </Slide>
   );

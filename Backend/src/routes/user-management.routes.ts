@@ -22,7 +22,7 @@ router.post('/users/assign-role', checkAnyPermission(['MANAGE_ROLES', 'UPDATE_US
 router.post('/users/remove-role', checkAnyPermission(['MANAGE_ROLES', 'UPDATE_USERS']), (req, res) => userManagementController.removeRoleFromUser(req, res));
 
 // Role management routes - require MANAGE_ROLES permission
-router.get('/roles', checkPermission('MANAGE_ROLES'), (req, res) => userManagementController.getAllRoles(req, res));
+router.get('/roles', checkAnyPermission(['MANAGE_ROLES', 'UPDATE_USERS']), (req, res) => userManagementController.getAllRoles(req, res));
 router.get('/roles/:id', checkPermission('MANAGE_ROLES'), (req, res) => userManagementController.getRoleById(req, res));
 router.post('/roles', checkPermission('MANAGE_ROLES'), (req, res) => userManagementController.createRole(req, res));
 router.put('/roles/:id', checkPermission('MANAGE_ROLES'), (req, res) => userManagementController.updateRole(req, res));

@@ -1,4 +1,4 @@
-import React, { useEffect, Suspense, useRef } from 'react';
+import React, { useEffect, Suspense } from 'react';
 import { Routes, Route, Navigate, useLocation, Outlet } from 'react-router-dom';
 import { Box, CircularProgress } from '@mui/material';
 import { useAppDispatch, useAppSelector } from './store/store';
@@ -19,7 +19,9 @@ const DashboardPage = React.lazy(() => import('./pages/Dashboard'));
 const PostsPage = React.lazy(() => import('./pages/Posts'));
 const SchedulePageWithSelection = React.lazy(() => import('./pages/Schedule'));
 const CustomerPage = React.lazy(() => import('./pages/Customer'));
-const CustomerProfilePage = React.lazy(() => import('./pages/CustomerProfile/CustomerProfilePage'));
+const ProfileLibraryPage = React.lazy(() => import('./pages/CustomerProfile/ProfileLibraryPage'));
+const ProfileEditorPage = React.lazy(() => import('./pages/CustomerProfile/ProfileEditorPage'));
+const PublicProfilePage = React.lazy(() => import('./pages/CustomerProfile/PublicProfilePage'));
 const UsersPage = React.lazy(() => import('./pages/UsersManagement'));
 const SettingsPage = React.lazy(() => import('./pages/Settings'));
 const NotificationAnalytics = React.lazy(() => import('./pages/NotificationAnalytics'));
@@ -174,9 +176,6 @@ const App = () => {
               0%, 100% { opacity: 0.8; }
               50% { opacity: 1; }
             }
-            * {
-              transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-            }
           `}
         </style>
         <Box sx={{ minHeight: '100vh' }}>
@@ -230,6 +229,7 @@ const App = () => {
                   path="/reset-password" 
                   element={<ResetPasswordPage />}
                 />
+                <Route path="/p/:slug" element={<PublicProfilePage />} />
 
                 {/* Protected */}
                 <Route element={<ProtectedRoute />}>
@@ -240,13 +240,14 @@ const App = () => {
                   <Route path="/customer" element={<CustomerPage />} />
                   <Route path="/users" element={<UsersPage />} />
                   <Route path="/settings" element={<SettingsPage />} />
-                  <Route path="/customer-profile" element={<CustomerProfilePage />} />
-                  <Route path="/customer/:customerId/profile" element={<CustomerProfilePage />} />
+                  <Route path="/customer-profile" element={<ProfileLibraryPage />} />
+                  <Route path="/customer-profile/:profileId/edit" element={<ProfileEditorPage />} />
+                  <Route path="/customer/:customerId/profile" element={<Navigate to="/customer-profile" replace />} />
                   <Route path="/notification-analytics" element={<NotificationAnalytics />} />
                 </Route>
 
-                {/* Public profile routes */}
-                <Route path="/customer-profile/:customerId" element={<CustomerProfilePage />} />
+                {/* Legacy customer links never expose CRM data. */}
+                <Route path="/customer-profile/:customerId" element={<Navigate to="/customer-profile" replace />} />
 
                 {/* 404 */}
                 <Route

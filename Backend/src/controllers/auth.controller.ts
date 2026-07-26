@@ -59,7 +59,7 @@ class AuthController {
         });
       }
 
-      const { email, userPassword, userName, userLastName, userPhone1, selectedRole } = req.body;
+      const { email, userPassword, userName, userLastName, userPhone1 } = req.body;
 
       // Check if user already exists (active or inactive)
       const existingUser = await this.userRepository.findOne({ 
@@ -97,23 +97,10 @@ class AuthController {
       // Save user to database
       const savedUser = await this.userRepository.save(user);
 
-      // Assign role based on user selection with SuperAdmin limit
+      // Public registration must never be allowed to elevate its own privileges.
+      // Higher roles are assigned only through authenticated user management.
       try {
-        let targetRole = selectedRole || 'Moderator'; // Default to Moderator if not selected
-
-        // Check if SuperAdmin is already taken
-        if (targetRole === 'Superadmin') {
-          const existingSuperadmin = await this.userRepository
-            .createQueryBuilder('user')
-            .leftJoin('user_roles', 'ur', 'ur.userId = user.userId')
-            .leftJoin('roles', 'r', 'r.roleId = ur.roleId')
-            .where('r.roleName = :roleName', { roleName: 'Superadmin' })
-            .getOne();
-
-          if (existingSuperadmin) {
-            targetRole = 'Admin'; // Fallback to Admin if SuperAdmin taken
-          }
-        }
+        const targetRole = 'Customer';
 
         let role = await this.roleRepository.findOne({ 
           where: { roleName: targetRole } 

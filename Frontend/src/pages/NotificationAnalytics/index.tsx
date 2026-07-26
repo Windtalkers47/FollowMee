@@ -17,14 +17,24 @@ import {
   Chip,
   useTheme,
   alpha,
+  Button,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Stack,
 } from '@mui/material';
 import {
   TrendingUp,
   Visibility,
   TouchApp,
   AccessTime,
+  Devices,
+  Category,
+  EmojiEvents,
+  Download,
 } from '@mui/icons-material';
-import { getDashboardMetrics, getQuickSummary } from '../../api/notification.api';
+import { getDashboardMetrics } from '../../api/notification.api';
 
 interface DashboardMetrics {
   totalSent: number;
@@ -74,22 +84,29 @@ const NotificationAnalytics = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
+  const [previousMetrics, setPreviousMetrics] = useState<DashboardMetrics | null>(null);
+  const [periodDays, setPeriodDays] = useState(30);
 
   useEffect(() => {
     loadMetrics();
-  }, []);
+  }, [periodDays]);
 
   const loadMetrics = async () => {
     try {
       setLoading(true);
-      const [quickSummary, dashboard] = await Promise.all([
-        getQuickSummary(),
-        getDashboardMetrics(),
+      const end = new Date();
+      const start = new Date(end.getTime() - periodDays * 86400000);
+      const previousEnd = new Date(start.getTime() - 1);
+      const previousStart = new Date(previousEnd.getTime() - periodDays * 86400000);
+      const [dashboard, previous] = await Promise.all([
+        getDashboardMetrics(start.toISOString(), end.toISOString()),
+        getDashboardMetrics(previousStart.toISOString(), previousEnd.toISOString()),
       ]);
 
       if (dashboard.success && dashboard.data) {
         setMetrics(dashboard.data);
       }
+      setPreviousMetrics(previous.data || null);
       setError(null);
     } catch (err) {
       setError('Failed to load analytics data');
@@ -108,22 +125,32 @@ const NotificationAnalytics = () => {
     return `${minutes}m ${remainingSeconds}s`;
   };
 
-  const getDeviceIcon = (deviceType: string): string => {
-    switch (deviceType) {
-      case 'mobile': return '📱';
-      case 'tablet': return '📟';
-      case 'desktop': return '💻';
-      default: return '❓';
-    }
+  const rateChange = (current: number, previous?: number) => {
+    if (previous === undefined) return null;
+    return current - previous;
   };
 
-  const getNotificationTypeIcon = (type: string): string => {
-    if (type.includes('TASK')) return '📋';
-    if (type.includes('COMMENT')) return '💬';
-    if (type.includes('LIKE')) return '❤️';
-    if (type.includes('CUSTOMER')) return '👤';
-    if (type.includes('SYSTEM')) return '🔔';
-    return '📢';
+  const exportCsv = () => {
+    if (!metrics) return;
+    const rows = [
+      ['Metric', `Last ${periodDays} days`],
+      ['Total sent', metrics.totalSent],
+      ['Total opened', metrics.totalOpened],
+      ['Total clicked', metrics.totalClicked],
+      ['Open rate', metrics.openRate.toFixed(2)],
+      ['Click-through rate', metrics.clickThroughRate.toFixed(2)],
+      ...metrics.topNotifications.map((item) => [
+        `Notification: ${item.title}`,
+        `${item.sentCount} sent | ${item.openRate.toFixed(2)}% open | ${item.clickRate.toFixed(2)}% click`
+      ])
+    ];
+    const csv = rows.map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `followmee-notification-analytics-${periodDays}d.csv`;
+    anchor.click();
+    URL.revokeObjectURL(url);
   };
 
   if (loading) {
@@ -153,14 +180,29 @@ const NotificationAnalytics = () => {
   return (
     <Box sx={{ p: 3 }}>
       {/* Header */}
-      <Box sx={{ mb: 4 }}>
-        <Typography variant="h4" fontWeight={600} gutterBottom>
-          📊 Notification Analytics
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          Track notification engagement and performance
-        </Typography>
-      </Box>
+      <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }} spacing={2} sx={{ mb: 4 }}>
+        <Box>
+          <Typography variant="h4" fontWeight={600} gutterBottom>Notification analytics</Typography>
+          <Typography variant="body2" color="text.secondary">Track engagement and compare it with the previous period.</Typography>
+        </Box>
+        <Stack direction="row" spacing={1}>
+          <FormControl size="small" sx={{ minWidth: 140 }}>
+            <InputLabel>Period</InputLabel>
+            <Select label="Period" value={periodDays} onChange={(event) => setPeriodDays(Number(event.target.value))}>
+              <MenuItem value={7}>Last 7 days</MenuItem>
+              <MenuItem value={30}>Last 30 days</MenuItem>
+              <MenuItem value={90}>Last 90 days</MenuItem>
+            </Select>
+          </FormControl>
+          <Button variant="outlined" startIcon={<Download />} onClick={exportCsv}>Export</Button>
+        </Stack>
+      </Stack>
+
+      <Alert severity={metrics.totalSent === 0 ? 'info' : 'success'} sx={{ mb: 3 }}>
+        {metrics.totalSent === 0
+          ? 'No engagement data yet. Send a notification from a task or customer workflow to start measuring results.'
+          : `Your current open rate is ${metrics.openRate.toFixed(1)}%. Use the breakdown below to identify the strongest channel.`}
+      </Alert>
 
       {/* Summary Cards */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
@@ -195,6 +237,11 @@ const NotificationAnalytics = () => {
               <Typography variant="caption" color="text.secondary">
                 {metrics.totalOpened.toLocaleString()} opens
               </Typography>
+              {previousMetrics && (
+                <Typography variant="caption" display="block" color="text.secondary">
+                  {rateChange(metrics.openRate, previousMetrics.openRate)! >= 0 ? '+' : ''}{rateChange(metrics.openRate, previousMetrics.openRate)?.toFixed(1)} pts vs previous
+                </Typography>
+              )}
             </CardContent>
           </Card>
         </Grid>
@@ -214,6 +261,11 @@ const NotificationAnalytics = () => {
               <Typography variant="caption" color="text.secondary">
                 {metrics.totalClicked.toLocaleString()} clicks
               </Typography>
+              {previousMetrics && (
+                <Typography variant="caption" display="block" color="text.secondary">
+                  {rateChange(metrics.clickThroughRate, previousMetrics.clickThroughRate)! >= 0 ? '+' : ''}{rateChange(metrics.clickThroughRate, previousMetrics.clickThroughRate)?.toFixed(1)} pts vs previous
+                </Typography>
+              )}
             </CardContent>
           </Card>
         </Grid>
@@ -240,10 +292,14 @@ const NotificationAnalytics = () => {
         <Grid size={{ xs: 12, md: 6 }}>
           <Card>
             <CardContent>
-              <Typography variant="h6" fontWeight={600} gutterBottom>
-                📱 By Device Type
-              </Typography>
+              <Box display="flex" alignItems="center" gap={1}>
+                <Devices color="primary" />
+                <Typography variant="h6" fontWeight={600}>By device type</Typography>
+              </Box>
               <Box sx={{ mt: 2 }}>
+                {metrics.byDeviceType.length === 0 && (
+                  <Typography color="text.secondary">Device insights will appear after notifications are opened.</Typography>
+                )}
                 {metrics.byDeviceType.map((device) => (
                   <Box
                     key={device.deviceType}
@@ -257,7 +313,7 @@ const NotificationAnalytics = () => {
                     }}
                   >
                     <Typography sx={{ minWidth: 100 }}>
-                      {getDeviceIcon(device.deviceType)} {device.deviceType}
+                      {device.deviceType}
                     </Typography>
                     <Box sx={{ flex: 1, mx: 2 }}>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
@@ -287,10 +343,14 @@ const NotificationAnalytics = () => {
         <Grid size={{ xs: 12, md: 6 }}>
           <Card>
             <CardContent>
-              <Typography variant="h6" fontWeight={600} gutterBottom>
-                📋 By Notification Type
-              </Typography>
+              <Box display="flex" alignItems="center" gap={1}>
+                <Category color="primary" />
+                <Typography variant="h6" fontWeight={600}>By notification type</Typography>
+              </Box>
               <Box sx={{ mt: 2 }}>
+                {metrics.byNotificationType.length === 0 && (
+                  <Typography color="text.secondary">Type insights will appear after notifications are sent.</Typography>
+                )}
                 {metrics.byNotificationType.map((type) => (
                   <Box
                     key={type.notificationType}
@@ -304,7 +364,7 @@ const NotificationAnalytics = () => {
                     }}
                   >
                     <Typography sx={{ minWidth: 120 }}>
-                      {getNotificationTypeIcon(type.notificationType)} {type.notificationType}
+                      {type.notificationType}
                     </Typography>
                     <Box sx={{ flex: 1, mx: 2 }}>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
@@ -335,9 +395,10 @@ const NotificationAnalytics = () => {
       {/* Top Performing Notifications */}
       <Card>
         <CardContent>
-          <Typography variant="h6" fontWeight={600} gutterBottom>
-            🏆 Top Performing Notifications
-          </Typography>
+          <Box display="flex" alignItems="center" gap={1} sx={{ mb: 1 }}>
+            <EmojiEvents color="primary" />
+            <Typography variant="h6" fontWeight={600}>Top performing notifications</Typography>
+          </Box>
           <TableContainer>
             <Table>
               <TableHead>
@@ -350,6 +411,13 @@ const NotificationAnalytics = () => {
                 </TableRow>
               </TableHead>
               <TableBody>
+                {metrics.topNotifications.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={5} align="center" sx={{ py: 5, color: 'text.secondary' }}>
+                      Performance rankings will appear once notifications receive engagement.
+                    </TableCell>
+                  </TableRow>
+                )}
                 {metrics.topNotifications.map((notification) => (
                   <TableRow
                     key={notification.notificationId}

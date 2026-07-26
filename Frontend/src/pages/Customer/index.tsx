@@ -25,6 +25,7 @@ import {
 } from '@mui/material';
 import Swal from 'sweetalert2';
 import { styled } from '@mui/material/styles';
+import { Link as RouterLink } from 'react-router-dom';
 import { Customer as CustomerType, CustomerStatus } from '../../types/customer.types';
 import { CustomerFormData, ApiError } from '@/components/customers/CustomerForm';
 import { 
@@ -52,9 +53,8 @@ import FilterMenu from '../../components/customers/FilterMenu';
 import AddCustomerMenu from '../../components/customers/AddCustomerMenu';
 import CustomerForm from '@/components/customers/CustomerForm';
 import ActionMenu from '@/components/ActionMenu';
-import { useLiquidGlass } from '../../contexts/LiquidGlassContext';
-import { getGlassCardStyles, gradientPresets } from '../../styles/liquidGlassStyles';
 import { FilterBar } from '@/components/FilterBar';
+import { customerApi } from '../../api/customer.api';
 
 interface Customer extends CustomerType {}
 
@@ -69,23 +69,14 @@ const StatsCard: React.FC<{
   iconBg: string;
   iconColor: string;
   trend?: { value: number; direction: 'up' | 'down' };
-  liquidGlassSettings: any;
-  isDarkMode: boolean;
-}> = ({ title, value, subtitle, icon, iconBg, iconColor, trend, liquidGlassSettings, isDarkMode }) => {
-  const glassStyles = getGlassCardStyles(liquidGlassSettings, isDarkMode);
-  
+}> = ({ title, value, subtitle, icon, iconBg, iconColor, trend }) => {
   return (
     <Card sx={{
-      ...glassStyles,
-      borderRadius: 4,
+      borderRadius: 3,
       p: { xs: 2, md: 3 },
       position: 'relative',
-      overflow: 'visible',
-      transition: 'all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
-      '&:hover': {
-        transform: 'translateY(-6px)',
-        boxShadow: '0 24px 64px 0 rgba(16, 185, 129, 0.25)',
-      },
+      overflow: 'hidden',
+      boxShadow: 'none',
     }}>
       <CardContent sx={{ p: '0 !important' }}>
         <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2}>
@@ -120,7 +111,7 @@ const StatsCard: React.FC<{
             alignItems: 'center',
             justifyContent: 'center',
             color: iconColor,
-            boxShadow: '0 8px 24px rgba(0,0,0,0.08)',
+            boxShadow: 'none',
           }}>
             {icon}
           </Box>
@@ -163,7 +154,6 @@ const getEngagementScore = (customer: Customer): number => {
 // ============================================
 const CustomerPage = () => {
   const theme = useTheme();
-  const { isLiquidGlassEnabled, liquidGlassSettings } = useLiquidGlass();
   const isDarkMode = theme.palette.mode === 'dark';
 
   const {
@@ -382,9 +372,6 @@ const CustomerPage = () => {
     }
   }, [error]);
 
-  // Get gradient colors from preset
-  const preset = gradientPresets[liquidGlassSettings.gradientPreset];
-
   // Loading state
   if (loading && customers.length === 0) {
     return (
@@ -402,9 +389,7 @@ const CustomerPage = () => {
   return (
     <Box sx={{ 
       width: '100%',
-      background: theme.palette.mode === 'light' 
-        ? 'linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 50%, #f0f9ff 100%)'
-        : theme.palette.background.default,
+      background: theme.palette.background.default,
       minHeight: '100vh',
       pb: 6
     }}>
@@ -441,22 +426,22 @@ const CustomerPage = () => {
                     width: 56,
                     height: 56,
                     borderRadius: 3,
-                    background: `linear-gradient(135deg, ${preset.primary}, ${preset.secondary})`,
+                    backgroundColor: 'primary.main',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     color: 'white',
-                    boxShadow: `0 8px 24px ${preset.primary}66`,
+                    boxShadow: 'none',
                   }}
                 >
                   <GroupIcon sx={{ fontSize: 32 }} />
                 </Box>
                 <Box>
                   <Typography variant="h2" component="h1" fontWeight={800} sx={{ fontSize: { xs: '1.75rem', md: '2.5rem' } }}>
-                    Customer Hub
+                    Customers
                   </Typography>
                   <Typography variant="body1" color="text.secondary" fontWeight={400}>
-                    Connect, engage & build meaningful relationships
+                    Private CRM records. Public Profile Cards are managed separately.
                   </Typography>
                 </Box>
               </Box>
@@ -464,23 +449,24 @@ const CustomerPage = () => {
 
             <Box display="flex" gap={2} flexWrap="wrap">
               <Button
+                component={RouterLink}
+                to="/customer-profile"
+                variant="outlined"
+                sx={{ borderRadius: 3, textTransform: 'none', px: 2.5, py: 1.25, fontWeight: 600 }}
+              >
+                Manage Profile Cards
+              </Button>
+              <Button
                 variant="contained"
                 startIcon={<PersonAddIcon />}
                 onClick={() => handleOpenForm()}
                 sx={{
                   borderRadius: 3,
                   textTransform: 'none',
-                  px: 4,
-                  py: 1.5,
+                  px: 2.5,
+                  py: 1.25,
                   fontWeight: 600,
                   fontSize: '0.95rem',
-                  background: `linear-gradient(135deg, ${preset.primary}, ${preset.secondary})`,
-                  boxShadow: `0 8px 24px ${preset.primary}66`,
-                  '&:hover': {
-                    boxShadow: `0 12px 32px ${preset.primary}99`,
-                    transform: 'translateY(-2px)',
-                  },
-                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                 }}
               >
                 Add New Customer
@@ -494,16 +480,12 @@ const CustomerPage = () => {
                 sx={{
                   borderRadius: 3,
                   textTransform: 'none',
-                  px: 4,
-                  py: 1.5,
+                  px: 2.5,
+                  py: 1.25,
                   fontWeight: 600,
                   fontSize: '0.95rem',
                   borderWidth: 2,
-                  '&:hover': {
-                    borderWidth: 2,
-                    transform: 'translateY(-2px)',
-                  },
-                  transition: 'all 0.3s ease',
+                  '&:hover': { borderWidth: 2 },
                 }}
               >
                 Refresh
@@ -526,8 +508,6 @@ const CustomerPage = () => {
             icon={<GroupIcon sx={{ fontSize: 32 }} />}
             iconBg="rgba(16, 185, 129, 0.12)"
             iconColor="#10b981"
-            liquidGlassSettings={liquidGlassSettings}
-            isDarkMode={isDarkMode}
           />
           <StatsCard
             title="Active Now"
@@ -537,8 +517,6 @@ const CustomerPage = () => {
             iconBg="rgba(16, 185, 129, 0.12)"
             iconColor="#10b981"
             trend={{ value: 5, direction: 'up' }}
-            liquidGlassSettings={liquidGlassSettings}
-            isDarkMode={isDarkMode}
           />
           <StatsCard
             title="Inactive"
@@ -547,8 +525,6 @@ const CustomerPage = () => {
             icon={<AccessTimeIcon sx={{ fontSize: 32 }} />}
             iconBg="rgba(245, 158, 11, 0.15)"
             iconColor="#f59e0b"
-            liquidGlassSettings={liquidGlassSettings}
-            isDarkMode={isDarkMode}
           />
           <StatsCard
             title="Canceled"
@@ -557,8 +533,6 @@ const CustomerPage = () => {
             icon={<BlockIcon sx={{ fontSize: 32 }} />}
             iconBg="rgba(239, 68, 68, 0.15)"
             iconColor="#ef4444"
-            liquidGlassSettings={liquidGlassSettings}
-            isDarkMode={isDarkMode}
           />
         </Box>
 
@@ -566,13 +540,12 @@ const CustomerPage = () => {
         <Box mb={4}>
           <Card
             sx={{
-              borderRadius: 4,
+              borderRadius: 3,
               overflow: 'hidden',
-              background: isDarkMode ? 'rgba(30, 41, 59, 0.8)' : 'rgba(255, 255, 255, 0.9)',
-              backdropFilter: 'blur(20px)',
-              WebkitBackdropFilter: 'blur(20px)',
-              border: '1px solid rgba(255, 255, 255, 0.3)',
-              boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.08)',
+              background: 'background.paper',
+              border: '1px solid',
+              borderColor: 'divider',
+              boxShadow: 'none',
             }}
           >
             <FilterBar
@@ -619,11 +592,9 @@ const CustomerPage = () => {
           <Box
             sx={{
               display: 'inline-flex',
-              background: isDarkMode ? 'rgba(51, 65, 85, 0.6)' : 'rgba(230, 230, 235, 0.6)',
+              backgroundColor: 'action.hover',
               borderRadius: 3,
               p: 1,
-              backdropFilter: 'blur(12px)',
-              WebkitBackdropFilter: 'blur(12px)',
               minWidth: '100%',
             }}
           >
@@ -671,12 +642,12 @@ const CustomerPage = () => {
                     textTransform: 'none',
                     fontWeight: isActive ? 600 : 500,
                     color: isActive ? 'primary.main' : 'text.secondary',
-                    background: isActive ? (isDarkMode ? 'rgba(51, 65, 85, 0.8)' : 'rgba(255, 255, 255, 0.8)') : 'transparent',
-                    boxShadow: isActive ? '0 2px 8px rgba(0,0,0,0.08)' : 'none',
-                    transition: 'all 0.2s ease',
+                    backgroundColor: isActive ? 'background.paper' : 'transparent',
+                    boxShadow: 'none',
+                    transition: 'background-color .18s ease, color .18s ease',
                     whiteSpace: 'nowrap',
                     '&:hover': {
-                      background: isDarkMode ? 'rgba(51, 65, 85, 0.5)' : 'rgba(255, 255, 255, 0.5)',
+                      backgroundColor: 'background.paper',
                     },
                   }}
                 >
@@ -694,8 +665,10 @@ const CustomerPage = () => {
               p: 2, 
               mb: 3, 
               borderRadius: 3, 
-              background: `linear-gradient(135deg, ${preset.primary}, ${preset.secondary})`,
-              color: 'white',
+              backgroundColor: 'background.paper',
+              color: 'text.primary',
+              border: '1px solid',
+              borderColor: 'divider',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
@@ -703,27 +676,25 @@ const CustomerPage = () => {
               position: 'sticky',
               top: 0,
               zIndex: 1000,
-              boxShadow: '0 8px 24px rgba(0,0,0,0.15)'
+              boxShadow: 'none',
+              flexWrap: 'wrap',
+              gap: 1.5,
             }}
           >
             <Typography variant="body1" sx={{ fontWeight: 600 }}>
               {selected.length} {selected.length === 1 ? 'customer' : 'customers'} selected
             </Typography>
-            <Box display="flex" gap={1}>
+            <Box display="flex" gap={1} flexWrap="wrap">
               <Button 
                 size="small" 
                 variant="contained"
                 startIcon={<CheckCircleIcon />}
                 sx={{ 
-                  bgcolor: '#10b981', 
-                  color: 'white',
+                  bgcolor: 'primary.main',
+                  color: 'primary.contrastText',
                   fontWeight: 600,
                   px: 2,
-                  '&:hover': { 
-                    bgcolor: '#059669',
-                    transform: 'translateY(-2px)',
-                    boxShadow: '0 4px 12px rgba(16, 185, 129, 0.4)',
-                  }
+                  '&:hover': { bgcolor: 'primary.dark' }
                 }}
                 onClick={async () => {
                   const result = await Swal.fire({
@@ -738,26 +709,7 @@ const CustomerPage = () => {
                   
                   if (result.isConfirmed) {
                     try {
-                      for (const customerId of selected) {
-                        const customer = customers.find(c => c.customerId === customerId);
-                        if (customer) {
-                          await updateCustomer(customerId, {
-                            customerName: customer.customerName,
-                            customerLastName: customer.customerLastName,
-                            customerEmail: customer.customerEmail,
-                            customerPhone1: customer.customerPhone1,
-                            customerPhone2: customer.customerPhone2,
-                            customerFacebook: customer.customerFacebook,
-                            customerInstagram: customer.customerInstagram,
-                            customerTikTok: customer.customerTikTok,
-                            customerLine: customer.customerLine,
-                            customerX: customer.customerX,
-                            customerAddress: customer.customerAddress,
-                            status: 'active',
-                            isActive: true
-                          });
-                        }
-                      }
+                      await customerApi.bulkUpdateStatus(selected, 'active');
                       await Swal.fire({
                         icon: 'success',
                         title: 'Success',
@@ -783,18 +735,13 @@ const CustomerPage = () => {
               </Button>
               <Button 
                 size="small" 
-                variant="contained"
+                variant="outlined"
                 startIcon={<AccessTimeIcon />}
                 sx={{ 
-                  bgcolor: '#f59e0b', 
-                  color: 'white',
+                  color: 'text.primary',
                   fontWeight: 600,
                   px: 2,
-                  '&:hover': { 
-                    bgcolor: '#d97706',
-                    transform: 'translateY(-2px)',
-                    boxShadow: '0 4px 12px rgba(245, 158, 11, 0.4)',
-                  }
+                  '&:hover': { bgcolor: 'action.hover' }
                 }}
                 onClick={async () => {
                   const result = await Swal.fire({
@@ -809,26 +756,7 @@ const CustomerPage = () => {
                   
                   if (result.isConfirmed) {
                     try {
-                      for (const customerId of selected) {
-                        const customer = customers.find(c => c.customerId === customerId);
-                        if (customer) {
-                          await updateCustomer(customerId, {
-                            customerName: customer.customerName,
-                            customerLastName: customer.customerLastName,
-                            customerEmail: customer.customerEmail,
-                            customerPhone1: customer.customerPhone1,
-                            customerPhone2: customer.customerPhone2,
-                            customerFacebook: customer.customerFacebook,
-                            customerInstagram: customer.customerInstagram,
-                            customerTikTok: customer.customerTikTok,
-                            customerLine: customer.customerLine,
-                            customerX: customer.customerX,
-                            customerAddress: customer.customerAddress,
-                            status: 'inactive',
-                            isActive: false
-                          });
-                        }
-                      }
+                      await customerApi.bulkUpdateStatus(selected, 'inactive');
                       await Swal.fire({
                         icon: 'success',
                         title: 'Success',
@@ -854,18 +782,14 @@ const CustomerPage = () => {
               </Button>
               <Button
                 size="small"
-                variant="contained"
+                variant="outlined"
                 startIcon={<BlockIcon />}
                 sx={{
-                  bgcolor: '#ef4444',
-                  color: 'white',
+                  color: 'error.main',
+                  borderColor: 'error.main',
                   fontWeight: 600,
                   px: 2,
-                  '&:hover': {
-                    bgcolor: '#dc2626',
-                    transform: 'translateY(-2px)',
-                    boxShadow: '0 4px 12px rgba(239, 68, 68, 0.4)',
-                  }
+                  '&:hover': { bgcolor: 'error.main', color: 'error.contrastText' }
                 }}
                 onClick={async () => {
                   const result = await Swal.fire({
@@ -880,9 +804,7 @@ const CustomerPage = () => {
 
                   if (result.isConfirmed) {
                     try {
-                      for (const customerId of selected) {
-                        await deleteCustomer(customerId);
-                      }
+                      await customerApi.bulkDelete(selected);
                       await Swal.fire({
                         icon: 'success',
                         title: 'Deleted',
@@ -910,13 +832,12 @@ const CustomerPage = () => {
                 size="small"
                 variant="outlined"
                 sx={{
-                  color: 'white',
-                  borderColor: 'rgba(255,255,255,0.6)',
+                  color: 'text.secondary',
+                  borderColor: 'divider',
                   borderWidth: 1.5,
                   '&:hover': {
-                    bgcolor: 'rgba(255,255,255,0.15)',
-                    borderColor: 'white',
-                    transform: 'translateY(-2px)',
+                    bgcolor: 'action.hover',
+                    borderColor: 'text.secondary',
                   }
                 }}
                 onClick={() => setSelected([])}
@@ -942,8 +863,7 @@ const CustomerPage = () => {
                 borderRadius: 4,
                 p: 8,
                 textAlign: 'center',
-                background: isDarkMode ? 'rgba(30, 41, 59, 0.5)' : 'rgba(255, 255, 255, 0.8)',
-                backdropFilter: 'blur(12px)',
+                backgroundColor: 'background.paper',
               }}
             >
               <GroupIcon sx={{ fontSize: 80, color: 'text.disabled', mb: 3, opacity: 0.3 }} />
@@ -963,7 +883,6 @@ const CustomerPage = () => {
                   px: 4,
                   py: 1.5,
                   fontWeight: 600,
-                  background: `linear-gradient(135deg, ${preset.primary}, ${preset.secondary})`,
                 }}
               >
                 Add Your First Customer
@@ -972,7 +891,6 @@ const CustomerPage = () => {
           ) : (
             displayCustomers.map((customer) => {
               const engagementScore = getEngagementScore(customer);
-              const glassStyles = getGlassCardStyles(liquidGlassSettings, isDarkMode);
               const isItemSelected = isSelected(customer.customerId);
               
               return (
@@ -980,15 +898,16 @@ const CustomerPage = () => {
                   key={customer.customerId}
                   onClick={(e) => handleClick(e, customer.customerId)}
                   sx={{
-                    ...glassStyles,
+                    backgroundColor: 'background.paper',
+                    boxShadow: 'none',
                     borderRadius: 3,
                     mb: 2,
-                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                    transition: 'border-color .18s ease, background-color .18s ease',
                     cursor: 'pointer',
-                    border: isItemSelected ? `2px solid ${theme.palette.primary.main}` : '1px solid rgba(255,255,255,0.5)',
+                    border: isItemSelected ? `2px solid ${theme.palette.primary.main}` : `1px solid ${theme.palette.divider}`,
                     '&:hover': {
-                      transform: 'translateY(-4px)',
-                      boxShadow: '0 8px 32px 0 rgba(16, 185, 129, 0.12)',
+                      borderColor: 'primary.main',
+                      backgroundColor: 'action.hover',
                     },
                   }}
                 >
@@ -1374,9 +1293,9 @@ const CustomerPage = () => {
               sx={{
                 '& .MuiTablePagination-toolbar': {
                   borderRadius: 3,
-                  background: isDarkMode ? 'rgba(30, 41, 59, 0.6)' : 'rgba(255, 255, 255, 0.8)',
-                  backdropFilter: 'blur(12px)',
-                  border: '1px solid rgba(255, 255, 255, 0.3)',
+                  backgroundColor: 'background.paper',
+                  border: '1px solid',
+                  borderColor: 'divider',
                 },
                 '& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows': {
                   fontSize: { xs: '0.75rem', sm: '0.875rem' },

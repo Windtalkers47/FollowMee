@@ -50,19 +50,6 @@ export const PendingTasksList: React.FC<PendingTasksListProps> = ({
     }
   };
 
-  const getPriorityGradient = (priority: string) => {
-    switch (priority) {
-      case 'high':
-        return 'linear-gradient(135deg, rgba(255, 59, 48, 0.16), rgba(255, 59, 48, 0.04))';
-      case 'medium':
-        return 'linear-gradient(135deg, rgba(255, 159, 10, 0.16), rgba(255, 159, 10, 0.04))';
-      case 'low':
-        return 'linear-gradient(135deg, rgba(52, 199, 89, 0.16), rgba(52, 199, 89, 0.04))';
-      default:
-        return isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)';
-    }
-  };
-
   const getPriorityLabel = (priority: string) => {
     switch (priority) {
       case 'high':
@@ -150,14 +137,14 @@ export const PendingTasksList: React.FC<PendingTasksListProps> = ({
                 p={2}
                 sx={{
                   borderRadius: 3,
-                  background: getPriorityGradient(task.priority),
-                  border: `1px solid ${getPriorityColor(task.priority)}30`,
-                  transition: 'all 0.3s ease',
+                  backgroundColor: 'action.hover',
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  transition: 'border-color .18s ease, background-color .18s ease',
                   cursor: onTaskClick ? 'pointer' : 'default',
                   '&:hover': {
-                    transform: 'translateX(8px)',
                     borderColor: `${getPriorityColor(task.priority)}50`,
-                    boxShadow: `0 8px 20px ${getPriorityColor(task.priority)}20`,
+                    backgroundColor: 'action.selected',
                   },
                 }}
                 onClick={() => onTaskClick?.(task.taskId)}
@@ -170,7 +157,7 @@ export const PendingTasksList: React.FC<PendingTasksListProps> = ({
                     minHeight: 48,
                     borderRadius: 2,
                     mr: 2,
-                    background: `linear-gradient(180deg, ${getPriorityColor(task.priority)}, ${getPriorityColor(task.priority)}80)`,
+                    backgroundColor: getPriorityColor(task.priority),
                   }}
                 />
 

@@ -631,15 +631,7 @@ const PostsPage = () => {
       <Box
         sx={{
           mb: 4,
-          p: 3,
-          borderRadius: 3,
-          background: isDarkMode 
-            ? `linear-gradient(135deg, rgba(28, 28, 30, 0.8), rgba(44, 44, 46, 0.8))`
-            : `linear-gradient(135deg, rgba(242, 242, 247, 0.8), rgba(255, 255, 255, 0.8))`,
-          backdropFilter: `blur(${liquidGlassSettings.blurIntensity}px)`,
-          WebkitBackdropFilter: `blur(${liquidGlassSettings.blurIntensity}px)`,
-          border: liquidGlassSettings.addBorders ? '1px solid rgba(255, 255, 255, 0.1)' : 'none',
-          boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)',
+          py: 1,
         }}
       >
         <Typography 
@@ -648,22 +640,22 @@ const PostsPage = () => {
           gutterBottom
           sx={{ color: getTextColor('primary') }}
         >
-          Posts & Competition
+          Completed work
+        </Typography>
+        <Typography color="text.secondary" sx={{ mb: 1.5 }}>
+          Review completed assignments, feedback and team progress in one place.
         </Typography>
         <Chip 
           label={`${assignedTasksList.filter(t => t.status === 'done').length} Completed Tasks`}
           size="small"
           sx={{
-            bgcolor: '#10b981',
-            color: '#ffffff',
+            bgcolor: 'action.selected',
+            color: 'primary.dark',
             fontWeight: 600,
             '& .MuiChip-label': {
-              color: '#ffffff',
+              color: 'inherit',
               fontWeight: 600,
             },
-            '&:hover': {
-              bgcolor: '#1b5e20',
-            }
           }}
         />
       </Box>
@@ -674,7 +666,7 @@ const PostsPage = () => {
           <Box display="flex" alignItems="center" gap={1} mb={2}>
             <TrophyIcon 
               sx={{ 
-                color: isDarkMode ? '#FFD700' : '#4a6cf7',
+                color: 'primary.main',
                 fontSize: 28 
               }} 
             />
@@ -683,7 +675,7 @@ const PostsPage = () => {
               fontWeight="bold"
               sx={{ color: getTextColor('primary') }}
             >
-              Top Performers
+              Team progress
             </Typography>
           </Box>
           
@@ -697,16 +689,10 @@ const PostsPage = () => {
                     alignItems: 'center',
                     gap: 2,
                     borderRadius: 2,
-                    background: currentPreset.light,
-                    backdropFilter: `blur(${liquidGlassSettings.blurIntensity}px)`,
-                    WebkitBackdropFilter: `blur(${liquidGlassSettings.blurIntensity}px)`,
-                    backgroundColor: isDarkMode 
-                      ? `rgba(28, 28, 30, ${liquidGlassSettings.glassOpacity})` 
-                      : `rgba(255, 255, 255, ${liquidGlassSettings.glassOpacity})`,
-                    border: liquidGlassSettings.addBorders 
-                      ? `1px solid ${isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'}` 
-                      : 'none',
-                    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)',
+                    backgroundColor: 'background.paper',
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    boxShadow: 'none',
                     borderTop: index === 0 
                       ? '3px solid #FFD700' 
                       : index === 1 
@@ -714,26 +700,13 @@ const PostsPage = () => {
                         : index === 2 
                           ? '3px solid #CD7F32' 
                           : 'none',
-                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                    '&:hover': {
-                      transform: 'translateY(-6px)',
-                      boxShadow: '0 16px 40px rgba(0, 0, 0, 0.15)',
-                    }
                   }}
                 >
                   <Typography 
                     variant="h4" 
                     fontWeight="bold"
                     sx={{
-                      background: index === 0 
-                        ? 'linear-gradient(135deg, #FFD700, #FFA500)' 
-                        : index === 1 
-                          ? 'linear-gradient(135deg, #C0C0C0, #E8E8E8)'
-                          : index === 2
-                            ? 'linear-gradient(135deg, #CD7F32, #E4A07B)'
-                            : getTextColor('secondary'),
-                      WebkitBackgroundClip: 'text',
-                      WebkitTextFillColor: index < 3 ? 'text' : getTextColor('secondary'),
+                      color: index === 0 ? '#9A7200' : index === 1 ? '#6B7280' : '#9A5B2E',
                     }}
                   >
                     #{index + 1}
@@ -769,7 +742,7 @@ const PostsPage = () => {
       {!topPerformers.length && !topPerformersData && (
         <Box sx={{ mb: 4 }}>
           <Box display="flex" alignItems="center" gap={1} mb={2}>
-            <TrophyIcon sx={{ color: isDarkMode ? '#FFD700' : '#4a6cf7', fontSize: 28 }} />
+            <TrophyIcon sx={{ color: 'primary.main', fontSize: 28 }} />
             <Typography variant="h6" fontWeight="bold" sx={{ color: getTextColor('primary') }}>
               Top Performers
             </Typography>
@@ -784,16 +757,10 @@ const PostsPage = () => {
                     alignItems: 'center',
                     gap: 2,
                     borderRadius: 2,
-                    background: currentPreset.light,
-                    backdropFilter: `blur(${liquidGlassSettings.blurIntensity}px)`,
-                    WebkitBackdropFilter: `blur(${liquidGlassSettings.blurIntensity}px)`,
-                    backgroundColor: isDarkMode 
-                      ? `rgba(28, 28, 30, ${liquidGlassSettings.glassOpacity})` 
-                      : `rgba(255, 255, 255, ${liquidGlassSettings.glassOpacity})`,
-                    border: liquidGlassSettings.addBorders 
-                      ? `1px solid ${isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'}` 
-                      : 'none',
-                    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)',
+                    backgroundColor: 'background.paper',
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    boxShadow: 'none',
                   }}
                 >
                   <CircularProgress size={28} />
@@ -818,7 +785,7 @@ const PostsPage = () => {
           <Box display="flex" alignItems="center" gap={1} mb={2}>
             <TrophyIcon 
               sx={{ 
-                color: isDarkMode ? '#a64dff' : '#a64dff',
+                color: 'primary.main',
                 fontSize: 28 
               }} 
             />
@@ -827,7 +794,7 @@ const PostsPage = () => {
               fontWeight="bold"
               sx={{ color: getTextColor('primary') }}
             >
-              Your Performance
+              Your completion summary
             </Typography>
           </Box>
           <Box
@@ -835,42 +802,18 @@ const PostsPage = () => {
               p: 4,
               textAlign: 'center',
               borderRadius: 3,
-              background: currentPreset.light,
-              backdropFilter: `blur(${liquidGlassSettings.blurIntensity}px)`,
-              WebkitBackdropFilter: `blur(${liquidGlassSettings.blurIntensity}px)`,
-              backgroundColor: isDarkMode 
-                ? `rgba(28, 28, 30, ${liquidGlassSettings.glassOpacity})` 
-                : `rgba(255, 255, 255, ${liquidGlassSettings.glassOpacity})`,
-              border: liquidGlassSettings.addBorders 
-                ? `1px solid ${isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'}` 
-                : 'none',
-              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.15)',
+              backgroundColor: 'background.paper',
+              border: '1px solid',
+              borderColor: 'divider',
+              boxShadow: 'none',
               position: 'relative',
               overflow: 'hidden',
-              '&::before': {
-                content: '""',
-                position: 'absolute',
-                top: 0,
-                left: -50,
-                width: 200,
-                height: 200,
-                background: 'radial-gradient(circle, rgba(166, 77, 255, 0.15) 0%, transparent 70%)',
-                pointerEvents: 'none',
-              }
             }}
           >
-            <Typography 
-              variant="h3" 
-              fontWeight="bold"
-              sx={{
-                background: 'linear-gradient(135deg, #a64dff, #dc7bff)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                backgroundClip: 'text',
-              }}
-            >
-              #{userRank.rank}
+            <Typography variant="h3" fontWeight="bold" color="text.primary">
+              {userRank.completedTasks}
             </Typography>
+            <Typography color="text.secondary" sx={{ mb: 1 }}>tasks completed</Typography>
             <Typography 
               variant="h6" 
               mb={1}
@@ -882,18 +825,18 @@ const PostsPage = () => {
               variant="body1" 
               sx={{ color: getTextColor('secondary') }}
             >
-              {userRank.completedTasks} completed tasks out of {userRank.totalUsers} competitors
+              Team position #{userRank.rank} of {userRank.totalUsers}
             </Typography>
             {userRank.rank > 3 && (
               <Typography 
                 variant="body2" 
                 sx={{ 
                   mt: 2,
-                  color: isDarkMode ? '#dc7bff' : '#a64dff',
+                  color: 'primary.main',
                   fontWeight: 500,
                 }}
               >
-                🚀 Keep going! You're getting closer to the top!
+                Complete useful work first; team position is a secondary progress signal.
               </Typography>
             )}
           </Box>
@@ -928,17 +871,7 @@ const PostsPage = () => {
               minWidth: 200,
               '& .MuiOutlinedInput-root': {
                 borderRadius: 2,
-                backgroundColor: isDarkMode ? 'rgba(44, 44, 46, 0.5)' : 'rgba(255, 255, 255, 0.8)',
-                backdropFilter: `blur(${liquidGlassSettings.blurIntensity / 2}px)`,
-                WebkitBackdropFilter: `blur(${liquidGlassSettings.blurIntensity / 2}px)`,
-                '& fieldset': {
-                  border: 'none',
-                },
-                '&:hover .MuiOutlinedInput-notchedOutline': {
-                  border: liquidGlassSettings.addBorders
-                    ? `1px solid ${isDarkMode ? 'rgba(255, 255, 255, 0.3)' : 'rgba(0, 0, 0, 0.15)'}`
-                    : 'none',
-                },
+                backgroundColor: 'background.paper',
               },
               '& .MuiInputBase-input': {
                 color: getTextColor('primary'),
@@ -957,14 +890,7 @@ const PostsPage = () => {
             sx={{ 
               minWidth: '120px',
               borderRadius: 2,
-              background: currentPreset.light,
-              backdropFilter: 'blur(12px)',
-              WebkitBackdropFilter: 'blur(12px)',
               opacity: !searchQuery.trim() || searchLoading ? 0.6 : 1,
-              '&:hover': {
-                transform: 'translateY(-2px)',
-                boxShadow: '0 6px 20px rgba(0, 0, 0, 0.15)',
-              },
             }}
           >
             {searchLoading ? 'Searching...' : 'Search'}
@@ -994,9 +920,7 @@ const PostsPage = () => {
             minWidth: 200,
             p: 0.5,
             borderRadius: 2,
-            backgroundColor: isDarkMode ? 'rgba(44, 44, 46, 0.8)' : 'rgba(230, 230, 235, 0.8)',
-            backdropFilter: `blur(${liquidGlassSettings.blurIntensity / 2}px)`,
-            WebkitBackdropFilter: `blur(${liquidGlassSettings.blurIntensity / 2}px)`,
+            backgroundColor: 'action.hover',
           }}
         >
           <Tabs
@@ -1014,20 +938,18 @@ const PostsPage = () => {
                 label={tab.label}
                 {...{ id: `posts-tab-${index}`, 'aria-controls': `posts-tabpanel-${index}` }}
                 sx={{
-                  borderRadius: 8,
+                  borderRadius: 2,
                   minHeight: 36,
                   minWidth: 100,
                   textTransform: 'none',
                   fontWeight: 500,
-                  transition: 'all 0.2s ease',
+                  transition: 'background-color .18s ease, color .18s ease',
                   color: activeTab === index 
                     ? getTextColor('primary') 
                     : getTextColor('secondary'),
                   '&.Mui-selected': {
-                    background: currentPreset.light,
-                    backdropFilter: 'blur(12px)',
-                    WebkitBackdropFilter: 'blur(12px)',
-                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+                    backgroundColor: 'background.paper',
+                    boxShadow: 'none',
                     fontWeight: 600,
                     color: getTextColor('primary'),
                   },
@@ -1146,7 +1068,7 @@ const PostsPage = () => {
         <DialogTitle sx={{ textAlign: 'center', pb: 1 }}>
           <DoneIcon color="success" sx={{ fontSize: 48, mb: 1 }} />
           <Typography variant="h6" color="success.main" fontWeight="bold" component="div">
-            Task Completed! 🎉
+            Task completed
           </Typography>
         </DialogTitle>
         <DialogContent sx={{ textAlign: 'center', py: 2 }}>
@@ -1170,12 +1092,12 @@ const PostsPage = () => {
                 </Typography>
                 {doneTaskData.newRank.rank <= 3 && (
                   <Typography variant="body2" color="success.main" sx={{ mt: 1 }}>
-                    🏆 You're in the Top 3! Amazing work!
+                    You're in the top three. Excellent work.
                   </Typography>
                 )}
                 {doneTaskData.newRank.rank > 3 && (
                   <Typography variant="body2" color="success.main" sx={{ mt: 1 }}>
-                    🚀 Keep climbing! You're doing great!
+                    Keep climbing — you're making strong progress.
                   </Typography>
                 )}
               </Box>
@@ -1204,7 +1126,7 @@ const PostsPage = () => {
         fullWidth
       >
         <DialogTitle sx={{ textAlign: 'center', pb: 1 }}>
-          <Typography sx={{ fontSize: 48, mb: 1 }}>💪</Typography>
+          <TrophyIcon sx={{ fontSize: 44, mb: 1, color: 'primary.main' }} />
           <Typography variant="h6" color="warning.main" fontWeight="bold" component="div">
             Task Reopened! 🔄
           </Typography>
@@ -1238,7 +1160,7 @@ const PostsPage = () => {
                 )}
                 {undoneTaskData.newRank.rank > 3 && (
                   <Typography variant="body2" color="warning.main" sx={{ mt: 1 }}>
-                    🚀 Every setback is a setup for a comeback!
+                    Every setback is useful feedback for the next attempt.
                   </Typography>
                 )}
               </Box>

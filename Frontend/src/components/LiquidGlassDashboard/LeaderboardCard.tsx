@@ -28,17 +28,11 @@ export const LeaderboardCard: React.FC<LeaderboardCardProps> = ({
   sx = {},
 }) => {
   const getRankBadge = (rank: number) => {
-    if (rank === 1) return '🥇';
-    if (rank === 2) return '🥈';
-    if (rank === 3) return '🥉';
     return `#${rank}`;
   };
 
   const getGradientBg = (rank: number) => {
-    if (rank === 1) return 'linear-gradient(135deg, rgba(255, 215, 0, 0.15), rgba(255, 193, 7, 0.05))';
-    if (rank === 2) return 'linear-gradient(135deg, rgba(192, 192, 192, 0.15), rgba(169, 169, 169, 0.05))';
-    if (rank === 3) return 'linear-gradient(135deg, rgba(205, 127, 50, 0.15), rgba(184, 115, 51, 0.05))';
-    return isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)';
+    return rank <= 3 ? 'action.selected' : 'action.hover';
   };
 
   const getBorderColor = (rank: number) => {
@@ -82,17 +76,8 @@ export const LeaderboardCard: React.FC<LeaderboardCardProps> = ({
             p={2}
             sx={{
               borderRadius: 3,
-              background: getGradientBg(performer.rank),
+              backgroundColor: getGradientBg(performer.rank),
               border: `1px solid ${getBorderColor(performer.rank)}`,
-              transition: 'all 0.3s ease',
-              '&:hover': {
-                transform: 'translateX(8px)',
-                boxShadow: performer.rank <= 3 
-                  ? `0 8px 20px ${getBorderColor(performer.rank).replace('0.5', '0.3')}`
-                  : isDarkMode 
-                    ? '0 8px 20px rgba(255,255,255,0.1)' 
-                    : '0 8px 20px rgba(0,0,0,0.1)',
-              },
             }}
           >
             {/* Rank Badge */}
@@ -105,10 +90,9 @@ export const LeaderboardCard: React.FC<LeaderboardCardProps> = ({
                 alignItems: 'center',
                 justifyContent: 'center',
                 mr: 2,
-                background: performer.rank <= 3 
-                  ? `linear-gradient(135deg, ${getRankNumberColor(performer.rank)}, ${getRankNumberColor(performer.rank).replace('0.8', '0.6')})`
-                  : isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
-                boxShadow: performer.rank <= 3 ? `0 4px 12px ${getRankNumberColor(performer.rank)}40` : 'none',
+                backgroundColor: 'background.paper',
+                border: `1px solid ${getBorderColor(performer.rank)}`,
+                boxShadow: 'none',
                 fontSize: '1rem',
               }}
             >
@@ -127,7 +111,7 @@ export const LeaderboardCard: React.FC<LeaderboardCardProps> = ({
               sx={{
                 mr: 2,
                 border: performer.rank <= 3 ? `2px solid ${getRankNumberColor(performer.rank)}` : 'none',
-                boxShadow: performer.rank <= 3 ? `0 2px 8px ${getRankNumberColor(performer.rank)}60` : 'none',
+                boxShadow: 'none',
               }}
             />
 
@@ -187,9 +171,7 @@ export const LeaderboardCard: React.FC<LeaderboardCardProps> = ({
         p={2.5}
         sx={{
           borderRadius: 3,
-          background: isDarkMode 
-            ? 'linear-gradient(135deg, rgba(52, 199, 89, 0.18), rgba(52, 199, 89, 0.04))'
-            : 'linear-gradient(135deg, rgba(52, 199, 89, 0.1), rgba(52, 199, 89, 0.02))',
+          backgroundColor: 'action.selected',
           border: `1px solid ${isDarkMode ? 'rgba(48, 209, 88, 0.4)' : 'rgba(52, 199, 89, 0.3)'}`,
         }}
       >
@@ -224,9 +206,7 @@ export const LeaderboardCard: React.FC<LeaderboardCardProps> = ({
                 top: 0,
                 height: '100%',
                 width: `${Math.min(myRank.progressToNext, 100)}%`,
-                background: myRank.progressToNext === 100 
-                  ? `linear-gradient(90deg, ${brandColors.iosGreen}, ${brandColors.iosGreenDark})`
-                  : `linear-gradient(90deg, ${brandColors.blue}, ${brandColors.indigo})`,
+                backgroundColor: myRank.progressToNext === 100 ? brandColors.iosGreen : brandColors.blue,
                 borderRadius: 5,
                 transition: 'width 0.5s ease',
               }}

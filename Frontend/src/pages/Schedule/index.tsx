@@ -8,10 +8,13 @@ import {
   Grid,
   CircularProgress,
   Alert,
-  Fab,
   useTheme,
   IconButton,
   Tooltip,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -37,13 +40,10 @@ import { TaskForm } from '../../components/TaskForm/TaskForm';
 import { getBookedDates } from '../../utils/dateUtils';
 import ScheduleTaskCard from '../../components/ScheduleTaskCard';
 import SmartSuggestionsBar from '../../components/SmartSuggestions/SmartSuggestionsBar';
-import SelectionModeToolbar from '../../components/SelectionMode/SelectionModeToolbar';
 import SelectionModeTopBar from '../../components/SelectionMode/SelectionModeTopBar';
 import { useMultiSelect } from '../../hooks/useMultiSelect';
 import { useSmartSuggestions } from '../../hooks/useSmartSuggestions';
 import { useSelectionKeyboard } from '../../hooks/useSelectionKeyboard';
-import { useLiquidGlass } from '../../contexts/LiquidGlassContext';
-import { gradientPresets } from '../../styles/liquidGlassStyles';
 import toast from '../../utils/toast';
 
 /* ================== Types ================== */
@@ -66,15 +66,14 @@ const TabPanel = ({ children, value, index }: TabPanelProps) => (
 const SchedulePage = () => {
   const theme = useTheme();
   const isDarkMode = theme.palette.mode === 'dark';
-  const { isLiquidGlassEnabled, liquidGlassSettings } = useLiquidGlass();
-  const preset = gradientPresets[liquidGlassSettings.gradientPreset];
-  
   const [activeTab, setActiveTab] = useState(0);
   const [searchInput, setSearchInput] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | undefined>();
   const [taskLikeSummaries, setTaskLikeSummaries] = useState<Record<string, TaskLikeSummary>>({});
+  const [sortBy, setSortBy] = useState<'updated_desc' | 'due_asc' | 'title_asc'>('updated_desc');
+  const [dateFilter, setDateFilter] = useState<'all' | 'overdue' | 'today' | 'week'>('all');
 
   // Multi-select hook - using taskId as id
   const multiSelect = useMultiSelect<{ id: string }>();
@@ -458,7 +457,31 @@ const SchedulePage = () => {
     }
   };
 
-  const filteredTasks = tasksResponse?.tasks || [];
+  const filteredTasks = useMemo(() => {
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const endOfToday = new Date(startOfToday.getTime() + 86400000);
+    const endOfWeek = new Date(startOfToday.getTime() + 7 * 86400000);
+    const matchesDate = (task: Task) => {
+      if (dateFilter === 'all') return true;
+      if (!task.dueDate) return false;
+      const due = new Date(task.dueDate);
+      if (dateFilter === 'overdue') return due < startOfToday && !['done', 'cancelled'].includes(task.status);
+      if (dateFilter === 'today') return due >= startOfToday && due < endOfToday;
+      return due >= startOfToday && due < endOfWeek;
+    };
+    return [...(tasksResponse?.tasks || [])]
+      .filter(matchesDate)
+      .sort((a, b) => {
+        if (sortBy === 'title_asc') return a.title.localeCompare(b.title);
+        if (sortBy === 'due_asc') {
+          if (!a.dueDate) return 1;
+          if (!b.dueDate) return -1;
+          return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+        }
+        return new Date(b.updatedAt || b.createdAt).getTime() - new Date(a.updatedAt || a.createdAt).getTime();
+      });
+  }, [tasksResponse?.tasks, dateFilter, sortBy]);
 
   const groupedTasks = {
     all: filteredTasks,
@@ -574,30 +597,23 @@ const SchedulePage = () => {
           sx={{ flexDirection: { xs: 'column', sm: 'row' }, gap: { xs: 2, sm: 0 } }}
         >
           <Typography variant="h4" fontWeight="bold" sx={{ fontSize: { xs: '1.75rem', sm: '2.125rem', md: '2.5rem' } }}>
-            Task Management
+            Tasks & Schedule
           </Typography>
           
           <Box display="flex" gap={2} flexWrap="wrap">
             {/* Select Button - Same style as Customer page */}
             {!multiSelect.isSelectionMode && multiSelect.selectedCount === 0 && (
               <Button
-                variant="contained"
+                variant="outlined"
                 startIcon={<CheckBoxOutlineBlankIcon />}
                 onClick={multiSelect.enterSelectionMode}
                 sx={{
                   borderRadius: 3,
                   textTransform: 'none',
-                  px: 4,
-                  py: 1.5,
+                  px: 2.5,
+                  py: 1.25,
                   fontWeight: 600,
                   fontSize: '0.95rem',
-                  background: `linear-gradient(135deg, ${preset.primary}, ${preset.secondary})`,
-                  boxShadow: `0 8px 24px ${preset.primary}66`,
-                  '&:hover': {
-                    boxShadow: `0 12px 32px ${preset.primary}99`,
-                    transform: 'translateY(-2px)',
-                  },
-                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                 }}
               >
                 Select
@@ -611,17 +627,10 @@ const SchedulePage = () => {
               sx={{
                 borderRadius: 3,
                 textTransform: 'none',
-                px: 4,
-                py: 1.5,
+                px: 2.5,
+                py: 1.25,
                 fontWeight: 600,
                 fontSize: '0.95rem',
-                background: `linear-gradient(135deg, ${preset.primary}, ${preset.secondary})`,
-                boxShadow: `0 8px 24px ${preset.primary}66`,
-                '&:hover': {
-                  boxShadow: `0 12px 32px ${preset.primary}99`,
-                  transform: 'translateY(-2px)',
-                },
-                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
               }}
             >
               Create Task
@@ -636,8 +645,7 @@ const SchedulePage = () => {
             alignItems: 'center',
             gap: 1,
             p: 1,
-            background: isDarkMode ? 'rgba(20, 83, 45, 0.3)' : 'rgba(209, 250, 229, 0.3)',
-            backdropFilter: 'blur(20px)',
+            background: 'background.paper',
             borderRadius: 3,
             border: `1px solid ${isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)'}`,
           }}
@@ -695,13 +703,33 @@ const SchedulePage = () => {
           </Tooltip>
         </Box>
 
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', sm: '180px 200px' }, gap: 1.5, mt: 1.5, justifyContent: 'end' }}>
+          <FormControl size="small">
+            <InputLabel>Due date</InputLabel>
+            <Select label="Due date" value={dateFilter} onChange={(event) => setDateFilter(event.target.value as typeof dateFilter)}>
+              <MenuItem value="all">Any date</MenuItem>
+              <MenuItem value="overdue">Overdue</MenuItem>
+              <MenuItem value="today">Due today</MenuItem>
+              <MenuItem value="week">Next 7 days</MenuItem>
+            </Select>
+          </FormControl>
+          <FormControl size="small">
+            <InputLabel>Sort</InputLabel>
+            <Select label="Sort" value={sortBy} onChange={(event) => setSortBy(event.target.value as typeof sortBy)}>
+              <MenuItem value="updated_desc">Recently updated</MenuItem>
+              <MenuItem value="due_asc">Due date</MenuItem>
+              <MenuItem value="title_asc">Title A–Z</MenuItem>
+            </Select>
+          </FormControl>
+        </Box>
+
         {/* Segmented Control */}
         <Box 
           sx={{
             mt: 2,
             display: 'flex',
             p: 0.5,
-            background: isDarkMode ? 'rgba(20, 83, 45, 0.5)' : 'rgba(209, 250, 229, 0.5)',
+            background: 'action.hover',
             borderRadius: 2,
             overflowX: 'auto',
             scrollbarWidth: 'none',
@@ -724,11 +752,12 @@ const SchedulePage = () => {
                   fontSize: '0.875rem',
                   fontWeight: 600,
                   textTransform: 'none',
-                  background: isActive ? '#10b981' : 'transparent',
-                  color: isActive ? '#ffffff' : (isDarkMode ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.5)'),
-                  transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                  backgroundColor: isActive ? 'primary.main' : 'transparent',
+                  color: isActive ? 'primary.contrastText' : 'text.primary',
+                  opacity: isActive ? 1 : 0.72,
+                  transition: 'background-color .18s ease, color .18s ease',
                   '&:hover': {
-                    background: isActive ? '#10b981' : (isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)'),
+                    backgroundColor: isActive ? 'primary.dark' : 'action.hover',
                   },
                   '&:active': { transform: 'scale(0.98)' },
                 }}
@@ -747,7 +776,8 @@ const SchedulePage = () => {
                       minWidth: '20px',
                       textAlign: 'center',
                       background: isActive ? (isDarkMode ? 'rgba(0,0,0,0.1)' : 'rgba(0,0,0,0.08)') : 'transparent',
-                      color: isActive ? 'rgba(255,255,255,0.6)' : (isDarkMode ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)'),
+                      color: isActive ? 'primary.contrastText' : 'text.secondary',
+                      opacity: isActive ? 0.9 : 1,
                     }}
                   >
                     {taskCount}
@@ -777,7 +807,13 @@ const SchedulePage = () => {
             <Box>
               {groupedTasks[tab.key].length === 0 ? (
                 <Box textAlign="center" py={8}>
-                  <Typography variant="h6" color="text.secondary">No {tab.label.toLowerCase()} found</Typography>
+                  <Typography variant="h6">No {tab.label.toLowerCase()} tasks yet</Typography>
+                  <Typography color="text.secondary" sx={{ mt: 1, mb: 2 }}>
+                    Create a task to start planning work for your team.
+                  </Typography>
+                  <Button variant="contained" startIcon={<AddIcon />} onClick={() => setTaskDialogOpen(true)}>
+                    Create task
+                  </Button>
                 </Box>
               ) : (
                 <Box sx={{ px: { xs: 2, sm: 3, md: 4 } }}>
@@ -877,26 +913,6 @@ const SchedulePage = () => {
         }}
       />
 
-      {/* FAB - Adjust position to be above Selection Bar */}
-      <Fab
-        color="primary"
-        sx={{ 
-          position: 'fixed', 
-          bottom: 96, 
-          right: 16,
-          background: 'linear-gradient(135deg, rgba(74, 108, 247, 0.8), rgba(166, 77, 255, 0.8))',
-          backdropFilter: 'blur(10px)',
-          border: '1px solid rgba(255, 255, 255, 0.3)',
-          boxShadow: '0 8px 25px rgba(74, 108, 247, 0.4)',
-          '&:hover': {
-            transform: 'scale(1.1) translateY(-2px)',
-            boxShadow: '0 12px 35px rgba(74, 108, 247, 0.6)',
-          }
-        }}
-        onClick={() => setTaskDialogOpen(true)}
-      >
-        <AddIcon />
-      </Fab>
     </Box>
   );
 };

@@ -89,61 +89,52 @@ export default function LoginPage() {
         position: 'relative',
         overflow: 'hidden',
         py: { xs: 1, sm: 2 },
-        background: theme.palette.mode === 'dark'
-          ? 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)'
-          : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-        '&::before': {
-          content: '""',
-          position: 'absolute',
-          width: { xs: '200px', md: '300px' },
-          height: { xs: '200px', md: '300px' },
-          borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(99, 102, 241, 0.3) 0%, transparent 70%)',
-          top: { xs: '-100px', md: '-150px' },
-          right: { xs: '-100px', md: '-150px' },
-          animation: 'float 8s ease-in-out infinite',
-        },
-        '&::after': {
-          content: '""',
-          position: 'absolute',
-          width: { xs: '150px', md: '250px' },
-          height: { xs: '150px', md: '250px' },
-          borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(168, 85, 247, 0.3) 0%, transparent 70%)',
-          bottom: { xs: '-75px', md: '-125px' },
-          left: { xs: '-75px', md: '-125px' },
-          animation: 'float 10s ease-in-out infinite reverse',
-        },
+        bgcolor: 'background.default',
       }}
     >
-      <style>
-        {`
-          @keyframes float {
-            0%, 100% { transform: translate(0, 0) rotate(0deg); }
-            50% { transform: translate(30px, -30px) rotate(180deg); }
-          }
-          @keyframes slideUp {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-          }
-          @keyframes pulse {
-            0%, 100% { opacity: 0.5; }
-            50% { opacity: 1; }
-          }
-        `}
-      </style>
-
       <Box
         sx={{
           position: 'relative',
           zIndex: 1,
           width: '100%',
-          maxWidth: 480,
+          maxWidth: 1040,
           mx: { xs: 2, sm: 3 },
+          display: 'grid',
+          gridTemplateColumns: { xs: '1fr', md: 'minmax(0, 1fr) 480px' },
+          alignItems: 'center',
+          gap: { md: 7 },
         }}
       >
+        <Box sx={{ display: { xs: 'none', md: 'block' }, pr: 2 }}>
+          <Typography variant="overline" color="primary.main" fontWeight={800}>
+            FollowMee profile cards
+          </Typography>
+          <Typography variant="h2" fontWeight={800} sx={{ mt: 1, mb: 2, maxWidth: 540 }}>
+            Turn every customer story into a page worth sharing.
+          </Typography>
+          <Typography color="text.secondary" sx={{ maxWidth: 500, mb: 4, fontSize: '1.05rem' }}>
+            Manage relationships privately, then publish a focused landing card with links, calls to action and measurable engagement.
+          </Typography>
+          <Box
+            sx={{
+              width: 300,
+              p: 3,
+              borderRadius: 4,
+              bgcolor: 'background.paper',
+              border: '1px solid',
+              borderColor: 'divider',
+              boxShadow: 'none',
+            }}
+          >
+            <Box sx={{ width: 64, height: 64, borderRadius: '50%', bgcolor: 'rgba(52,199,89,.16)', mb: 3 }} />
+            <Typography variant="h5" fontWeight={800}>Your customer</Typography>
+            <Typography color="text.secondary" sx={{ mt: 0.5 }}>A clear story, useful links and one strong next step.</Typography>
+            <Button fullWidth variant="contained" sx={{ mt: 3, pointerEvents: 'none' }}>View profile</Button>
+          </Box>
+        </Box>
+        <Box>
         {/* ===== Header ===== */}
-        <Box sx={{ textAlign: 'center', mb: { xs: 2, sm: 3 }, animation: 'slideUp 0.6s ease-out' }}>
+        <Box sx={{ textAlign: 'center', mb: { xs: 2, sm: 3 } }}>
           <Box
             sx={{
               display: 'inline-flex',
@@ -152,25 +143,17 @@ export default function LoginPage() {
               width: { xs: 64, sm: 80 },
               height: { xs: 64, sm: 80 },
               borderRadius: '24px',
-              background: theme.palette.mode === 'dark'
-                ? 'linear-gradient(135deg, rgba(99, 102, 241, 0.8), rgba(168, 85, 247, 0.8))'
-                : 'linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.7))',
-              backdropFilter: 'blur(20px)',
-              WebkitBackdropFilter: 'blur(20px)',
-              border: theme.palette.mode === 'dark'
-                ? '1px solid rgba(255, 255, 255, 0.2)'
-                : '1px solid rgba(255, 255, 255, 0.5)',
-              boxShadow: theme.palette.mode === 'dark'
-                ? '0 8px 32px rgba(99, 102, 241, 0.3)'
-                : '0 8px 32px rgba(0, 0, 0, 0.1)',
+              bgcolor: 'rgba(52,199,89,.14)',
+              border: '1px solid',
+              borderColor: 'rgba(52,199,89,.24)',
+              boxShadow: 'none',
               mb: 3,
-              animation: 'float 6s ease-in-out infinite',
             }}
           >
             <LockIcon
               sx={{
                 fontSize: { xs: 24, sm: 28 },
-                color: theme.palette.mode === 'dark' ? '#fff' : '#6366f1',
+                color: theme.palette.mode === 'dark' ? '#07120A' : '#248A3D',
               }}
             />
           </Box>
@@ -187,7 +170,7 @@ export default function LoginPage() {
           </Typography>
           <Typography
             variant="body1"
-            color={theme.palette.mode === 'dark' ? 'text.secondary' : 'rgba(255, 255, 255, 0.8)'}
+            color="text.secondary"
             sx={{ fontWeight: 400 }}
           >
             Sign in to continue to FollowMee
@@ -199,18 +182,10 @@ export default function LoginPage() {
           sx={{
             p: { xs: 2.5, sm: 3 },
             borderRadius: 3,
-            background: theme.palette.mode === 'dark'
-              ? 'rgba(30, 41, 59, 0.8)'
-              : 'rgba(255, 255, 255, 0.95)',
-            backdropFilter: 'blur(20px)',
-            WebkitBackdropFilter: 'blur(20px)',
-            border: theme.palette.mode === 'dark'
-              ? '1px solid rgba(255, 255, 255, 0.1)'
-              : '1px solid rgba(255, 255, 255, 0.5)',
-            boxShadow: theme.palette.mode === 'dark'
-              ? '0 8px 32px rgba(0, 0, 0, 0.4)'
-              : '0 8px 32px rgba(0, 0, 0, 0.1)',
-            animation: 'slideUp 0.6s ease-out 0.1s both',
+            bgcolor: 'background.paper',
+            border: '1px solid',
+            borderColor: 'divider',
+            boxShadow: 'none',
           }}
         >
           {/* ===== Errors ===== */}
@@ -410,24 +385,17 @@ export default function LoginPage() {
                 fontWeight: 600,
                 fontSize: '0.9375rem',
                 textTransform: 'none',
-                background: theme.palette.mode === 'dark'
-                  ? 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)'
-                  : 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
-                boxShadow: `0 4px 20px ${alpha(theme.palette.primary.main, 0.4)}`,
+                backgroundColor: 'primary.main',
+                color: 'primary.contrastText',
+                boxShadow: 'none',
                 '&:hover': {
-                  background: theme.palette.mode === 'dark'
-                    ? 'linear-gradient(135deg, #4f46e5 0%, #9333ea 100%)'
-                    : 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
-                  boxShadow: `0 6px 25px ${alpha(theme.palette.primary.main, 0.5)}`,
-                  transform: 'translateY(-1px)',
-                },
-                '&:active': {
-                  transform: 'translateY(0)',
+                  backgroundColor: 'primary.dark',
+                  boxShadow: 'none',
                 },
                 '&.Mui-disabled': {
                   background: theme.palette.mode === 'dark'
-                    ? 'rgba(99, 102, 241, 0.3)'
-                    : 'rgba(99, 102, 241, 0.3)',
+                    ? 'rgba(48, 209, 88, 0.25)'
+                    : 'rgba(52, 199, 89, 0.25)',
                 },
               }}
             >
@@ -466,6 +434,7 @@ export default function LoginPage() {
               </Typography>
             </Typography>
           </Box>
+        </Box>
         </Box>
       </Box>
     </Box>

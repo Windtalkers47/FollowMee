@@ -99,7 +99,6 @@ const ScheduleTaskCard: React.FC<Props> = ({
 }) => {
   const theme = useTheme();
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
-
   const isDark = theme.palette.mode === 'dark';
 
   const permissions = useMemo(() =>
@@ -153,58 +152,15 @@ const ScheduleTaskCard: React.FC<Props> = ({
         cursor: isInSelectionMode ? 'pointer' : 'default',
         position: 'relative',
 
-        // Glass layer with selection state
-        background: isSelected
-          ? (isDark ? 'rgba(10, 132, 255, 0.12)' : 'rgba(10, 132, 255, 0.08)')
-          : (isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(255, 255, 255, 0.72)'),
-
-        backdropFilter: 'blur(20px) saturate(120%)',
-        WebkitBackdropFilter: 'blur(20px) saturate(120%)',
+        backgroundColor: isSelected ? 'action.selected' : 'background.paper',
         border: isSelected
-          ? '2.5px solid #0A84FF'
-          : (isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(255, 255, 255, 0.5)'),
-
-        // Soft depth - iOS style
-        boxShadow: isSelected
-          ? '0 8px 32px rgba(10, 132, 255, 0.35)'
-          : (isDark ? '0 2px 20px rgba(0, 0, 0, 0.3)' : '0 2px 20px rgba(0, 0, 0, 0.06)'),
-
-        transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+          ? `2px solid ${theme.palette.primary.main}`
+          : `1px solid ${theme.palette.divider}`,
+        boxShadow: 'none',
+        transition: 'background-color 0.2s ease, border-color 0.2s ease',
         '&:hover': {
-          transform: isInSelectionMode ? 'none' : 'translateY(-3px)',
-          boxShadow: isSelected
-            ? '0 8px 32px rgba(10, 132, 255, 0.35)'
-            : (isDark ? '0 6px 28px rgba(0, 0, 0, 0.4)' : '0 6px 28px rgba(0, 0, 0, 0.1)'),
-        },
-
-        // Selection mode: scale effect
-        ...(isInSelectionMode && isSelected && {
-          transform: 'scale(1.02)',
-        }),
-
-        // Highlight animation when entering selection mode - Scale + Border + Glow
-        animation: isInSelectionMode ? 'selectionHighlight 0.8s ease-out 2' : 'none',
-        '@keyframes selectionHighlight': {
-          '0%': {
-            transform: 'scale(1)',
-            borderColor: '#0A84FF',
-            boxShadow: '0 0 0 rgba(10, 132, 255, 0)',
-          },
-          '30%': {
-            transform: 'scale(1.03)',
-            borderColor: '#007AFF',
-            boxShadow: '0 8px 32px rgba(10, 132, 255, 0.5)',
-          },
-          '60%': {
-            transform: 'scale(0.98)',
-            borderColor: '#0055D4',
-            boxShadow: '0 4px 16px rgba(10, 132, 255, 0.3)',
-          },
-          '100%': {
-            transform: 'scale(1)',
-            borderColor: '#0A84FF',
-            boxShadow: '0 8px 32px rgba(10, 132, 255, 0.2)',
-          },
+          backgroundColor: isSelected ? 'action.selected' : 'action.hover',
+          borderColor: isSelected ? 'primary.main' : 'text.disabled',
         },
       }}
     >
@@ -422,13 +378,12 @@ const ScheduleTaskCard: React.FC<Props> = ({
         onClose={() => setAnchorEl(null)}
         PaperProps={{
           sx: {
-            background: isDark ? 'rgba(30, 30, 30, 0.8)' : 'rgba(255, 255, 255, 0.8)',
-            backdropFilter: 'blur(20px)',
-            WebkitBackdropFilter: 'blur(20px)',
-            border: isDark ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid rgba(0, 0, 0, 0.08)',
+            backgroundColor: 'background.paper',
+            border: '1px solid',
+            borderColor: 'divider',
             borderRadius: 2,
             minWidth: 160,
-            boxShadow: isDark ? '0 8px 32px rgba(0, 0, 0, 0.4)' : '0 8px 32px rgba(0, 0, 0, 0.12)',
+            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.12)',
           }
         }}
         transformOrigin={{ horizontal: 'right', vertical: 'top' }}

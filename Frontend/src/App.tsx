@@ -3,7 +3,7 @@ import { Routes, Route, Navigate, useLocation, Outlet } from 'react-router-dom';
 import { Box, CircularProgress } from '@mui/material';
 import { useAppDispatch, useAppSelector } from './store/store';
 import { restoreSession, clearAuth } from './store/slices/authSlice';
-import { connectWebSocket, disconnectWebSocket } from './store/slices/notificationSlice';
+import { connectWebSocket, disconnectWebSocket, fetchNotifications, fetchUnreadCount } from './store/slices/notificationSlice';
 import MainLayout from './layouts/MainLayout';
 import { API_BASE_URL } from './api/config';
 import { ErrorBoundary } from './components/ErrorBoundary/ErrorBoundary';
@@ -26,6 +26,7 @@ const PublicProfilePage = React.lazy(() => import('./pages/CustomerProfile/Publi
 const UsersPage = React.lazy(() => import('./pages/UsersManagement'));
 const SettingsPage = React.lazy(() => import('./pages/Settings'));
 const NotificationAnalytics = React.lazy(() => import('./pages/NotificationAnalytics'));
+const NotificationsPage = React.lazy(() => import('./pages/Notifications'));
 
 const LoadingSpinner = () => (
   <Box
@@ -116,6 +117,20 @@ const App = () => {
       dispatch(disconnectWebSocket());
     }
   }, [checkingSession, isAuthenticated, currentUser?.userId, dispatch]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const reconcileNotifications = () => {
+      dispatch(fetchUnreadCount());
+      dispatch(fetchNotifications({ limit: 8 }));
+    };
+    window.addEventListener('focus', reconcileNotifications);
+    window.addEventListener('online', reconcileNotifications);
+    return () => {
+      window.removeEventListener('focus', reconcileNotifications);
+      window.removeEventListener('online', reconcileNotifications);
+    };
+  }, [isAuthenticated, dispatch]);
 
   /* Global WebSocket profile update listener - broadcast to all components via window event */
   useEffect(() => {
@@ -284,6 +299,7 @@ const App = () => {
                   <Route path="/customer-profile/:profileId/edit" element={<ProfileEditorPage />} />
                   <Route path="/customer/:customerId/profile" element={<Navigate to="/customer-profile" replace />} />
                   <Route path="/notification-analytics" element={<NotificationAnalytics />} />
+                  <Route path="/notifications" element={<NotificationsPage />} />
                 </Route>
 
                 {/* Legacy customer links never expose CRM data. */}

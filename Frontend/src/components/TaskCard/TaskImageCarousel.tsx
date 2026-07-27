@@ -12,7 +12,7 @@ interface TaskImageCarouselProps {
 }
 
 const getGrid = (count: number) => {
-  if (count === 1) return { columns: '1fr', rows: 'minmax(220px, auto)' };
+  if (count === 1) return { columns: '1fr', rows: 'clamp(220px, 42vw, 460px)' };
   if (count === 2) return { columns: 'repeat(2, minmax(0, 1fr))', rows: '280px' };
   return { columns: 'repeat(2, minmax(0, 1fr))', rows: 'repeat(2, 180px)' };
 };
@@ -83,7 +83,7 @@ const TaskImageCarousel: React.FC<TaskImageCarouselProps> = ({ images, onImageCl
                 height: '100%',
                 maxHeight: visible.length === 1 ? 560 : 'none',
                 minHeight: visible.length === 1 ? { xs: 180, sm: 240 } : 0,
-                objectFit: visible.length === 1 ? 'contain' : 'cover',
+                objectFit: 'cover',
                 display: 'block',
               }}
             />

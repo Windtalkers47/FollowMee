@@ -13,6 +13,8 @@ import { User } from './User';
 @Entity('notification_recipients')
 @Index(['userId', 'isRead'])
 @Index(['userId', 'isSeen'])
+@Index(['notificationId', 'userId'], { unique: true })
+@Index(['userId', 'isDeleted', 'isArchived', 'isRead'])
 export class NotificationRecipient {
   @PrimaryGeneratedColumn()
   recipientId!: number;

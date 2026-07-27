@@ -67,6 +67,65 @@ export enum NotificationType {
     });
   }
 
+  static async notifyTaskUpdated(
+    taskTitle: string,
+    taskId: string,
+    actorUserId: number,
+    recipientUserIds: number[],
+    message = `Task "${taskTitle}" was updated`
+  ): Promise<void> {
+    await this.createNotification({
+      notificationType: NotificationType.TASK_UPDATED,
+      actorUserId,
+      entityType: 'task',
+      entityId: taskId,
+      title: 'Task updated',
+      message,
+      actionUrl: `/posts/${taskId}`,
+      recipientUserIds: [...new Set(recipientUserIds)],
+      skipQueue: true,
+    });
+  }
+
+  static async notifyTaskStatus(
+    type: NotificationType.TASK_UPDATED | NotificationType.TASK_COMPLETED,
+    title: string,
+    message: string,
+    taskTitle: string,
+    taskId: string,
+    actorUserId: number,
+    recipientUserIds: number[]
+  ): Promise<void> {
+    await this.createNotification({
+      notificationType: type,
+      actorUserId,
+      entityType: 'task',
+      entityId: taskId,
+      title,
+      message: `${taskTitle}: ${message}`,
+      actionUrl: `/posts/${taskId}`,
+      recipientUserIds: [...new Set(recipientUserIds)],
+      skipQueue: true,
+    });
+  }
+
+  static async notifyTaskDeadline(
+    taskTitle: string,
+    taskId: string,
+    recipientUserIds: number[]
+  ): Promise<void> {
+    await this.createNotification({
+      notificationType: NotificationType.TASK_DEADLINE_NEAR,
+      entityType: 'task',
+      entityId: taskId,
+      title: 'Task due soon',
+      message: `"${taskTitle}" is due within 24 hours`,
+      actionUrl: `/posts/${taskId}`,
+      recipientUserIds,
+      skipQueue: true,
+    });
+  }
+
   /**
    * Create a task comment notification
    * Comments are aggregated within 2 minutes
@@ -75,7 +134,8 @@ export enum NotificationType {
     taskTitle: string,
     taskUrl: string,
     actorUserId: number,
-    recipientUserIds: number[]
+    recipientUserIds: number[],
+    commentId?: number
   ): Promise<void> {
     await this.createNotification({
       notificationType: NotificationType.TASK_COMMENT,
@@ -84,7 +144,7 @@ export enum NotificationType {
       entityId: taskUrl.split('/').pop() || '',
       title: 'New Comment on Task',
       message: `${taskTitle} has a new comment`,
-      actionUrl: taskUrl,
+      actionUrl: commentId ? `${taskUrl}?comment=${commentId}` : taskUrl,
       recipientUserIds,
       skipQueue: true,
     });
@@ -133,7 +193,7 @@ export enum NotificationType {
       entityId: parentCommentId ? `${taskUrl.split('/').pop()}-${parentCommentId}` : taskUrl.split('/').pop() || '',
       title: 'Comment Reply',
       message: `Someone replied to your comment on "${taskTitle}"`,
-      actionUrl: taskUrl,
+      actionUrl: parentCommentId ? `${taskUrl}?comment=${parentCommentId}` : taskUrl,
       recipientUserIds,
       skipQueue: true,
     });
@@ -153,7 +213,7 @@ export enum NotificationType {
       entityId: String(commentId),
       title: 'New reaction',
       message: `Your comment on "${taskTitle}" received a reaction`,
-      actionUrl: taskUrl,
+      actionUrl: `${taskUrl}?comment=${commentId}`,
       recipientUserIds,
       skipQueue: true,
     });
@@ -163,7 +223,8 @@ export enum NotificationType {
     taskTitle: string,
     taskUrl: string,
     actorUserId: number,
-    recipientUserIds: number[]
+    recipientUserIds: number[],
+    commentId?: number
   ): Promise<void> {
     await this.createNotification({
       notificationType: NotificationType.MENTION,
@@ -172,7 +233,7 @@ export enum NotificationType {
       entityId: taskUrl.split('/').pop() || '',
       title: 'You were mentioned',
       message: `You were mentioned in a comment on "${taskTitle}"`,
-      actionUrl: taskUrl,
+      actionUrl: commentId ? `${taskUrl}?comment=${commentId}` : taskUrl,
       recipientUserIds,
       skipQueue: true,
     });
@@ -266,7 +327,7 @@ export enum NotificationType {
       }
     } catch (error) {
       console.error('Failed to create notification:', error);
-      throw error; // Re-throw to let caller handle the error
+      // A secondary delivery pipeline must never fail the task/comment action.
     }
   }
 }

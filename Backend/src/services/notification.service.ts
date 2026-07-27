@@ -53,7 +53,28 @@ export class NotificationService {
     // Step 1.5: Check for duplicate notification (P1-DEDUPLICATION)
     const duplicate = await this.findDuplicateNotification(dto);
     if (duplicate) {
-      console.log(`[Notification] Duplicate detected, returning existing notification ${duplicate.notificationId}`);
+      const missingRecipients: NotificationRecipient[] = [];
+      for (const userId of recipientUserIds) {
+        const existing = await this.notificationRecipientRepository.findByUserAndNotification(
+          userId,
+          duplicate.notificationId
+        );
+        if (!existing) {
+          const recipient = new NotificationRecipient();
+          recipient.notificationId = duplicate.notificationId;
+          recipient.userId = userId;
+          missingRecipients.push(recipient);
+        }
+      }
+      if (missingRecipients.length > 0) {
+        const savedRecipients = await this.notificationRecipientRepository.saveMany(missingRecipients);
+        savedRecipients.forEach(recipient => {
+          webSocketService.emitNotificationToUser(recipient.userId, {
+            ...this.mapRecipientToResponseDto(Object.assign(recipient, { notification: duplicate })),
+          });
+        });
+      }
+      console.log(`[Notification] Duplicate detected; reconciled ${missingRecipients.length} missing recipients`);
       return this.mapToResponseDto(duplicate);
     }
 
@@ -133,18 +154,26 @@ export class NotificationService {
     }
 
     // Step 7: Send Push Notification (P3-PIPELINE: For users with push enabled and active subscriptions)
-    await this.sendPushNotifications(
-      savedNotification,
-      recipientUserIds,
-      dto.notificationType
-    );
+    try {
+      await this.sendPushNotifications(
+        savedNotification,
+        recipientUserIds,
+        dto.notificationType
+      );
+    } catch (error: any) {
+      console.error('[Notification] Push delivery skipped:', error?.message || error);
+    }
 
     // Step 8: Send email notification (P3-PIPELINE: Fallback for offline users or email-priority)
-    await this.sendEmailNotifications(
-      savedNotification,
-      recipientUserIds,
-      dto.notificationType
-    );
+    try {
+      await this.sendEmailNotifications(
+        savedNotification,
+        recipientUserIds,
+        dto.notificationType
+      );
+    } catch (error: any) {
+      console.error('[Notification] Email delivery skipped:', error?.message || error);
+    }
 
     // Step 9: Track analytics event (P3-PIPELINE: W5-METRICS)
     await this.trackNotificationCreated(savedNotification, recipientUserIds);
@@ -179,12 +208,16 @@ export class NotificationService {
     }
 
     // Get users with push enabled
-    const usersWithPush = await this.userRepository
-      .createQueryBuilder('user')
-      .innerJoin('user.notificationSettings', 'settings')
-      .where('user.userId IN (:...userIds)', { userIds: recipientUserIds })
-      .andWhere('settings.pushEnabled = true')
-      .getMany();
+    const users = recipientUserIds.length === 0
+      ? []
+      : await this.userRepository.find({
+        where: recipientUserIds.map(userId => ({ userId, isActive: true }))
+      });
+    const usersWithPush: User[] = [];
+    for (const user of users) {
+      const settings = await this.notificationSettingsRepository.getOrCreateForUser(user.userId);
+      if (settings.pushEnabled) usersWithPush.push(user);
+    }
 
     if (usersWithPush.length === 0) {
       return;
@@ -310,12 +343,16 @@ export class NotificationService {
     }
 
     // Get users with email enabled
-    const usersWithEmail = await this.userRepository
-      .createQueryBuilder('user')
-      .innerJoin('user.notificationSettings', 'settings')
-      .where('user.userId IN (:...userIds)', { userIds: recipientUserIds })
-      .andWhere('settings.emailEnabled = true')
-      .getMany();
+    const users = recipientUserIds.length === 0
+      ? []
+      : await this.userRepository.find({
+        where: recipientUserIds.map(userId => ({ userId, isActive: true }))
+      });
+    const usersWithEmail: User[] = [];
+    for (const user of users) {
+      const settings = await this.notificationSettingsRepository.getOrCreateForUser(user.userId);
+      if (settings.emailEnabled) usersWithEmail.push(user);
+    }
 
     if (usersWithEmail.length === 0) {
       return;
@@ -365,27 +402,28 @@ export class NotificationService {
    */
   async getUserNotifications(
     userId: number,
-    page: number = 1,
     limit: number = 20,
-    includeRead: boolean = false
+    offset: number = 0,
+    view: 'active' | 'archived' = 'active',
+    unreadOnly: boolean = false
   ): Promise<NotificationListResponseDto> {
     const notifications = await this.notificationRecipientRepository.findByUserWithNotification(
       userId,
       limit,
-      (page - 1) * limit
+      offset,
+      view,
+      unreadOnly
     );
 
-    const unreadCount = await this.notificationRecipientRepository.findUnreadByUser(userId, 1).then(n => n.length);
-
-    const notificationDtos = notifications.map(recipient => ({
-      notification: this.mapToResponseDto(recipient.notification),
-      recipient: this.mapRecipientToResponseDto(recipient),
-    }));
+    const [unreadCount, total] = await Promise.all([
+      this.notificationRepository.countUnreadByUser(userId),
+      this.notificationRecipientRepository.countByUser(userId, view, unreadOnly),
+    ]);
 
     return {
-      notifications: notificationDtos as unknown as NotificationRecipientResponseDto[],
+      notifications: notifications.map(recipient => this.mapRecipientToResponseDto(recipient)),
       unreadCount,
-      total: notifications.length,
+      total,
     };
   }
 
@@ -409,6 +447,17 @@ export class NotificationService {
     return this.mapRecipientToResponseDto(updated);
   }
 
+  async markAsUnread(userId: number, recipientId: number): Promise<NotificationRecipientResponseDto | null> {
+    const recipient = await this.notificationRecipientRepository.findOwnedRecipient(userId, recipientId);
+    if (!recipient || recipient.isDeleted || recipient.isArchived) return null;
+    const updated = await this.notificationRecipientRepository.markAsUnread(recipientId);
+    if (!updated) return null;
+    updated.notification = recipient.notification;
+    const count = await this.notificationRepository.countUnreadByUser(userId);
+    webSocketService.emitUnreadCount(userId, count);
+    return this.mapRecipientToResponseDto(updated);
+  }
+
   async markAsSeen(userId: number, recipientId: number): Promise<NotificationRecipientResponseDto | null> {
     const recipient = await this.notificationRecipientRepository.findOwnedRecipient(userId, recipientId);
     if (!recipient) return null;
@@ -424,6 +473,19 @@ export class NotificationService {
     const updated = await this.notificationRecipientRepository.archive(recipientId);
     if (!updated) return null;
     updated.notification = recipient.notification;
+    const count = await this.notificationRepository.countUnreadByUser(userId);
+    webSocketService.emitUnreadCount(userId, count);
+    return this.mapRecipientToResponseDto(updated);
+  }
+
+  async restoreNotification(userId: number, recipientId: number): Promise<NotificationRecipientResponseDto | null> {
+    const recipient = await this.notificationRecipientRepository.findOwnedRecipient(userId, recipientId);
+    if (!recipient || recipient.isDeleted) return null;
+    const updated = await this.notificationRecipientRepository.restore(recipientId);
+    if (!updated) return null;
+    updated.notification = recipient.notification;
+    const count = await this.notificationRepository.countUnreadByUser(userId);
+    webSocketService.emitUnreadCount(userId, count);
     return this.mapRecipientToResponseDto(updated);
   }
 
@@ -439,9 +501,8 @@ export class NotificationService {
   /**
    * Get unread notification count
    */
-  async getUnreadCount(userId: number): Promise<{ count: number }> {
-    const count = await this.notificationRepository.countUnreadByUser(userId);
-    return { count };
+  async getUnreadCount(userId: number): Promise<number> {
+    return this.notificationRepository.countUnreadByUser(userId);
   }
 
   /**

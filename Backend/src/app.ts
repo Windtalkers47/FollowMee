@@ -15,6 +15,7 @@ import { NotificationService } from './services/notification.service';
 import { webSocketService } from './services/websocket.service';
 import { notificationQueueService } from './services/notification-queue.service';
 import { notificationCleanupService } from './services/notification-cleanup.service';
+import { taskDeadlineNotificationService } from './services/task-deadline-notification.service';
 import { createServer } from 'http';
 import { Server as SocketIOServer } from 'socket.io';
 
@@ -87,6 +88,7 @@ class App {
 
     // Initialize notification cleanup service (NEW-SOFT-DELETE-CLEANUP)
     notificationCleanupService.start();
+    taskDeadlineNotificationService.start();
   }
 
   // Graceful shutdown
@@ -97,6 +99,7 @@ class App {
       // Flush all queued notifications
       await notificationQueueService.flushAll();
       notificationQueueService.clearAll();
+      taskDeadlineNotificationService.stop();
 
       // Stop cleanup service
       notificationCleanupService.stop();

@@ -74,12 +74,23 @@ export class TaskCommentService {
     if (task.createdBy !== userId) recipients.add(task.createdBy);
     if (task.assignedTo && task.assignedTo !== userId) recipients.add(task.assignedTo);
 
+    const mentionedHandles = [...commentText.matchAll(/@([\p{L}\p{N}._-]+)/gu)]
+      .map(match => match[1].toLowerCase());
+    const mentionedUsers = mentionedHandles.length > 0
+      ? await this.userRepository.getRepository().find({
+        where: { userName: In(mentionedHandles), isActive: true } as any
+      })
+      : [];
+    const mentionedUserIds = [...new Set(mentionedUsers
+      .filter(mentioned => mentioned.userId !== userId)
+      .map(mentioned => mentioned.userId))];
+    mentionedUserIds.forEach(id => recipients.delete(id));
+
     if (createCommentDto.parentCommentId) {
       const parent = await this.taskCommentRepository.findOne({
         where: { commentId: createCommentDto.parentCommentId, taskId, isActive: true }
       });
-      if (parent && parent.userId !== userId) {
-        recipients.add(parent.userId);
+      if (parent && parent.userId !== userId && !mentionedUserIds.includes(parent.userId)) {
         await NotificationHelper.notifyCommentReply(
           task.title,
           `/posts/${taskId}`,
@@ -93,30 +104,19 @@ export class TaskCommentService {
         task.title,
         `/posts/${taskId}`,
         userId,
-        [...recipients]
+        [...recipients],
+        savedComment.commentId
       );
     }
 
-    const mentionedHandles = [...commentText.matchAll(/@([\p{L}\p{N}._-]+)/gu)]
-      .map(match => match[1].toLowerCase());
-    if (mentionedHandles.length > 0) {
-      const mentionedUsers = await this.userRepository.getRepository().find({
-        where: {
-          userName: In(mentionedHandles),
-          isActive: true
-        } as any
-      });
-      const mentionedUserIds = mentionedUsers
-        .filter(mentioned => mentioned.userId !== userId)
-        .map(mentioned => mentioned.userId);
-      if (mentionedUserIds.length > 0) {
-        await NotificationHelper.notifyMention(
-          task.title,
-          `/posts/${taskId}`,
-          userId,
-          mentionedUserIds
-        );
-      }
+    if (mentionedUserIds.length > 0) {
+      await NotificationHelper.notifyMention(
+        task.title,
+        `/posts/${taskId}`,
+        userId,
+        mentionedUserIds,
+        savedComment.commentId
+      );
     }
 
     webSocketService.emitDomainEvent('comment:created', {

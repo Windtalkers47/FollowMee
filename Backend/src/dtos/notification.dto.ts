@@ -147,6 +147,12 @@ export class NotificationQueryDto {
 
   @IsOptional()
   unreadOnly?: string;
+
+  @IsOptional()
+  view?: 'active' | 'archived';
+
+  @IsOptional()
+  read?: 'all' | 'unread';
 }
 
 /**

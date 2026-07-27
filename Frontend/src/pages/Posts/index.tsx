@@ -200,6 +200,12 @@ const PostsPage = () => {
     enabled: !!user?.userId,
   });
 
+  const { data: linkedTask } = useQuery({
+    queryKey: ['task', taskId],
+    queryFn: () => taskApi.getTaskById(taskId!),
+    enabled: Boolean(taskId),
+  });
+
   // Fetch all completed tasks for the feed
   const { data: allTasksResponse, isLoading: allTasksLoading, error: allTasksError, refetch: refetchAllTasks } = useQuery({
     queryKey: ['all-tasks'],
@@ -389,7 +395,8 @@ const PostsPage = () => {
   useEffect(() => {
     if (taskId) {
       // Switch to the appropriate tab based on task status
-      const allTasks = [...(assignedTasks || []), ...(allTasksResponse?.tasks || [])];
+      const allTasks = [linkedTask, ...(assignedTasks || []), ...(allTasksResponse?.tasks || [])]
+        .filter((task): task is Task => Boolean(task));
       const targetTask = allTasks.find(t => t.taskId === taskId);
       
       if (targetTask) {
@@ -414,7 +421,7 @@ const PostsPage = () => {
         }, 500);
       }
     }
-  }, [taskId, assignedTasks, allTasksResponse, user?.userId]);
+  }, [taskId, linkedTask, assignedTasks, allTasksResponse, user?.userId]);
 
   // Search handlers
   const handleSearch = async () => {
@@ -631,7 +638,11 @@ const PostsPage = () => {
 
   const bookedDates = getBookedDates(editingTask);
 
-  const assignedTasksList = (assignedTasks || []).filter((task) => task.status === 'done');
+  const assignedTasksList = (() => {
+    const completed = (assignedTasks || []).filter((task) => task.status === 'done');
+    if (!taskId || !linkedTask || completed.some(task => task.taskId === linkedTask.taskId)) return completed;
+    return [linkedTask, ...completed];
+  })();
   const completedTasksList = isSearching ? (searchResults?.tasks || []) : (allTasksResponse?.tasks || []);
 
   const tabs = [

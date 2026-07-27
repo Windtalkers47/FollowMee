@@ -1,218 +1,183 @@
-import { Box, Typography, IconButton, Chip, useTheme, alpha } from '@mui/material';
-import { CheckCircle, Delete, Archive } from '@mui/icons-material';
-import SmartAvatar from '../SmartAvatar/SmartAvatar';
-import { NotificationRecipient } from '../../types/notification.types';
+import { useState } from 'react';
+import {
+  alpha,
+  Box,
+  Chip,
+  IconButton,
+  ListItemIcon,
+  ListItemText,
+  Menu,
+  MenuItem,
+  Typography,
+  useTheme,
+} from '@mui/material';
+import {
+  ArchiveOutlined,
+  AssignmentOutlined,
+  CampaignOutlined,
+  ChatBubbleOutline,
+  DoneAll,
+  MoreHoriz,
+  PersonOutline,
+  RestoreOutlined,
+  ScheduleOutlined,
+  Undo,
+} from '@mui/icons-material';
 import { formatDistanceToNow } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
-import { trackOpen, trackClick } from '../../api/notification.api';
+import SmartAvatar from '../SmartAvatar/SmartAvatar';
+import { NotificationRecipient } from '../../types/notification.types';
+import { trackClick, trackOpen } from '../../api/notification.api';
 
 interface NotificationItemProps {
   recipient: NotificationRecipient;
   onMarkAsRead: (recipientId: number) => void;
-  onDelete: (recipientId: number) => void;
-  onArchive: (recipientId: number) => void;
+  onMarkAsUnread?: (recipientId: number) => void;
+  onArchive?: (recipientId: number) => void;
+  onRestore?: (recipientId: number) => void;
+  onDelete?: (recipientId: number) => void;
+  onNavigate?: () => void;
+  archived?: boolean;
 }
 
-const NotificationItem = ({ recipient, onMarkAsRead, onDelete, onArchive }: NotificationItemProps) => {
+const getLabel = (type: string) =>
+  type.toLowerCase().replaceAll('_', ' ').replace(/\b\w/g, letter => letter.toUpperCase());
+
+const NotificationItem = ({
+  recipient,
+  onMarkAsRead,
+  onMarkAsUnread,
+  onArchive,
+  onRestore,
+  onDelete,
+  onNavigate,
+  archived = false,
+}: NotificationItemProps) => {
   const theme = useTheme();
   const navigate = useNavigate();
+  const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   const { notification } = recipient;
 
-  const handleClick = async () => {
-    // W5-METRICS: Track open event
-    await trackOpen(recipient.recipientId, notification.notificationId);
+  const color = notification.notificationType.includes('COMMENT')
+    || notification.notificationType === 'MENTION'
+    ? theme.palette.info.main
+    : notification.notificationType.includes('TASK')
+      ? theme.palette.primary.main
+      : theme.palette.secondary.main;
 
-    if (notification.actionUrl) {
-      // W5-METRICS: Track click event before navigate
-      await trackClick(recipient.recipientId, notification.notificationId);
-      navigate(notification.actionUrl);
-    }
-    if (!recipient.isRead) {
-      onMarkAsRead(recipient.recipientId);
-    }
-  };
+  const Icon = notification.notificationType.includes('COMMENT') || notification.notificationType === 'MENTION'
+    ? ChatBubbleOutline
+    : notification.notificationType.includes('TASK')
+      ? AssignmentOutlined
+      : notification.notificationType.includes('CUSTOMER')
+        ? PersonOutline
+        : notification.notificationType.includes('DEADLINE')
+          ? ScheduleOutlined
+          : CampaignOutlined;
 
-  const getNotificationIcon = () => {
-    if (notification.isSystem) {
-      return '🔔';
-    }
-    if (notification.notificationType.includes('TASK')) {
-      return '📋';
-    }
-    if (notification.notificationType.includes('COMMENT')) {
-      return '💬';
-    }
-    if (notification.notificationType.includes('LIKE')) {
-      return '❤️';
-    }
-    if (notification.notificationType.includes('CUSTOMER')) {
-      return '👤';
-    }
-    return '📢';
-  };
-
-  const getNotificationColor = () => {
-    if (notification.isSystem) {
-      return theme.palette.info.main;
-    }
-    if (notification.notificationType.includes('TASK')) {
-      return theme.palette.primary.main;
-    }
-    if (notification.notificationType.includes('COMMENT')) {
-      return theme.palette.success.main;
-    }
-    if (notification.notificationType.includes('LIKE')) {
-      return theme.palette.error.main;
-    }
-    return theme.palette.warning.main;
+  const handleClick = () => {
+    if (!recipient.isRead) onMarkAsRead(recipient.recipientId);
+    onNavigate?.();
+    if (notification.actionUrl) navigate(notification.actionUrl);
+    void trackOpen(recipient.recipientId, notification.notificationId);
+    if (notification.actionUrl) void trackClick(recipient.recipientId, notification.notificationId);
   };
 
   return (
     <Box
-      onClick={handleClick}
       sx={{
-        p: 2,
+        px: 2,
+        py: 1.5,
         display: 'flex',
-        gap: 2,
-        cursor: 'pointer',
-        borderBottom: `1px solid ${theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)'}`,
-        backgroundColor: !recipient.isRead
-          ? alpha(getNotificationColor(), theme.palette.mode === 'dark' ? 0.15 : 0.08)
-          : 'transparent',
-        '&:hover': {
-          backgroundColor: alpha(theme.palette.action.hover, 0.08),
-        },
+        gap: 1.25,
+        borderBottom: '1px solid',
+        borderColor: 'divider',
+        bgcolor: recipient.isRead ? 'transparent' : alpha(color, theme.palette.mode === 'dark' ? 0.13 : 0.07),
         position: 'relative',
+        '&:hover': { bgcolor: 'action.hover' },
       }}
     >
-      {/* Unread indicator */}
       {!recipient.isRead && (
-        <Box
-          sx={{
-            position: 'absolute',
-            left: 0,
-            top: '50%',
-            transform: 'translateY(-50%)',
-            width: 3,
-            height: '60%',
-            backgroundColor: getNotificationColor(),
-            borderRadius: '0 4px 4px 0',
-          }}
-        />
+        <Box aria-label="Unread" sx={{ position: 'absolute', left: 6, top: 20, width: 7, height: 7, borderRadius: '50%', bgcolor: color }} />
       )}
-
-      {/* Icon or Avatar */}
-      <Box sx={{ flexShrink: 0 }}>
-        {notification.actorUser ? (
-          <SmartAvatar
-            user={notification.actorUser}
-            sx={{ width: 40, height: 40 }}
-          />
-        ) : (
-          <Box
-            sx={{
-              width: 40,
-              height: 40,
-              borderRadius: '50%',
-              backgroundColor: alpha(getNotificationColor(), 0.15),
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: 20,
-            }}
-          >
-            {getNotificationIcon()}
-          </Box>
-        )}
-      </Box>
-
-      {/* Content */}
-      <Box sx={{ flex: 1, minWidth: 0 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 0.5 }}>
-          <Typography
-            variant="body2"
-            fontWeight={recipient.isRead ? 400 : 600}
-            sx={{
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-              color: theme.palette.mode === 'dark' ? 'text.primary' : '#1e293b',
-            }}
-          >
+      {notification.actorUser ? (
+        <SmartAvatar user={notification.actorUser} sx={{ width: 40, height: 40 }} />
+      ) : (
+        <Box sx={{ width: 40, height: 40, flexShrink: 0, borderRadius: '50%', bgcolor: alpha(color, 0.14), color, display: 'grid', placeItems: 'center' }}>
+          <Icon fontSize="small" />
+        </Box>
+      )}
+      <Box
+        role="button"
+        tabIndex={0}
+        aria-label={`${notification.title}. ${notification.message}`}
+        onClick={handleClick}
+        onKeyDown={event => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            handleClick();
+          }
+        }}
+        sx={{
+          minWidth: 0,
+          flex: 1,
+          cursor: 'pointer',
+          borderRadius: 1,
+          '&:focus-visible': {
+            outline: `2px solid ${theme.palette.primary.main}`,
+            outlineOffset: 3,
+          },
+        }}
+      >
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'baseline' }}>
+          <Typography variant="body2" fontWeight={recipient.isRead ? 600 : 750} sx={{ flex: 1 }}>
             {notification.title}
           </Typography>
-          <Typography 
-            variant="caption" 
-            sx={{ 
-              ml: 1, 
-              flexShrink: 0,
-              color: theme.palette.mode === 'dark' ? 'text.secondary' : '#64748b',
-            }}
-          >
+          <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0 }}>
             {formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true })}
           </Typography>
         </Box>
-        <Typography
-          variant="body2"
-          sx={{
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-            mb: 0.5,
-            color: theme.palette.mode === 'dark' ? 'text.secondary' : '#64748b',
-          }}
-        >
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
           {notification.message}
         </Typography>
-        {notification.notificationType && (
-          <Chip
-            label={notification.notificationType.replace(/_/g, ' ')}
-            size="small"
-            sx={{
-              height: 20,
-              fontSize: '0.65rem',
-              backgroundColor: alpha(getNotificationColor(), 0.1),
-              color: getNotificationColor(),
-            }}
-          />
-        )}
+        <Chip label={getLabel(notification.notificationType)} size="small" sx={{ mt: 0.75, height: 22, bgcolor: alpha(color, 0.11), color, fontWeight: 650 }} />
       </Box>
-
-      {/* Actions */}
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-        {!recipient.isRead && (
-          <IconButton
-            size="small"
-            onClick={(e) => {
-              e.stopPropagation();
-              onMarkAsRead(recipient.recipientId);
-            }}
-            sx={{ color: theme.palette.success.main }}
-          >
-            <CheckCircle fontSize="small" />
-          </IconButton>
+      <IconButton
+        aria-label="Notification actions"
+        size="small"
+        onClick={event => {
+          event.stopPropagation();
+          setMenuAnchor(event.currentTarget);
+        }}
+        sx={{ width: 36, height: 36 }}
+      >
+        <MoreHoriz />
+      </IconButton>
+      <Menu anchorEl={menuAnchor} open={Boolean(menuAnchor)} onClose={() => setMenuAnchor(null)}>
+        {recipient.isRead ? (
+          onMarkAsUnread && <MenuItem onClick={event => { event.stopPropagation(); onMarkAsUnread(recipient.recipientId); setMenuAnchor(null); }}>
+            <ListItemIcon><Undo fontSize="small" /></ListItemIcon><ListItemText>Mark as unread</ListItemText>
+          </MenuItem>
+        ) : (
+          <MenuItem onClick={event => { event.stopPropagation(); onMarkAsRead(recipient.recipientId); setMenuAnchor(null); }}>
+            <ListItemIcon><DoneAll fontSize="small" /></ListItemIcon><ListItemText>Mark as read</ListItemText>
+          </MenuItem>
         )}
-        <IconButton
-          size="small"
-          onClick={(e) => {
-            e.stopPropagation();
-            onArchive(recipient.recipientId);
-          }}
-          sx={{ color: theme.palette.warning.main }}
-        >
-          <Archive fontSize="small" />
-        </IconButton>
-        <IconButton
-          size="small"
-          onClick={(e) => {
-            e.stopPropagation();
-            onDelete(recipient.recipientId);
-          }}
-          sx={{ color: theme.palette.error.main }}
-        >
-          <Delete fontSize="small" />
-        </IconButton>
-      </Box>
+        {archived ? (
+          onRestore && <MenuItem onClick={event => { event.stopPropagation(); onRestore(recipient.recipientId); setMenuAnchor(null); }}>
+            <ListItemIcon><RestoreOutlined fontSize="small" /></ListItemIcon><ListItemText>Restore</ListItemText>
+          </MenuItem>
+        ) : (
+          onArchive && <MenuItem onClick={event => { event.stopPropagation(); onArchive(recipient.recipientId); setMenuAnchor(null); }}>
+            <ListItemIcon><ArchiveOutlined fontSize="small" /></ListItemIcon><ListItemText>Archive</ListItemText>
+          </MenuItem>
+        )}
+        {archived && onDelete && (
+          <MenuItem sx={{ color: 'error.main' }} onClick={event => { event.stopPropagation(); onDelete(recipient.recipientId); setMenuAnchor(null); }}>
+            <ListItemText>Delete permanently</ListItemText>
+          </MenuItem>
+        )}
+      </Menu>
     </Box>
   );
 };

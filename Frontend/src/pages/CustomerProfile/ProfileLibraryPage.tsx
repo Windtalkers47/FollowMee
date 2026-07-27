@@ -40,6 +40,7 @@ import { customerApi } from '../../api/customer.api';
 import type { CustomerData } from '../../types/customer.types';
 import type { PublicProfileRecord } from '../../types/publicProfile.types';
 import { getProfileTemplate } from '../../styles/publicProfileTemplates';
+import ConfirmDialog from '../../components/ConfirmDialog/ConfirmDialog';
 
 const ProfileLibraryPage = () => {
   const navigate = useNavigate();
@@ -54,6 +55,7 @@ const ProfileLibraryPage = () => {
   const [creating, setCreating] = useState(false);
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   const [menuProfile, setMenuProfile] = useState<PublicProfileRecord | null>(null);
+  const [deleteProfile, setDeleteProfile] = useState<PublicProfileRecord | null>(null);
 
   useEffect(() => {
     void Promise.all([
@@ -104,15 +106,16 @@ const ProfileLibraryPage = () => {
   };
 
   const remove = async () => {
-    if (!menuProfile || !window.confirm(`Delete "${menuProfile.displayName}"?`)) return;
+    if (!deleteProfile) return;
     try {
-      await publicProfileApi.remove(menuProfile.profileId);
-      setProfiles((current) => current.filter((item) => item.profileId !== menuProfile.profileId));
+      await publicProfileApi.remove(deleteProfile.profileId);
+      setProfiles((current) => current.filter((item) => item.profileId !== deleteProfile.profileId));
     } catch (removeError) {
       setError(removeError instanceof Error ? removeError.message : 'Unable to delete profile');
     } finally {
       setMenuAnchor(null);
       setMenuProfile(null);
+      setDeleteProfile(null);
     }
   };
 
@@ -331,7 +334,7 @@ const ProfileLibraryPage = () => {
         <MenuItem onClick={() => menuProfile && navigate(`/customer-profile/${menuProfile.profileId}/edit`)}>
           Edit profile
         </MenuItem>
-        <MenuItem onClick={remove} sx={{ color: 'error.main' }}>Delete profile</MenuItem>
+        <MenuItem onClick={() => { setDeleteProfile(menuProfile); setMenuAnchor(null); }} sx={{ color: 'error.main' }}>Delete profile</MenuItem>
       </Menu>
 
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} fullWidth maxWidth="sm">
@@ -375,6 +378,15 @@ const ProfileLibraryPage = () => {
           </Button>
         </DialogActions>
       </Dialog>
+      <ConfirmDialog
+        open={deleteProfile !== null}
+        title="Delete profile card?"
+        message={deleteProfile ? `“${deleteProfile.displayName}” and its public page will be removed. This action cannot be undone.` : ''}
+        confirmLabel="Delete profile"
+        danger
+        onClose={() => setDeleteProfile(null)}
+        onConfirm={() => void remove()}
+      />
     </Box>
   );
 };

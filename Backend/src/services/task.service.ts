@@ -17,7 +17,7 @@ import { TaskResponseDto, TaskListResponseDto } from '../dtos/task-response.dto'
 import { User } from '../entities/User';
 import { TaskImageService } from './task-image.service';
 import { CloudinaryUtil } from '../utils/cloudinary.util';
-import { NotificationHelper } from '../utils/notification.util';
+import { NotificationHelper, NotificationType } from '../utils/notification.util';
 import AppDataSource from '../config/database';
 import { v4 as uuidv4 } from 'uuid';
 import { addDays, isPast, isToday, isTomorrow } from 'date-fns';
@@ -184,7 +184,6 @@ export class TaskService {
     if (!task) {
       throw new Error('Task not found');
     }
-
     return this.mapToResponseDto(task);
   }
 
@@ -197,6 +196,8 @@ export class TaskService {
     if (!task) {
       throw new Error('Task not found');
     }
+    const previousStatus = task.status;
+    const previousAssignedTo = task.assignedTo;
 
     const isStatusOnlyUpdate = Object.keys(updateTaskDto).length === 1 && updateTaskDto.status !== undefined;
     
@@ -288,6 +289,30 @@ export class TaskService {
     }
 
     const savedTask = await this.taskRepository.save(task);
+    const relatedRecipients = [savedTask.createdBy, savedTask.assignedTo]
+      .filter((id): id is number => Boolean(id) && id !== userId);
+    const assignmentChanged = updateTaskDto.assignedTo !== undefined
+      && updateTaskDto.assignedTo !== previousAssignedTo;
+    if (updateTaskDto.status && updateTaskDto.status !== previousStatus) {
+      void NotificationHelper.notifyTaskStatus(
+        updateTaskDto.status === 'done'
+          ? NotificationType.TASK_COMPLETED
+          : NotificationType.TASK_UPDATED,
+        updateTaskDto.status === 'done' ? 'Task approved' : 'Task status changed',
+        `Status changed from ${previousStatus.replace('_', ' ')} to ${updateTaskDto.status.replace('_', ' ')}`,
+        savedTask.title,
+        savedTask.taskId,
+        userId,
+        relatedRecipients
+      );
+    } else if (!assignmentChanged && Object.keys(updateTaskDto).length > 0) {
+      void NotificationHelper.notifyTaskUpdated(
+        savedTask.title,
+        savedTask.taskId,
+        userId,
+        relatedRecipients
+      );
+    }
     const response = await this.mapToResponseDto(savedTask);
     webSocketService.emitDomainEvent('task:updated', {
       taskId: savedTask.taskId,
@@ -364,6 +389,15 @@ export class TaskService {
     }
 
     await this.customTaskRepository.updateTaskStatus(taskId, 'review');
+    void NotificationHelper.notifyTaskStatus(
+      NotificationType.TASK_UPDATED,
+      'Task ready for review',
+      'Work was submitted for review',
+      task.title,
+      task.taskId,
+      userId,
+      [task.createdBy]
+    );
     webSocketService.emitDomainEvent('task:updated', {
       taskId,
       actorUserId: userId,
@@ -402,6 +436,15 @@ export class TaskService {
     task.completionScore = 0;
     task.reopenedCount = (task.reopenedCount || 0) + 1;
     await this.taskRepository.save(task);
+    void NotificationHelper.notifyTaskStatus(
+      NotificationType.TASK_UPDATED,
+      'Task needs changes',
+      'The task was returned to To Do',
+      task.title,
+      task.taskId,
+      userId,
+      task.assignedTo ? [task.assignedTo] : []
+    );
     webSocketService.emitDomainEvent('task:updated', {
       taskId,
       actorUserId: userId,
@@ -438,6 +481,15 @@ export class TaskService {
     task.completedAt = completedAt;
     task.completionScore = Math.max(4, 10 + onTimeBonus - reopenPenalty);
     await this.taskRepository.save(task);
+    void NotificationHelper.notifyTaskStatus(
+      NotificationType.TASK_COMPLETED,
+      'Task approved',
+      'Your completed work was approved',
+      task.title,
+      task.taskId,
+      userId,
+      task.assignedTo ? [task.assignedTo] : []
+    );
     webSocketService.emitDomainEvent('task:updated', {
       taskId,
       actorUserId: userId,

@@ -7,6 +7,9 @@ import type {
 } from '../../types/notification.types';
 import { webSocketService } from '../../services/websocket.service';
 
+let notificationNewHandler: ((data: NotificationRecipient) => void) | null = null;
+let notificationCountHandler: ((data: { count: number }) => void) | null = null;
+
 interface NotificationState {
   notifications: NotificationRecipient[];
   unreadCount: number;
@@ -36,8 +39,8 @@ const initialState: NotificationState = {
 // Async thunks
 export const fetchNotifications = createAsyncThunk(
   'notifications/fetchNotifications',
-  async (params: { limit?: number; offset?: number; unreadOnly?: boolean } = {}) => {
-    const response = await notificationApi.getNotifications(params.limit, params.offset, params.unreadOnly);
+  async (params: { limit?: number; offset?: number; unreadOnly?: boolean; view?: 'active' | 'archived' } = {}) => {
+    const response = await notificationApi.getNotifications(params.limit, params.offset, params.unreadOnly, params.view);
     return response.data ?? { notifications: [], total: 0, unreadCount: 0 };
   }
 );
@@ -54,6 +57,14 @@ export const markAsRead = createAsyncThunk(
   'notifications/markAsRead',
   async (recipientId: number) => {
     const response = await notificationApi.markAsRead(recipientId);
+    return response.data;
+  }
+);
+
+export const markAsUnread = createAsyncThunk(
+  'notifications/markAsUnread',
+  async (recipientId: number) => {
+    const response = await notificationApi.markAsUnread(recipientId);
     return response.data;
   }
 );
@@ -110,21 +121,27 @@ export const connectWebSocket = createAsyncThunk(
   async (userId: number, { dispatch }) => {
     webSocketService.connect(userId);
 
-    // Listen for new notifications
-    webSocketService.onNotificationNew((data) => {
-      dispatch(addNotification(data));
-    });
+    if (notificationNewHandler) webSocketService.offNotificationNew(notificationNewHandler);
+    if (notificationCountHandler) webSocketService.offNotificationUnreadCount(notificationCountHandler);
 
-    // Listen for unread count updates
-    webSocketService.onNotificationUnreadCount((data) => {
+    notificationNewHandler = (data: NotificationRecipient) => {
+      dispatch(addNotification(data));
+    };
+    notificationCountHandler = (data: { count: number }) => {
       dispatch(notificationSlice.actions.setUnreadCount(data.count));
-    });
+    };
+    webSocketService.onNotificationNew(notificationNewHandler);
+    webSocketService.onNotificationUnreadCount(notificationCountHandler);
   }
 );
 
 export const disconnectWebSocket = createAsyncThunk(
   'notifications/disconnectWebSocket',
   async () => {
+    if (notificationNewHandler) webSocketService.offNotificationNew(notificationNewHandler);
+    if (notificationCountHandler) webSocketService.offNotificationUnreadCount(notificationCountHandler);
+    notificationNewHandler = null;
+    notificationCountHandler = null;
     webSocketService.disconnect();
   }
 );
@@ -141,6 +158,7 @@ const notificationSlice = createSlice({
         return;
       }
       state.notifications.unshift(action.payload);
+      state.total += 1;
       if (!action.payload.isRead) {
         state.unreadCount += 1;
       }
@@ -176,8 +194,8 @@ const notificationSlice = createSlice({
         const isPagination = offset !== undefined && offset > 0;
         
         if (isPagination) {
-          // Append new notifications for pagination
-          state.notifications = [...state.notifications, ...notifications];
+          const known = new Set(state.notifications.map(item => item.recipientId));
+          state.notifications = [...state.notifications, ...notifications.filter(item => !known.has(item.recipientId))];
         } else {
           // Replace notifications for initial load
           state.notifications = notifications;
@@ -224,9 +242,23 @@ const notificationSlice = createSlice({
           (n) => n.recipientId === payload.recipientId
         );
         if (index !== -1) {
-          state.notifications[index] = payload;
+          const wasUnread = !state.notifications[index].isRead;
+          state.notifications.splice(index, 1);
+          state.total = Math.max(0, state.total - 1);
+          if (wasUnread) state.unreadCount = Math.max(0, state.unreadCount - 1);
         }
       });
+
+    builder.addCase(markAsUnread.fulfilled, (state, action) => {
+      const payload = action.payload;
+      if (!payload) return;
+      const index = state.notifications.findIndex(n => n.recipientId === payload.recipientId);
+      if (index !== -1) {
+        const wasRead = state.notifications[index].isRead;
+        state.notifications[index] = payload;
+        if (wasRead && !payload.isRead) state.unreadCount += 1;
+      }
+    });
 
     // Mark all as read
     builder

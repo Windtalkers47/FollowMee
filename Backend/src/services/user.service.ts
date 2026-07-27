@@ -9,6 +9,7 @@ import { UserRoleRepository } from '../repositories/user-role.repository';
 import { PermissionRepository } from '../repositories/permission.repository';
 import { RolePermissionRepository } from '../repositories/role-permission.repository';
 import { CloudinaryUtil } from '../utils/cloudinary.util';
+import { NotificationHelper } from '../utils/notification.util';
 
 interface UserWithRolesResponse extends UserResponseDto {
   roles: string[];
@@ -268,7 +269,7 @@ export class UserService {
   /**
    * Assign role to user (replaces existing roles)
    */
-  async assignRoleToUser(userId: number, roleId: number): Promise<boolean> {
+  async assignRoleToUser(userId: number, roleId: number, actorUserId?: number): Promise<boolean> {
     // Check if user exists
     const user = await this.userRepository.findOne({ userId });
     if (!user) {
@@ -287,13 +288,17 @@ export class UserService {
     // Assign the new role
     await this.userRoleRepository.create({ userId, roleId });
 
+    if (actorUserId && actorUserId !== userId) {
+      void NotificationHelper.notifyRoleChanged(role.roleName, actorUserId, [userId]);
+    }
+
     return true;
   }
 
   /**
    * Remove role from user
    */
-  async removeRoleFromUser(userId: number, roleId: number): Promise<boolean> {
+  async removeRoleFromUser(userId: number, roleId: number, actorUserId?: number): Promise<boolean> {
     // Check if user exists
     const user = await this.userRepository.findOne({ userId });
     if (!user) {
@@ -306,7 +311,11 @@ export class UserService {
       throw new Error('Role not found');
     }
 
-    return this.userRoleRepository.removeRole(userId, roleId);
+    const removed = await this.userRoleRepository.removeRole(userId, roleId);
+    if (removed && actorUserId && actorUserId !== userId) {
+      void NotificationHelper.notifyRoleChanged('No assigned role', actorUserId, [userId]);
+    }
+    return removed;
   }
 
   /**

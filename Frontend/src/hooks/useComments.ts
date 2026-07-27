@@ -135,48 +135,32 @@ export function useComments({
     return buildTree(flatComments);
   }, [flatComments]);
 
-  // Filter visible tree based on collapsed threads and depth
+  // Keep a single visual reply level. The original parentCommentId remains
+  // untouched for notifications and reply targeting.
   const visibleTree = useMemo(() => {
     if (!commentTree) return null;
-    
-    const filterByDepth = (node: any, currentDepth: number): any => {
-      if (currentDepth > maxDepth) return null; // Changed from >= to > to allow exactly maxDepth levels
-      
+
+    const collectReplies = (node: any): any[] =>
+      node.children.flatMap((child: any) => [
+        { ...child, children: [], level: 1, replyCount: 0 },
+        ...collectReplies(child),
+      ]);
+
+    const filteredNodes = commentTree.nodes.map((root: any) => {
+      const replies = collectReplies(root);
       return {
-        ...node,
-        children: node.children
-          .map((child: any) => filterByDepth(child, currentDepth + 1))
-          .filter(Boolean)
+        ...root,
+        level: 0,
+        replyCount: replies.length,
+        children: collapsedThreads.has(root.comment.commentId) ? [] : replies,
       };
-    };
-    
-    const filterCollapsed = (node: any): any => {
-      if (collapsedThreads.has(node.comment.commentId)) {
-        // Hide ALL descendants, not just direct children
-        return {
-          ...node,
-          children: []
-        };
-      }
-      
-      return {
-        ...node,
-        children: node.children.map((child: any) => filterCollapsed(child))
-      };
-    };
-    
-    // Apply depth filtering FIRST, then collapse filtering
-    const filteredNodes = commentTree.nodes
-      .map(node => filterByDepth(node, 0)) // First apply depth limits
-      .filter(Boolean)
-      .map(filterCollapsed) // Then apply collapse filtering
-      .filter(Boolean);
+    });
     
     return {
       ...commentTree,
       nodes: filteredNodes
     };
-  }, [commentTree, collapsedThreads, maxDepth]);
+  }, [commentTree, collapsedThreads]);
 
   // Optimistic add comment
   const addComment = useCallback(async (comment: string, parentCommentId?: number) => {
@@ -241,14 +225,13 @@ export function useComments({
 
   // Count hidden replies
   const hiddenReplyCount = useCallback((commentId: number) => {
-    if (!visibleTree) return 0;
-    
-    const countHidden = (node: any): number => {
-      if (collapsedThreads.has(node.comment.commentId)) {
-        return 1 + node.children.reduce((sum: number, child: any) => sum + countHidden(child), 0);
-      }
-      return node.children.reduce((sum: number, child: any) => sum + countHidden(child), 0);
-    };
+    if (!commentTree) return 0;
+
+    const countDescendants = (node: any): number =>
+      node.children.reduce(
+        (sum: number, child: any) => sum + 1 + countDescendants(child),
+        0
+      );
     
     const findNode = (nodes: any[]): any => {
       for (const node of nodes) {
@@ -259,9 +242,9 @@ export function useComments({
       return null;
     };
     
-    const node = findNode(visibleTree.nodes);
-    return node ? countHidden(node) : 0;
-  }, [visibleTree, collapsedThreads]);
+    const node = findNode(commentTree.nodes);
+    return node ? countDescendants(node) : 0;
+  }, [commentTree]);
 
   // UI Action Handlers
   const handleReply = useCallback((commentId: number) => {

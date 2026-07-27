@@ -4,7 +4,7 @@ import { Task, TaskImage, CreateTaskData, User } from '../api/task.api';
 interface UseTaskFormProps {
   task?: Task;
   users: User[];
-  onSave: (task: Task) => void;
+  onSave: (task: Task) => Promise<void> | void;
 }
 
 interface FormErrors {
@@ -125,7 +125,7 @@ export const useTaskForm = ({ task, users, onSave }: UseTaskFormProps) => {
       };
 
       // Call the onSave callback with the task data instead of making API call here
-      onSave(taskData as Task);
+      await onSave(taskData as Task);
       return true;
     } catch (error) {
       console.error('Failed to save task:', error);

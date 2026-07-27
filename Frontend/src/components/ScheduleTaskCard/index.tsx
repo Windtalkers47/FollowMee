@@ -141,6 +141,7 @@ const ScheduleTaskCard: React.FC<Props> = ({
 
   return (
     <Box
+      data-testid={`task-card-${task.taskId}`}
       onClick={handleCardClick}
       sx={{
         display: 'flex',

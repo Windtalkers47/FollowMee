@@ -55,6 +55,7 @@ export class NotificationRepository extends BaseRepository<Notification> {
       .where('recipient.userId = :userId', { userId })
       .andWhere('recipient.isRead = false')
       .andWhere('recipient.isDeleted = false')
+      .andWhere('recipient.isArchived = false')
       .getRawOne();
     
     return parseInt(result?.count || '0', 10);

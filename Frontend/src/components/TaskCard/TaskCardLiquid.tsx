@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Box, Dialog, DialogTitle, DialogContent, DialogActions, Button, useTheme, useMediaQuery, Typography } from '@mui/material';
 import { Task, TaskLikeSummary, TaskImage as TaskImageType } from '../../api/task.api';
 import { getTaskPermissions, TaskPermissions } from '../../permissions/taskPermissions';
@@ -55,12 +56,19 @@ const TaskCardLiquid: React.FC<TaskCardLiquidProps> = ({
   showWorkflowActions = true,
 }) => {
   const theme = useTheme();
+  const location = useLocation();
   const { isLiquidGlassEnabled, liquidGlassSettings } = useLiquidGlass();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [showImagePreview, setShowImagePreview] = useState(false);
   const [previewImageIndex, setPreviewImageIndex] = useState(0);
   const [showComments, setShowComments] = useState(false);
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+
+  useEffect(() => {
+    if (location.pathname.endsWith(`/posts/${task.taskId}`) || location.pathname.endsWith(`/${task.taskId}`)) {
+      setShowComments(true);
+    }
+  }, [location.pathname, task.taskId]);
 
   const handleCommentToggle = () => {
     setShowComments(!showComments);

@@ -80,7 +80,7 @@ export class UserManagementController {
         });
       }
 
-      const result = await this.userService.assignRoleToUser(userId, roleId);
+      const result = await this.userService.assignRoleToUser(userId, roleId, req.user?.userId);
       return res.json({
         success: true,
         message: 'Role assigned successfully',
@@ -111,7 +111,7 @@ export class UserManagementController {
         });
       }
 
-      const result = await this.userService.removeRoleFromUser(userId, roleId);
+      const result = await this.userService.removeRoleFromUser(userId, roleId, req.user?.userId);
       return res.json({
         success: true,
         message: 'Role removed successfully',

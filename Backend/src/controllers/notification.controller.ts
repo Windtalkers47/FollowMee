@@ -46,12 +46,14 @@ export class NotificationController {
       const query: NotificationQueryDto = req.query as any;
       const limit = parseInt(query.limit || '20');
       const offset = parseInt(query.offset || '0');
-      const unreadOnly = query.unreadOnly === 'true';
+      const unreadOnly = query.read === 'unread' || query.unreadOnly === 'true';
+      const view = query.view === 'archived' ? 'archived' : 'active';
 
       const result = await this.notificationService.getUserNotifications(
         userId,
         limit,
         offset,
+        view,
         unreadOnly
       );
       res.status(200).json({ success: true, data: result });
@@ -105,6 +107,24 @@ export class NotificationController {
     }
   }
 
+  async markAsUnread(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const userId = req.user?.userId;
+      if (!userId) {
+        res.status(401).json({ message: 'User not authenticated' });
+        return;
+      }
+      const result = await this.notificationService.markAsUnread(userId, parseInt(req.params.recipientId));
+      if (!result) {
+        res.status(404).json({ message: 'Notification not found' });
+        return;
+      }
+      res.status(200).json({ success: true, data: result });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   async markAsSeen(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = req.user?.userId;
@@ -131,6 +151,24 @@ export class NotificationController {
         return;
       }
       const result = await this.notificationService.archiveNotification(userId, parseInt(req.params.recipientId));
+      if (!result) {
+        res.status(404).json({ message: 'Notification not found' });
+        return;
+      }
+      res.status(200).json({ success: true, data: result });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async restoreNotification(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const userId = req.user?.userId;
+      if (!userId) {
+        res.status(401).json({ message: 'User not authenticated' });
+        return;
+      }
+      const result = await this.notificationService.restoreNotification(userId, parseInt(req.params.recipientId));
       if (!result) {
         res.status(404).json({ message: 'Notification not found' });
         return;

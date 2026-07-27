@@ -579,7 +579,8 @@ INSERT INTO `migrations` (`timestamp`, `name`) VALUES
   (1790000000000, 'RepairSchemaDrift1790000000000'),
   (1791000000000, 'CreatePublicProfiles1791000000000'),
   (1792000000000, 'RepairUserIdentity1792000000000'),
-  (1793000000000, 'AddVerifiedTaskScoring1793000000000');
+  (1793000000000, 'AddVerifiedTaskScoring1793000000000'),
+  (1794000000000, 'OptimizeNotificationInbox1794000000000');
 
 INSERT INTO `roles` (`roleName`, `description`, `roleLevel`) VALUES
   ('Superadmin', 'Full system access', 999),

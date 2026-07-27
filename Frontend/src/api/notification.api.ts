@@ -12,7 +12,9 @@ interface ApiResponse<T> {
 
 interface NotificationsResponse {
   notifications: NotificationRecipient[];
-  totalCount: number;
+  total?: number;
+  totalCount?: number;
+  unreadCount?: number;
 }
 
 interface NotificationListData {
@@ -74,12 +76,15 @@ export const trackClick = async (recipientId: number, notificationId: number): P
 export const getNotifications = async (
   limit: number = 20,
   offset: number = 0,
-  unreadOnly: boolean = false
+  unreadOnly: boolean = false,
+  view: 'active' | 'archived' = 'active'
 ): Promise<ApiResponse<NotificationListData>> => {
   const params = new URLSearchParams({
     limit: limit.toString(),
     offset: offset.toString(),
     unreadOnly: unreadOnly.toString(),
+    read: unreadOnly ? 'unread' : 'all',
+    view,
   });
 
   const response = await fetch(`${apiConfig.baseURL}/notifications?${params}`, {
@@ -98,8 +103,8 @@ export const getNotifications = async (
       success: result.success,
       data: {
         notifications: result.data.notifications,
-        total: result.data.totalCount,
-        unreadCount: result.data.totalCount, // Backend doesn't provide separate unreadCount
+        total: result.data.total ?? result.data.totalCount ?? 0,
+        unreadCount: result.data.unreadCount ?? 0,
       },
     } as ApiResponse<NotificationListData>;
   }
@@ -139,6 +144,15 @@ export const markAsRead = async (recipientId: number): Promise<ApiResponse<Notif
   return handleResponse<ApiResponse<NotificationRecipient>>(response);
 };
 
+export const markAsUnread = async (recipientId: number): Promise<ApiResponse<NotificationRecipient>> => {
+  const response = await fetch(`${apiConfig.baseURL}/notifications/${recipientId}/unread`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...apiConfig.headers },
+    credentials: 'include',
+  });
+  return handleResponse<ApiResponse<NotificationRecipient>>(response);
+};
+
 /**
  * Mark all notifications as read
  */
@@ -169,6 +183,15 @@ export const archiveNotification = async (recipientId: number): Promise<ApiRespo
     credentials: 'include',
   });
 
+  return handleResponse<ApiResponse<NotificationRecipient>>(response);
+};
+
+export const restoreNotification = async (recipientId: number): Promise<ApiResponse<NotificationRecipient>> => {
+  const response = await fetch(`${apiConfig.baseURL}/notifications/${recipientId}/restore`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...apiConfig.headers },
+    credentials: 'include',
+  });
   return handleResponse<ApiResponse<NotificationRecipient>>(response);
 };
 
@@ -403,10 +426,12 @@ export const notificationApi = {
   getNotifications,
   getUnreadCount,
   markAsRead,
+  markAsUnread,
   markAsSeen,
   markAllAsRead,
   deleteNotification,
   archiveNotification,
+  restoreNotification,
   getNotificationSettings,
   updateNotificationSettings,
   getAnalyticsSummary,

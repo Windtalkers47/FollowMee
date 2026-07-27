@@ -26,6 +26,7 @@ export interface CommentNode {
   comment: Comment;
   children: CommentNode[];
   level: number;
+  replyCount?: number;
 }
 
 export interface CommentTree {

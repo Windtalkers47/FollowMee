@@ -652,14 +652,15 @@ const SchedulePage = () => {
         >
           <TextField
             fullWidth
-            placeholder="Search tasks..."
+            placeholder="Search..."
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
             variant="outlined"
             sx={{
-              flex: 1,
+              flex: '1 1 auto',
               minWidth: 0,
+              width: '100%',
               '& .MuiInputBase-root': { fontSize: '0.9375rem', background: 'transparent' },
               '& .MuiOutlinedInput-root': {
                 border: 'none',

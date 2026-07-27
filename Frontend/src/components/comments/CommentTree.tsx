@@ -8,6 +8,7 @@ import { useAppSelector } from '../../store/store';
 import { selectCurrentUser } from '../../store/slices/authSlice';
 import YouTubeThreadedRow from './YouTubeThreadedRow';
 import SmartAvatar from '../SmartAvatar';
+import { useSearchParams } from 'react-router-dom';
 
 interface CommentTreeProps {
   taskId: string;
@@ -17,6 +18,7 @@ interface CommentTreeProps {
 const CommentTreeComponent: React.FC<CommentTreeProps> = ({ taskId, maxDepth = 2 }) => {
   const commentData = useComments({ taskId, maxDepth });
   const currentUser = useAppSelector(selectCurrentUser);
+  const [searchParams] = useSearchParams();
   const {
     visibleTree,
     isLoading,
@@ -30,6 +32,17 @@ const CommentTreeComponent: React.FC<CommentTreeProps> = ({ taskId, maxDepth = 2
     () => visibleTree ? flattenCommentTree(visibleTree.nodes) : [],
     [visibleTree]
   );
+
+  React.useEffect(() => {
+    const commentId = searchParams.get('comment');
+    if (!commentId || flatRows.length === 0) return;
+    const target = document.querySelector(`[data-comment-id="${commentId}"]`);
+    if (!target) return;
+    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    target.classList.add('highlight-comment');
+    const timer = window.setTimeout(() => target.classList.remove('highlight-comment'), 2200);
+    return () => window.clearTimeout(timer);
+  }, [searchParams, flatRows]);
 
   const dataContextValue = React.useMemo(() => ({
     comments: commentData.comments,
@@ -58,7 +71,14 @@ const CommentTreeComponent: React.FC<CommentTreeProps> = ({ taskId, maxDepth = 2
   return (
     <CommentDataContext.Provider value={dataContextValue}>
       <CommentActionContext.Provider value={commentData}>
-        <Box>
+        <Box sx={{
+          '& .highlight-comment': {
+            borderRadius: 2,
+            bgcolor: 'action.selected',
+            outline: '2px solid',
+            outlineColor: 'primary.main',
+          },
+        }}>
           <Stack direction="row" spacing={1.25} alignItems="flex-start">
             <SmartAvatar user={currentUser} avatarVariant="glass" size={34} />
             <TextField

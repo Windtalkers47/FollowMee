@@ -23,6 +23,7 @@ import { FlatCommentRow } from '../../utils/flattenCommentTreeForVirtualization'
 import { useCommentActionContext } from '../../contexts';
 import { useAppSelector } from '../../store/store';
 import { selectCurrentUser } from '../../store/slices/authSlice';
+import ConfirmDialog from '../ConfirmDialog/ConfirmDialog';
 
 const REACTIONS = [
   { type: 'like', emoji: '👍', label: 'Like' },
@@ -43,7 +44,7 @@ interface Props {
 const YouTubeCommentNode: React.FC<Props> = ({ row }) => {
   const actions = useCommentActionContext();
   const currentUser = useAppSelector(selectCurrentUser);
-  const { comment, depth, hasChildren } = row;
+  const { comment, depth, hasChildren, replyCount } = row;
   const data = comment.comment;
   const displayUser = data.user || {
     userId: data.userId,
@@ -56,6 +57,7 @@ const YouTubeCommentNode: React.FC<Props> = ({ row }) => {
   const isCollapsed = actions.collapsedThreads.has(data.commentId);
   const [reactionAnchor, setReactionAnchor] = React.useState<HTMLElement | null>(null);
   const [moreAnchor, setMoreAnchor] = React.useState<HTMLElement | null>(null);
+  const [deleteOpen, setDeleteOpen] = React.useState(false);
 
   const reactionGroups = React.useMemo(() => {
     const grouped = new Map<string, number>();
@@ -128,7 +130,7 @@ const YouTubeCommentNode: React.FC<Props> = ({ row }) => {
               }}
             >
               <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
-                {data.comment}
+                {data.comment.replace(/(@[^\s]+)\s+(?:undefined|null)\s+/gi, '$1 ')}
               </Typography>
               {data.commentImageUrl && (
                 <Box
@@ -181,20 +183,26 @@ const YouTubeCommentNode: React.FC<Props> = ({ row }) => {
                 startIcon={isCollapsed ? <ExpandMore /> : <ExpandLess />}
                 onClick={() => actions.toggleCollapse(data.commentId)}
               >
-                {isCollapsed ? 'Show replies' : 'Hide replies'}
+                {isCollapsed
+                  ? `View ${replyCount} ${replyCount === 1 ? 'reply' : 'replies'}`
+                  : 'Hide replies'}
               </Button>
             )}
           </Box>
 
           {isReplying && (
-            <Box sx={{ display: 'flex', gap: 0.75, mt: 1 }}>
+            <Stack spacing={0.75} sx={{ mt: 1 }}>
+              <Typography variant="caption" color="text.secondary">
+                Replying to {cleanName(displayUser)}
+              </Typography>
+              <Box sx={{ display: 'flex', gap: 0.75, alignItems: 'flex-start' }}>
               <TextField
                 size="small"
                 fullWidth
                 autoFocus
                 multiline
                 maxRows={4}
-                placeholder={`Reply to ${displayUser.userName || 'this comment'}…`}
+                placeholder={`Reply to ${cleanName(displayUser)}…`}
                 value={actions.getReplyText(data.commentId)}
                 onChange={(event) => actions.handleReplyTextChange(data.commentId, event.target.value)}
                 onKeyDown={(event) => {
@@ -215,7 +223,8 @@ const YouTubeCommentNode: React.FC<Props> = ({ row }) => {
               <Button size="small" color="inherit" onClick={actions.handleReplyCancel}>
                 Cancel
               </Button>
-            </Box>
+              </Box>
+            </Stack>
           )}
         </Box>
       </Box>
@@ -252,12 +261,24 @@ const YouTubeCommentNode: React.FC<Props> = ({ row }) => {
           sx={{ color: 'error.main' }}
           onClick={() => {
             setMoreAnchor(null);
-            if (window.confirm('Delete this comment?')) actions.handleDeleteComment(data.commentId);
+            setDeleteOpen(true);
           }}
         >
           Delete
         </MenuItem>
       </Menu>
+      <ConfirmDialog
+        open={deleteOpen}
+        title="Delete comment?"
+        message="This comment and its replies will be removed. This action cannot be undone."
+        confirmLabel="Delete comment"
+        danger
+        onClose={() => setDeleteOpen(false)}
+        onConfirm={() => {
+          setDeleteOpen(false);
+          actions.handleDeleteComment(data.commentId);
+        }}
+      />
     </Box>
   );
 };

@@ -6,7 +6,8 @@ export interface FlatCommentRow {
   isLastChild: boolean;
   isFirstChild: boolean;
   parentPath: boolean[];
-  hasChildren: boolean; // ⭐ NEW PROPERTY
+  hasChildren: boolean;
+  replyCount: number;
 }
 
 /**
@@ -32,7 +33,8 @@ export function flattenCommentTree(nodes: CommentNode[]): FlatCommentRow[] {
         isLastChild,
         isFirstChild: index === 0,
         parentPath: path,
-        hasChildren: node.children.length > 0 // ⭐ KEY FIX
+        hasChildren: (node.replyCount ?? node.children.length) > 0,
+        replyCount: node.replyCount ?? node.children.length
       });
 
       if (node.children.length > 0) {

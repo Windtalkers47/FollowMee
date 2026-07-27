@@ -22,7 +22,7 @@ interface TaskFormProps {
   users: User[];
   open: boolean;
   onClose: () => void;
-  onSave: (task: Task) => void;
+  onSave: (task: Task) => Promise<void> | void;
   bookedDates?: Date[]; // New prop for booked dates
 }
 
@@ -38,8 +38,6 @@ export const TaskForm: React.FC<TaskFormProps> = ({
 
   const handleSubmit = async () => {
     try {
-      // Show loading
-      Swal.showLoading();
       Swal.fire({
         title: taskForm.isEditing ? 'Updating Task...' : 'Creating Task...',
         text: 'Please wait...',
@@ -50,15 +48,11 @@ export const TaskForm: React.FC<TaskFormProps> = ({
       });
 
       // Call the async onSave function directly
-      const taskData = {
-        ...taskForm.formData,
-        images: taskForm.images.map(img => ({
-          imageUrl: img.imageUrl,
-          imageOrder: img.imageOrder
-        }))
-      };
-
-      await onSave(taskData as Task);
+      const saved = await taskForm.handleSubmit();
+      if (!saved) {
+        Swal.close();
+        return;
+      }
       
       // Show success message
       await Swal.fire({

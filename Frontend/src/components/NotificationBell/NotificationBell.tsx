@@ -8,10 +8,7 @@ import {
   selectDropdownOpen,
   setDropdownOpen,
   fetchNotifications,
-  connectWebSocket,
-  disconnectWebSocket,
 } from '../../store/slices/notificationSlice';
-import { selectCurrentUser } from '../../store/slices/authSlice';
 
 interface NotificationBellProps {
   onDropdownToggle?: (open: boolean) => void;
@@ -22,7 +19,6 @@ const NotificationBell = ({ onDropdownToggle }: NotificationBellProps) => {
   const dispatch = useAppDispatch();
   const unreadCount = useAppSelector(selectUnreadCount);
   const dropdownOpen = useAppSelector(selectDropdownOpen);
-  const user = useAppSelector(selectCurrentUser);
   
   // Ensure badgeContent is a number, not an object
   const badgeCount = typeof unreadCount === 'number' 
@@ -33,16 +29,7 @@ const NotificationBell = ({ onDropdownToggle }: NotificationBellProps) => {
     // Fetch unread count on mount (initial load)
     dispatch(fetchUnreadCount());
     
-    // Connect WebSocket for real-time updates (U3-REALTIME-COUNT)
-    if (user?.userId) {
-      dispatch(connectWebSocket(user.userId));
-    }
-    
-    // Cleanup on unmount
-    return () => {
-      dispatch(disconnectWebSocket());
-    };
-  }, [dispatch, user?.userId]);
+  }, [dispatch]);
 
   const handleClick = () => {
     const newOpen = !dropdownOpen;
@@ -57,6 +44,8 @@ const NotificationBell = ({ onDropdownToggle }: NotificationBellProps) => {
 
   return (
     <IconButton
+      aria-label={badgeCount > 0 ? `Notifications, ${badgeCount} unread` : 'Notifications'}
+      aria-expanded={dropdownOpen}
       onClick={handleClick}
       sx={{
         position: 'relative',

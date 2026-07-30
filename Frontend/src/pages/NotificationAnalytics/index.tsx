@@ -35,6 +35,7 @@ import {
   Download,
 } from '@mui/icons-material';
 import { getDashboardMetrics } from '../../api/notification.api';
+import { useUserPreferences } from '../../contexts/UserPreferencesContext';
 
 interface DashboardMetrics {
   totalSent: number;
@@ -81,6 +82,7 @@ interface TrendDataPoint {
 
 const NotificationAnalytics = () => {
   const theme = useTheme();
+  const { t } = useUserPreferences();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
@@ -182,19 +184,19 @@ const NotificationAnalytics = () => {
       {/* Header */}
       <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }} spacing={2} sx={{ mb: 4 }}>
         <Box>
-          <Typography variant="h4" fontWeight={600} gutterBottom>Notification analytics</Typography>
-          <Typography variant="body2" color="text.secondary">Track engagement and compare it with the previous period.</Typography>
+          <Typography variant="h4" fontWeight={600} gutterBottom>{t('analytics.title')}</Typography>
+          <Typography variant="body2" color="text.secondary">{t('analytics.subtitle')}</Typography>
         </Box>
         <Stack direction="row" spacing={1}>
           <FormControl size="small" sx={{ minWidth: 140 }}>
-            <InputLabel>Period</InputLabel>
-            <Select label="Period" value={periodDays} onChange={(event) => setPeriodDays(Number(event.target.value))}>
-              <MenuItem value={7}>Last 7 days</MenuItem>
-              <MenuItem value={30}>Last 30 days</MenuItem>
-              <MenuItem value={90}>Last 90 days</MenuItem>
+            <InputLabel>{t('analytics.period')}</InputLabel>
+            <Select label={t('analytics.period')} value={periodDays} onChange={(event) => setPeriodDays(Number(event.target.value))}>
+              <MenuItem value={7}>{t('analytics.lastDays', { count: 7 })}</MenuItem>
+              <MenuItem value={30}>{t('analytics.lastDays', { count: 30 })}</MenuItem>
+              <MenuItem value={90}>{t('analytics.lastDays', { count: 90 })}</MenuItem>
             </Select>
           </FormControl>
-          <Button variant="outlined" startIcon={<Download />} onClick={exportCsv}>Export</Button>
+          <Button variant="outlined" startIcon={<Download />} onClick={exportCsv}>{t('analytics.export')}</Button>
         </Stack>
       </Stack>
 
@@ -294,11 +296,11 @@ const NotificationAnalytics = () => {
             <CardContent>
               <Box display="flex" alignItems="center" gap={1}>
                 <Devices color="primary" />
-                <Typography variant="h6" fontWeight={600}>By device type</Typography>
+                <Typography variant="h6" fontWeight={600}>{t('analytics.byDevice')}</Typography>
               </Box>
               <Box sx={{ mt: 2 }}>
                 {metrics.byDeviceType.length === 0 && (
-                  <Typography color="text.secondary">Device insights will appear after notifications are opened.</Typography>
+                  <Typography color="text.secondary">{t('analytics.deviceEmpty')}</Typography>
                 )}
                 {metrics.byDeviceType.map((device) => (
                   <Box
@@ -323,13 +325,13 @@ const NotificationAnalytics = () => {
                       </Box>
                     </Box>
                     <Chip
-                      label={`${device.openRate.toFixed(1)}% open`}
+                      label={t('analytics.openRate', { rate: device.openRate.toFixed(1) })}
                       size="small"
                       color="success"
                       sx={{ mr: 1 }}
                     />
                     <Chip
-                      label={`${device.clickRate.toFixed(1)}% click`}
+                      label={t('analytics.clickRate', { rate: device.clickRate.toFixed(1) })}
                       size="small"
                       color="warning"
                     />
@@ -345,11 +347,11 @@ const NotificationAnalytics = () => {
             <CardContent>
               <Box display="flex" alignItems="center" gap={1}>
                 <Category color="primary" />
-                <Typography variant="h6" fontWeight={600}>By notification type</Typography>
+                <Typography variant="h6" fontWeight={600}>{t('analytics.byType')}</Typography>
               </Box>
               <Box sx={{ mt: 2 }}>
                 {metrics.byNotificationType.length === 0 && (
-                  <Typography color="text.secondary">Type insights will appear after notifications are sent.</Typography>
+                  <Typography color="text.secondary">{t('analytics.typeEmpty')}</Typography>
                 )}
                 {metrics.byNotificationType.map((type) => (
                   <Box
@@ -374,13 +376,13 @@ const NotificationAnalytics = () => {
                       </Box>
                     </Box>
                     <Chip
-                      label={`${type.openRate.toFixed(1)}% open`}
+                      label={t('analytics.openRate', { rate: type.openRate.toFixed(1) })}
                       size="small"
                       color="success"
                       sx={{ mr: 1 }}
                     />
                     <Chip
-                      label={`${type.clickRate.toFixed(1)}% click`}
+                      label={t('analytics.clickRate', { rate: type.clickRate.toFixed(1) })}
                       size="small"
                       color="warning"
                     />
@@ -397,17 +399,17 @@ const NotificationAnalytics = () => {
         <CardContent>
           <Box display="flex" alignItems="center" gap={1} sx={{ mb: 1 }}>
             <EmojiEvents color="primary" />
-            <Typography variant="h6" fontWeight={600}>Top performing notifications</Typography>
+            <Typography variant="h6" fontWeight={600}>{t('analytics.topNotifications')}</Typography>
           </Box>
           <TableContainer>
             <Table>
               <TableHead>
                 <TableRow>
-                  <TableCell>Title</TableCell>
-                  <TableCell>Type</TableCell>
-                  <TableCell align="right">Sent</TableCell>
-                  <TableCell align="right">Open Rate</TableCell>
-                  <TableCell align="right">Click Rate</TableCell>
+                  <TableCell>{t('analytics.table.title')}</TableCell>
+                  <TableCell>{t('analytics.table.type')}</TableCell>
+                  <TableCell align="right">{t('analytics.table.sent')}</TableCell>
+                  <TableCell align="right">{t('analytics.table.openRate')}</TableCell>
+                  <TableCell align="right">{t('analytics.table.clickRate')}</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>

@@ -29,6 +29,7 @@ import {
   selectIsAuthenticated,
 } from '../../store/slices/authSlice';
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
+import { useUserPreferences } from '../../contexts/UserPreferencesContext';
 
 const MAX_ATTEMPTS = 5;
 
@@ -36,6 +37,7 @@ export default function LoginPage() {
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
   const theme = useTheme();
+  const { t } = useUserPreferences();
   const accessibleAccent = theme.palette.mode === 'dark' ? theme.palette.primary.light : '#17692D';
 
   const loading = useSelector(selectAuthLoading);
@@ -108,13 +110,13 @@ export default function LoginPage() {
       >
         <Box sx={{ display: { xs: 'none', md: 'block' }, pr: 2 }}>
           <Typography variant="overline" sx={{ color: accessibleAccent }} fontWeight={800}>
-            FollowMee profile cards
+            {t('auth.login.eyebrow')}
           </Typography>
           <Typography variant="h2" fontWeight={800} sx={{ mt: 1, mb: 2, maxWidth: 540 }}>
-            Turn every customer story into a page worth sharing.
+            {t('auth.login.heroTitle')}
           </Typography>
           <Typography color="text.secondary" sx={{ maxWidth: 500, mb: 4, fontSize: '1.05rem' }}>
-            Manage relationships privately, then publish a focused landing card with links, calls to action and measurable engagement.
+            {t('auth.login.heroBody')}
           </Typography>
           <Box
             sx={{
@@ -128,9 +130,9 @@ export default function LoginPage() {
             }}
           >
             <Box sx={{ width: 64, height: 64, borderRadius: '50%', bgcolor: 'rgba(52,199,89,.16)', mb: 3 }} />
-            <Typography variant="h5" fontWeight={800}>Your customer</Typography>
-            <Typography color="text.secondary" sx={{ mt: 0.5 }}>A clear story, useful links and one strong next step.</Typography>
-            <Button fullWidth variant="contained" sx={{ mt: 3, pointerEvents: 'none' }}>View profile</Button>
+            <Typography variant="h5" fontWeight={800}>{t('auth.login.previewName')}</Typography>
+            <Typography color="text.secondary" sx={{ mt: 0.5 }}>{t('auth.login.previewBody')}</Typography>
+            <Button fullWidth variant="contained" sx={{ mt: 3, pointerEvents: 'none' }}>{t('auth.login.viewProfile')}</Button>
           </Box>
         </Box>
         <Box>
@@ -167,14 +169,14 @@ export default function LoginPage() {
               color: theme.palette.mode === 'dark' ? '#fff' : '#1e293b',
             }}
           >
-            Welcome Back
+            {t('auth.login.title')}
           </Typography>
           <Typography
             variant="body1"
             color="text.secondary"
             sx={{ fontWeight: 400 }}
           >
-            Sign in to continue to FollowMee
+            {t('auth.login.subtitle')}
           </Typography>
         </Box>
 
@@ -216,7 +218,7 @@ export default function LoginPage() {
                 py: 0.5,
               }}
             >
-              Too many failed attempts. Please try again later.
+              {t('auth.login.locked')}
             </Alert>
           )}
 
@@ -231,7 +233,7 @@ export default function LoginPage() {
                   color: theme.palette.mode === 'dark' ? 'text.primary' : 'text.primary',
                 }}
               >
-                Email
+                {t('common.email')}
               </Typography>
               <TextField
                 fullWidth
@@ -239,7 +241,7 @@ export default function LoginPage() {
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 required
-                placeholder="Enter your email"
+                placeholder={t('auth.login.emailPlaceholder')}
                 onFocus={() => setFocusedField('email')}
                 onBlur={() => setFocusedField(null)}
                 InputProps={{
@@ -277,7 +279,7 @@ export default function LoginPage() {
                   color: theme.palette.mode === 'dark' ? 'text.primary' : 'text.primary',
                 }}
               >
-                Password
+                {t('common.password')}
               </Typography>
               <TextField
                 fullWidth
@@ -285,7 +287,7 @@ export default function LoginPage() {
                 value={password}
                 onChange={e => setPassword(e.target.value)}
                 required
-                placeholder="Enter your password"
+                placeholder={t('auth.login.passwordPlaceholder')}
                 onFocus={() => setFocusedField('password')}
                 onBlur={() => setFocusedField(null)}
                 InputProps={{
@@ -304,7 +306,7 @@ export default function LoginPage() {
                       <IconButton
                         onClick={() => setShowPassword(prev => !prev)}
                         edge="end"
-                        aria-label={showPassword ? 'Hide password' : 'Show password'}
+                        aria-label={showPassword ? t('common.hidePassword') : t('common.showPassword')}
                         sx={{ color: 'text.secondary' }}
                       >
                         {showPassword ? <VisibilityOff /> : <Visibility />}
@@ -352,7 +354,7 @@ export default function LoginPage() {
                     variant="body2"
                     sx={{ color: 'text.secondary' }}
                   >
-                    Remember me
+                    {t('auth.login.remember')}
                   </Typography>
                 }
               />
@@ -370,7 +372,7 @@ export default function LoginPage() {
                   },
                 }}
               >
-                Forgot password?
+                {t('auth.login.forgot')}
               </Typography>
             </Box>
 
@@ -401,7 +403,7 @@ export default function LoginPage() {
                 },
               }}
             >
-              {loading ? 'Signing in...' : 'Sign in'}
+              {loading ? t('auth.login.signingIn') : t('auth.login.signIn')}
             </Button>
           </Box>
 
@@ -418,7 +420,7 @@ export default function LoginPage() {
               variant="body2"
               sx={{ color: 'text.secondary' }}
             >
-              Don't have an account?{' '}
+              {t('auth.login.noAccount')}{' '}
               <Typography
                 component={RouterLink}
                 to="/register"
@@ -432,7 +434,7 @@ export default function LoginPage() {
                   },
                 }}
               >
-                Sign up
+                {t('auth.login.signUp')}
               </Typography>
             </Typography>
           </Box>

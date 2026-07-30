@@ -13,6 +13,7 @@ import {
 } from '@mui/material';
 import { Visibility, VisibilityOff } from '@mui/icons-material';
 import feedback from '../../services/feedback.service';
+import { useUserPreferences } from '../../contexts/UserPreferencesContext';
 
 // Hide browser's built-in password reveal button
 const styles = `
@@ -48,6 +49,7 @@ const ResetPassword = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const token = searchParams.get('token');
+  const { t } = useUserPreferences();
 
   const handleClickShowPassword = () => setShowPassword((show) => !show);
   const handleClickShowConfirmPassword = () => setShowConfirmPassword((show) => !show);
@@ -68,8 +70,8 @@ const handleSubmit = async (e: React.FormEvent) => {
   if (password !== confirmPassword) {
     await feedback.fire({
       icon: 'error',
-      title: 'Password Mismatch',
-      text: 'Passwords do not match',
+      title: t('auth.reset.mismatchTitle'),
+      text: t('validation.passwordMismatch'),
       customClass: {
         popup: 'swal2-error-dialog'
       }
@@ -80,8 +82,8 @@ const handleSubmit = async (e: React.FormEvent) => {
   if (password.length < 8) {
     await feedback.fire({
       icon: 'error',
-      title: 'Password Too Short',
-      text: 'Password must be at least 8 characters long',
+      title: t('auth.reset.shortTitle'),
+      text: t('validation.passwordMin'),
       customClass: {
         popup: 'swal2-error-dialog'
       }
@@ -94,7 +96,7 @@ const handleSubmit = async (e: React.FormEvent) => {
     
     const urlToken = searchParams.get('token');
     if (!urlToken) {
-      throw new Error('Invalid or missing reset token');
+      throw new Error(t('auth.reset.invalidToken'));
     }
 
     // Make a POST request to the reset password endpoint
@@ -114,19 +116,19 @@ const handleSubmit = async (e: React.FormEvent) => {
     if (!response.ok) {
       await feedback.fire({
         icon: 'error',
-        title: 'Reset Failed',
-        text: responseData.message || 'Failed to reset password',
+        title: t('auth.reset.failedTitle'),
+        text: responseData.message || t('auth.reset.failedText'),
         customClass: {
           popup: 'swal2-error-dialog'
         }
       });
-      throw new Error(responseData.message || 'Failed to reset password');
+      throw new Error(responseData.message || t('auth.reset.failedText'));
     }
 
     await feedback.fire({
       icon: 'success',
-      title: 'Password Reset Successful!',
-      text: 'Your password has been updated successfully. Redirecting to login page...',
+      title: t('auth.reset.successTitle'),
+      text: t('auth.reset.successText'),
       timer: 3000,
       timerProgressBar: true,
       customClass: {
@@ -139,8 +141,8 @@ const handleSubmit = async (e: React.FormEvent) => {
     console.error('Reset password error:', error);
     await feedback.fire({
       icon: 'error',
-      title: 'Reset Failed',
-      text: error.message || 'Failed to reset password. Please try again.',
+      title: t('auth.reset.failedTitle'),
+      text: error.message || t('auth.reset.failedText'),
       customClass: {
         popup: 'swal2-error-dialog'
       }
@@ -165,7 +167,7 @@ const handleSubmit = async (e: React.FormEvent) => {
         }}
       >
         <Typography component="h1" variant="h5">
-          Reset Your Password
+          {t('auth.reset.title')}
         </Typography>
         <Paper variant="outlined" sx={{
           p: 4, 
@@ -182,7 +184,7 @@ const handleSubmit = async (e: React.FormEvent) => {
               required
               fullWidth
               name="password"
-              label="New Password"
+              label={t('auth.reset.newPassword')}
               type={showPassword ? 'text' : 'password'}
               id="password"
               value={password}
@@ -193,7 +195,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                 endAdornment: (
                   <InputAdornment position="end">
                     <IconButton
-                      aria-label="toggle password visibility"
+                      aria-label={t('auth.reset.togglePassword')}
                       onClick={handleClickShowPassword}
                       onMouseDown={handleMouseDownPassword}
                       edge="end"
@@ -209,7 +211,7 @@ const handleSubmit = async (e: React.FormEvent) => {
               required
               fullWidth
               name="confirmPassword"
-              label="Confirm New Password"
+              label={t('auth.reset.confirmPassword')}
               type={showConfirmPassword ? 'text' : 'password'}
               id="confirmPassword"
               value={confirmPassword}
@@ -220,7 +222,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                 endAdornment: (
                   <InputAdornment position="end">
                     <IconButton
-                      aria-label="toggle confirm password visibility"
+                      aria-label={t('auth.reset.toggleConfirmPassword')}
                       onClick={handleClickShowConfirmPassword}
                       onMouseDown={handleMouseDownPassword}
                       edge="end"
@@ -239,7 +241,7 @@ const handleSubmit = async (e: React.FormEvent) => {
               disabled={isLoading}
               startIcon={isLoading ? <CircularProgress size={20} /> : null}
             >
-              {isLoading ? 'Resetting...' : 'Reset Password'}
+              {isLoading ? t('auth.reset.resetting') : t('auth.reset.submit')}
             </Button>
           </Box>
         </Paper>

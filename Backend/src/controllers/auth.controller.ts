@@ -471,8 +471,10 @@ class AuthController {
       user.resetTokenExpires = new Date(Date.now() + 3600000); // 1 hour from now
       await this.userRepository.save(user);
 
-      // Send password reset email
-      await emailService.sendPasswordResetEmail(email, resetToken);
+      // Send the reset email in the locale selected on the requesting device.
+      const requestedLocale = String(req.headers['x-user-locale'] || '').toLowerCase();
+      const locale: 'en' | 'th' = requestedLocale.startsWith('th') ? 'th' : 'en';
+      await emailService.sendPasswordResetEmail(email, resetToken, locale);
 
       return res.status(200).json({
         success: true,

@@ -32,6 +32,7 @@ FollowMee เป็น internal work-management app ที่มี Tasks & Sche
 - schema verify ล่าสุด: 25 tables, 34 foreign keys, 58 secondary indexes, 13 migrations
 - แก้ CORS ให้รองรับ `x-user-locale`
 - Notification email wrapper รองรับ locale และแก้ข้อความ encoding เสีย
+- Reset-password email รองรับ English/ไทย ตาม `x-user-locale` ทั้ง subject, HTML และ plain text
 - Smart Suggestions ส่ง `translationKey` เพื่อให้ frontend แปลตาม locale ได้
 
 ### Frontend / UX
@@ -47,6 +48,10 @@ FollowMee เป็น internal work-management app ที่มี Tasks & Sche
 - Notification UI ใช้ neutral surface, unread state และ localized time/action labels
 - Customer/Users/Register ลด semantic hard-coded colors และใช้ theme tokens มากขึ้น
 - Settings ไม่แสดง legacy LiquidGlassSettings component ซ้ำซ้อนแล้ว
+- แยก translation catalog กลางไปที่ `Frontend/src/i18n/messages.ts` และบังคับ key ของ English/ไทยให้ตรงกันด้วย TypeScript
+- หน้า Login/Register/Forgot/Reset ใช้ catalog กลางแล้ว รวม validation, feedback dialogs, labels, placeholders และ accessibility labels
+- หน้า Schedule, Customers, Users, Team Activity และ Notification Analytics ใช้ catalog กลางแล้วใน navigation ภายในหน้า, headings, filters, tables, forms และ dialogs หลัก
+- เพิ่ม catalog tests ตรวจ key parity, interpolation placeholders และข้อความว่าง
 
 ## ผลการตรวจล่าสุด
 
@@ -54,7 +59,8 @@ FollowMee เป็น internal work-management app ที่มี Tasks & Sche
 
 - Backend TypeScript build
 - Frontend production build
-- Frontend unit/component: 11/11
+- Frontend unit/component: 14/14
+- Backend unit: 8/8
 - Backend integration: 7/7
 - Authenticated workflow E2E: 4/4
 - Accessibility/axe: 3/3, ไม่มี serious/critical violation
@@ -69,7 +75,7 @@ E2E ใช้ฐานข้อมูลแยก `followmee_e2e` เท่า�
 
 ## สิ่งที่ยังไม่สมบูรณ์
 
-1. Legacy feature-page text, validation และ reset-password email ยังไม่ได้ย้ายเข้า translation catalog ครบ 100%; shared shell, settings, Smart Suggestions และ notification actions มี localization แล้ว
+1. Localization ของ main flows ใน Login/Register/Forgot/Reset, Schedule, Customers, Users, Team Activity และ Notification Analytics ทำแล้ว แต่ nested legacy components บางตัว เช่น TaskForm, CustomerForm, FilterBar, task cards/comments และ role descriptions ยังมี hard-coded text ที่ต้อง audit ต่อเพื่อให้ครบ 100%
 2. Notification รุ่นเก่าบางรายการยังเก็บ title/message เป็นข้อความสำเร็จรูป ควรย้ายเป็น event key + parameters หากต้องการเปลี่ยนภาษาตามผู้รับครบทุก event
 3. WebKit ผ่าน browser engine ระดับ desktop แล้ว แต่ยังไม่ได้ตรวจ Safari บนอุปกรณ์ iPhone/iPad จริง โดยเฉพาะ autofill, virtual keyboard และ safe-area
 4. E2E สอง session ผ่าน workflow หลักแล้ว แต่ควรเพิ่ม coverage reconnect/offline และ role matrix ให้กว้างขึ้นก่อน production เต็มรูปแบบ
@@ -79,11 +85,13 @@ E2E ใช้ฐานข้อมูลแยก `followmee_e2e` เท่า�
 
 ลำดับที่ควรทำต่อ:
 
-1. สร้าง translation catalog ให้ครบสำหรับ Login/Register/Forgot/Reset, Schedule, Customers, Users, Team Activity, Analytics และ dialogs/validation
+1. เก็บ localization รอบสุดท้ายใน nested components ของ Schedule/Customers/Users/Team Activity (TaskForm, CustomerForm, filters, task cards/comments, role descriptions) และเพิ่ม component tests สลับ English/ไทย
 2. เปลี่ยน notification storage/delivery เป็น `translationKey + params + entity metadata`; render title/message ตาม locale ของผู้รับ
 3. เพิ่ม E2E สำหรับ offline/reconnect, duplicate notification, mark read/unread, deep-link comment และ role matrix
 4. ตรวจ Safari iOS/iPadOS จริง และ keyboard/autofill/safe-area
 5. รัน full CI: build, unit, integration, schema verify, E2E, axe, visual และ bundle budget
+
+หมายเหตุการตรวจล่าสุด: Backend/Frontend build และ unit tests ผ่าน แต่ `npm run lint` ทั้ง repo ยังไม่ผ่านจาก technical debt เดิม 239 รายการ (221 errors, 18 warnings) กระจายอยู่ในไฟล์ legacy หลายส่วน; warning ที่เกิดจาก dependency ของ `t` ในงานรอบนี้แก้แล้ว
 
 ## วิธีเริ่ม session ใหม่
 

@@ -13,11 +13,13 @@ import {
 } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
 import feedback from '../../services/feedback.service';
+import { useUserPreferences } from '../../contexts/UserPreferencesContext';
 
 const ForgotPassword = () => {
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+  const { t } = useUserPreferences();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,8 +27,8 @@ const ForgotPassword = () => {
     if (!email) {
       await feedback.fire({
         icon: 'error',
-        title: 'Email Required',
-        text: 'Please enter your email address',
+        title: t('auth.forgot.emailRequiredTitle'),
+        text: t('validation.emailRequired'),
         customClass: {
           popup: 'swal2-error-dialog'
         }
@@ -37,8 +39,8 @@ const ForgotPassword = () => {
     if (!/\S+@\S+\.\S+/.test(email)) {
       await feedback.fire({
         icon: 'error',
-        title: 'Invalid Email',
-        text: 'Please enter a valid email address',
+        title: t('auth.forgot.invalidEmailTitle'),
+        text: t('validation.emailInvalid'),
         customClass: {
           popup: 'swal2-error-dialog'
         }
@@ -52,9 +54,9 @@ const ForgotPassword = () => {
       
       await feedback.fire({
         icon: 'success',
-        title: 'Reset Email Sent!',
-        html: `We've sent a password reset link to <strong>${email}</strong><br><br>If you don't see the email, check your spam folder or try again.`,
-        confirmButtonText: 'Back to Login',
+        title: t('auth.forgot.sentTitle'),
+        text: t('auth.forgot.sentText', { email }),
+        confirmButtonText: t('auth.forgot.backToLogin'),
         customClass: {
           popup: 'swal2-success-dialog'
         }
@@ -66,8 +68,8 @@ const ForgotPassword = () => {
     } catch (error: any) {
       await feedback.fire({
         icon: 'error',
-        title: 'Send Failed',
-        text: error.message || 'Failed to send reset email',
+        title: t('auth.forgot.sendFailed'),
+        text: error.message || t('auth.forgot.sendFailedText'),
         customClass: {
           popup: 'swal2-error-dialog'
         }
@@ -88,7 +90,7 @@ const ForgotPassword = () => {
         }}
       >
         <Typography component="h1" variant="h5">
-          Forgot Password
+          {t('auth.forgot.title')}
         </Typography>
         <Paper variant="outlined" sx={{
           p: 4, 
@@ -100,7 +102,7 @@ const ForgotPassword = () => {
           boxShadow: 'none',
         }}>
           <Typography variant="body1" sx={{ mb: 3 }}>
-            Enter your email address and we'll send you a link to reset your password.
+            {t('auth.forgot.instructions')}
           </Typography>
           <Box component="form" onSubmit={handleSubmit} noValidate>
             <TextField
@@ -108,7 +110,7 @@ const ForgotPassword = () => {
               required
               fullWidth
               id="email"
-              label="Email Address"
+              label={t('common.emailAddress')}
               name="email"
               autoComplete="email"
               autoFocus
@@ -124,13 +126,13 @@ const ForgotPassword = () => {
               disabled={isLoading || !email}
               startIcon={isLoading ? <CircularProgress size={20} /> : null}
             >
-              {isLoading ? 'Sending...' : 'Send Reset Link'}
+              {isLoading ? t('auth.forgot.sending') : t('auth.forgot.send')}
             </Button>
           </Box>
           
           <Box sx={{ textAlign: 'center', mt: 2 }}>
             <Link component={RouterLink} to="/login" variant="body2">
-              Back to Login
+              {t('auth.forgot.backToLogin')}
             </Link>
           </Box>
         </Paper>

@@ -56,6 +56,7 @@ import { getTaskPermissions, hasAnyPermission } from '../../permissions/taskPerm
 import { getBookedDates } from '../../utils/dateUtils';
 import { useLiquidGlass } from '../../contexts/LiquidGlassContext';
 import { useTheme } from '@mui/material';
+import { useUserPreferences } from '../../contexts/UserPreferencesContext';
 import {
   gradientPresets,
   type GradientPresetKey,
@@ -155,6 +156,7 @@ const TaskFeedCard: React.FC<TaskFeedCardProps> = ({
 
 /* ================== Page ================== */
 const PostsPage = () => {
+  const { t } = useUserPreferences();
   const { taskId } = useParams<{ taskId: string }>();
   const [activeTab, setActiveTab] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
@@ -483,12 +485,12 @@ const PostsPage = () => {
 
   const handleApproveTask = async (taskId: string) => {
     const result = await feedback.fire({
-      title: 'Approve Task',
-      text: 'Are you sure you want to approve this task? This will mark it as completed.',
+      title: t('task.approveTitle'),
+      text: t('task.approveQuestion'),
       icon: 'question',
       showCancelButton: true,
-      confirmButtonText: 'Yes, approve it!',
-      cancelButtonText: 'Cancel',
+      confirmButtonText: t('task.approveConfirm'),
+      cancelButtonText: t('common.cancel'),
       reverseButtons: true,
       showLoaderOnConfirm: true,
       preConfirm: () => {
@@ -499,8 +501,8 @@ const PostsPage = () => {
 
     if (result.isConfirmed) {
       await feedback.fire({
-        title: 'Approved!',
-        text: 'Task has been approved successfully.',
+        title: t('task.approvedTitle'),
+        text: t('task.approvedText'),
         icon: 'success',
         timer: 2000,
         showConfirmButton: false
@@ -510,12 +512,12 @@ const PostsPage = () => {
 
   const handleStartProgress = async (taskId: string) => {
     const result = await feedback.fire({
-      title: 'Start Working?',
-      text: 'Ready to start working on this task? Let\'s do this! ',
+      title: t('task.startTitle'),
+      text: t('task.startQuestion'),
       icon: 'question',
       showCancelButton: true,
-      confirmButtonText: 'Let\'s go! ',
-      cancelButtonText: 'Not yet',
+      confirmButtonText: t('task.startConfirm'),
+      cancelButtonText: t('task.notYet'),
       reverseButtons: true,
       showLoaderOnConfirm: true,
       preConfirm: () => {
@@ -529,18 +531,10 @@ const PostsPage = () => {
 
     if (result.isConfirmed) {
       await feedback.fire({
-        title: 'Let\'s Get Started! ',
-        html: `
-          <div style="text-align: center;">
-            <p>Awesome! You're now working on this task. </p>
-            <div style="margin: 20px 0; padding: 16px; background: #e3f2fd; border: 2px solid #2196f3; border-radius: 8px;">
-              <h4 style="margin: 0 0 8px 0; color: #1976d2;"> You've got this! </h4>
-              <p style="margin: 0; color: #666;">Time to make some progress! </p>
-            </div>
-          </div>
-        `,
+        title: t('task.startedTitle'),
+        text: `${t('activity.startedTitle')} ${t('activity.startedEncouragement')} ${t('activity.startedBody')}`,
         icon: 'success',
-        confirmButtonText: 'Working on it!',
+        confirmButtonText: t('task.startConfirm'),
         timer: 2000,
         showConfirmButton: true
       });
@@ -549,12 +543,12 @@ const PostsPage = () => {
 
   const handleCancelTask = async (taskId: string) => {
     const result = await feedback.fire({
-      title: 'Cancel Task?',
-      text: 'Are you sure you want to cancel this task? This will move it to the cancelled tab.',
+      title: t('task.cancelTitle'),
+      text: t('task.cancelQuestion'),
       icon: 'warning',
       showCancelButton: true,
-      confirmButtonText: 'Yes, cancel it!',
-      cancelButtonText: 'No, keep it',
+      confirmButtonText: t('task.cancelConfirm'),
+      cancelButtonText: t('task.keep'),
       reverseButtons: true,
       showLoaderOnConfirm: true,
       preConfirm: () => {
@@ -568,8 +562,8 @@ const PostsPage = () => {
 
     if (result.isConfirmed) {
       await feedback.fire({
-        title: 'Task Cancelled',
-        text: 'The task has been moved to cancelled.',
+        title: t('task.cancelledTitle'),
+        text: t('task.cancelledText'),
         icon: 'info',
         timer: 2000,
         showConfirmButton: false
@@ -594,16 +588,16 @@ const PostsPage = () => {
       };
       
       await feedback.fire({
-        title: 'Status Updated',
-        text: statusMessages[status] || 'Task status updated',
+        title: t('task.statusUpdated'),
+        text: statusMessages[status] || t('task.statusUpdatedText'),
         icon: 'success',
         timer: 2000,
         showConfirmButton: false
       });
     } catch (error) {
       await feedback.fire({
-        title: 'Error',
-        text: 'Failed to update task status',
+        title: t('common.error'),
+        text: t('task.statusUpdateFailed'),
         icon: 'error',
         timer: 2000,
         showConfirmButton: false
@@ -640,8 +634,8 @@ const PostsPage = () => {
   })();
 
   const tabs = [
-    { label: 'My activity', key: 'assigned' },
-    { label: 'Team activity', key: 'feed' },
+    { label: t('activity.myTab'), key: 'assigned' },
+    { label: t('activity.teamTab'), key: 'feed' },
   ];
 
   return (
@@ -661,13 +655,13 @@ const PostsPage = () => {
           gutterBottom
           sx={{ color: getTextColor('primary') }}
         >
-          Team activity
+          {t('activity.title')}
         </Typography>
         <Typography color="text.secondary" sx={{ mb: 1.5 }}>
-          Celebrate approved work, share feedback and follow team progress in one place.
+          {t('activity.subtitle')}
         </Typography>
         <Chip 
-          label={`${assignedTasksList.length} completed by you`}
+          label={t('activity.completedByYou', { count: assignedTasksList.length })}
           size="small"
           sx={{
             bgcolor: 'action.selected',
@@ -696,7 +690,7 @@ const PostsPage = () => {
               fontWeight="bold"
               sx={{ color: getTextColor('primary') }}
             >
-              Team progress
+              {t('activity.teamProgress')}
             </Typography>
           </Box>
           
@@ -749,7 +743,7 @@ const PostsPage = () => {
                       variant="body2" 
                       sx={{ color: getTextColor('secondary') }}
                     >
-                      {performer.completedTasks} completed · {performer.score || performer.completedTasks * 10} pts
+                      {t('activity.completedPoints', { count: performer.completedTasks, points: performer.score || performer.completedTasks * 10 })}
                     </Typography>
                   </Box>
                 </Box>
@@ -765,7 +759,7 @@ const PostsPage = () => {
           <Box display="flex" alignItems="center" gap={1} mb={2}>
             <TrophyIcon sx={{ color: 'primary.main', fontSize: 28 }} />
             <Typography variant="h6" fontWeight="bold" sx={{ color: getTextColor('primary') }}>
-              Top Performers
+              {t('activity.topPerformers')}
             </Typography>
           </Box>
           <Grid container spacing={2}>
@@ -787,10 +781,10 @@ const PostsPage = () => {
                   <CircularProgress size={28} />
                   <Box flex={1}>
                     <Typography variant="subtitle1" fontWeight="medium" sx={{ color: getTextColor('primary') }}>
-                      Loading...
+                      {t('common.loading')}
                     </Typography>
                     <Typography variant="body2" sx={{ color: getTextColor('secondary') }}>
-                      Calculating scores...
+                      {t('activity.calculating')}
                     </Typography>
                   </Box>
                 </Box>
@@ -815,7 +809,7 @@ const PostsPage = () => {
               fontWeight="bold"
               sx={{ color: getTextColor('primary') }}
             >
-              Your completion summary
+              {t('activity.completionSummary')}
             </Typography>
           </Box>
           <Box
@@ -834,9 +828,9 @@ const PostsPage = () => {
             <Typography variant="h3" fontWeight="bold" color="text.primary">
               {userRank.completedTasks}
             </Typography>
-            <Typography color="text.secondary" sx={{ mb: 1 }}>tasks completed</Typography>
+            <Typography color="text.secondary" sx={{ mb: 1 }}>{t('activity.tasksCompleted')}</Typography>
             <Typography variant="subtitle2" color="primary.main" sx={{ mb: 1 }}>
-              {userRank.score || 0} verified points
+              {t('activity.verifiedPoints', { count: userRank.score || 0 })}
             </Typography>
             <Typography 
               variant="h6" 
@@ -849,7 +843,7 @@ const PostsPage = () => {
               variant="body1" 
               sx={{ color: getTextColor('secondary') }}
             >
-              Team position #{userRank.rank} of {userRank.totalUsers}
+              {t('activity.teamPosition', { rank: userRank.rank, total: userRank.totalUsers })}
             </Typography>
             {userRank.rank > 3 && (
               <Typography 
@@ -860,7 +854,7 @@ const PostsPage = () => {
                   fontWeight: 500,
                 }}
               >
-                Complete useful work first; team position is a secondary progress signal.
+                {t('activity.positionHint')}
               </Typography>
             )}
           </Box>
@@ -872,7 +866,7 @@ const PostsPage = () => {
         <Box display="flex" gap={2} alignItems="center" flexWrap="wrap">
           <TextField
             fullWidth
-            placeholder="Search completed tasks by title or description..."
+            placeholder={t('activity.searchCompleted')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             onKeyPress={handleKeyPress}

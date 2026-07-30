@@ -331,13 +331,15 @@ class EmailService {
    */
   async sendPasswordResetEmail(
     email: string,
-    resetToken: string
+    resetToken: string,
+    locale: 'en' | 'th' = 'en'
   ): Promise<boolean> {
     const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password?token=${resetToken}`;
-    
-    const subject = 'FollowMee: Password Reset Request';
-    const html = this.createPasswordResetEmailHtml(resetUrl);
-    const text = this.createPasswordResetEmailText(resetUrl);
+    const subject = locale === 'th'
+      ? 'FollowMee: คำขอตั้งรหัสผ่านใหม่'
+      : 'FollowMee: Password Reset Request';
+    const html = this.createPasswordResetEmailHtml(resetUrl, locale);
+    const text = this.createPasswordResetEmailText(resetUrl, locale);
 
     return this.sendEmail({
       to: { email },
@@ -350,10 +352,27 @@ class EmailService {
   /**
    * Create HTML body for password reset email
    */
-  private createPasswordResetEmailHtml(resetUrl: string): string {
+  private createPasswordResetEmailHtml(resetUrl: string, locale: 'en' | 'th'): string {
+    const copy = locale === 'th'
+      ? {
+          title: 'คำขอตั้งรหัสผ่านใหม่',
+          message: 'คุณได้ขอตั้งรหัสผ่านใหม่ คลิกปุ่มด้านล่างเพื่อดำเนินการ',
+          button: 'ตั้งรหัสผ่านใหม่',
+          important: 'สำคัญ:',
+          warning: 'ลิงก์นี้จะหมดอายุใน 1 ชั่วโมง หากคุณไม่ได้เป็นผู้ส่งคำขอ กรุณาไม่ต้องดำเนินการใด ๆ กับอีเมลนี้',
+          rights: 'สงวนลิขสิทธิ์',
+        }
+      : {
+          title: 'Password Reset Request',
+          message: 'You requested a password reset. Click the button below to continue.',
+          button: 'Reset Password',
+          important: 'Important:',
+          warning: "This link will expire in 1 hour. If you didn't request this reset, please ignore this email.",
+          rights: 'All rights reserved.',
+        };
     return `
 <!DOCTYPE html>
-<html>
+<html lang="${locale}">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -427,19 +446,19 @@ class EmailService {
       <div class="logo">FollowMee</div>
     </div>
     
-    <div class="title">Password Reset Request</div>
+    <div class="title">${copy.title}</div>
     <div class="message">
-      You have requested to reset your password. Click the button below to reset it:
+      ${copy.message}
     </div>
     
-    <a href="${resetUrl}" class="button">Reset Password</a>
+    <a href="${resetUrl}" class="button">${copy.button}</a>
     
     <div class="warning">
-      <strong>⚠️ Important:</strong> This link will expire in 1 hour. If you didn't request this reset, please ignore this email.
+      <strong>⚠️ ${copy.important}</strong> ${copy.warning}
     </div>
     
     <div class="footer">
-      <p>© ${new Date().getFullYear()} FollowMee. All rights reserved.</p>
+      <p>© ${new Date().getFullYear()} FollowMee. ${copy.rights}</p>
     </div>
   </div>
 </body>
@@ -450,17 +469,40 @@ class EmailService {
   /**
    * Create plain text body for password reset email
    */
-  private createPasswordResetEmailText(resetUrl: string): string {
-    let text = `FollowMee Password Reset\n\n`;
-    text += `You have requested to reset your password.\n\n`;
-    text += `Click the link below to reset your password:\n`;
-    text += `${resetUrl}\n\n`;
-    text += `This link will expire in 1 hour.\n\n`;
-    text += `If you didn't request this reset, please ignore this email.\n\n`;
-    text += `--\n`;
-    text += `© ${new Date().getFullYear()} FollowMee. All rights reserved.`;
-    
-    return text;
+  private createPasswordResetEmailText(resetUrl: string, locale: 'en' | 'th'): string {
+    if (locale === 'th') {
+      return [
+        'FollowMee — ตั้งรหัสผ่านใหม่',
+        '',
+        'คุณได้ขอตั้งรหัสผ่านใหม่',
+        '',
+        'เปิดลิงก์ด้านล่างเพื่อตั้งรหัสผ่านใหม่:',
+        resetUrl,
+        '',
+        'ลิงก์นี้จะหมดอายุใน 1 ชั่วโมง',
+        '',
+        'หากคุณไม่ได้เป็นผู้ส่งคำขอ กรุณาไม่ต้องดำเนินการใด ๆ กับอีเมลนี้',
+        '',
+        '--',
+        `© ${new Date().getFullYear()} FollowMee. สงวนลิขสิทธิ์`,
+      ].join('\n');
+    }
+
+    return [
+      'FollowMee Password Reset',
+      '',
+      'You requested a password reset.',
+      '',
+      'Open the link below to reset your password:',
+      resetUrl,
+      '',
+      'This link will expire in 1 hour.',
+      '',
+      "If you didn't request this reset, please ignore this email.",
+      '',
+      '--',
+      `© ${new Date().getFullYear()} FollowMee. All rights reserved.`,
+    ].join('\n');
   }
 
   /**

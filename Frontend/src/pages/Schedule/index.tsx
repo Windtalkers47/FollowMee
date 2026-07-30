@@ -47,6 +47,7 @@ import { useSmartSuggestions } from '../../hooks/useSmartSuggestions';
 import { useSelectionKeyboard } from '../../hooks/useSelectionKeyboard';
 import toast from '../../utils/toast';
 import { taskStatusTokens } from '../../styles/designTokens';
+import { useUserPreferences } from '../../contexts/UserPreferencesContext';
 
 /* ================== Types ================== */
 type TabPanelProps = {
@@ -68,6 +69,7 @@ const TabPanel = ({ children, value, index }: TabPanelProps) => (
 const SchedulePage = () => {
   const navigate = useNavigate();
   const theme = useTheme();
+  const { t } = useUserPreferences();
   const isDarkMode = theme.palette.mode === 'dark';
   const [activeTab, setActiveTab] = useState(0);
   const [searchInput, setSearchInput] = useState('');
@@ -267,12 +269,12 @@ const SchedulePage = () => {
 
   const handleApproveTask = async (taskId: string) => {
     const result = await feedback.fire({
-      title: 'Approve Task',
-      text: 'Are you sure you want to approve this task?',
+      title: t('task.approveTitle'),
+      text: t('task.approveQuestion'),
       icon: 'question',
       showCancelButton: true,
-      confirmButtonText: 'Yes, approve it!',
-      cancelButtonText: 'Cancel',
+      confirmButtonText: t('task.approveConfirm'),
+      cancelButtonText: t('common.cancel'),
       reverseButtons: true,
       showLoaderOnConfirm: true,
       preConfirm: () => {
@@ -283,8 +285,8 @@ const SchedulePage = () => {
 
     if (result.isConfirmed) {
       await feedback.fire({
-        title: 'Approved!',
-        text: 'Task has been approved successfully.',
+        title: t('task.approvedTitle'),
+        text: t('task.approvedText'),
         icon: 'success',
         timer: 2000,
         showConfirmButton: false
@@ -294,12 +296,12 @@ const SchedulePage = () => {
 
   const handleRejectTask = async (taskId: string) => {
     const result = await feedback.fire({
-      title: 'Reject Task',
-      text: 'Are you sure you want to reject this task?',
+      title: t('task.rejectTitle'),
+      text: t('task.rejectQuestion'),
       icon: 'warning',
       showCancelButton: true,
-      confirmButtonText: 'Yes, reject it!',
-      cancelButtonText: 'Cancel',
+      confirmButtonText: t('task.rejectConfirm'),
+      cancelButtonText: t('common.cancel'),
       reverseButtons: true,
       showLoaderOnConfirm: true,
       preConfirm: () => {
@@ -310,8 +312,8 @@ const SchedulePage = () => {
 
     if (result.isConfirmed) {
       await feedback.fire({
-        title: 'Rejected!',
-        text: 'Task has been rejected and sent back.',
+        title: t('task.rejectedTitle'),
+        text: t('task.rejectedText'),
         icon: 'success',
         timer: 2000,
         showConfirmButton: false
@@ -321,12 +323,12 @@ const SchedulePage = () => {
 
   const handleUndoTask = async (taskId: string) => {
     const result = await feedback.fire({
-      title: 'Reopen Task?',
-      text: 'Are you sure you want to reopen this completed task?',
+      title: t('task.reopenTitle'),
+      text: t('task.reopenQuestion'),
       icon: 'question',
       showCancelButton: true,
-      confirmButtonText: 'Yes, reopen it!',
-      cancelButtonText: 'Cancel',
+      confirmButtonText: t('task.reopenConfirm'),
+      cancelButtonText: t('common.cancel'),
       reverseButtons: true,
       showLoaderOnConfirm: true,
       preConfirm: () => {
@@ -337,8 +339,8 @@ const SchedulePage = () => {
 
     if (result.isConfirmed) {
       await feedback.fire({
-        title: 'Task Reopened!',
-        text: 'The task has been reopened for improvement.',
+        title: t('task.reopenedTitle'),
+        text: t('task.reopenedText'),
         icon: 'info',
         timer: 2000,
         showConfirmButton: false
@@ -348,12 +350,12 @@ const SchedulePage = () => {
 
   const handleCancelTask = async (taskId: string) => {
     const result = await feedback.fire({
-      title: 'Cancel Task?',
-      text: 'Are you sure you want to cancel this task?',
+      title: t('task.cancelTitle'),
+      text: t('task.cancelQuestion'),
       icon: 'warning',
       showCancelButton: true,
-      confirmButtonText: 'Yes, cancel it!',
-      cancelButtonText: 'No, keep it',
+      confirmButtonText: t('task.cancelConfirm'),
+      cancelButtonText: t('task.keep'),
       reverseButtons: true,
       showLoaderOnConfirm: true,
       preConfirm: () => {
@@ -367,8 +369,8 @@ const SchedulePage = () => {
 
     if (result.isConfirmed) {
       await feedback.fire({
-        title: 'Task Cancelled',
-        text: 'The task has been moved to cancelled.',
+        title: t('task.cancelledTitle'),
+        text: t('task.cancelledText'),
         icon: 'info',
         timer: 2000,
         showConfirmButton: false
@@ -393,16 +395,16 @@ const SchedulePage = () => {
       };
       
       await feedback.fire({
-        title: 'Status Updated',
-        text: statusMessages[status] || 'Task status updated',
+        title: t('task.statusUpdated'),
+        text: statusMessages[status] || t('task.statusUpdatedText'),
         icon: 'success',
         timer: 2000,
         showConfirmButton: false
       });
     } catch (error) {
       await feedback.fire({
-        title: 'Error',
-        text: 'Failed to update task status',
+        title: t('common.error'),
+        text: t('task.statusUpdateFailed'),
         icon: 'error',
         timer: 2000,
         showConfirmButton: false
@@ -412,12 +414,12 @@ const SchedulePage = () => {
 
   const handleStartProgress = async (taskId: string) => {
     const result = await feedback.fire({
-      title: 'Start Working?',
-      text: 'Ready to start working on this task?',
+      title: t('task.startTitle'),
+      text: t('task.startQuestion'),
       icon: 'question',
       showCancelButton: true,
-      confirmButtonText: 'Let\'s go!',
-      cancelButtonText: 'Not yet',
+      confirmButtonText: t('task.startConfirm'),
+      cancelButtonText: t('task.notYet'),
       reverseButtons: true,
       showLoaderOnConfirm: true,
       preConfirm: () => {
@@ -431,8 +433,8 @@ const SchedulePage = () => {
 
     if (result.isConfirmed) {
       await feedback.fire({
-        title: 'Let\'s Get Started!',
-        text: 'You\'re now working on this task.',
+        title: t('task.startedTitle'),
+        text: t('task.startedText'),
         icon: 'success',
         timer: 2000,
         showConfirmButton: false
@@ -500,33 +502,33 @@ const SchedulePage = () => {
   }, [filteredTasks, taskLikeSummaries]);
 
   const tabs = useMemo(() => [
-    { label: 'All Tasks', key: 'all' as const, color: taskStatusTokens.draft.color },
-    { label: 'Drafts', key: 'draft' as const, color: taskStatusTokens.draft.color },
-    { label: 'To Do', key: 'todo' as const, color: taskStatusTokens.todo.color },
-    { label: 'In Progress', key: 'in_progress' as const, color: taskStatusTokens.in_progress.color },
-    { label: 'Review', key: 'review' as const, color: taskStatusTokens.review.color },
-    { label: 'Done', key: 'done' as const, color: taskStatusTokens.done.color },
-    { label: 'Cancelled', key: 'cancelled' as const, color: taskStatusTokens.cancelled.color },
-  ], []);
+    { label: t('schedule.allTasks'), key: 'all' as const, color: taskStatusTokens.draft.color },
+    { label: t('schedule.drafts'), key: 'draft' as const, color: taskStatusTokens.draft.color },
+    { label: t('schedule.todo'), key: 'todo' as const, color: taskStatusTokens.todo.color },
+    { label: t('schedule.inProgress'), key: 'in_progress' as const, color: taskStatusTokens.in_progress.color },
+    { label: t('schedule.review'), key: 'review' as const, color: taskStatusTokens.review.color },
+    { label: t('schedule.done'), key: 'done' as const, color: taskStatusTokens.done.color },
+    { label: t('schedule.cancelled'), key: 'cancelled' as const, color: taskStatusTokens.cancelled.color },
+  ], [t]);
 
   // Handle bulk actions from toolbar
   const handleBulkAction = async (action: 'delete' | 'done' | 'start' | 'todo' | 'draft' | 'review' | 'cancel' | 'assign') => {
     const selectedTaskIds = Array.from(multiSelect.selectedIds);
     
     if (selectedTaskIds.length === 0) {
-      toast.warning('No tasks selected');
+      toast.warning(t('schedule.noneSelected'));
       return;
     }
 
     switch (action) {
       case 'delete':
         const deleteResult = await feedback.fire({
-          title: `Delete ${selectedTaskIds.length} tasks?`,
-          text: 'This action cannot be undone.',
+          title: t('task.deleteManyTitle', { count: selectedTaskIds.length }),
+          text: t('common.cannotUndo'),
           icon: 'warning',
           showCancelButton: true,
-          confirmButtonText: 'Yes, delete all!',
-          cancelButtonText: 'Cancel',
+          confirmButtonText: t('task.deleteManyConfirm'),
+          cancelButtonText: t('common.cancel'),
           reverseButtons: true,
         });
 
@@ -561,7 +563,7 @@ const SchedulePage = () => {
 
       case 'assign':
         // TODO: Open assign dialog
-        toast.info('Assign feature coming soon');
+        toast.info(t('schedule.assignComingSoon'));
         break;
     }
   };
@@ -595,7 +597,7 @@ const SchedulePage = () => {
           sx={{ flexDirection: { xs: 'column', sm: 'row' }, gap: { xs: 2, sm: 0 } }}
         >
           <Typography variant="h4" fontWeight="bold" sx={{ fontSize: { xs: '1.75rem', sm: '2.125rem', md: '2.5rem' } }}>
-            Tasks & Schedule
+            {t('schedule.title')}
           </Typography>
           
           <Box display="flex" gap={2} flexWrap="wrap">
@@ -614,7 +616,7 @@ const SchedulePage = () => {
                   fontSize: '0.95rem',
                 }}
               >
-                Select tasks
+                {t('schedule.selectTasks')}
               </Button>
             )}
             
@@ -631,7 +633,7 @@ const SchedulePage = () => {
                 fontSize: '0.95rem',
               }}
             >
-              Create Task
+              {t('schedule.createTask')}
             </Button>
           </Box>
         </Box>
@@ -650,7 +652,7 @@ const SchedulePage = () => {
         >
           <TextField
             fullWidth
-            placeholder="Search..."
+            placeholder={t('schedule.searchPlaceholder')}
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
@@ -690,17 +692,17 @@ const SchedulePage = () => {
             }}
           />
           {searchInput.trim() && (
-            <Tooltip title="Search">
+            <Tooltip title={t('common.search')}>
               <IconButton onClick={handleSearch} sx={{ p: 1.25, borderRadius: 2 }}>
                 <SearchIcon fontSize="small" />
               </IconButton>
             </Tooltip>
           )}
           <Box sx={{ width: 1, height: 24, borderLeft: `1px solid ${isDarkMode ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.1)'}` }} />
-          <Tooltip title="Refresh">
+          <Tooltip title={t('common.refresh')}>
             <span>
               <IconButton
-                aria-label="Refresh tasks"
+                aria-label={t('schedule.refreshTasks')}
                 onClick={() => refetch()}
                 disabled={isLoading}
                 sx={{ p: 1.25, borderRadius: 2 }}
@@ -713,20 +715,20 @@ const SchedulePage = () => {
 
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', sm: '180px 200px' }, gap: 1.5, mt: 1.5, justifyContent: 'end' }}>
           <FormControl size="small">
-            <InputLabel>Due date</InputLabel>
-            <Select label="Due date" value={dateFilter} onChange={(event) => setDateFilter(event.target.value as typeof dateFilter)}>
-              <MenuItem value="all">Any date</MenuItem>
-              <MenuItem value="overdue">Overdue</MenuItem>
-              <MenuItem value="today">Due today</MenuItem>
-              <MenuItem value="week">Next 7 days</MenuItem>
+            <InputLabel>{t('schedule.dueDate')}</InputLabel>
+            <Select label={t('schedule.dueDate')} value={dateFilter} onChange={(event) => setDateFilter(event.target.value as typeof dateFilter)}>
+              <MenuItem value="all">{t('schedule.anyDate')}</MenuItem>
+              <MenuItem value="overdue">{t('schedule.overdue')}</MenuItem>
+              <MenuItem value="today">{t('schedule.dueToday')}</MenuItem>
+              <MenuItem value="week">{t('schedule.nextSevenDays')}</MenuItem>
             </Select>
           </FormControl>
           <FormControl size="small">
-            <InputLabel>Sort</InputLabel>
-            <Select label="Sort" value={sortBy} onChange={(event) => setSortBy(event.target.value as typeof sortBy)}>
-              <MenuItem value="updated_desc">Recently updated</MenuItem>
-              <MenuItem value="due_asc">Due date</MenuItem>
-              <MenuItem value="title_asc">Title A–Z</MenuItem>
+            <InputLabel>{t('schedule.sort')}</InputLabel>
+            <Select label={t('schedule.sort')} value={sortBy} onChange={(event) => setSortBy(event.target.value as typeof sortBy)}>
+              <MenuItem value="updated_desc">{t('schedule.recentlyUpdated')}</MenuItem>
+              <MenuItem value="due_asc">{t('schedule.dueDate')}</MenuItem>
+              <MenuItem value="title_asc">{t('schedule.titleAZ')}</MenuItem>
             </Select>
           </FormControl>
         </Box>

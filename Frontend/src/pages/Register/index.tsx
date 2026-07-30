@@ -18,6 +18,7 @@ import {
 } from '@mui/material';
 import { LockOutlined, Visibility, VisibilityOff } from '@mui/icons-material';
 import feedback from '../../services/feedback.service';
+import { useUserPreferences } from '../../contexts/UserPreferencesContext';
 
 interface FormErrors {
   userName: string;
@@ -64,6 +65,7 @@ const Register = () => {
   
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
+  const { t } = useUserPreferences();
   
   // Refs for scrolling to error fields
   const userNameRef = useRef<HTMLInputElement>(null);
@@ -103,40 +105,40 @@ const Register = () => {
     switch (name) {
       case 'userName':
         if (!value.trim()) {
-          errorMessage = 'กรุณากรอกชื่อ';
+          errorMessage = t('validation.firstNameRequired');
           isValid = false;
         }
         break;
       case 'userLastName':
         if (!value.trim()) {
-          errorMessage = 'กรุณากรอกนามสกุล';
+          errorMessage = t('validation.lastNameRequired');
           isValid = false;
         }
         break;
       case 'email':
         if (!value.trim()) {
-          errorMessage = 'กรุณากรอกอีเมล';
+          errorMessage = t('validation.emailRequired');
           isValid = false;
         } else if (!/\S+@\S+\.\S+/.test(value)) {
-          errorMessage = 'รูปแบบอีเมลไม่ถูกต้อง';
+          errorMessage = t('validation.emailInvalid');
           isValid = false;
         }
         break;
       case 'password':
         if (!value) {
-          errorMessage = 'กรุณากรอกรหัสผ่าน';
+          errorMessage = t('validation.passwordRequired');
           isValid = false;
         } else if (value.length < 8) {
-          errorMessage = 'รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร';
+          errorMessage = t('validation.passwordMin');
           isValid = false;
         }
         break;
       case 'confirmPassword':
         if (!value) {
-          errorMessage = 'กรุณากรอกยืนยันรหัสผ่าน';
+          errorMessage = t('validation.confirmPasswordRequired');
           isValid = false;
         } else if (value !== formData.password) {
-          errorMessage = 'รหัสผ่านไม่ตรงกัน';
+          errorMessage = t('validation.passwordMismatch');
           isValid = false;
         }
         break;
@@ -238,10 +240,10 @@ const Register = () => {
       // Show appropriate success message
       await feedback.fire({
         icon: 'success',
-        title: isReactivation ? 'Welcome Back!' : 'Registration Successful',
+        title: isReactivation ? t('auth.register.welcomeBack') : t('auth.register.success'),
         text: isReactivation 
-          ? 'Your account has been reactivated successfully. Redirecting to dashboard...'
-          : 'Your account has been created successfully. Redirecting to dashboard...',
+          ? t('auth.register.reactivated')
+          : t('auth.register.created'),
         timer: 2000,
         timerProgressBar: true,
         customClass: {
@@ -271,14 +273,14 @@ const Register = () => {
       feedback.hideLoading();
       
       // Show detailed error message
-      const errorMessage = error.message || 'Registration failed. Please try again.';
+      const errorMessage = error.message || t('auth.register.failedText');
       const isDuplicateEmail = errorMessage.includes('Duplicate entry') || errorMessage.includes('already in use') || errorMessage.includes('Email already in use');
       
       await feedback.fire({
         icon: 'error',
-        title: isDuplicateEmail ? 'Email Already Exists' : 'Registration Failed',
+        title: isDuplicateEmail ? t('auth.register.emailExists') : t('auth.register.failed'),
         text: isDuplicateEmail 
-          ? 'This email address is already registered. If you previously had an account, it may have been deactivated. Please try logging in instead.'
+          ? t('auth.register.duplicateText')
           : errorMessage,
         customClass: {
           popup: 'swal2-error-dialog'
@@ -359,10 +361,10 @@ const Register = () => {
             <LockOutlined sx={{ color: 'white' }} />
           </Box>
           <Typography component="h1" variant="h5">
-            Create an account
+            {t('auth.register.title')}
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Join FollowMee to manage your social media efficiently
+            {t('auth.register.subtitle')}
           </Typography>
         </Box>
 
@@ -383,7 +385,7 @@ const Register = () => {
                 required
                 fullWidth
                 id="userName"
-                label="First Name"
+                label={t('common.firstName')}
                 name="userName"
                 autoComplete="given-name"
                 autoFocus
@@ -401,7 +403,7 @@ const Register = () => {
                 required
                 fullWidth
                 id="userLastName"
-                label="Last Name"
+                label={t('common.lastName')}
                 name="userLastName"
                 autoComplete="family-name"
                 value={formData.userLastName}
@@ -420,7 +422,7 @@ const Register = () => {
               required
               fullWidth
               id="email"
-              label="Email Address"
+              label={t('common.emailAddress')}
               name="email"
               autoComplete="email"
               value={formData.email}
@@ -438,7 +440,7 @@ const Register = () => {
               required
               fullWidth
               name="password"
-              label="Password"
+              label={t('common.password')}
               type={showPassword ? 'text' : 'password'}
               id="password"
               autoComplete="new-password"
@@ -447,7 +449,7 @@ const Register = () => {
               onBlur={handleBlur}
               inputRef={passwordRef}
                 error={Boolean(errors.password && touched.password)}
-                helperText={errors.password && touched.password ? errors.password : 'Minimum 8 characters'}
+                helperText={errors.password && touched.password ? errors.password : t('auth.register.passwordHint')}
               disabled={isLoading}
               sx={getTextFieldSx('password')}
               InputProps={{
@@ -469,7 +471,7 @@ const Register = () => {
               required
               fullWidth
               name="confirmPassword"
-              label="Confirm Password"
+              label={t('auth.register.confirmPassword')}
               type={showConfirmPassword ? 'text' : 'password'}
               id="confirmPassword"
               value={formData.confirmPassword}
@@ -498,7 +500,7 @@ const Register = () => {
               margin="normal"
               fullWidth
               name="userPhone1"
-              label="Phone Number (Optional)"
+              label={t('common.phoneOptional')}
               type="tel"
               id="phone"
               autoComplete="tel"
@@ -515,20 +517,20 @@ const Register = () => {
               disabled={isLoading}
               startIcon={isLoading ? <CircularProgress size={20} /> : null}
             >
-              {isLoading ? 'Creating Account...' : 'Create Account'}
+              {isLoading ? t('auth.register.creating') : t('auth.register.create')}
             </Button>
             
             <Divider sx={{ my: 2 }}>
               <Typography variant="body2" color="text.secondary">
-                OR
+                {t('auth.register.or')}
               </Typography>
             </Divider>
             
             <Box sx={{ textAlign: 'center', mt: 2 }}>
               <Typography variant="body2" color="text.secondary">
-                Already have an account?{' '}
+                {t('auth.register.hasAccount')}{' '}
                 <Link component={RouterLink} to="/login" variant="body2">
-                  Sign in
+                  {t('auth.login.signIn')}
                 </Link>
               </Typography>
             </Box>

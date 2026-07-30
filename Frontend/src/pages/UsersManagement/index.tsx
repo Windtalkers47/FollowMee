@@ -43,6 +43,7 @@ import {
 import { useUsersManagement, User, Role } from '../../hooks/useUsersManagement';
 import { ROLE_NAMES, normalizeRoleName } from '../../constants/roles';
 import feedback from '../../services/feedback.service';
+import { useUserPreferences } from '../../contexts/UserPreferencesContext';
 
 // Styled components
 const StyledCard = styled(Card)(({ theme }) => ({
@@ -83,6 +84,7 @@ const getRoleColor = (role: string) => {
 const UsersPage = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const { t } = useUserPreferences();
   const {
     users,
     roles,
@@ -166,7 +168,7 @@ const UsersPage = () => {
   const handleCreateUser = async () => {
     if (!newUser.userName.trim() || !newUser.userLastName.trim() ||
         !newUser.userEmail.trim() || newUser.userPassword.length < 8 || !newUser.roleId) {
-      setCreateError('Complete all required fields and use a password of at least 8 characters.');
+      setCreateError(t('users.requiredFields'));
       return;
     }
     setCreatingUser(true);
@@ -183,7 +185,7 @@ const UsersPage = () => {
       setCreateDialogOpen(false);
       setNewUser(emptyNewUser);
     } else {
-      setCreateError('The user could not be created. Check the email and try again.');
+      setCreateError(t('users.createFailed'));
     }
   };
 
@@ -266,11 +268,11 @@ const UsersPage = () => {
   const handleDeleteUser = useCallback(async (user: User) => {
     const result = await feedback.fire({
       title: 'Are you sure?',
-      text: `You are about to delete ${user.userName} ${user.userLastName || ''}. This action cannot be undone!`,
+      text: t('users.deleteQuestion', { name: `${user.userName} ${user.userLastName || ''}`.trim() }),
       icon: 'warning',
       showCancelButton: true,
-      confirmButtonText: 'Yes, delete user!',
-      cancelButtonText: 'Cancel',
+      confirmButtonText: t('users.deleteConfirm'),
+      cancelButtonText: t('common.cancel'),
       reverseButtons: true,
     });
 
@@ -280,8 +282,8 @@ const UsersPage = () => {
         if (success) {
           await feedback.fire({
             icon: 'success',
-            title: 'User Deleted!',
-            text: `${user.userName} has been successfully deleted.`,
+            title: t('users.deletedTitle'),
+            text: t('users.deletedText', { name: user.userName }),
             timer: 2000,
             timerProgressBar: true,
             showConfirmButton: false,
@@ -290,12 +292,12 @@ const UsersPage = () => {
       } catch (error) {
         await feedback.fire({
           icon: 'error',
-          title: 'Deletion Failed',
-          text: 'Failed to delete the user. Please try again.',
+          title: t('feedback.failed'),
+          text: t('users.deleteFailed'),
         });
       }
     }
-  }, [deleteUser]);
+  }, [deleteUser, t]);
 
   if (loading) {
     return (
@@ -308,10 +310,10 @@ const UsersPage = () => {
   return (
     <Box>
       <Typography variant="h4" gutterBottom fontWeight={600}>
-        User Management
+        {t('users.title')}
       </Typography>
       <Typography color="text.secondary" sx={{ mb: 2 }}>
-        Roles define what each person can view or change. Super Admin is limited to one account.
+        {t('users.intro')}
       </Typography>
 
       {roles.length > 0 && (
@@ -339,12 +341,12 @@ const UsersPage = () => {
                 <Typography variant="body2" color="text.secondary" noWrap>{user.userEmail}</Typography>
                 <Box display="flex" gap={0.75} flexWrap="wrap" sx={{ mt: 1.5 }}>
                   {user.roles?.map((role) => <Chip key={role} label={role.replace('_', ' ')} size="small" variant="outlined" />)}
-                  <Chip label={user.isActive ? 'Active' : 'Inactive'} size="small" color={user.isActive ? 'success' : 'default'} variant="outlined" />
+                  <Chip label={user.isActive ? t('common.active') : t('common.inactive')} size="small" color={user.isActive ? 'success' : 'default'} variant="outlined" />
                 </Box>
               </Box>
               <Box>
-                <IconButton size="small" aria-label="Manage roles" onClick={() => handleAssignRoleOpen(user)}><EditIcon fontSize="small" /></IconButton>
-                <IconButton size="small" aria-label="Delete user" color="error" onClick={() => handleDeleteUser(user)}><DeleteIcon fontSize="small" /></IconButton>
+                <IconButton size="small" aria-label={t('users.manageRoles')} onClick={() => handleAssignRoleOpen(user)}><EditIcon fontSize="small" /></IconButton>
+                <IconButton size="small" aria-label={t('users.deleteUser')} color="error" onClick={() => handleDeleteUser(user)}><DeleteIcon fontSize="small" /></IconButton>
               </Box>
             </Box>
           </Paper>
@@ -357,12 +359,12 @@ const UsersPage = () => {
             <Table>
               <TableHead>
                 <TableRow>
-                  <TableCell>User</TableCell>
-                  <TableCell>Email</TableCell>
-                  <TableCell>Roles</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell>Created</TableCell>
-                  <TableCell align="center">Actions</TableCell>
+                  <TableCell>{t('common.user')}</TableCell>
+                  <TableCell>{t('common.email')}</TableCell>
+                  <TableCell>{t('common.roles')}</TableCell>
+                  <TableCell>{t('common.status')}</TableCell>
+                  <TableCell>{t('common.created')}</TableCell>
+                  <TableCell align="center">{t('common.actions')}</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -409,7 +411,7 @@ const UsersPage = () => {
                     </TableCell>
                     <TableCell>
                       <Chip
-                        label={user.isActive ? 'Active' : 'Inactive'}
+                        label={user.isActive ? t('common.active') : t('common.inactive')}
                         size="small"
                         sx={{
                           bgcolor: alpha(user.isActive ? theme.palette.success.main : theme.palette.error.main, 0.12),
@@ -423,7 +425,7 @@ const UsersPage = () => {
                       {new Date(user.createdAt).toLocaleDateString()}
                     </TableCell>
                     <TableCell align="center">
-                      <Tooltip title="Manage Roles">
+                      <Tooltip title={t('users.manageRoles')}>
                         <IconButton
                           size="small"
                           onClick={() => handleAssignRoleOpen(user)}
@@ -431,7 +433,7 @@ const UsersPage = () => {
                           <EditIcon fontSize="small" />
                         </IconButton>
                       </Tooltip>
-                      <Tooltip title="Delete User">
+                      <Tooltip title={t('users.deleteUser')}>
                         <IconButton
                           size="small"
                           onClick={() => handleDeleteUser(user)}
@@ -456,21 +458,21 @@ const UsersPage = () => {
       </StyledCard>
 
       <Dialog open={createDialogOpen} onClose={() => !creatingUser && setCreateDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Add a team member</DialogTitle>
+        <DialogTitle>{t('users.addMember')}</DialogTitle>
         <DialogContent>
           <Typography color="text.secondary" sx={{ mb: 2 }}>
-            Create a managed account and share the temporary password securely with the user.
+            {t('users.createHelp')}
           </Typography>
           {createError && <Alert severity="error" sx={{ mb: 2 }}>{createError}</Alert>}
           <Box component="form" autoComplete="off" sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
-            <TextField required autoComplete="off" label="First name" value={newUser.userName} onChange={(e) => setNewUser((value) => ({ ...value, userName: e.target.value }))} />
-            <TextField required autoComplete="off" label="Last name" value={newUser.userLastName} onChange={(e) => setNewUser((value) => ({ ...value, userLastName: e.target.value }))} />
-            <TextField required type="email" autoComplete="off" label="Email" value={newUser.userEmail} onChange={(e) => setNewUser((value) => ({ ...value, userEmail: e.target.value }))} sx={{ gridColumn: { sm: '1 / -1' } }} />
-            <TextField required type="password" autoComplete="new-password" label="Temporary password" helperText="At least 8 characters" value={newUser.userPassword} onChange={(e) => setNewUser((value) => ({ ...value, userPassword: e.target.value }))} />
-            <TextField autoComplete="off" label="Phone (optional)" value={newUser.userPhone1} onChange={(e) => setNewUser((value) => ({ ...value, userPhone1: e.target.value }))} />
+            <TextField required autoComplete="off" label={t('common.firstName')} value={newUser.userName} onChange={(e) => setNewUser((value) => ({ ...value, userName: e.target.value }))} />
+            <TextField required autoComplete="off" label={t('common.lastName')} value={newUser.userLastName} onChange={(e) => setNewUser((value) => ({ ...value, userLastName: e.target.value }))} />
+            <TextField required type="email" autoComplete="off" label={t('common.email')} value={newUser.userEmail} onChange={(e) => setNewUser((value) => ({ ...value, userEmail: e.target.value }))} sx={{ gridColumn: { sm: '1 / -1' } }} />
+            <TextField required type="password" autoComplete="new-password" label={t('users.temporaryPassword')} helperText={t('users.passwordHint')} value={newUser.userPassword} onChange={(e) => setNewUser((value) => ({ ...value, userPassword: e.target.value }))} />
+            <TextField autoComplete="off" label={t('common.phoneOptional')} value={newUser.userPhone1} onChange={(e) => setNewUser((value) => ({ ...value, userPhone1: e.target.value }))} />
             <FormControl required sx={{ gridColumn: { sm: '1 / -1' } }}>
-              <InputLabel>Role</InputLabel>
-              <Select label="Role" value={newUser.roleId || ''} onChange={(e) => setNewUser((value) => ({ ...value, roleId: Number(e.target.value) }))}>
+              <InputLabel>{t('common.role')}</InputLabel>
+              <Select label={t('common.role')} value={newUser.roleId || ''} onChange={(e) => setNewUser((value) => ({ ...value, roleId: Number(e.target.value) }))}>
                 {roles.filter((role) => role.roleName !== 'Superadmin').map((role) => (
                   <MenuItem key={role.roleId} value={role.roleId}>{role.roleName}</MenuItem>
                 ))}
@@ -479,9 +481,9 @@ const UsersPage = () => {
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button color="inherit" onClick={() => setCreateDialogOpen(false)} disabled={creatingUser}>Cancel</Button>
+          <Button color="inherit" onClick={() => setCreateDialogOpen(false)} disabled={creatingUser}>{t('common.cancel')}</Button>
           <Button variant="contained" onClick={handleCreateUser} disabled={creatingUser}>
-            {creatingUser ? 'Creating…' : 'Create user'}
+            {creatingUser ? t('users.creating') : t('users.createUser')}
           </Button>
         </DialogActions>
       </Dialog>
@@ -499,10 +501,10 @@ const UsersPage = () => {
         <DialogContent>
           <Box mt={2}>
             <FormControl fullWidth>
-              <InputLabel>Role</InputLabel>
+              <InputLabel>{t('common.role')}</InputLabel>
               <Select
                 value={assignRoleDialog.selectedRole}
-                label="Role"
+                label={t('common.role')}
                 onChange={(e) => handleRoleChange(e.target.value)}
               >
                 <MenuItem 
@@ -612,13 +614,13 @@ const UsersPage = () => {
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleAssignRoleClose}>Cancel</Button>
+          <Button onClick={handleAssignRoleClose}>{t('common.cancel')}</Button>
           <Button
             onClick={handleAssignRoleConfirm}
             variant="contained"
             disabled={!assignRoleDialog.selectedRole}
           >
-            Assign Role
+            {t('users.assignRole')}
           </Button>
         </DialogActions>
       </Dialog>

@@ -55,6 +55,7 @@ import CustomerForm from '@/components/customers/CustomerForm';
 import ActionMenu from '@/components/ActionMenu';
 import { FilterBar } from '@/components/FilterBar';
 import { customerApi } from '../../api/customer.api';
+import { useUserPreferences } from '../../contexts/UserPreferencesContext';
 
 interface Customer extends CustomerType {}
 
@@ -153,6 +154,7 @@ const getEngagementScore = (customer: Customer): number => {
 // Main Component
 // ============================================
 const CustomerPage = () => {
+  const { t } = useUserPreferences();
   const theme = useTheme();
   const isDarkMode = theme.palette.mode === 'dark';
 
@@ -321,7 +323,7 @@ const CustomerPage = () => {
       if (result && !result.success) {
         await feedback.fire({
           icon: 'error',
-          title: 'Operation Failed',
+          title: t('customers.operationFailed'),
           text: result.message || 'An error occurred',
         });
         
@@ -333,8 +335,8 @@ const CustomerPage = () => {
   
       await feedback.fire({
         icon: 'success',
-        title: 'Success!',
-        text: 'Customer saved successfully',
+        title: t('common.success'),
+        text: t('customers.saved'),
         timer: 2000,
         timerProgressBar: true,
         showConfirmButton: false,
@@ -352,7 +354,7 @@ const CustomerPage = () => {
       } else {
         await feedback.fire({
           icon: 'error',
-          title: 'Error',
+          title: t('common.error'),
           text: message,
         });
       }
@@ -364,7 +366,7 @@ const CustomerPage = () => {
   useEffect(() => {
     if (error) {
       const showError = async () => {
-        await feedback.fire({ icon: 'error', title: 'Error', text: error });
+        await feedback.fire({ icon: 'error', title: t('common.error'), text: error });
       };
       showError();
     }
@@ -436,10 +438,10 @@ const CustomerPage = () => {
                 </Box>
                 <Box>
                   <Typography variant="h2" component="h1" fontWeight={800} sx={{ fontSize: { xs: '1.75rem', md: '2.5rem' } }}>
-                    Customers
+                    {t('customers.title')}
                   </Typography>
                   <Typography variant="body1" color="text.secondary" fontWeight={400}>
-                    Private CRM records. Public Profile Cards are managed separately.
+                    {t('customers.subtitle')}
                   </Typography>
                 </Box>
               </Box>
@@ -452,7 +454,7 @@ const CustomerPage = () => {
                 variant="outlined"
                 sx={{ borderRadius: 3, textTransform: 'none', px: 2.5, py: 1.25, fontWeight: 600 }}
               >
-                Profile Cards
+                {t('customers.profileCards')}
               </Button>
               <Button
                 variant="contained"
@@ -467,12 +469,12 @@ const CustomerPage = () => {
                   fontSize: '0.95rem',
                 }}
               >
-                Add customer
+                {t('customers.add')}
               </Button>
 
-              <Tooltip title="Refresh customers">
+              <Tooltip title={t('customers.refresh')}>
               <IconButton
-                aria-label="Refresh customers"
+                aria-label={t('customers.refresh')}
                 onClick={refetch}
                 disabled={loading}
                 sx={{
@@ -495,34 +497,34 @@ const CustomerPage = () => {
           mb={{ xs: 3, md: 5 }}
         >
           <StatsCard
-            title="Total Customers"
+            title={t('customers.total')}
             value={totalCustomers}
-            subtitle={`${getStatusCount('active')} active`}
+            subtitle={t('customers.activeCount', { count: getStatusCount('active') })}
             icon={<GroupIcon sx={{ fontSize: 32 }} />}
             iconBg={alpha(theme.palette.primary.main, 0.12)}
             iconColor={theme.palette.primary.main}
           />
           <StatsCard
-            title="Active Now"
+            title={t('customers.activeNow')}
             value={getStatusCount('active')}
-            subtitle={totalCustomers > 0 ? `${Math.round((getStatusCount('active') / totalCustomers) * 100)}% of total` : '0% of total'}
+            subtitle={t('customers.percentTotal', { percent: totalCustomers > 0 ? Math.round((getStatusCount('active') / totalCustomers) * 100) : 0 })}
             icon={<CheckCircleIcon sx={{ fontSize: 32 }} />}
             iconBg={alpha(theme.palette.success.main, 0.12)}
             iconColor={theme.palette.success.main}
             trend={{ value: 5, direction: 'up' }}
           />
           <StatsCard
-            title="Inactive"
+            title={t('customers.inactive')}
             value={getStatusCount('inactive')}
-            subtitle="Needs attention"
+            subtitle={t('customers.needsAttention')}
             icon={<AccessTimeIcon sx={{ fontSize: 32 }} />}
             iconBg={alpha(theme.palette.warning.main, 0.15)}
             iconColor={theme.palette.warning.main}
           />
           <StatsCard
-            title="Canceled"
+            title={t('customers.canceled')}
             value={getStatusCount('canceled')}
-            subtitle="Not active anymore"
+            subtitle={t('customers.noLongerActive')}
             icon={<BlockIcon sx={{ fontSize: 32 }} />}
             iconBg={alpha(theme.palette.error.main, 0.15)}
             iconColor={theme.palette.error.main}
@@ -568,7 +570,7 @@ const CustomerPage = () => {
                 // iOS 2026: Refetch โดย reset page เป็น 1
                 handlePageChange(1);
               }}
-              searchPlaceholder="Search customers by name, email..."
+              searchPlaceholder={t('customers.searchPlaceholder')}
               loading={loading}
               sx={{
                 '& .MuiOutlinedInput-root': {
@@ -592,10 +594,10 @@ const CustomerPage = () => {
             }}
           >
             {[
-              { label: 'All', icon: GroupIcon, count: totalCustomers },
-              { label: 'Active', icon: CheckCircleIcon, count: getStatusCount('active') },
-              { label: 'Inactive', icon: AccessTimeIcon, count: getStatusCount('inactive') },
-              { label: 'Canceled', icon: BlockIcon, count: getStatusCount('canceled') },
+              { label: t('customers.all'), icon: GroupIcon, count: totalCustomers },
+              { label: t('common.active'), icon: CheckCircleIcon, count: getStatusCount('active') },
+              { label: t('common.inactive'), icon: AccessTimeIcon, count: getStatusCount('inactive') },
+              { label: t('common.canceled'), icon: BlockIcon, count: getStatusCount('canceled') },
             ].map((tab, index) => {
               const isActive = tabValue === index;
               const getIconColor = () => {
@@ -691,11 +693,11 @@ const CustomerPage = () => {
                 }}
                 onClick={async () => {
                   const result = await feedback.fire({
-                    title: 'Mark as Active',
-                    text: `Are you sure you want to mark ${selected.length} customer(s) as active?`,
+                    title: t('common.active'),
+                    text: t('customers.markQuestion', { count: selected.length, status: t('common.active') }),
                     icon: 'question',
                     showCancelButton: true,
-                    confirmButtonText: 'Yes, mark as active'
+                    confirmButtonText: t('customers.markConfirm', { status: t('common.active') })
                   });
                   
                   if (result.isConfirmed) {
@@ -703,8 +705,8 @@ const CustomerPage = () => {
                       await customerApi.bulkUpdateStatus(selected, 'active');
                       await feedback.fire({
                         icon: 'success',
-                        title: 'Success',
-                        text: `${selected.length} customer(s) marked as active`,
+                        title: t('common.success'),
+                        text: t('customers.marked', { count: selected.length, status: t('common.active') }),
                         timer: 2000,
                         timerProgressBar: true,
                         showConfirmButton: false
@@ -714,8 +716,8 @@ const CustomerPage = () => {
                     } catch (error) {
                       await feedback.fire({
                         icon: 'error',
-                        title: 'Error',
-                        text: 'Failed to update customers',
+                        title: t('common.error'),
+                        text: t('customers.updateFailed'),
                       });
                     }
                   }
@@ -735,11 +737,11 @@ const CustomerPage = () => {
                 }}
                 onClick={async () => {
                   const result = await feedback.fire({
-                    title: 'Mark as Inactive',
-                    text: `Are you sure you want to mark ${selected.length} customer(s) as inactive?`,
+                    title: t('common.inactive'),
+                    text: t('customers.markQuestion', { count: selected.length, status: t('common.inactive') }),
                     icon: 'question',
                     showCancelButton: true,
-                    confirmButtonText: 'Yes, mark as inactive'
+                    confirmButtonText: t('customers.markConfirm', { status: t('common.inactive') })
                   });
                   
                   if (result.isConfirmed) {
@@ -747,8 +749,8 @@ const CustomerPage = () => {
                       await customerApi.bulkUpdateStatus(selected, 'inactive');
                       await feedback.fire({
                         icon: 'success',
-                        title: 'Success',
-                        text: `${selected.length} customer(s) marked as inactive`,
+                        title: t('common.success'),
+                        text: t('customers.marked', { count: selected.length, status: t('common.inactive') }),
                         timer: 2000,
                         timerProgressBar: true,
                         showConfirmButton: false
@@ -758,8 +760,8 @@ const CustomerPage = () => {
                     } catch (error) {
                       await feedback.fire({
                         icon: 'error',
-                        title: 'Error',
-                        text: 'Failed to update customers',
+                        title: t('common.error'),
+                        text: t('customers.updateFailed'),
                       });
                     }
                   }
@@ -780,11 +782,11 @@ const CustomerPage = () => {
                 }}
                 onClick={async () => {
                   const result = await feedback.fire({
-                    title: 'Delete Customers',
-                    text: `Are you sure you want to delete ${selected.length} customer(s)?`,
+                    title: t('customers.deleteManyTitle'),
+                    text: t('customers.deleteManyQuestion', { count: selected.length }),
                     icon: 'warning',
                     showCancelButton: true,
-                    confirmButtonText: 'Yes, delete',
+                    confirmButtonText: t('customers.deleteConfirm'),
                   });
 
                   if (result.isConfirmed) {
@@ -792,8 +794,8 @@ const CustomerPage = () => {
                       await customerApi.bulkDelete(selected);
                       await feedback.fire({
                         icon: 'success',
-                        title: 'Deleted',
-                        text: `${selected.length} customer(s) deleted`,
+                        title: t('common.deleted'),
+                        text: t('customers.deletedMany', { count: selected.length }),
                         timer: 2000,
                         timerProgressBar: true,
                         showConfirmButton: false,
@@ -803,8 +805,8 @@ const CustomerPage = () => {
                     } catch (error) {
                       await feedback.fire({
                         icon: 'error',
-                        title: 'Error',
-                        text: 'Failed to delete customers',
+                        title: t('common.error'),
+                        text: t('customers.deleteFailed'),
                       });
                     }
                   }
@@ -966,7 +968,7 @@ const CustomerPage = () => {
                             {customer.fullName || `${customer.customerName} ${customer.customerLastName || ''}`.trim()}
                           </Typography>
                           {customer.status === 'active' && (
-                            <Tooltip title="Verified" arrow>
+                            <Tooltip title={t('customers.verified')} arrow>
                               <CheckCircleIcon fontSize="small" sx={{ color: 'success.main', fontSize: 18 }} />
                             </Tooltip>
                           )}
@@ -1062,7 +1064,7 @@ const CustomerPage = () => {
                       >
                         {/* Facebook */}
                         <Tooltip 
-                          title={customer.customerFacebook ? "Facebook" : "ยังไม่มีข้อมูล Facebook"} 
+                          title={customer.customerFacebook ? "Facebook" : t('customers.noSocialData', { network: 'Facebook' })}
                           arrow
                         >
                           <Box
@@ -1097,7 +1099,7 @@ const CustomerPage = () => {
 
                         {/* Instagram */}
                         <Tooltip 
-                          title={customer.customerInstagram ? "Instagram" : "ยังไม่มีข้อมูล Instagram"} 
+                          title={customer.customerInstagram ? "Instagram" : t('customers.noSocialData', { network: 'Instagram' })}
                           arrow
                         >
                           <Box
@@ -1134,7 +1136,7 @@ const CustomerPage = () => {
 
                         {/* TikTok */}
                         <Tooltip 
-                          title={customer.customerTikTok ? "TikTok" : "ยังไม่มีข้อมูล TikTok"} 
+                          title={customer.customerTikTok ? "TikTok" : t('customers.noSocialData', { network: 'TikTok' })}
                           arrow
                         >
                           <Box
@@ -1169,7 +1171,7 @@ const CustomerPage = () => {
 
                         {/* Line */}
                         <Tooltip 
-                          title={customer.customerLine ? "Line" : "ยังไม่มีข้อมูล Line"} 
+                          title={customer.customerLine ? "Line" : t('customers.noSocialData', { network: 'Line' })}
                           arrow
                         >
                           <Box
@@ -1204,7 +1206,7 @@ const CustomerPage = () => {
 
                         {/* X (Twitter) */}
                         <Tooltip 
-                          title={customer.customerX ? "X (Twitter)" : "ยังไม่มีข้อมูล X (Twitter)"} 
+                          title={customer.customerX ? "X (Twitter)" : t('customers.noSocialData', { network: 'X (Twitter)' })}
                           arrow
                         >
                           <Box
@@ -1238,7 +1240,7 @@ const CustomerPage = () => {
                         </Tooltip>
 
                         {/* More Actions */}
-                        <Tooltip title="More actions">
+                        <Tooltip title={t('customers.moreActions')}>
                           <IconButton 
                             size="small"
                             onClick={(e) => {
@@ -1342,8 +1344,8 @@ const CustomerPage = () => {
                 await updateCustomer(selectedMember.customerId, updateData);
                 await feedback.fire({
                   icon: 'success',
-                  title: 'Status Updated',
-                  text: `Customer marked as ${status}`,
+                  title: t('task.statusUpdated'),
+                  text: t('customers.statusUpdated', { status }),
                   timer: 2000,
                   timerProgressBar: true,
                   showConfirmButton: false,
@@ -1354,12 +1356,12 @@ const CustomerPage = () => {
 
               case 'delete': {
                 const result = await feedback.fire({
-                  title: 'Delete Customer',
-                  text: `Are you sure you want to delete ${selectedMember.fullName || selectedMember.customerName}?`,
+                  title: t('customers.deleteOneTitle'),
+                  text: t('customers.deleteOneQuestion', { name: selectedMember.fullName || selectedMember.customerName }),
                   icon: 'warning',
                   showCancelButton: true,
-                  confirmButtonText: 'Yes, delete',
-                  cancelButtonText: 'Cancel',
+                  confirmButtonText: t('customers.deleteConfirm'),
+                  cancelButtonText: t('common.cancel'),
                 });
 
                 if (result.isConfirmed) {
@@ -1367,8 +1369,8 @@ const CustomerPage = () => {
                   if (deleteResult.success) {
                     await feedback.fire({
                       icon: 'success',
-                      title: 'Deleted',
-                      text: 'Customer has been deleted successfully',
+                      title: t('common.deleted'),
+                      text: t('customers.deletedOne'),
                       timer: 2000,
                       timerProgressBar: true,
                       showConfirmButton: false,
@@ -1377,8 +1379,8 @@ const CustomerPage = () => {
                   } else {
                     await feedback.fire({
                       icon: 'error',
-                      title: 'Error',
-                      text: deleteResult.message || 'Failed to delete customer',
+                      title: t('common.error'),
+                      text: deleteResult.message || t('customers.deleteFailed'),
                     });
                   }
                 }
@@ -1388,8 +1390,8 @@ const CustomerPage = () => {
               case 'report':
                 await feedback.fire({
                   icon: 'info',
-                  title: 'Report Submitted',
-                  text: 'The report has been submitted successfully.',
+                  title: t('customers.reportSubmitted'),
+                  text: t('customers.reportSubmittedText'),
                   timer: 2000,
                   timerProgressBar: true,
                   showConfirmButton: false,
@@ -1403,8 +1405,8 @@ const CustomerPage = () => {
             console.error('Error handling action:', error);
             await feedback.fire({
               icon: 'error',
-              title: 'Action Failed',
-              text: 'Failed to perform the requested action',
+              title: t('feedback.failed'),
+              text: t('customers.actionFailed'),
             });
           } finally {
             handleActionMenuClose();

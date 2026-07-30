@@ -29,9 +29,6 @@ const ForgotPassword = () => {
         icon: 'error',
         title: t('auth.forgot.emailRequiredTitle'),
         text: t('validation.emailRequired'),
-        customClass: {
-          popup: 'swal2-error-dialog'
-        }
       });
       return;
     }
@@ -41,9 +38,6 @@ const ForgotPassword = () => {
         icon: 'error',
         title: t('auth.forgot.invalidEmailTitle'),
         text: t('validation.emailInvalid'),
-        customClass: {
-          popup: 'swal2-error-dialog'
-        }
       });
       return;
     }
@@ -56,23 +50,15 @@ const ForgotPassword = () => {
         icon: 'success',
         title: t('auth.forgot.sentTitle'),
         text: t('auth.forgot.sentText', { email }),
-        confirmButtonText: t('auth.forgot.backToLogin'),
-        customClass: {
-          popup: 'swal2-success-dialog'
-        }
-      }).then((result) => {
-        if (result.isConfirmed) {
-          navigate('/login');
-        }
+        timer: 4800,
+        showConfirmButton: false,
       });
+      navigate('/login');
     } catch (error: any) {
       await feedback.fire({
         icon: 'error',
         title: t('auth.forgot.sendFailed'),
         text: error.message || t('auth.forgot.sendFailedText'),
-        customClass: {
-          popup: 'swal2-error-dialog'
-        }
       });
     } finally {
       setIsLoading(false);

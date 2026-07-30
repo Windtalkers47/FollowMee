@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Task, TaskImage, CreateTaskData, User } from '../api/task.api';
+import { getTaskStatusOptions } from '../utils/taskWorkflow';
 
 interface UseTaskFormProps {
   task?: Task;
@@ -163,11 +164,13 @@ export const useTaskForm = ({ task, users, onSave }: UseTaskFormProps) => {
     handleInputChange,
     handleImagesChange,
     handleSubmit,
+    validateForm,
     resetForm,
     
     // Computed
     isValid: Object.keys(formErrors).length === 0,
     isEditing: !!task,
-    users
+    users,
+    allowedStatuses: getTaskStatusOptions(task),
   };
 };

@@ -81,7 +81,7 @@ export enum NotificationType {
       entityId: taskId,
       title: 'Task updated',
       message,
-      actionUrl: `/posts/${taskId}`,
+      actionUrl: `/tasks/${taskId}`,
       recipientUserIds: [...new Set(recipientUserIds)],
       skipQueue: true,
     });
@@ -103,7 +103,7 @@ export enum NotificationType {
       entityId: taskId,
       title,
       message: `${taskTitle}: ${message}`,
-      actionUrl: `/posts/${taskId}`,
+      actionUrl: `/tasks/${taskId}`,
       recipientUserIds: [...new Set(recipientUserIds)],
       skipQueue: true,
     });
@@ -120,7 +120,7 @@ export enum NotificationType {
       entityId: taskId,
       title: 'Task due soon',
       message: `"${taskTitle}" is due within 24 hours`,
-      actionUrl: `/posts/${taskId}`,
+      actionUrl: `/tasks/${taskId}`,
       recipientUserIds,
       skipQueue: true,
     });
@@ -246,15 +246,17 @@ export enum NotificationType {
   static async notifyRoleChanged(
     newRole: string,
     actorUserId: number,
-    recipientUserIds: number[]
+    recipientUserIds: number[],
+    userId: number
   ): Promise<void> {
     await this.createNotification({
       notificationType: NotificationType.ROLE_CHANGED,
       actorUserId,
-      entityType: 'role',
-      entityId: '',
+      entityType: 'user',
+      entityId: String(userId),
       title: 'Role Changed',
       message: `Your role has been changed to ${newRole}`,
+      actionUrl: '/settings',
       recipientUserIds,
       skipQueue: true, // Send immediately
     });

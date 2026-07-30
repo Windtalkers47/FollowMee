@@ -177,7 +177,7 @@ const DashboardPage: React.FC = () => {
     if (!user?.userId) return;
     
     const intervalId = setInterval(() => {
-      fetchStaticData();
+      if (!document.hidden) fetchStaticData();
     }, 2 * 60 * 1000); // 2 นาที
     
     return () => clearInterval(intervalId);
@@ -259,10 +259,11 @@ const DashboardPage: React.FC = () => {
 
   const taskStatusData = dashboardStats?.taskStats.tasksByStatus
     ? {
-        labels: ['To Do', 'In Progress', 'Review', 'Done', 'Cancelled'],
+        labels: ['Draft', 'To Do', 'In Progress', 'Review', 'Done', 'Cancelled'],
         datasets: [
           {
             data: [
+              dashboardStats.taskStats.tasksByStatus.draft,
               dashboardStats.taskStats.tasksByStatus.todo,
               dashboardStats.taskStats.tasksByStatus.in_progress,
               dashboardStats.taskStats.tasksByStatus.review,
@@ -270,6 +271,7 @@ const DashboardPage: React.FC = () => {
               dashboardStats.taskStats.tasksByStatus.cancelled,
             ],
             backgroundColor: [
+              '#8E8E93',
               brandColors.amber,
               brandColors.blue,
               brandColors.indigo,
@@ -659,7 +661,9 @@ const DashboardPage: React.FC = () => {
                     onChange={handleTimeRangeChange}
                     size="small"
                     sx={{
-                      flexWrap: 'wrap',
+                      flexWrap: { xs: 'wrap', sm: 'nowrap' },
+                      maxWidth: '100%',
+                      justifyContent: { xs: 'flex-start', sm: 'flex-end' },
                       '& .MuiToggleButton-root': {
                         border: '1px solid rgba(52, 199, 89, 0.3)',
                         borderRadius: '6px',

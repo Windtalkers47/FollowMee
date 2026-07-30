@@ -38,18 +38,19 @@ export const TaskForm: React.FC<TaskFormProps> = ({
 
   const handleSubmit = async () => {
     try {
+      // Validate before opening the loading feedback so invalid submissions do not
+      // flash a loading dialog and immediately close it again.
+      if (!taskForm.validateForm()) return;
+
       feedback.fire({
         title: taskForm.isEditing ? 'Updating Task...' : 'Creating Task...',
         text: 'Please wait...',
         allowOutsideClick: false,
-        didOpen: () => {
-          feedback.showLoading();
-        }
       });
 
       // Call the async onSave function directly
-      const saved = await taskForm.handleSubmit();
-      if (!saved) {
+      const result = await taskForm.handleSubmit();
+      if (!result) {
         feedback.close();
         return;
       }
@@ -101,6 +102,7 @@ export const TaskForm: React.FC<TaskFormProps> = ({
           onInputChange={taskForm.handleInputChange}
           onImagesChange={taskForm.handleImagesChange}
           bookedDates={bookedDates}
+          allowedStatuses={taskForm.allowedStatuses}
         />
       </DialogContent>
 

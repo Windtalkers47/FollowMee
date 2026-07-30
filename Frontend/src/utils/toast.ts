@@ -1,237 +1,94 @@
-import feedback, { type FeedbackIcon } from '../services/feedback.service';
-
-type SweetAlertIcon = FeedbackIcon;
-type SweetAlertPosition = string;
+import feedback, {
+  type FeedbackIcon,
+  type OutcomeOptions,
+} from '../services/feedback.service';
 
 export interface ToastOptions {
   title?: string;
   text?: string;
-  icon?: SweetAlertIcon;
-  position?: SweetAlertPosition;
+  icon?: FeedbackIcon;
   timer?: number;
   showConfirmButton?: boolean;
   showCancelButton?: boolean;
   confirmButtonText?: string;
   cancelButtonText?: string;
-  customClass?: {
-    container?: string;
-    popup?: string;
-    title?: string;
-    closeButton?: string;
-    icon?: string;
-    image?: string;
-    content?: string;
-    input?: string;
-    actions?: string;
-    confirmButton?: string;
-    denyButton?: string;
-    cancelButton?: string;
-    loader?: string;
-    footer?: string;
-  };
 }
 
-// Toast for quick notifications
 export const showToast = (options: ToastOptions) => {
-  const defaultOptions = {
-    toast: true,
-    position: 'top-end' as SweetAlertPosition,
-    showConfirmButton: false,
-    timer: 3000,
-    timerProgressBar: true,
-    customClass: {
-      container: 'swal2-container-modern',
-      popup: 'swal2-popup-modern',
-      title: 'swal2-title-modern',
-      content: 'swal2-content-modern',
-    }
+  const outcome: OutcomeOptions = {
+    title: options.title || 'Updated',
+    message: options.text,
+    duration: options.timer ?? 3000,
   };
-
-  return feedback.fire({
-    ...defaultOptions,
-    ...options,
-  });
+  switch (options.icon) {
+    case 'success': return feedback.success(outcome);
+    case 'error': return feedback.error(outcome);
+    case 'warning': return feedback.warning(outcome);
+    default: return feedback.info(outcome);
+  }
 };
 
-// Success toast
-export const showSuccess = (title: string, text?: string) => {
-  return showToast({
-    icon: 'success',
-    title,
-    text,
-    timer: 3000,
-    customClass: {
-      popup: 'swal2-success-toast',
-    }
-  });
-};
+export const showSuccess = (title: string, text?: string) =>
+  feedback.success({ title, message: text, duration: 3000 });
 
-// Error toast
-export const showError = (title: string, text?: string) => {
-  return showToast({
-    icon: 'error',
-    title,
-    text,
-    timer: 4000,
-    customClass: {
-      popup: 'swal2-error-toast',
-    }
-  });
-};
+export const showError = (title: string, text?: string) =>
+  feedback.error({ title, message: text, duration: 5000 });
 
-// Warning toast
-export const showWarning = (title: string, text?: string) => {
-  return showToast({
-    icon: 'warning',
-    title,
-    text,
-    timer: 3500,
-    customClass: {
-      popup: 'swal2-warning-toast',
-    }
-  });
-};
+export const showWarning = (title: string, text?: string) =>
+  feedback.warning({ title, message: text, duration: 4000 });
 
-// Info toast
-export const showInfo = (title: string, text?: string) => {
-  return showToast({
-    icon: 'info',
-    title,
-    text,
-    timer: 3000,
-    customClass: {
-      popup: 'swal2-info-toast',
-    }
-  });
-};
+export const showInfo = (title: string, text?: string) =>
+  feedback.info({ title, message: text, duration: 3500 });
 
-// Confirmation dialog
 export const showConfirm = async (
   title: string,
-  text?: string,
-  options?: Partial<ToastOptions>
+  text = '',
+  options?: Partial<ToastOptions>,
 ): Promise<boolean> => {
-  const result = await feedback.fire({
+  const result = await feedback.confirm({
     title,
-    text,
-    icon: 'question',
-    showCancelButton: true,
-    confirmButtonText: 'Yes, do it!',
-    cancelButtonText: 'Cancel',
-    reverseButtons: true,
-    customClass: {
-      popup: 'swal2-confirm-dialog',
-      confirmButton: 'swal2-confirm-button',
-      cancelButton: 'swal2-cancel-button',
-    },
-    ...options,
+    message: text,
+    confirmLabel: options?.confirmButtonText || 'Confirm',
+    cancelLabel: options?.cancelButtonText || 'Cancel',
   });
-
   return result.isConfirmed;
 };
 
-// Delete confirmation
-export const showDeleteConfirm = async (itemName: string = 'this item'): Promise<boolean> => {
-  const result = await feedback.fire({
-    title: 'Are you sure?',
-    text: `You won't be able to revert ${itemName}!`,
-    icon: 'question',
-    showCancelButton: true,
-    confirmButtonText: 'Yes, delete it!',
-    cancelButtonText: 'Cancel',
-    reverseButtons: true,
-    customClass: {
-      popup: 'swal2-delete-dialog',
-    }
+export const showDeleteConfirm = async (itemName = 'this item'): Promise<boolean> => {
+  const result = await feedback.confirm({
+    title: 'Delete item?',
+    message: `You are about to delete ${itemName}.`,
+    consequence: 'This action cannot be undone.',
+    confirmLabel: 'Delete',
+    cancelLabel: 'Keep item',
+    destructive: true,
   });
-
   return result.isConfirmed;
 };
 
-// Loading dialog
-export const showLoading = (title: string = 'Loading...') => {
-  return feedback.fire({
-    title,
-    allowOutsideClick: false,
-    allowEscapeKey: false,
-    showConfirmButton: false,
-    customClass: {
-      popup: 'swal2-loading-dialog',
-    }
-  });
-};
+// Loading belongs to the initiating control. These aliases remain temporarily
+// so older callers do not display a blocking application-wide overlay.
+export const showLoading = async () => ({ isConfirmed: true });
+export const closeLoading = () => undefined;
 
-// Close loading dialog
-export const closeLoading = () => {
-  feedback.close();
-};
-
-// Input dialog
 export const showInput = async (
   title: string,
-  inputLabel: string = '',
-  inputValue: string = '',
-  inputPlaceholder: string = ''
+  inputLabel = '',
+  inputValue = '',
+  inputPlaceholder = '',
 ): Promise<string | null> => {
-  const result = await feedback.fire({
+  const result = await feedback.prompt({
     title,
-    input: 'text',
-    inputLabel,
-    inputValue,
-    inputPlaceholder,
-    showCancelButton: true,
-    confirmButtonText: 'Submit',
-    cancelButtonText: 'Cancel',
-    customClass: {
-      popup: 'swal2-input-dialog',
-      confirmButton: 'swal2-confirm-button',
-      cancelButton: 'swal2-cancel-button',
-    }
+    message: '',
+    field: { label: inputLabel, initialValue: inputValue, placeholder: inputPlaceholder },
+    confirmLabel: 'Submit',
+    cancelLabel: 'Cancel',
   });
-
-  return result.value as string | null;
+  return result.isConfirmed ? result.value || '' : null;
 };
 
-// Custom animated success
-export const showAnimatedSuccess = (title: string, text?: string) => {
-  return feedback.fire({
-    icon: 'success',
-    title,
-    text,
-    showConfirmButton: false,
-    timer: 2500,
-    timerProgressBar: true,
-    customClass: {
-      popup: 'swal2-animated-success',
-    },
-    showClass: {
-      popup: 'animate__animated animate__fadeInDown'
-    },
-    hideClass: {
-      popup: 'animate__animated animate__fadeOutUp'
-    }
-  });
-};
-
-// Custom animated error
-export const showAnimatedError = (title: string, text?: string) => {
-  return feedback.fire({
-    icon: 'error',
-    title,
-    text,
-    showConfirmButton: true,
-    confirmButtonText: 'OK',
-    customClass: {
-      popup: 'swal2-animated-error',
-    },
-    showClass: {
-      popup: 'animate__animated animate__shakeX'
-    },
-    hideClass: {
-      popup: 'animate__animated animate__fadeOutUp'
-    }
-  });
-};
+export const showAnimatedSuccess = showSuccess;
+export const showAnimatedError = showError;
 
 export default {
   toast: showToast,

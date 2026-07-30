@@ -246,10 +246,25 @@ class App {
     });
 
     this.app.use((err: any, req: Request, res: Response, next: NextFunction) => {
-      console.error(err.stack);
-      res.status(500).json({
-        message: 'Internal Server Error',
-        error: process.env.NODE_ENV === 'development' ? err.message : {}
+      const statusCode = Number(err?.statusCode) || 500;
+      const isTaskTransition = err?.code === 'INVALID_TASK_TRANSITION';
+      const isTaskAction = err?.code === 'TASK_ACTION_FORBIDDEN' || err?.code === 'INVALID_TASK_ACTION';
+      if (statusCode >= 500) console.error(err.stack);
+      res.status(statusCode).json({
+        message: err?.message || 'Internal Server Error',
+        ...(err?.code === 'INVALID_TASK_PAYLOAD' ? { code: err.code, fields: err.fields } : {}),
+        ...(isTaskTransition ? {
+          code: err.code,
+          currentStatus: err.currentStatus,
+          requestedStatus: err.requestedStatus,
+          allowedTransitions: err.allowedTransitions,
+        } : {}),
+        ...(isTaskAction ? {
+          code: err.code,
+          action: err.action,
+          currentStatus: err.currentStatus,
+        } : {}),
+        ...(statusCode >= 500 && process.env.NODE_ENV === 'development' ? { error: err.message } : {})
       });
     });
   }

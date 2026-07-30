@@ -21,6 +21,7 @@ export interface DashboardStats {
     totalTasks: number;
     completionRate: number;
     tasksByStatus: {
+      draft: number;
       todo: number;
       in_progress: number;
       review: number;

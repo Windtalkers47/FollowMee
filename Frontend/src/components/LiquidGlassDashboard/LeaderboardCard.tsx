@@ -43,9 +43,9 @@ export const LeaderboardCard: React.FC<LeaderboardCardProps> = ({
   };
 
   const getRankNumberColor = (rank: number) => {
-    if (rank === 1) return '#FFD700';
-    if (rank === 2) return '#C0C0C0';
-    if (rank === 3) return '#CD7F32';
+    if (rank === 1) return '#8A5A00';
+    if (rank === 2) return '#5B6570';
+    if (rank === 3) return '#8A4B20';
     return isDarkMode ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.6)';
   };
 

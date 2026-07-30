@@ -19,6 +19,17 @@ router.get('/users/:id', checkPermission('VIEW_USERS'), (req, res) => userManage
 
 // User role assignment - require MANAGE_ROLES or UPDATE_USERS permission
 router.post('/users/assign-role', checkAnyPermission(['MANAGE_ROLES', 'UPDATE_USERS']), (req, res) => userManagementController.assignRoleToUser(req, res));
+/**
+ * @swagger
+ * /user-management/users/{id}/role:
+ *   put:
+ *     tags: [User Management]
+ *     summary: Replace a user's single role transactionally
+ *     responses:
+ *       200: { description: Canonical user response with role and permissions }
+ *       400: { description: Invalid user ID or role ID }
+ */
+router.put('/users/:id/role', checkAnyPermission(['MANAGE_ROLES', 'UPDATE_USERS']), (req, res) => userManagementController.replaceUserRole(req, res));
 router.post('/users/remove-role', checkAnyPermission(['MANAGE_ROLES', 'UPDATE_USERS']), (req, res) => userManagementController.removeRoleFromUser(req, res));
 
 // Role management routes - require MANAGE_ROLES permission

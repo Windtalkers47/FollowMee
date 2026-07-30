@@ -298,9 +298,6 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
         allowOutsideClick: false,
         allowEscapeKey: false,
         showConfirmButton: false,
-        didOpen: () => {
-          feedback.showLoading();
-        }
       });
       
       // Compress the image
@@ -334,8 +331,6 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
         text: 'Your image has been processed successfully!',
         timer: 1500,
         showConfirmButton: false,
-        position: 'top-end',
-        toast: true
       });
     } catch (error) {
       console.error('Error processing image:', error);
@@ -388,8 +383,6 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
         text: 'Your image has been removed successfully! Click "Update" to save changes.',
         timer: 2000,
         showConfirmButton: false,
-        position: 'top-end',
-        toast: true
       });
     }
   };
@@ -414,9 +407,6 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
       allowOutsideClick: false,
       allowEscapeKey: false,
       showConfirmButton: false,
-      didOpen: () => {
-        feedback.showLoading();
-      }
     });
 
     // Create a new object with all form values

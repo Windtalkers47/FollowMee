@@ -31,6 +31,25 @@ router.get('/my-tasks', (req, res, next) => taskController.getMyTasks(req, res, 
 // Get tasks assigned to current user
 router.get('/assigned-to-me', (req, res, next) => taskController.getTasksAssignedToMe(req, res, next));
 
+/**
+ * @swagger
+ * /tasks/my-work:
+ *   get:
+ *     tags: [Tasks]
+ *     summary: Get actionable work for the current user
+ *     parameters:
+ *       - in: query
+ *         name: cursor
+ *         schema: { type: string }
+ *       - in: query
+ *         name: limit
+ *         schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+ *     responses:
+ *       200: { description: Tasks assigned to the user and tasks awaiting creator approval }
+ *       401: { description: User is not authenticated }
+ */
+router.get('/my-work', (req, res, next) => taskController.getMyWork(req, res, next));
+
 // Get top performers
 router.get('/top-performers', (req, res, next) => taskController.getTopPerformers(req, res, next));
 
@@ -58,6 +77,29 @@ router.put('/:taskId/mark-done', (req, res, next) => taskController.markTaskAsDo
 // Mark task as undone
 router.put('/:taskId/mark-undone', (req, res, next) => taskController.markTaskAsUndone(req, res, next));
 
+/**
+ * @swagger
+ * /tasks/{taskId}/submit-review:
+ *   put:
+ *     tags: [Tasks]
+ *     summary: Submit an in-progress task to its creator for review
+ *     responses:
+ *       200: { description: Task submitted for review }
+ *       403: { description: Current user cannot submit this task }
+ *       409: { description: Task is not in progress }
+ * /tasks/{taskId}/request-changes:
+ *   put:
+ *     tags: [Tasks]
+ *     summary: Return a reviewed task to To do with required feedback
+ *     responses:
+ *       200: { description: Changes requested }
+ *       400: { description: A non-empty reason is required }
+ *       403: { description: Only the task creator can request changes }
+ *       409: { description: Task is not in review }
+ */
+router.put('/:taskId/submit-review', (req, res, next) => taskController.submitTaskForReview(req, res, next));
+router.put('/:taskId/request-changes', (req, res, next) => taskController.requestTaskChanges(req, res, next));
+
 // Approve task (from review to done)
 router.put('/:taskId/approve', (req, res, next) => taskController.approveTask(req, res, next));
 
@@ -65,6 +107,29 @@ router.put('/:taskId/approve', (req, res, next) => taskController.approveTask(re
 router.get('/:taskId', (req, res, next) => taskController.getTaskById(req, res, next));
 
 // Update a task
+/**
+ * @swagger
+ * /tasks/{taskId}:
+ *   put:
+ *     tags: [Tasks]
+ *     summary: Update a task
+ *     responses:
+ *       200:
+ *         description: Task updated
+ *       409:
+ *         description: Invalid task status transition
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code: { type: string, example: INVALID_TASK_TRANSITION }
+ *                 currentStatus: { type: string, example: todo }
+ *                 requestedStatus: { type: string, example: draft }
+ *                 allowedTransitions:
+ *                   type: array
+ *                   items: { type: string }
+ */
 router.put('/:taskId', (req, res, next) => taskController.updateTask(req, res, next));
 
 // Delete a task

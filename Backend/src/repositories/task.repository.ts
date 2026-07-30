@@ -1,5 +1,7 @@
-import { Repository } from 'typeorm';
+import { Brackets, Repository } from 'typeorm';
 import { Task } from '../entities/Task';
+import { TaskLike } from '../entities/TaskLike';
+import { TaskComment } from '../entities/TaskComment';
 import { BaseRepository } from './base.repository';
 import { TaskQueryDto } from '../dtos/task.dto';
 
@@ -12,7 +14,7 @@ export class TaskRepository extends BaseRepository<Task> {
     return this.repository.findOne({ where: { taskId: id, isActive: true } });
   }
 
-  async findTasksWithRelations(query: TaskQueryDto): Promise<[Task[], number]> {
+  async findTasksWithRelations(query: TaskQueryDto, viewerUserId?: number): Promise<[Task[], number]> {
     const qb = this.repository
       .createQueryBuilder('task')
       .leftJoinAndSelect('task.assignedToUser', 'assignedUser')
@@ -55,6 +57,34 @@ export class TaskRepository extends BaseRepository<Task> {
     qb.orderBy('task.createdAt', 'DESC');
 
     const [tasks, total] = await qb.getManyAndCount();
+    if (tasks.length > 0) {
+      const taskIds = tasks.map((task) => task.taskId);
+      const likes = await this.repository.manager.getRepository(TaskLike)
+        .createQueryBuilder('like')
+        .select(['like.taskId AS taskId', 'like.likeType AS likeType', 'like.userId AS userId'])
+        .where('like.taskId IN (:...taskIds)', { taskIds })
+        .getRawMany();
+      const comments = await this.repository.manager.getRepository(TaskComment)
+        .createQueryBuilder('comment')
+        .select('comment.taskId', 'taskId')
+        .addSelect('COUNT(comment.commentId)', 'count')
+        .where('comment.taskId IN (:...taskIds)', { taskIds })
+        .andWhere('comment.isActive = :active', { active: true })
+        .groupBy('comment.taskId')
+        .getRawMany();
+      const commentCounts = new Map(comments.map((row: { taskId: string; count: string }) => [row.taskId, Number(row.count)]));
+      const counts = new Map<string, Record<string, number>>();
+      likes.forEach((row: { taskId: string; likeType: string; userId: number }) => {
+        const current = counts.get(row.taskId) || {};
+        current[row.likeType] = (current[row.likeType] || 0) + 1;
+        if (viewerUserId && Number(row.userId) === viewerUserId) current.userLike = row.likeType as any;
+        counts.set(row.taskId, current);
+      });
+      tasks.forEach((task) => {
+        (task as any)._reactionCounts = counts.get(task.taskId) || {};
+        (task as any)._commentCount = commentCounts.get(task.taskId) || 0;
+      });
+    }
     return [tasks, total];
   }
 
@@ -106,6 +136,55 @@ export class TaskRepository extends BaseRepository<Task> {
       where: { assignedTo: userId, isActive: true },
       relations: ['assignedToUser', 'createdByUser']
     });
+  }
+
+  async findMyWork(userId: number, limit: number, cursor?: string): Promise<{ tasks: Task[]; counts: Record<string, number> }> {
+    const statuses = ['todo', 'in_progress', 'review'];
+    const base = (qb: any) => qb
+      .where('task.isActive = :isActive', { isActive: true })
+      .andWhere('task.status IN (:...statuses)', { statuses })
+      .andWhere(new Brackets((scope) => scope
+        .where('task.assignedTo = :userId', { userId })
+        .orWhere('(task.createdBy = :userId AND task.status = :review)', { userId, review: 'review' })
+      ));
+
+    const listQuery = base(this.repository.createQueryBuilder('task'))
+      .leftJoinAndSelect('task.assignedToUser', 'assignedUser')
+      .leftJoinAndSelect('task.createdByUser', 'createdUser')
+      .orderBy('task.updatedAt', 'DESC')
+      .addOrderBy('task.taskId', 'DESC')
+      .take(Math.min(Math.max(limit, 1), 100));
+
+    if (cursor) {
+      const [cursorDate, cursorTaskId] = Buffer.from(cursor, 'base64url').toString('utf8').split('|');
+      const parsedDate = new Date(cursorDate);
+      if (!Number.isNaN(parsedDate.getTime()) && cursorTaskId) {
+        listQuery.andWhere(new Brackets((after) => after
+          .where('task.updatedAt < :cursorDate', { cursorDate: parsedDate })
+          .orWhere('(task.updatedAt = :cursorDate AND task.taskId < :cursorTaskId)', { cursorDate: parsedDate, cursorTaskId })
+        ));
+      }
+    }
+
+    const countRows = await base(this.repository.createQueryBuilder('task'))
+      .select('task.status', 'status')
+      .addSelect('COUNT(task.taskId)', 'count')
+      .groupBy('task.status')
+      .getRawMany();
+    const overdue = await base(this.repository.createQueryBuilder('task'))
+      .andWhere('task.endDate IS NOT NULL AND task.endDate < :now', { now: new Date() })
+      .getCount();
+    const tasks = await listQuery.getMany();
+    const counts = countRows.reduce((result: Record<string, number>, row: { status: string; count: string }) => {
+      result[row.status] = Number(row.count);
+      return result;
+    }, {});
+    counts.overdue = overdue;
+    counts.approvalRequired = await base(this.repository.createQueryBuilder('task'))
+      .andWhere('task.createdBy = :approvalUserId', { approvalUserId: userId })
+      .andWhere('task.status = :approvalStatus', { approvalStatus: 'review' })
+      .getCount();
+    return { tasks, counts };
   }
 
   async findTasksCreatedByUser(userId: number): Promise<Task[]> {

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Avatar, AvatarProps, useTheme } from '@mui/material';
+import { getOptimizedImageUrl } from '../../utils/imageUtils';
 
 interface SmartAvatarProps extends Omit<AvatarProps, 'children'> {
   user?: any;
@@ -76,7 +77,7 @@ const SmartAvatar: React.FC<SmartAvatarProps> = ({
 
   return (
     <Avatar
-      src={user?.userImageUrl || undefined}
+      src={getOptimizedImageUrl(user?.userImageUrl, Math.max(size * 2, 64))}
       imgProps={{ crossOrigin: 'anonymous' }}
       onError={(e: React.SyntheticEvent<HTMLImageElement, Event>) => {
         const target = e.target as HTMLImageElement;

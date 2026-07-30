@@ -10,9 +10,17 @@ import { PermissionRepository } from '../repositories/permission.repository';
 import { RolePermissionRepository } from '../repositories/role-permission.repository';
 import { CloudinaryUtil } from '../utils/cloudinary.util';
 import { NotificationHelper } from '../utils/notification.util';
+import AppDataSource from '../config/database';
+import { UserRole } from '../entities/UserRole';
 
 interface UserWithRolesResponse extends UserResponseDto {
   roles: string[];
+  permissions: string[];
+}
+
+export interface ManagedUserResponse extends UserResponseDto {
+  role?: { roleId: number; roleName: string };
+  roles: Array<{ roleId: number; roleName: string }>;
   permissions: string[];
 }
 
@@ -37,6 +45,57 @@ export class UserService {
   async getAllUsers(): Promise<UserResponseDto[]> {
     const users = await this.userRepository.find({ isActive: true });
     return users.map(user => new UserResponseDto(user));
+  }
+
+  async getAllManagedUsers(): Promise<ManagedUserResponse[]> {
+    const users = await this.userRepository.getRepository().find({
+      where: { isActive: true },
+      relations: [
+        'userRoles',
+        'userRoles.role',
+        'userRoles.role.rolePermissions',
+        'userRoles.role.rolePermissions.permission',
+      ],
+      order: { createdAt: 'ASC' },
+    });
+    return users.map((user) => this.mapManagedUser(user));
+  }
+
+  async getManagedUser(userId: number): Promise<ManagedUserResponse> {
+    const user = await this.userRepository.getRepository().findOne({
+      where: { userId },
+      relations: [
+        'userRoles',
+        'userRoles.role',
+        'userRoles.role.rolePermissions',
+        'userRoles.role.rolePermissions.permission',
+      ],
+    });
+    if (!user) throw new Error('User not found');
+    return this.mapManagedUser(user);
+  }
+
+  private mapManagedUser(user: User): ManagedUserResponse {
+    const roles = (user.userRoles || [])
+      .filter((userRole) => Boolean(userRole.role))
+      .map((userRole) => ({
+        roleId: userRole.role.roleId,
+        roleName: userRole.role.roleName,
+      }));
+    const permissions = new Set<string>();
+    (user.userRoles || []).forEach((userRole) => {
+      (userRole.role?.rolePermissions || []).forEach((rolePermission) => {
+        if (rolePermission.permission?.permissionName) permissions.add(rolePermission.permission.permissionName);
+      });
+    });
+    const dto = new UserResponseDto(user);
+    return {
+      ...dto,
+      fullName: dto.fullName,
+      role: roles[0],
+      roles,
+      permissions: [...permissions],
+    };
   }
 
   /**
@@ -269,7 +328,7 @@ export class UserService {
   /**
    * Assign role to user (replaces existing roles)
    */
-  async assignRoleToUser(userId: number, roleId: number, actorUserId?: number): Promise<boolean> {
+  async assignRoleToUser(userId: number, roleId: number, actorUserId?: number): Promise<ManagedUserResponse> {
     // Check if user exists
     const user = await this.userRepository.findOne({ userId });
     if (!user) {
@@ -282,17 +341,39 @@ export class UserService {
       throw new Error('Role not found');
     }
 
-    // Remove all existing roles for this user
-    await this.userRoleRepository.removeAllRolesFromUser(userId);
-
-    // Assign the new role
-    await this.userRoleRepository.create({ userId, roleId });
+    await AppDataSource.transaction(async (manager) => {
+      await manager.getRepository(UserRole).delete({ userId });
+      await manager.getRepository(UserRole).save(manager.getRepository(UserRole).create({ userId, roleId }));
+    });
 
     if (actorUserId && actorUserId !== userId) {
-      await NotificationHelper.notifyRoleChanged(role.roleName, actorUserId, [userId]);
+      try {
+        await NotificationHelper.notifyRoleChanged(role.roleName, actorUserId, [userId], userId);
+      } catch (error) {
+        console.error(JSON.stringify({
+          event: 'role_change_notification_failed',
+          attempt: 1,
+          userId,
+          roleId,
+          actorUserId,
+          error: error instanceof Error ? error.message : String(error),
+        }));
+        try {
+          await NotificationHelper.notifyRoleChanged(role.roleName, actorUserId, [userId], userId);
+        } catch (retryError) {
+          console.error(JSON.stringify({
+            event: 'role_change_notification_failed',
+            attempt: 2,
+            userId,
+            roleId,
+            actorUserId,
+            error: retryError instanceof Error ? retryError.message : String(retryError),
+          }));
+        }
+      }
     }
 
-    return true;
+    return this.getManagedUser(userId);
   }
 
   /**
@@ -313,7 +394,30 @@ export class UserService {
 
     const removed = await this.userRoleRepository.removeRole(userId, roleId);
     if (removed && actorUserId && actorUserId !== userId) {
-      await NotificationHelper.notifyRoleChanged('No assigned role', actorUserId, [userId]);
+      try {
+        await NotificationHelper.notifyRoleChanged('No assigned role', actorUserId, [userId], userId);
+      } catch (error) {
+        console.error(JSON.stringify({
+          event: 'role_change_notification_failed',
+          attempt: 1,
+          userId,
+          roleId,
+          actorUserId,
+          error: error instanceof Error ? error.message : String(error),
+        }));
+        try {
+          await NotificationHelper.notifyRoleChanged('No assigned role', actorUserId, [userId], userId);
+        } catch (retryError) {
+          console.error(JSON.stringify({
+            event: 'role_change_notification_failed',
+            attempt: 2,
+            userId,
+            roleId,
+            actorUserId,
+            error: retryError instanceof Error ? retryError.message : String(retryError),
+          }));
+        }
+      }
     }
     return removed;
   }

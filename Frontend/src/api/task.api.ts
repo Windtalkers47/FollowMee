@@ -42,7 +42,38 @@ export interface Task {
     laugh: number;
     angry: number;
     comments: number;
+    wow?: number;
+    sad?: number;
+    userLike?: 'like' | 'love' | 'laugh' | 'angry' | 'wow' | 'sad';
   };
+  workflow?: {
+    currentStatus: Task['status'];
+    allowedTransitions: Task['status'][];
+    canEdit: boolean;
+    canApprove: boolean;
+    canSubmitReview: boolean;
+    canRequestChanges: boolean;
+    canCancel: boolean;
+    primaryAction?: 'start' | 'submit_review' | 'review' | 'view';
+    nextActor?: {
+      userId: number;
+      displayName: string;
+      reason: 'assigned_work' | 'approval_required';
+    };
+  };
+  attentionReason?: 'assigned' | 'approval_required';
+}
+
+export interface MyWorkResponse {
+  items: Task[];
+  counts: {
+    todo: number;
+    inProgress: number;
+    review: number;
+    approvalRequired: number;
+    overdue: number;
+  };
+  pageInfo: { nextCursor?: string };
 }
 
 export interface TaskImage {
@@ -228,6 +259,11 @@ export interface BulkActionResult {
   failed: string[];
 }
 
+export interface BulkTaskUpdateResult {
+  updated: number;
+  failed: Array<{ taskId: string; reason: string; code?: string }>;
+}
+
 // ==================== Priority Summary Types ====================
 
 export interface PrioritySuggestion {
@@ -379,6 +415,28 @@ export const taskApi = {
       withCredentials: true,
     });
     return response.data.data;
+  },
+
+  getMyWork: async (params: { cursor?: string; limit?: number } = {}): Promise<MyWorkResponse> => {
+    const response = await axios.get(`${API_BASE_URL}/tasks/my-work`, {
+      params,
+      withCredentials: true,
+    });
+    return response.data.data;
+  },
+
+  submitTaskForReview: async (taskId: string): Promise<Task> => {
+    const response = await axios.put(`${API_BASE_URL}/tasks/${taskId}/submit-review`, {}, {
+      withCredentials: true,
+    });
+    return response.data.data.task;
+  },
+
+  requestTaskChanges: async (taskId: string, reason: string): Promise<Task> => {
+    const response = await axios.put(`${API_BASE_URL}/tasks/${taskId}/request-changes`, { reason }, {
+      withCredentials: true,
+    });
+    return response.data.data.task;
   },
 
   // Get top performers
@@ -550,7 +608,7 @@ export const likeApi = {
 
 export const bulkActionApi = {
   // Bulk update status for multiple tasks
-  bulkUpdateStatus: async (data: BulkUpdateStatusData): Promise<BulkActionResult> => {
+  bulkUpdateStatus: async (data: BulkUpdateStatusData): Promise<BulkTaskUpdateResult> => {
     const response = await axios.put(`${API_BASE_URL}/tasks/bulk-update-status`, data, {
       withCredentials: true,
     });

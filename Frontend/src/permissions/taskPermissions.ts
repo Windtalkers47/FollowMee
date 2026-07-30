@@ -77,11 +77,11 @@ export const getTaskPermissions = ({
   return {
     canView: true,
 
-    canEdit: true,
+    canEdit: isOwner || isAssignee,
 
     canDelete: isOwner || isAssignee,
 
-    canCancel: isOwner || isAssignee,
+    canCancel: (isOwner || isAssignee) && !isDone && task.status !== 'cancelled',
 
     canStart:
       isAssignee && isTodo,
@@ -95,8 +95,7 @@ export const getTaskPermissions = ({
     canReject:
       isOwner && isReview,
 
-    canUndo:
-      (isOwner || isAssignee) && isDone,
+    canUndo: false,
   };
 };
 

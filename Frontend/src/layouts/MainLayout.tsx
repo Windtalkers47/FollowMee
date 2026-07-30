@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../store/store';
 import { ThemeToggle } from '../components/ThemeToggle';
@@ -59,6 +59,7 @@ import {
   CloudUpload,
   Analytics,
   MoreHoriz,
+  WorkOutline,
 } from '@mui/icons-material';
 import ProductTour from '../components/ProductTour/ProductTour';
 import { useUserPreferences } from '../contexts/UserPreferencesContext';
@@ -74,11 +75,12 @@ interface MainLayoutProps {
 
 const menuItems = [
   { text: 'Dashboard', icon: <Dashboard />, path: '/dashboard', exact: true, group: 'Workspace' },
+  { text: 'My Work', icon: <WorkOutline />, path: '/my-work', exact: true, group: 'Workspace' },
   { text: 'Tasks & Schedule', icon: <Schedule />, path: '/schedule', exact: true, group: 'Workspace' },
   { text: 'Customers', icon: <Group />, path: '/customer', exact: true, group: 'Workspace' },
   { text: 'Profile Cards', icon: <AccountCircle />, path: '/customer-profile', exact: false, group: 'Workspace' },
   { text: 'Analytics', icon: <Analytics />, path: '/notification-analytics', exact: true, group: 'Insights' },
-  { text: 'Team Activity', icon: <PostAdd />, path: '/posts', exact: true, group: 'Insights' },
+  { text: 'Completed Work', icon: <PostAdd />, path: '/posts', exact: true, group: 'Insights' },
   { text: 'User Management', icon: <PeopleAlt />, path: '/users', exact: true, group: 'Administration' },
 ];
 
@@ -86,6 +88,11 @@ const MainLayout = ({ children }: MainLayoutProps) => {
   const theme = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
+  const mainRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    mainRef.current?.scrollTo({ top: 0, behavior: 'auto' });
+  }, [location.pathname]);
   const dispatch = useAppDispatch();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const { t } = useUserPreferences();
@@ -105,6 +112,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
   }), [canManageUsers]);
   const menuLabels = useMemo<Record<string, string>>(() => ({
     '/dashboard': t('nav.dashboard'),
+    '/my-work': t('nav.myWork'),
     '/schedule': t('nav.tasks'),
     '/customer': t('nav.customers'),
     '/customer-profile': t('nav.profiles'),
@@ -207,8 +215,6 @@ const MainLayout = ({ children }: MainLayoutProps) => {
         text: 'Your profile image has been removed successfully! Click "Save Changes" to update your profile.',
         timer: 2000,
         showConfirmButton: false,
-        position: 'top-end',
-        toast: true
       });
     }
   }, []);
@@ -290,9 +296,6 @@ const MainLayout = ({ children }: MainLayoutProps) => {
         allowOutsideClick: false,
         allowEscapeKey: false,
         showConfirmButton: false,
-        didOpen: () => {
-          feedback.showLoading();
-        }
       });
 
       await userApi.updateUser(currentUser.userId, updateData);
@@ -669,6 +672,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
       {/* Main */}
       <Box
         component="main"
+        ref={mainRef}
         sx={{
           flexGrow: 1,
           mt: `${APP_BAR_HEIGHT}px`,
@@ -694,6 +698,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
         showLabels
         value={
           location.pathname === '/dashboard' ? '/dashboard'
+          : location.pathname.startsWith('/my-work') ? '/my-work'
           : location.pathname.startsWith('/schedule') ? '/schedule'
           : location.pathname.startsWith('/customer-profile') ? '/customer-profile'
           : location.pathname.startsWith('/customer') ? '/customer'
@@ -725,9 +730,9 @@ const MainLayout = ({ children }: MainLayoutProps) => {
         }}
       >
         <BottomNavigationAction label={t('nav.dashboard')} value="/dashboard" icon={<Dashboard />} />
+        <BottomNavigationAction label={t('nav.myWork')} value="/my-work" icon={<WorkOutline />} />
         <BottomNavigationAction label={t('nav.tasks')} value="/schedule" icon={<Schedule />} />
         <BottomNavigationAction label={t('nav.customers')} value="/customer" icon={<Group />} />
-        <BottomNavigationAction label={t('nav.profiles')} value="/customer-profile" icon={<AccountCircle />} />
         <BottomNavigationAction
           label={t('nav.more')}
           value="/more"
@@ -745,6 +750,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
       >
         {[
           { label: t('nav.activity'), path: '/posts', icon: <PostAdd fontSize="small" /> },
+          { label: t('nav.profiles'), path: '/customer-profile', icon: <AccountCircle fontSize="small" /> },
           { label: t('nav.analytics'), path: '/notification-analytics', icon: <Analytics fontSize="small" /> },
           ...(canManageUsers ? [{ label: t('nav.users'), path: '/users', icon: <PeopleAlt fontSize="small" /> }] : []),
           { label: t('nav.settings'), path: '/settings', icon: <Settings fontSize="small" /> },
@@ -857,9 +863,6 @@ const MainLayout = ({ children }: MainLayoutProps) => {
                             allowOutsideClick: false,
                             allowEscapeKey: false,
                             showConfirmButton: false,
-                            didOpen: () => {
-                              feedback.showLoading();
-                            }
                           });
                           
                           const reader = new FileReader();
@@ -877,8 +880,6 @@ const MainLayout = ({ children }: MainLayoutProps) => {
                               text: 'Your image has been processed successfully!',
                               timer: 1500,
                               showConfirmButton: false,
-                              position: 'top-end',
-                              toast: true
                             });
                           };
                           reader.onerror = () => {

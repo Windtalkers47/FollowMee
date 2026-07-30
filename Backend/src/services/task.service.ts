@@ -1,5 +1,6 @@
 import { Repository, In } from 'typeorm';
 import { Task } from '../entities/Task';
+import { TaskComment } from '../entities/TaskComment';
 import { TaskRepository } from '../repositories/task.repository';
 import { 
   CreateTaskDto, 
@@ -13,7 +14,7 @@ import {
   PrioritySuggestionDto,
   SuggestionActionDto
 } from '../dtos/task.dto';
-import { TaskResponseDto, TaskListResponseDto } from '../dtos/task-response.dto';
+import { MyWorkResponseDto, TaskResponseDto, TaskListResponseDto } from '../dtos/task-response.dto';
 import { User } from '../entities/User';
 import { TaskImageService } from './task-image.service';
 import { CloudinaryUtil } from '../utils/cloudinary.util';
@@ -22,6 +23,8 @@ import AppDataSource from '../config/database';
 import { v4 as uuidv4 } from 'uuid';
 import { addDays, isPast, isToday, isTomorrow } from 'date-fns';
 import { webSocketService } from './websocket.service';
+import { assertTaskTransition, canTransitionTask, getTaskWorkflowCapabilities, TaskStatus } from '../utils/task-workflow.util';
+import { TaskActionError } from '../errors/task-transition.error';
 
 export interface TaskLeaderboardEntry {
   userId: number;
@@ -66,7 +69,7 @@ export class TaskService {
     if (savedTask.assignedTo && savedTask.assignedTo !== userId) {
       await NotificationHelper.notifyTaskAssigned(
         savedTask.title,
-        `/posts/${savedTask.taskId}`,
+        `/tasks/${savedTask.taskId}`,
         userId,
         [savedTask.assignedTo]
       );
@@ -112,24 +115,26 @@ export class TaskService {
       assignedToUser
     };
     
-    const response = await this.mapToResponseDto(taskWithRelations as any);
+    const response = await this.mapToResponseDto(taskWithRelations as any, userId);
     webSocketService.emitDomainEvent('task:created', {
       taskId: savedTask.taskId,
       actorUserId: userId,
-      status: savedTask.status
-    });
+      assignedTo: savedTask.assignedTo,
+      status: savedTask.status,
+      updatedAt: savedTask.updatedAt,
+    }, [savedTask.createdBy, savedTask.assignedTo, userId].filter((id): id is number => Boolean(id)));
     return response;
   }
 
-  async getTasks(query: TaskQueryDto): Promise<TaskListResponseDto> {
-    const [tasks, total] = await this.customTaskRepository.findTasksWithRelations(query);
+  async getTasks(query: TaskQueryDto, viewerUserId?: number): Promise<TaskListResponseDto> {
+    const [tasks, total] = await this.customTaskRepository.findTasksWithRelations(query, viewerUserId);
 
     const page = query.page || 1;
     const limit = query.limit || 10;
     const totalPages = Math.ceil(total / limit);
 
     const response: TaskListResponseDto = {
-      tasks: await Promise.all(tasks.map(task => this.mapToResponseDto(task))),
+      tasks: await Promise.all(tasks.map(task => this.mapToResponseDto(task, viewerUserId))),
       total,
       page,
       limit,
@@ -178,13 +183,13 @@ export class TaskService {
       .slice(0, 5);
   }
 
-  async getTaskById(taskId: string): Promise<TaskResponseDto> {
+  async getTaskById(taskId: string, viewerUserId: number): Promise<TaskResponseDto> {
     const task = await this.customTaskRepository.findWithStats(taskId);
 
     if (!task) {
       throw new Error('Task not found');
     }
-    return this.mapToResponseDto(task);
+    return this.mapToResponseDto(task, viewerUserId);
   }
 
   async updateTask(taskId: string, updateTaskDto: UpdateTaskDto, userId: number): Promise<TaskResponseDto> {
@@ -219,7 +224,7 @@ export class TaskService {
       if (task.assignedTo && task.assignedTo !== oldAssignedTo && task.assignedTo !== userId) {
         await NotificationHelper.notifyTaskAssigned(
           task.title,
-          `/posts/${task.taskId}`,
+          `/tasks/${task.taskId}`,
           userId,
           [task.assignedTo]
         );
@@ -235,10 +240,8 @@ export class TaskService {
       task.endDate = updateTaskDto.endDate ? new Date(updateTaskDto.endDate) : undefined;
     }
     if (updateTaskDto.status !== undefined) {
+      assertTaskTransition(task, updateTaskDto.status as TaskStatus, userId);
       if (updateTaskDto.status === 'done') {
-        if (task.createdBy !== userId || task.status !== 'review') {
-          throw new Error('Only the task creator can approve a task that is in review');
-        }
         const completedAt = new Date();
         const onTimeBonus = task.dueDate && completedAt <= new Date(task.dueDate) ? 3 : 0;
         const reopenPenalty = Math.min((task.reopenedCount || 0) * 2, 6);
@@ -246,11 +249,6 @@ export class TaskService {
         task.completedAt = completedAt;
         task.completionScore = Math.max(4, 10 + onTimeBonus - reopenPenalty);
       } else {
-        if (task.status === 'done') {
-          task.reopenedCount = (task.reopenedCount || 0) + 1;
-          task.completedAt = undefined;
-          task.completionScore = 0;
-        }
         task.status = updateTaskDto.status;
       }
     }
@@ -313,12 +311,17 @@ export class TaskService {
         relatedRecipients
       );
     }
-    const response = await this.mapToResponseDto(savedTask);
+    const response = await this.mapToResponseDto(savedTask, userId);
     webSocketService.emitDomainEvent('task:updated', {
       taskId: savedTask.taskId,
       actorUserId: userId,
-      status: savedTask.status
-    });
+      assignedTo: savedTask.assignedTo,
+      status: savedTask.status,
+      updatedAt: savedTask.updatedAt,
+    }, [savedTask.createdBy, previousAssignedTo, savedTask.assignedTo, userId].filter((id): id is number => Boolean(id)));
+    if (savedTask.status === 'done' && previousStatus !== 'done') {
+      webSocketService.broadcast('activity:created', { taskId: savedTask.taskId, status: savedTask.status, updatedAt: savedTask.updatedAt });
+    }
     return response;
   }
 
@@ -348,12 +351,39 @@ export class TaskService {
     // Soft delete by marking as inactive
     task.isActive = false;
     await this.taskRepository.save(task);
-    webSocketService.emitDomainEvent('task:deleted', { taskId, actorUserId: userId });
+    webSocketService.emitDomainEvent('task:deleted', { taskId, actorUserId: userId, updatedAt: task.updatedAt }, [task.createdBy, task.assignedTo, userId].filter((id): id is number => Boolean(id)));
   }
 
   async getUserTasks(userId: number, includeAssigned: boolean = true): Promise<TaskResponseDto[]> {
     const tasks = await this.customTaskRepository.findTasksByAssignedUser(userId);
-    return await Promise.all(tasks.map(task => this.mapToResponseDto(task)));
+    return await Promise.all(tasks.map(task => this.mapToResponseDto(task, userId)));
+  }
+
+  async getMyWork(userId: number, limit = 20, cursor?: string): Promise<MyWorkResponseDto> {
+    const result = await this.customTaskRepository.findMyWork(userId, limit, cursor);
+    const items = await Promise.all(result.tasks.map(async (task) => {
+      const mapped = await this.mapToResponseDto(task, userId);
+      mapped.attentionReason = task.status === 'review' && task.createdBy === userId
+        ? 'approval_required'
+        : 'assigned';
+      return mapped;
+    }));
+    const last = result.tasks[result.tasks.length - 1];
+    return {
+      items,
+      counts: {
+        todo: result.counts.todo || 0,
+        inProgress: result.counts.in_progress || 0,
+        review: result.counts.review || 0,
+        approvalRequired: result.counts.approvalRequired || 0,
+        overdue: result.counts.overdue || 0,
+      },
+      pageInfo: {
+        nextCursor: last
+          ? Buffer.from(`${last.updatedAt.toISOString()}|${last.taskId}`).toString('base64url')
+          : undefined,
+      },
+    };
   }
 
   async updateTaskStatuses(): Promise<void> {
@@ -374,6 +404,10 @@ export class TaskService {
   }
 
   async markTaskAsDone(taskId: string, userId: number, markTaskDoneDto?: MarkTaskDoneDto): Promise<TaskResponseDto> {
+    return this.submitTaskForReview(taskId, userId);
+  }
+
+  async submitTaskForReview(taskId: string, userId: number): Promise<TaskResponseDto> {
     const task = await this.customTaskRepository.findById(taskId);
 
     if (!task) {
@@ -381,11 +415,11 @@ export class TaskService {
     }
 
     if (task.createdBy !== userId && task.assignedTo !== userId) {
-      throw new Error('You can only mark tasks as done if you are the owner or assigned user');
+      throw new TaskActionError('Only the task creator or assignee can submit this task', 'submit_review', 403, task.status as TaskStatus);
     }
 
-    if (task.status === 'done' || task.status === 'review') {
-      throw new Error('Task is already marked as done or in review');
+    if (task.status !== 'in_progress') {
+      throw new TaskActionError('Only a task in progress can be submitted for review', 'submit_review', 409, task.status as TaskStatus);
     }
 
     await this.customTaskRepository.updateTaskStatus(taskId, 'review');
@@ -398,65 +432,86 @@ export class TaskService {
       userId,
       [task.createdBy]
     );
-    webSocketService.emitDomainEvent('task:updated', {
-      taskId,
-      actorUserId: userId,
-      status: 'review'
-    });
-
     const updatedTask = await this.customTaskRepository.findWithStats(taskId);
     if (!updatedTask) {
       throw new Error('Failed to retrieve updated task');
     }
 
-    return this.mapToResponseDto(updatedTask);
+    webSocketService.emitDomainEvent('task:updated', {
+      taskId,
+      actorUserId: userId,
+      assignedTo: updatedTask.assignedTo,
+      status: 'review',
+      updatedAt: updatedTask.updatedAt,
+    }, [updatedTask.createdBy, updatedTask.assignedTo, userId].filter((id): id is number => Boolean(id)));
+
+    return this.mapToResponseDto(updatedTask, userId);
   }
 
   async markTaskAsUndone(taskId: string, userId: number): Promise<TaskResponseDto> {
+    return this.requestTaskChanges(taskId, userId, 'Changes requested');
+  }
+
+  async requestTaskChanges(taskId: string, userId: number, reason: string): Promise<TaskResponseDto> {
     const task = await this.customTaskRepository.findById(taskId);
 
     if (!task) {
       throw new Error('Task not found');
     }
 
-    if (task.status === 'review' && task.createdBy !== userId) {
-      throw new Error('Only task creator can reject a task in review');
+    const trimmedReason = reason.trim();
+    if (!trimmedReason) {
+      const error = new Error('A reason is required when requesting changes') as Error & { statusCode?: number; code?: string };
+      error.statusCode = 400;
+      error.code = 'INVALID_REQUEST_CHANGES_REASON';
+      throw error;
     }
 
-    if (task.status === 'done' && task.createdBy !== userId && task.assignedTo !== userId) {
-      throw new Error('You can only undo tasks if you are the owner or assigned user');
+    if (task.createdBy !== userId) {
+      throw new TaskActionError('Only the task creator can request changes', 'request_changes', 403, task.status as TaskStatus);
     }
 
-    if (task.status !== 'review' && task.status !== 'done') {
-      throw new Error('Task is not in review or done status');
+    if (task.status !== 'review') {
+      throw new TaskActionError('Only a task in review can be returned for changes', 'request_changes', 409, task.status as TaskStatus);
     }
 
-    task.status = 'todo';
-    task.completedAt = undefined;
-    task.completionScore = 0;
-    task.reopenedCount = (task.reopenedCount || 0) + 1;
-    await this.taskRepository.save(task);
+    await AppDataSource.transaction(async (manager) => {
+      task.status = 'todo';
+      task.completedAt = undefined;
+      task.completionScore = 0;
+      task.reopenedCount = (task.reopenedCount || 0) + 1;
+      task.updatedAt = new Date();
+      await manager.getRepository(Task).save(task);
+      await manager.getRepository(TaskComment).save(manager.getRepository(TaskComment).create({
+        taskId,
+        userId,
+        comment: trimmedReason,
+        isActive: true,
+      }));
+    });
     await NotificationHelper.notifyTaskStatus(
       NotificationType.TASK_UPDATED,
       'Task needs changes',
-      'The task was returned to To Do',
+      trimmedReason,
       task.title,
       task.taskId,
       userId,
       task.assignedTo ? [task.assignedTo] : []
     );
-    webSocketService.emitDomainEvent('task:updated', {
-      taskId,
-      actorUserId: userId,
-      status: 'todo'
-    });
-
     const updatedTask = await this.customTaskRepository.findWithStats(taskId);
     if (!updatedTask) {
       throw new Error('Failed to retrieve updated task');
     }
 
-    return this.mapToResponseDto(updatedTask);
+    webSocketService.emitDomainEvent('task:updated', {
+      taskId,
+      actorUserId: userId,
+      assignedTo: updatedTask.assignedTo,
+      status: 'todo',
+      updatedAt: updatedTask.updatedAt,
+    }, [updatedTask.createdBy, updatedTask.assignedTo, userId].filter((id): id is number => Boolean(id)));
+
+    return this.mapToResponseDto(updatedTask, userId);
   }
 
   async approveTask(taskId: string, userId: number): Promise<TaskResponseDto> {
@@ -467,11 +522,11 @@ export class TaskService {
     }
 
     if (task.createdBy !== userId) {
-      throw new Error('Only task creator can approve tasks');
+      throw new TaskActionError('Only the task creator can approve this task', 'approve', 403, task.status as TaskStatus);
     }
 
     if (task.status !== 'review') {
-      throw new Error('Task is not in review status');
+      throw new TaskActionError('Only a task in review can be approved', 'approve', 409, task.status as TaskStatus);
     }
 
     const completedAt = new Date();
@@ -490,18 +545,25 @@ export class TaskService {
       userId,
       task.assignedTo ? [task.assignedTo] : []
     );
-    webSocketService.emitDomainEvent('task:updated', {
-      taskId,
-      actorUserId: userId,
-      status: 'done'
-    });
-
     const updatedTask = await this.customTaskRepository.findWithStats(taskId);
     if (!updatedTask) {
       throw new Error('Failed to retrieve updated task');
     }
 
-    return this.mapToResponseDto(updatedTask);
+    webSocketService.emitDomainEvent('task:updated', {
+      taskId,
+      actorUserId: userId,
+      assignedTo: updatedTask.assignedTo,
+      status: 'done',
+      updatedAt: updatedTask.updatedAt,
+    }, [updatedTask.createdBy, updatedTask.assignedTo, userId].filter((id): id is number => Boolean(id)));
+    webSocketService.broadcast('activity:created', {
+      taskId,
+      status: 'done',
+      updatedAt: updatedTask.updatedAt,
+    });
+
+    return this.mapToResponseDto(updatedTask, userId);
   }
 
   async getUserRank(userId: number): Promise<{ rank: number; completedTasks: number; totalUsers: number; score: number }> {
@@ -567,27 +629,34 @@ export class TaskService {
     taskIds: string[], 
     status: 'draft' | 'todo' | 'in_progress' | 'review' | 'done' | 'cancelled',
     userId: number
-  ): Promise<{ updated: number; failed: string[] }> {
-    const failed: string[] = [];
+  ): Promise<{ updated: number; failed: Array<{ taskId: string; reason: string; code?: string }> }> {
+    const failed: Array<{ taskId: string; reason: string; code?: string }> = [];
     let updated = 0;
+    const affectedUsers = new Set<number>([userId]);
 
     for (const taskId of taskIds) {
       try {
         const task = await this.customTaskRepository.findById(taskId);
         if (!task) {
-          failed.push(taskId);
+          failed.push({ taskId, reason: 'Task not found', code: 'TASK_NOT_FOUND' });
           continue;
         }
+        affectedUsers.add(task.createdBy);
+        if (task.assignedTo) affectedUsers.add(task.assignedTo);
 
         // Check permission - user must be creator or assigned to
         if (task.createdBy !== userId && task.assignedTo !== userId) {
-          failed.push(taskId);
+          failed.push({ taskId, reason: 'You do not have permission to update this task', code: 'TASK_UPDATE_FORBIDDEN' });
           continue;
         }
 
         if (status === 'done') {
-          if (task.createdBy !== userId || task.status !== 'review') {
-            failed.push(taskId);
+          if (task.status !== 'review') {
+            failed.push({ taskId, reason: `Invalid task transition from ${task.status} to done`, code: 'INVALID_TASK_TRANSITION' });
+            continue;
+          }
+          if (task.createdBy !== userId) {
+            failed.push({ taskId, reason: 'Only the task creator can approve a task in review', code: 'TASK_APPROVAL_FORBIDDEN' });
             continue;
           }
           const completedAt = new Date();
@@ -598,24 +667,27 @@ export class TaskService {
           task.completionScore = Math.max(4, 10 + onTimeBonus - reopenPenalty);
           await this.taskRepository.save(task);
         } else {
-          if (task.status === 'done') {
-            task.reopenedCount = (task.reopenedCount || 0) + 1;
-            task.completedAt = undefined;
-            task.completionScore = 0;
-            task.status = status;
-            await this.taskRepository.save(task);
-          } else {
-            await this.customTaskRepository.updateTaskStatus(taskId, status);
+          if (task.status === status) {
+            updated++;
+            continue;
           }
+          if (!canTransitionTask(task, status as TaskStatus)) {
+            failed.push({ taskId, reason: `Invalid task transition from ${task.status} to ${status}`, code: 'INVALID_TASK_TRANSITION' });
+            continue;
+          }
+          await this.customTaskRepository.updateTaskStatus(taskId, status);
         }
         updated++;
       } catch (error) {
-        failed.push(taskId);
+        failed.push({ taskId, reason: error instanceof Error ? error.message : 'Task update failed', code: (error as any)?.code });
       }
     }
 
     if (updated > 0) {
-      webSocketService.emitDomainEvent('task:updated', { taskIds, actorUserId: userId, status });
+      webSocketService.emitDomainEvent('task:updated', { taskIds, actorUserId: userId, status, updatedAt: new Date() }, [...affectedUsers]);
+      if (status === 'done') {
+        webSocketService.broadcast('activity:created', { taskIds, status, updatedAt: new Date() });
+      }
     }
     return { updated, failed };
   }
@@ -626,6 +698,7 @@ export class TaskService {
   async bulkDelete(taskIds: string[], userId: number): Promise<{ deleted: number; failed: string[] }> {
     const failed: string[] = [];
     let deleted = 0;
+    const affectedUsers = new Set<number>([userId]);
 
     for (const taskId of taskIds) {
       try {
@@ -634,6 +707,8 @@ export class TaskService {
           failed.push(taskId);
           continue;
         }
+        affectedUsers.add(task.createdBy);
+        if (task.assignedTo) affectedUsers.add(task.assignedTo);
 
         // Check permission - user must be creator or assigned to
         if (task.createdBy !== userId && task.assignedTo !== userId) {
@@ -651,7 +726,7 @@ export class TaskService {
     }
 
     if (deleted > 0) {
-      webSocketService.emitDomainEvent('task:deleted', { taskIds, actorUserId: userId });
+      webSocketService.emitDomainEvent('task:deleted', { taskIds, actorUserId: userId, updatedAt: new Date() }, [...affectedUsers]);
     }
     return { deleted, failed };
   }
@@ -662,6 +737,7 @@ export class TaskService {
   async bulkAssign(taskIds: string[], assignedTo: number | undefined, userId: number): Promise<{ assigned: number; failed: string[] }> {
     const failed: string[] = [];
     let assigned = 0;
+    const affectedUsers = new Set<number>([userId]);
 
     for (const taskId of taskIds) {
       try {
@@ -670,6 +746,9 @@ export class TaskService {
           failed.push(taskId);
           continue;
         }
+        affectedUsers.add(task.createdBy);
+        if (task.assignedTo) affectedUsers.add(task.assignedTo);
+        if (assignedTo) affectedUsers.add(assignedTo);
 
         // Check permission - only creator can reassign tasks
         if (task.createdBy !== userId) {
@@ -684,7 +763,7 @@ export class TaskService {
         if (assignedTo && assignedTo !== oldAssignedTo && assignedTo !== userId) {
           await NotificationHelper.notifyTaskAssigned(
             task.title,
-            `/posts/${task.taskId}`,
+            `/tasks/${task.taskId}`,
             userId,
             [assignedTo]
           );
@@ -701,8 +780,9 @@ export class TaskService {
       webSocketService.emitDomainEvent('task:updated', {
         taskIds,
         actorUserId: userId,
-        assignedTo
-      });
+        assignedTo,
+        updatedAt: new Date(),
+      }, [...affectedUsers]);
     }
     return { assigned, failed };
   }
@@ -843,10 +923,12 @@ export class TaskService {
     };
   }
 
-  private async mapToResponseDto(task: Task): Promise<TaskResponseDto> {
+  private async mapToResponseDto(task: Task, viewerUserId?: number): Promise<TaskResponseDto> {
     // Get task images
     const images = await this.taskImageService.getTaskImages(task.taskId);
     const imageUrl = images && images.length > 0 ? images[0].imageUrl : undefined;
+
+    const workflow = getTaskWorkflowCapabilities(task, viewerUserId);
 
     const response: TaskResponseDto = {
       taskId: task.taskId,
@@ -876,12 +958,16 @@ export class TaskService {
         userImageUrl: task.createdByUser.userImageUrl || undefined
       } : undefined,
       _count: {
-        comments: 0,
-        likes: 0,
-        love: 0,
-        laugh: 0,
-        angry: 0
-      }
+        comments: (task as any)._commentCount || 0,
+        likes: (task as any)._reactionCounts?.like || 0,
+        love: (task as any)._reactionCounts?.love || 0,
+        laugh: (task as any)._reactionCounts?.laugh || 0,
+        angry: (task as any)._reactionCounts?.angry || 0,
+        wow: (task as any)._reactionCounts?.wow || 0,
+        sad: (task as any)._reactionCounts?.sad || 0,
+        userLike: (task as any)._reactionCounts?.userLike,
+      },
+      workflow,
     };
 
     return response;

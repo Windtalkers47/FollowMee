@@ -21,7 +21,6 @@ import {
   PlayArrow as StartIcon,
   MoreVert as MoreIcon,
   Cancel as CancelIcon,
-  Drafts as DraftIcon,
   Schedule as ScheduleIcon,
   Visibility as ReviewIcon,
   Assignment as AssignIcon
@@ -281,33 +280,6 @@ export const SelectionModeToolbar: React.FC<SelectionModeToolbarProps> = ({
                   </Typography>
                   <Typography variant="caption" sx={{ color: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)' }}>
                     Ready to start
-                  </Typography>
-                </Box>
-              </Box>
-            </MenuItem>
-
-            <MenuItem onClick={() => handleActionClick('draft')}>
-              <Box display="flex" alignItems="center" gap={1.5}>
-                <Box
-                  sx={{
-                    width: 32,
-                    height: 32,
-                    borderRadius: 2,
-                    background: '#8E8E93',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: '#fff'
-                  }}
-                >
-                  <DraftIcon sx={{ fontSize: 18 }} />
-                </Box>
-                <Box>
-                  <Typography sx={{ fontWeight: 600, color: theme.palette.mode === 'dark' ? '#fff' : '#000', fontSize: '0.9375rem' }}>
-                    Move to Draft
-                  </Typography>
-                  <Typography variant="caption" sx={{ color: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)' }}>
-                    Work in progress
                   </Typography>
                 </Box>
               </Box>

@@ -56,6 +56,7 @@ import ActionMenu from '@/components/ActionMenu';
 import { FilterBar } from '@/components/FilterBar';
 import { customerApi } from '../../api/customer.api';
 import { useUserPreferences } from '../../contexts/UserPreferencesContext';
+import { normalizeSocialUrl } from '../../utils/socialUrl';
 
 interface Customer extends CustomerType {}
 
@@ -189,22 +190,10 @@ const CustomerPage = () => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [formApiError, setFormApiError] = useState<ApiError | null>(null);
-  const isInitialMount = useRef(true);
   
   const emptyRows = page > 0 ? Math.max(0, (1 + page) * pageSize - customers.length) : 0;
 
-  // Fetch status stats on mount to populate tab counts
   useEffect(() => {
-    refetch();
-  }, []);
-
-  useEffect(() => {
-    if (isInitialMount.current) {
-      isInitialMount.current = false;
-      const statusMap = { 0: 'all', 1: 'active', 2: 'inactive', 3: 'canceled' } as const;
-      handleFilterChange({ status: statusMap[tabValue as keyof typeof statusMap] as CustomerStatus | 'all', search: filter.search });
-      return;
-    }
     const statusMap = { 0: 'all', 1: 'active', 2: 'inactive', 3: 'canceled' } as const;
     handleFilterChange({ status: statusMap[tabValue as keyof typeof statusMap] as CustomerStatus | 'all', search: filter.search });
   }, [tabValue]);
@@ -1069,14 +1058,15 @@ const CustomerPage = () => {
                         >
                           <Box
                             component={customer.customerFacebook ? 'a' : 'span'}
-                            href={customer.customerFacebook || undefined}
+                            href={normalizeSocialUrl(customer.customerFacebook, 'facebook')}
                             target={customer.customerFacebook ? "_blank" : undefined}
+                            rel={customer.customerFacebook ? 'noopener noreferrer' : undefined}
                             onClick={(e: React.MouseEvent) => {
                               e.stopPropagation();
                             }}
                             sx={{
-                              width: { xs: 30, sm: 32 },
-                              height: { xs: 30, sm: 32 },
+                              width: { xs: 44, sm: 44 },
+                              height: { xs: 44, sm: 44 },
                               borderRadius: '50%',
                               display: 'flex',
                               alignItems: 'center',
@@ -1104,14 +1094,15 @@ const CustomerPage = () => {
                         >
                           <Box
                             component={customer.customerInstagram ? 'a' : 'span'}
-                            href={customer.customerInstagram || undefined}
+                            href={normalizeSocialUrl(customer.customerInstagram, 'instagram')}
                             target={customer.customerInstagram ? "_blank" : undefined}
+                            rel={customer.customerInstagram ? 'noopener noreferrer' : undefined}
                             onClick={(e: React.MouseEvent) => {
                               e.stopPropagation();
                             }}
                             sx={{
-                              width: { xs: 30, sm: 32 },
-                              height: { xs: 30, sm: 32 },
+                              width: { xs: 44, sm: 44 },
+                              height: { xs: 44, sm: 44 },
                               borderRadius: '50%',
                               display: 'flex',
                               alignItems: 'center',
@@ -1141,14 +1132,15 @@ const CustomerPage = () => {
                         >
                           <Box
                             component={customer.customerTikTok ? 'a' : 'span'}
-                            href={customer.customerTikTok || undefined}
+                            href={normalizeSocialUrl(customer.customerTikTok, 'tiktok')}
                             target={customer.customerTikTok ? "_blank" : undefined}
+                            rel={customer.customerTikTok ? 'noopener noreferrer' : undefined}
                             onClick={(e: React.MouseEvent) => {
                               e.stopPropagation();
                             }}
                             sx={{
-                              width: { xs: 30, sm: 32 },
-                              height: { xs: 30, sm: 32 },
+                              width: { xs: 44, sm: 44 },
+                              height: { xs: 44, sm: 44 },
                               borderRadius: '50%',
                               display: 'flex',
                               alignItems: 'center',
@@ -1178,12 +1170,13 @@ const CustomerPage = () => {
                             component={customer.customerLine ? 'a' : 'span'}
                             href={customer.customerLine ? `https://line.me/ti/p/${customer.customerLine}` : undefined}
                             target={customer.customerLine ? "_blank" : undefined}
+                            rel={customer.customerLine ? 'noopener noreferrer' : undefined}
                             onClick={(e: React.MouseEvent) => {
                               e.stopPropagation();
                             }}
                             sx={{
-                              width: { xs: 30, sm: 32 },
-                              height: { xs: 30, sm: 32 },
+                              width: { xs: 44, sm: 44 },
+                              height: { xs: 44, sm: 44 },
                               borderRadius: '50%',
                               display: 'flex',
                               alignItems: 'center',
@@ -1211,14 +1204,15 @@ const CustomerPage = () => {
                         >
                           <Box
                             component={customer.customerX ? 'a' : 'span'}
-                            href={customer.customerX || undefined}
+                            href={normalizeSocialUrl(customer.customerX, 'x')}
                             target={customer.customerX ? "_blank" : undefined}
+                            rel={customer.customerX ? 'noopener noreferrer' : undefined}
                             onClick={(e: React.MouseEvent) => {
                               e.stopPropagation();
                             }}
                             sx={{
-                              width: { xs: 30, sm: 32 },
-                              height: { xs: 30, sm: 32 },
+                              width: { xs: 44, sm: 44 },
+                              height: { xs: 44, sm: 44 },
                               borderRadius: '50%',
                               display: 'flex',
                               alignItems: 'center',

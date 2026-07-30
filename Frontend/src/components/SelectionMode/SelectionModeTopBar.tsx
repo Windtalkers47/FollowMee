@@ -52,10 +52,9 @@ export const SelectionModeTopBar: React.FC<SelectionModeTopBarProps> = ({
   const theme = useTheme();
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
   const [moveDialogOpen, setMoveDialogOpen] = React.useState(false);
-  const [selectedStatus, setSelectedStatus] = React.useState<'draft' | 'todo' | 'in_progress' | 'review' | 'done' | 'cancelled' | null>(null);
+  const [selectedStatus, setSelectedStatus] = React.useState<'todo' | 'in_progress' | 'review' | 'done' | 'cancelled' | null>(null);
 
   const statusOptions = [
-    { value: 'draft' as const, label: taskStatusTokens.draft.label, description: 'Keep work private before planning', color: taskStatusTokens.draft.color },
     { value: 'todo' as const, label: taskStatusTokens.todo.label, description: 'Ready to be picked up', color: taskStatusTokens.todo.color },
     { value: 'in_progress' as const, label: taskStatusTokens.in_progress.label, description: 'Work is currently underway', color: taskStatusTokens.in_progress.color },
     { value: 'review' as const, label: taskStatusTokens.review.label, description: 'Waiting for feedback or approval', color: taskStatusTokens.review.color },

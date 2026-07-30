@@ -7,7 +7,8 @@ import {
   MarkTaskDoneDto,
   BulkUpdateStatusDto,
   BulkDeleteDto,
-  BulkAssignDto
+  BulkAssignDto,
+  RequestTaskChangesDto
 } from '../dtos/task.dto';
 import { TaskResponseDto, TaskListResponseDto } from '../dtos/task-response.dto';
 import { CloudinaryUtil } from '../utils/cloudinary.util';
@@ -29,9 +30,21 @@ export class TaskController {
     return !!user;
   }
 
+  private assertTaskPayload(payload: Record<string, unknown>, allowed: readonly string[]): void {
+    const unknown = Object.keys(payload).filter((key) => !allowed.includes(key));
+    if (unknown.length > 0) {
+      const error = new Error(`Unknown task field(s): ${unknown.join(', ')}`) as Error & { statusCode?: number; code?: string; fields?: string[] };
+      error.statusCode = 400;
+      error.code = 'INVALID_TASK_PAYLOAD';
+      error.fields = unknown;
+      throw error;
+    }
+  }
+
   async createTask(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const createTaskDto: CreateTaskDto = req.body;
+      this.assertTaskPayload(req.body, ['title', 'description', 'assignedTo', 'dueDate', 'startDate', 'endDate', 'imageUrl', 'images', 'status']);
       const userId = req.user?.userId;
       if (!userId) {
         res.status(401).json({ message: 'User not authenticated' });
@@ -55,7 +68,7 @@ export class TaskController {
   async getTasks(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const query: TaskQueryDto = req.query as any;
-      const result = await this.taskService.getTasks(query);
+      const result = await this.taskService.getTasks(query, req.user?.userId);
       res.status(200).json({ success: true, data: result });
     } catch (error) {
       next(error);
@@ -106,10 +119,35 @@ export class TaskController {
     }
   }
 
+  async getMyWork(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const userId = req.user?.userId;
+      if (!userId) {
+        res.status(401).json({ message: 'User not authenticated' });
+        return;
+      }
+      if (!(await this.checkUserActive(userId))) {
+        res.status(403).json({ message: 'User account is not active' });
+        return;
+      }
+      const limit = Number(req.query.limit) || 20;
+      const cursor = typeof req.query.cursor === 'string' ? req.query.cursor : undefined;
+      const result = await this.taskService.getMyWork(userId, limit, cursor);
+      res.status(200).json({ success: true, data: result });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   async getTaskById(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { taskId } = req.params;
-      const result = await this.taskService.getTaskById(taskId);
+      const userId = req.user?.userId;
+      if (!userId) {
+        res.status(401).json({ message: 'User not authenticated' });
+        return;
+      }
+      const result = await this.taskService.getTaskById(taskId, userId);
       res.status(200).json({ success: true, data: result });
     } catch (error) {
       next(error);
@@ -120,6 +158,7 @@ export class TaskController {
     try {
       const { taskId } = req.params;
       const updateTaskDto: UpdateTaskDto = req.body;
+      this.assertTaskPayload(req.body, ['title', 'description', 'assignedTo', 'dueDate', 'startDate', 'endDate', 'imageUrl', 'images', 'status', 'isActive']);
       const userId = req.user?.userId;
       if (!userId) {
         res.status(401).json({ message: 'User not authenticated' });
@@ -166,6 +205,7 @@ export class TaskController {
   async createTaskWithFiles(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const createTaskDto: CreateTaskDto = JSON.parse(req.body.taskData);
+      this.assertTaskPayload(createTaskDto as unknown as Record<string, unknown>, ['title', 'description', 'assignedTo', 'dueDate', 'startDate', 'endDate', 'imageUrl', 'images', 'status']);
       const userId = req.user?.userId;
       
       if (!userId) {
@@ -205,6 +245,7 @@ export class TaskController {
     try {
       const { taskId } = req.params;
       const updateTaskDto: UpdateTaskDto = JSON.parse(req.body.taskData);
+      this.assertTaskPayload(updateTaskDto as unknown as Record<string, unknown>, ['title', 'description', 'assignedTo', 'dueDate', 'startDate', 'endDate', 'imageUrl', 'images', 'status', 'isActive']);
       const userId = req.user?.userId;
       
       if (!userId) {
@@ -374,6 +415,52 @@ export class TaskController {
           userRank: userRank
         }
       });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async submitTaskForReview(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { taskId } = req.params;
+      const userId = req.user?.userId;
+      if (!userId) {
+        res.status(401).json({ message: 'User not authenticated' });
+        return;
+      }
+      if (!(await this.checkUserActive(userId))) {
+        res.status(403).json({ message: 'User account is not active' });
+        return;
+      }
+      const task = await this.taskService.submitTaskForReview(taskId, userId);
+      res.status(200).json({ success: true, data: { task } });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async requestTaskChanges(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { taskId } = req.params;
+      const userId = req.user?.userId;
+      if (!userId) {
+        res.status(401).json({ message: 'User not authenticated' });
+        return;
+      }
+      if (!(await this.checkUserActive(userId))) {
+        res.status(403).json({ message: 'User account is not active' });
+        return;
+      }
+      const requestDto: RequestTaskChangesDto = req.body;
+      if (typeof requestDto.reason !== 'string' || !requestDto.reason.trim() || requestDto.reason.trim().length > 1000) {
+        res.status(400).json({
+          code: 'INVALID_REQUEST_CHANGES_REASON',
+          message: 'Reason is required and must not exceed 1000 characters',
+        });
+        return;
+      }
+      const task = await this.taskService.requestTaskChanges(taskId, userId, requestDto.reason);
+      res.status(200).json({ success: true, data: { task } });
     } catch (error) {
       next(error);
     }

@@ -246,9 +246,6 @@ const Register = () => {
           : t('auth.register.created'),
         timer: 2000,
         timerProgressBar: true,
-        customClass: {
-          popup: 'swal2-success-dialog'
-        },
       });
 
       // Automatically log in the user after registration
@@ -264,7 +261,7 @@ const Register = () => {
       // Check if login was successful
       if (loginUser.fulfilled.match(resultAction)) {
         // Redirect to dashboard on successful registration and login
-        navigate('/dashboard');
+        navigate('/my-work');
       }
     } catch (error: any) {
       console.error('Registration error:', error);
@@ -282,9 +279,6 @@ const Register = () => {
         text: isDuplicateEmail 
           ? t('auth.register.duplicateText')
           : errorMessage,
-        customClass: {
-          popup: 'swal2-error-dialog'
-        },
       });
     } finally {
       setIsLoading(false);

@@ -1,5 +1,5 @@
 import React, { useEffect, Suspense } from 'react';
-import { Routes, Route, Navigate, useLocation, Outlet } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation, Outlet, useParams } from 'react-router-dom';
 import { Box, CircularProgress } from '@mui/material';
 import { useAppDispatch, useAppSelector } from './store/store';
 import { restoreSession, clearAuth } from './store/slices/authSlice';
@@ -18,6 +18,8 @@ const ForgotPasswordPage = React.lazy(() => import('./pages/ForgotPassword'));
 const ResetPasswordPage = React.lazy(() => import('./pages/ResetPassword'));
 const DashboardPage = React.lazy(() => import('./pages/Dashboard'));
 const PostsPage = React.lazy(() => import('./pages/Posts'));
+const MyWorkPage = React.lazy(() => import('./pages/MyWork'));
+const TaskDetailPage = React.lazy(() => import('./pages/TaskDetail'));
 const SchedulePageWithSelection = React.lazy(() => import('./pages/Schedule'));
 const CustomerPage = React.lazy(() => import('./pages/Customer'));
 const ProfileLibraryPage = React.lazy(() => import('./pages/CustomerProfile/ProfileLibraryPage'));
@@ -40,6 +42,11 @@ const LoadingSpinner = () => (
     <CircularProgress />
   </Box>
 );
+
+const LegacyTaskRedirect = () => {
+  const { taskId } = useParams();
+  return <Navigate to={taskId ? `/tasks/${taskId}` : '/posts'} replace />;
+};
 
 const ProtectedRoute = () => {
   const isAuthenticated = useAppSelector(
@@ -68,6 +75,7 @@ const App = () => {
   const isAuthenticated = useAppSelector((state) => state.auth.isAuthenticated);
 
   const currentUser = useAppSelector((state) => state.auth.user);
+  const landingPath = currentUser?.roles?.some((role) => ['Admin', 'Superadmin'].includes(role)) ? '/dashboard' : '/my-work';
 
   /* Restore session once */
   useEffect(() => {
@@ -154,19 +162,23 @@ const App = () => {
   useEffect(() => {
     if (!isAuthenticated || !currentUser?.userId) return;
 
-    const taskHandler = () => {
-      queryClient.invalidateQueries({ queryKey: ['all-tasks'] });
+    const taskHandler = (data: { taskId?: string; status?: string }) => {
+      queryClient.invalidateQueries({ queryKey: ['my-work'] });
       queryClient.invalidateQueries({ queryKey: ['assigned-tasks'] });
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
-      queryClient.invalidateQueries({ queryKey: ['top-performers'] });
-      queryClient.invalidateQueries({ queryKey: ['user-rank'] });
-      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      if (data?.taskId) queryClient.invalidateQueries({ queryKey: ['task', data.taskId] });
+      if (data?.status === 'done') {
+        queryClient.invalidateQueries({ queryKey: ['all-tasks'] });
+        queryClient.invalidateQueries({ queryKey: ['top-performers'] });
+        queryClient.invalidateQueries({ queryKey: ['user-rank'] });
+        queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      }
     };
     const commentHandler = (data: { taskId?: string }) => {
       if (data?.taskId) {
         queryClient.invalidateQueries({ queryKey: ['task-comments', data.taskId] });
       }
-      taskHandler();
+      taskHandler(data);
     };
     const reactionHandler = (data: { taskId?: string }) => {
       commentHandler(data);
@@ -176,11 +188,13 @@ const App = () => {
     const taskEvents = ['task:created', 'task:updated', 'task:deleted'];
     const commentEvents = ['comment:created', 'comment:updated', 'comment:deleted'];
     taskEvents.forEach(event => webSocketService.onDomainEvent(event, taskHandler));
+    webSocketService.onDomainEvent('activity:created', taskHandler);
     commentEvents.forEach(event => webSocketService.onDomainEvent(event, commentHandler));
     webSocketService.onDomainEvent('reaction:updated', reactionHandler);
 
     return () => {
       taskEvents.forEach(event => webSocketService.offDomainEvent(event, taskHandler));
+      webSocketService.offDomainEvent('activity:created', taskHandler);
       commentEvents.forEach(event => webSocketService.offDomainEvent(event, commentHandler));
       webSocketService.offDomainEvent('reaction:updated', reactionHandler);
     };
@@ -240,7 +254,7 @@ const App = () => {
                   index
                   element={
                     isAuthenticated ? (
-                      <Navigate to="/dashboard" replace />
+                      <Navigate to={landingPath} replace />
                     ) : (
                       <Navigate to="/login" replace />
                     )
@@ -250,7 +264,7 @@ const App = () => {
                   path="/login"
                   element={
                     isAuthenticated ? (
-                      <Navigate to="/dashboard" replace />
+                      <Navigate to={landingPath} replace />
                     ) : (
                       <LoginPage />
                     )
@@ -260,7 +274,7 @@ const App = () => {
                   path="/register"
                   element={
                     isAuthenticated ? (
-                      <Navigate to="/dashboard" replace />
+                      <Navigate to={landingPath} replace />
                     ) : (
                       <RegisterPage />
                     )
@@ -270,7 +284,7 @@ const App = () => {
                   path="/forgot-password"
                   element={
                     isAuthenticated ? (
-                      <Navigate to="/dashboard" replace />
+                      <Navigate to={landingPath} replace />
                     ) : (
                       <ForgotPasswordPage />
                     )
@@ -287,8 +301,10 @@ const App = () => {
                 {/* Protected */}
                 <Route element={<ProtectedRoute />}>
                   <Route path="/dashboard" element={<DashboardPage />} />
+                  <Route path="/my-work" element={<MyWorkPage />} />
                   <Route path="/posts" element={<PostsPage />} />
-                  <Route path="/posts/:taskId" element={<PostsPage />} />
+                  <Route path="/posts/:taskId" element={<LegacyTaskRedirect />} />
+                  <Route path="/tasks/:taskId" element={<TaskDetailPage />} />
                   <Route path="/schedule" element={<SchedulePageWithSelection />} />
                   <Route path="/customer" element={<CustomerPage />} />
                   <Route path="/users" element={<UsersPage />} />
@@ -308,7 +324,7 @@ const App = () => {
                   path="*"
                   element={
                     isAuthenticated ? (
-                      <Navigate to="/dashboard" replace />
+                      <Navigate to={landingPath} replace />
                     ) : (
                       <Navigate to="/login" replace />
                     )

@@ -107,6 +107,20 @@ interface TaskFeedCardProps {
   onUpdateTaskStatus?: (taskId: string, status: Task['status']) => void;
 }
 
+const getEmbeddedLikeSummary = (task: Task): TaskLikeSummary | undefined => {
+  if (!task._count) return undefined;
+  const summary = {
+    like: task._count.likes || 0,
+    love: task._count.love || 0,
+    laugh: task._count.laugh || 0,
+    angry: task._count.angry || 0,
+    wow: task._count.wow || 0,
+    sad: task._count.sad || 0,
+    userLike: task._count.userLike,
+  };
+  return { ...summary, total: summary.like + summary.love + summary.laugh + summary.angry + summary.wow + summary.sad };
+};
+
 const TaskFeedCard: React.FC<TaskFeedCardProps> = ({
   task,
   likeSummary,
@@ -162,8 +176,6 @@ const PostsPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [taskLikeSummaries, setTaskLikeSummaries] = useState<Record<string, TaskLikeSummary>>({});
   const [isSearching, setIsSearching] = useState(false);
-  const [topPerformers, setTopPerformers] = useState<any[]>([]);
-  const [userRank, setUserRank] = useState<UserRank | null>(null);
   const [doneDialogOpen, setDoneDialogOpen] = useState(false);
   const [doneTaskData, setDoneTaskData] = useState<{ task: Task; newRank: UserRank } | null>(null);
   const [undoneDialogOpen, setUndoneDialogOpen] = useState(false);
@@ -195,51 +207,32 @@ const PostsPage = () => {
   const { user } = useAppSelector((state) => state.auth);
   const queryClient = useQueryClient();
 
-  // Fetch assigned tasks
-  const { data: assignedTasks, isLoading: tasksLoading, error: tasksError } = useQuery({
-    queryKey: ['assigned-tasks', user?.userId],
-    queryFn: () => taskApi.getTasksAssignedToMe(),
-    enabled: !!user?.userId,
-  });
-
-  const { data: linkedTask } = useQuery({
-    queryKey: ['task', taskId],
-    queryFn: () => taskApi.getTaskById(taskId!),
-    enabled: Boolean(taskId),
-  });
-
   // Fetch all completed tasks for the feed
   const { data: allTasksResponse, isLoading: allTasksLoading, error: allTasksError, refetch: refetchAllTasks } = useQuery({
-    queryKey: ['all-tasks'],
-    queryFn: () => taskApi.getTasks({ status: 'done', includeStats: true }),
-  });
-
-  // Fetch top performers
-  const { data: topPerformersData } = useQuery({
-    queryKey: ['top-performers'],
-    queryFn: () => taskApi.getTopPerformers(5),
-  });
-
-  // Fetch current user's rank
-  const { data: userRankData } = useQuery({
-    queryKey: ['user-rank', user?.userId],
-    queryFn: () => taskApi.getMyRank(),
-    enabled: !!user?.userId,
+    queryKey: ['all-tasks', activeTab, user?.userId],
+    queryFn: () => taskApi.getTasks({
+      status: 'done',
+      assignedTo: activeTab === 1 ? user?.userId : undefined,
+      limit: 30,
+    }),
+    enabled: activeTab === 0 || Boolean(user?.userId),
+    staleTime: 30_000,
   });
 
   // Fetch users for assignment dropdown
   const { data: users = [] } = useQuery({
     queryKey: ['users'],
     queryFn: userApi.getUsers,
+    enabled: taskDialogOpen,
   });
 
   // Fetch tasks with search - only when explicitly searching
   const { data: searchResults, isLoading: searchLoading } = useQuery({
-    queryKey: ['search-tasks', searchQuery],
+    queryKey: ['search-tasks', searchQuery, activeTab, user?.userId],
     queryFn: () => taskApi.getTasks({ 
       search: searchQuery, 
       status: 'done', 
-      includeStats: true,
+      assignedTo: activeTab === 1 ? user?.userId : undefined,
       limit: 30 
     }),
     enabled: false, // Disabled by default - only enable when search button is clicked
@@ -288,8 +281,6 @@ const PostsPage = () => {
       });
       queryClient.invalidateQueries({ queryKey: ['all-tasks'] });
       queryClient.invalidateQueries({ queryKey: ['assigned-tasks'] });
-      queryClient.invalidateQueries({ queryKey: ['top-performers'] });
-      queryClient.invalidateQueries({ queryKey: ['user-rank'] });
     },
   });
 
@@ -301,8 +292,6 @@ const PostsPage = () => {
       setUndoneDialogOpen(true);
       queryClient.invalidateQueries({ queryKey: ['all-tasks'] });
       queryClient.invalidateQueries({ queryKey: ['assigned-tasks'] });
-      queryClient.invalidateQueries({ queryKey: ['top-performers'] });
-      queryClient.invalidateQueries({ queryKey: ['user-rank'] });
     },
   });
 
@@ -313,8 +302,6 @@ const PostsPage = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['all-tasks'] });
       queryClient.invalidateQueries({ queryKey: ['assigned-tasks'] });
-      queryClient.invalidateQueries({ queryKey: ['top-performers'] });
-      queryClient.invalidateQueries({ queryKey: ['user-rank'] });
     },
   });
 
@@ -329,8 +316,6 @@ const PostsPage = () => {
       // Invalidate queries to refresh data
       queryClient.invalidateQueries({ queryKey: ['all-tasks'] });
       queryClient.invalidateQueries({ queryKey: ['assigned-tasks'] });
-      queryClient.invalidateQueries({ queryKey: ['top-performers'] });
-      queryClient.invalidateQueries({ queryKey: ['user-rank'] });
     },
   });
 
@@ -368,73 +353,17 @@ const PostsPage = () => {
     return () => window.removeEventListener('followmee:reaction-updated', handleRealtimeReaction);
   }, []);
 
-  // Update top performers when data changes
-  useEffect(() => {
-    if (topPerformersData) {
-      setTopPerformers(topPerformersData);
-    }
-  }, [topPerformersData]);
-
-  // Update user rank when data changes
-  useEffect(() => {
-    if (userRankData) {
-      setUserRank(userRankData);
-    }
-  }, [userRankData]);
-
-  // Load like summaries for visible tasks
-  useEffect(() => {
-    const tasks = isSearching ? searchResults?.tasks : (activeTab === 0 ? assignedTasks : allTasksResponse?.tasks);
-    tasks?.forEach(task => {
-      if (!taskLikeSummaries[task.taskId]) {
-        fetchLikeSummary(task.taskId);
-      }
-    });
-  }, [assignedTasks, allTasksResponse, searchResults, activeTab, taskLikeSummaries, isSearching]);
-
-  // Handle navigation from dashboard (when taskId is in URL)
-  useEffect(() => {
-    if (taskId) {
-      // Switch to the appropriate tab based on task status
-      const allTasks = [linkedTask, ...(assignedTasks || []), ...(allTasksResponse?.tasks || [])]
-        .filter((task): task is Task => Boolean(task));
-      const targetTask = allTasks.find(t => t.taskId === taskId);
-      
-      if (targetTask) {
-        // Switch to the correct tab
-        if (targetTask.assignedTo === user?.userId) {
-          setActiveTab(0); // My Tasks tab
-        } else {
-          setActiveTab(1); // Team Feed tab
-        }
-        
-        // Scroll to the task after a short delay to ensure rendering
-        setTimeout(() => {
-          const taskElement = document.querySelector(`[data-task-id="${taskId}"]`);
-          if (taskElement) {
-            taskElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            // Add a highlight effect
-            taskElement.classList.add('highlight-task');
-            setTimeout(() => {
-              taskElement.classList.remove('highlight-task');
-            }, 2000);
-          }
-        }, 500);
-      }
-    }
-  }, [taskId, linkedTask, assignedTasks, allTasksResponse, user?.userId]);
-
   // Search handlers
   const handleSearch = async () => {
     if (searchQuery.trim()) {
       setIsSearching(true);
       // Manually trigger the search query
       await queryClient.fetchQuery({
-        queryKey: ['search-tasks', searchQuery],
+        queryKey: ['search-tasks', searchQuery, activeTab, user?.userId],
         queryFn: () => taskApi.getTasks({ 
           search: searchQuery, 
           status: 'done', 
-          includeStats: true,
+          assignedTo: activeTab === 1 ? user?.userId : undefined,
           limit: 30 
         }),
       });
@@ -622,20 +551,11 @@ const PostsPage = () => {
 
   const bookedDates = getBookedDates(editingTask);
 
-  const assignedTasksList = (() => {
-    const completed = (assignedTasks || []).filter((task) => task.status === 'done');
-    if (!taskId || !linkedTask || completed.some(task => task.taskId === linkedTask.taskId)) return completed;
-    return [linkedTask, ...completed];
-  })();
-  const completedTasksList = (() => {
-    const completed = isSearching ? (searchResults?.tasks || []) : (allTasksResponse?.tasks || []);
-    if (!taskId || !linkedTask || completed.some(task => task.taskId === linkedTask.taskId)) return completed;
-    return [linkedTask, ...completed];
-  })();
+  const completedTasksList = isSearching ? (searchResults?.tasks || []) : (allTasksResponse?.tasks || []);
 
   const tabs = [
-    { label: t('activity.myTab'), key: 'assigned' },
-    { label: t('activity.teamTab'), key: 'feed' },
+    { label: t('activity.allFilter'), key: 'all' },
+    { label: t('activity.mineFilter'), key: 'mine' },
   ];
 
   return (
@@ -661,7 +581,7 @@ const PostsPage = () => {
           {t('activity.subtitle')}
         </Typography>
         <Chip 
-          label={t('activity.completedByYou', { count: assignedTasksList.length })}
+          label={t('activity.approvedCount', { count: completedTasksList.length })}
           size="small"
           sx={{
             bgcolor: 'action.selected',
@@ -674,192 +594,6 @@ const PostsPage = () => {
           }}
         />
       </Box>
-
-      {/* Top Performers Section - Liquid Glass */}
-      {topPerformers.length > 0 && (
-        <Box sx={{ mb: 4 }}>
-          <Box display="flex" alignItems="center" gap={1} mb={2}>
-            <TrophyIcon 
-              sx={{ 
-                color: 'primary.main',
-                fontSize: 28 
-              }} 
-            />
-            <Typography 
-              variant="h6" 
-              fontWeight="bold"
-              sx={{ color: getTextColor('primary') }}
-            >
-              {t('activity.teamProgress')}
-            </Typography>
-          </Box>
-          
-          <Grid container spacing={2}>
-            {topPerformers.slice(0, 3).map((performer, index) => (
-              <Grid size={{ xs: 12, sm: 6, md: 4 }} key={performer.userId}>
-                <Box
-                  sx={{
-                    p: 2.5,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 2,
-                    borderRadius: 2,
-                    backgroundColor: 'background.paper',
-                    border: '1px solid',
-                    borderColor: 'divider',
-                    boxShadow: 'none',
-                    borderTop: index === 0 
-                      ? '3px solid #FFD700' 
-                      : index === 1 
-                        ? '3px solid #C0C0C0' 
-                        : index === 2 
-                          ? '3px solid #CD7F32' 
-                          : 'none',
-                  }}
-                >
-                  <Typography 
-                    variant="h4" 
-                    fontWeight="bold"
-                    sx={{
-                      color: index === 0 ? '#9A7200' : index === 1 ? '#6B7280' : '#9A5B2E',
-                    }}
-                  >
-                    #{index + 1}
-                  </Typography>
-                  <Box flex={1} minWidth={0}>
-                    <Typography 
-                      variant="subtitle1" 
-                      fontWeight="medium"
-                      sx={{ 
-                        color: getTextColor('primary'),
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis'
-                      }}
-                    >
-                      {performer.userName} {performer.userLastName}
-                    </Typography>
-                    <Typography 
-                      variant="body2" 
-                      sx={{ color: getTextColor('secondary') }}
-                    >
-                      {t('activity.completedPoints', { count: performer.completedTasks, points: performer.score || performer.completedTasks * 10 })}
-                    </Typography>
-                  </Box>
-                </Box>
-              </Grid>
-            ))}
-          </Grid>
-        </Box>
-      )}
-
-      {/* Top Performers Loading State - Liquid Glass */}
-      {!topPerformers.length && !topPerformersData && (
-        <Box sx={{ mb: 4 }}>
-          <Box display="flex" alignItems="center" gap={1} mb={2}>
-            <TrophyIcon sx={{ color: 'primary.main', fontSize: 28 }} />
-            <Typography variant="h6" fontWeight="bold" sx={{ color: getTextColor('primary') }}>
-              {t('activity.topPerformers')}
-            </Typography>
-          </Box>
-          <Grid container spacing={2}>
-            {[1, 2, 3].map((index) => (
-              <Grid size={{ xs: 12, sm: 6, md: 4 }} key={index}>
-                <Box
-                  sx={{
-                    p: 2,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 2,
-                    borderRadius: 2,
-                    backgroundColor: 'background.paper',
-                    border: '1px solid',
-                    borderColor: 'divider',
-                    boxShadow: 'none',
-                  }}
-                >
-                  <CircularProgress size={28} />
-                  <Box flex={1}>
-                    <Typography variant="subtitle1" fontWeight="medium" sx={{ color: getTextColor('primary') }}>
-                      {t('common.loading')}
-                    </Typography>
-                    <Typography variant="body2" sx={{ color: getTextColor('secondary') }}>
-                      {t('activity.calculating')}
-                    </Typography>
-                  </Box>
-                </Box>
-              </Grid>
-            ))}
-          </Grid>
-        </Box>
-      )}
-
-      {/* Current User's Rank - Liquid Glass */}
-      {userRank && (
-        <Box sx={{ mb: 4 }}>
-          <Box display="flex" alignItems="center" gap={1} mb={2}>
-            <TrophyIcon 
-              sx={{ 
-                color: 'primary.main',
-                fontSize: 28 
-              }} 
-            />
-            <Typography 
-              variant="h6" 
-              fontWeight="bold"
-              sx={{ color: getTextColor('primary') }}
-            >
-              {t('activity.completionSummary')}
-            </Typography>
-          </Box>
-          <Box
-            sx={{
-              p: 4,
-              textAlign: 'center',
-              borderRadius: 3,
-              backgroundColor: 'background.paper',
-              border: '1px solid',
-              borderColor: 'divider',
-              boxShadow: 'none',
-              position: 'relative',
-              overflow: 'hidden',
-            }}
-          >
-            <Typography variant="h3" fontWeight="bold" color="text.primary">
-              {userRank.completedTasks}
-            </Typography>
-            <Typography color="text.secondary" sx={{ mb: 1 }}>{t('activity.tasksCompleted')}</Typography>
-            <Typography variant="subtitle2" color="primary.main" sx={{ mb: 1 }}>
-              {t('activity.verifiedPoints', { count: userRank.score || 0 })}
-            </Typography>
-            <Typography 
-              variant="h6" 
-              mb={1}
-              sx={{ color: getTextColor('primary') }}
-            >
-              {user?.userName} {user?.userLastName}
-            </Typography>
-            <Typography 
-              variant="body1" 
-              sx={{ color: getTextColor('secondary') }}
-            >
-              {t('activity.teamPosition', { rank: userRank.rank, total: userRank.totalUsers })}
-            </Typography>
-            {userRank.rank > 3 && (
-              <Typography 
-                variant="body2" 
-                sx={{ 
-                  mt: 2,
-                  color: 'primary.main',
-                  fontWeight: 500,
-                }}
-              >
-                {t('activity.positionHint')}
-              </Typography>
-            )}
-          </Box>
-        </Box>
-      )}
 
       {/* Liquid Glass Search Section */}
       <Box sx={{ mb: 3 }}>
@@ -979,100 +713,36 @@ const PostsPage = () => {
       </Box>
 
       {/* Error Display */}
-      {(tasksError || allTasksError) && (
+      {allTasksError && (
         <Alert severity="error" sx={{ mb: 2 }}>
           Failed to load tasks. Please try again.
         </Alert>
       )}
 
-      {/* Task Lists */}
-      <TabPanel value={activeTab} index={0}>
-        {/* My Tasks Tab */}
-        {tasksLoading ? (
-          <Box display="flex" justifyContent="center" p={4}>
-            <CircularProgress />
-          </Box>
-        ) : (
-          <Grid container spacing={2}>
-            {assignedTasksList.length === 0 ? (
-              <Grid size={{ xs: 12 }}>
-                <Box textAlign="center" py={4}>
-                  <Typography variant="h6" color="text.secondary">
-                    No approved work from you yet
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Completed tasks appear here after the task owner approves them.
-                  </Typography>
-                </Box>
-              </Grid>
-            ) : (
-              assignedTasksList.map((task) => (
-                <Grid size={{ xs: 12 }} key={task.taskId}>
-                  <TaskFeedCard
-                    task={task}
-                    likeSummary={taskLikeSummaries[task.taskId]}
-                    onEdit={handleEditTask}
-                    onLike={handleLike}
-                    onUnlike={handleUnlike}
-                    onComment={handleComment}
-                    onMarkDone={handleMarkTaskDone}
-                    onMarkUndone={handleMarkTaskUndone}
-                    onApproveTask={handleApproveTask}
-                    onStartProgress={handleStartProgress}
-                    onCancel={handleCancelTask}
-                    onUpdateTaskStatus={handleUpdateTaskStatus}
-                  />
-                </Grid>
-              ))
-            )}
-          </Grid>
-        )}
-      </TabPanel>
-
-      <TabPanel value={activeTab} index={1}>
-        {/* Team Feed Tab */}
-        {isSearching ? (
-          <Box display="flex" justifyContent="center" p={4}>
-            <CircularProgress />
-          </Box>
-        ) : allTasksLoading && !isSearching ? (
-          <Box display="flex" justifyContent="center" p={4}>
-            <CircularProgress />
-          </Box>
-        ) : (
-          <Grid container spacing={2}>
-            {completedTasksList.length === 0 ? (
-              <Grid size={{ xs: 12 }}>
-                <Box textAlign="center" py={4}>
-                  <Typography variant="h6" color="text.secondary">
-                    {isSearching ? 'No tasks found matching your search' : 'No completed tasks yet'}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {isSearching ? 'Try different keywords or clear the search to see all tasks' : 'Approved work will appear here for the team to recognize and discuss.'}
-                  </Typography>
-                </Box>
-              </Grid>
-            ) : (
-              completedTasksList.map((task) => (
-                <Grid size={{ xs: 12 }} key={task.taskId}>
-                  <TaskFeedCard
-                    task={task}
-                    likeSummary={taskLikeSummaries[task.taskId]}
-                    onEdit={handleEditTask}
-                    onLike={handleLike}
-                    onUnlike={handleUnlike}
-                    onComment={handleComment}
-                    onMarkDone={handleMarkTaskDone}
-                    onMarkUndone={handleMarkTaskUndone}
-                    onApproveTask={handleApproveTask}
-                    onUpdateTaskStatus={handleUpdateTaskStatus}
-                  />
-                </Grid>
-              ))
-            )}
-          </Grid>
-        )}
-      </TabPanel>
+      {searchLoading || allTasksLoading ? (
+        <Box display="flex" justifyContent="center" p={4}><CircularProgress /></Box>
+      ) : (
+        <Grid container spacing={2}>
+          {completedTasksList.length === 0 ? (
+            <Grid size={{ xs: 12 }}>
+              <Box textAlign="center" py={6}>
+                <Typography variant="h6" color="text.secondary">{t('activity.emptyTitle')}</Typography>
+                <Typography variant="body2" color="text.secondary">{t('activity.emptyHint')}</Typography>
+              </Box>
+            </Grid>
+          ) : completedTasksList.map((task) => (
+            <Grid size={{ xs: 12 }} key={task.taskId}>
+              <TaskFeedCard
+                task={task}
+                likeSummary={taskLikeSummaries[task.taskId] || getEmbeddedLikeSummary(task)}
+                onLike={handleLike}
+                onUnlike={handleUnlike}
+                onComment={handleComment}
+              />
+            </Grid>
+          ))}
+        </Grid>
+      )}
       
       {/* Task Done Success Dialog */}
       <Dialog
@@ -1210,20 +880,22 @@ const PostsPage = () => {
         onSave={async (taskData: any) => {
           try {
             // Handle date conversion for backend
+            const { dueDateRange, createdAt, updatedAt, ...editableTaskData } = taskData;
             const dataToSave = {
-              ...taskData,
+              ...editableTaskData,
               // Handle date range - convert Date objects to ISO strings
-              startDate: taskData.dueDateRange?.[0] ? taskData.dueDateRange[0].toISOString() : taskData.startDate || null,
-              endDate: taskData.dueDateRange?.[1] ? taskData.dueDateRange[1].toISOString() : taskData.endDate || null,
+              startDate: dueDateRange?.[0] ? dueDateRange[0].toISOString() : taskData.startDate || null,
+              endDate: dueDateRange?.[1] ? dueDateRange[1].toISOString() : taskData.endDate || null,
               // Keep dueDate for backward compatibility (single date)
-              dueDate: (!taskData.dueDateRange?.[0] && !taskData.startDate) ?
+              dueDate: (!dueDateRange?.[0] && !taskData.startDate) ?
                 (taskData.dueDate instanceof Date ? taskData.dueDate.toISOString() : taskData.dueDate) : null
             };
 
             if (editingTask) {
+              const { status, ...editableData } = dataToSave;
               await updateTaskMutation.mutateAsync({
                 taskId: editingTask.taskId,
-                data: dataToSave as UpdateTaskData
+                data: status === editingTask.status ? editableData as UpdateTaskData : dataToSave as UpdateTaskData
               });
             } else {
               await createTaskMutation.mutateAsync(dataToSave as any);

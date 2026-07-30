@@ -9,7 +9,7 @@ import App from './App';
 import { store } from './store/store';
 import { CustomThemeProvider } from './contexts/ThemeContext';
 import { LiquidGlassProvider } from './contexts/LiquidGlassContext';
-import FeedbackProvider from './components/FeedbackProvider/FeedbackProvider';
+import FollowMeeFeedbackProvider from './components/FeedbackProvider/FollowMeeFeedbackProvider';
 import { UserPreferencesProvider } from './contexts/UserPreferencesContext';
 
 // Create a client
@@ -32,11 +32,11 @@ createRoot(rootElement).render(
         <LiquidGlassProvider>
           <UserPreferencesProvider>
             <CustomThemeProvider>
-              <FeedbackProvider>
-                <Router>
+              <Router>
+                <FollowMeeFeedbackProvider>
                   <App />
-                </Router>
-              </FeedbackProvider>
+                </FollowMeeFeedbackProvider>
+              </Router>
             </CustomThemeProvider>
           </UserPreferencesProvider>
         </LiquidGlassProvider>

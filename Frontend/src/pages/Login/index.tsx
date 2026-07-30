@@ -27,6 +27,7 @@ import {
   selectAuthError,
   selectAuthLoading,
   selectIsAuthenticated,
+  selectCurrentUser,
 } from '../../store/slices/authSlice';
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import { useUserPreferences } from '../../contexts/UserPreferencesContext';
@@ -43,6 +44,7 @@ export default function LoginPage() {
   const loading = useSelector(selectAuthLoading);
   const error = useSelector(selectAuthError);
   const isAuthenticated = useSelector(selectIsAuthenticated);
+  const currentUser = useSelector(selectCurrentUser);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -61,9 +63,9 @@ export default function LoginPage() {
   useEffect(() => {
     if (isAuthenticated) {
       setAttempts(0);
-      navigate('/dashboard');
+      navigate(currentUser?.roles?.some((role) => ['Admin', 'Superadmin'].includes(role)) ? '/dashboard' : '/my-work');
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, navigate, currentUser]);
 
   /* ================= Handlers ================= */
   const handleSubmit = async (e: React.FormEvent) => {

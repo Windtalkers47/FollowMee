@@ -72,9 +72,6 @@ const handleSubmit = async (e: React.FormEvent) => {
       icon: 'error',
       title: t('auth.reset.mismatchTitle'),
       text: t('validation.passwordMismatch'),
-      customClass: {
-        popup: 'swal2-error-dialog'
-      }
     });
     return;
   }
@@ -84,9 +81,6 @@ const handleSubmit = async (e: React.FormEvent) => {
       icon: 'error',
       title: t('auth.reset.shortTitle'),
       text: t('validation.passwordMin'),
-      customClass: {
-        popup: 'swal2-error-dialog'
-      }
     });
     return;
   }
@@ -118,9 +112,6 @@ const handleSubmit = async (e: React.FormEvent) => {
         icon: 'error',
         title: t('auth.reset.failedTitle'),
         text: responseData.message || t('auth.reset.failedText'),
-        customClass: {
-          popup: 'swal2-error-dialog'
-        }
       });
       throw new Error(responseData.message || t('auth.reset.failedText'));
     }
@@ -131,9 +122,6 @@ const handleSubmit = async (e: React.FormEvent) => {
       text: t('auth.reset.successText'),
       timer: 3000,
       timerProgressBar: true,
-      customClass: {
-        popup: 'swal2-success-dialog'
-      }
     });
     
     navigate('/login');
@@ -143,9 +131,6 @@ const handleSubmit = async (e: React.FormEvent) => {
       icon: 'error',
       title: t('auth.reset.failedTitle'),
       text: error.message || t('auth.reset.failedText'),
-      customClass: {
-        popup: 'swal2-error-dialog'
-      }
     });
   } finally {
     setIsLoading(false);

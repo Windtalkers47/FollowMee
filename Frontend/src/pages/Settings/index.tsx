@@ -75,9 +75,9 @@ const SettingsPage = () => {
   const savePreference = async (action: () => Promise<void>) => {
     try {
       await action();
-      await feedback.fire({ icon: 'success', title: t('settings.saved'), toast: true, timer: 2200 });
+      await feedback.success({ title: t('settings.saved'), duration: 2200, dedupeKey: 'settings-saved' });
     } catch {
-      await feedback.fire({ icon: 'error', title: t('settings.saveError'), toast: true, timer: 4200 });
+      await feedback.error({ title: t('settings.saveError'), duration: 4200, dedupeKey: 'settings-save-error' });
     }
   };
 

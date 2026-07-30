@@ -1,6 +1,7 @@
 import React from 'react';
 import { Box, Typography } from '@mui/material';
 import { Task } from '../../api/task.api';
+import { getResponsiveImageProps } from '../../utils/imageUtils';
 
 interface TaskImageProps {
   task: Task;
@@ -24,7 +25,7 @@ const TaskImage: React.FC<TaskImageProps> = ({ task, onImageClick }) => {
     >
       <Box
         component="img"
-        src={task.imageUrl}
+        {...getResponsiveImageProps(task.imageUrl, '(max-width: 600px) 100vw, 640px')}
         alt={task.title}
         sx={{
           width: '100%',

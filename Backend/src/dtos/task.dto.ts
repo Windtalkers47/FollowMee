@@ -144,6 +144,13 @@ export class BulkAssignDto {
   assignedTo?: number;
 }
 
+export class RequestTaskChangesDto {
+  @IsString()
+  @IsNotEmpty()
+  @Length(1, 1000)
+  reason!: string;
+}
+
 // ==================== Priority Summary DTO ====================
 
 export class PrioritySummaryResponseDto {

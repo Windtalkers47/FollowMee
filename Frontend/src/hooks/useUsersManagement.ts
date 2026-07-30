@@ -14,6 +14,7 @@ export interface User {
   updatedAt: Date;
   fullName: string;
   roles: string[];
+  role?: { roleId: number; roleName: string };
   permissions: string[];
 }
 
@@ -36,12 +37,22 @@ export interface ApiResponse<T> {
   message?: string;
 }
 
+interface ManagedUserPayload extends Omit<User, 'roles'> {
+  roles: Array<string | { roleId: number; roleName: string }>;
+}
+
+const normalizeManagedUser = (user: ManagedUserPayload): User => ({
+  ...user,
+  roles: (user.roles || []).map((role) => typeof role === 'string' ? role : role.roleName),
+});
+
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 export const useUsersManagement = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
   const [loading, setLoading] = useState(false);
+  const [assigningRole, setAssigningRole] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchUsers = async () => {
@@ -50,6 +61,7 @@ export const useUsersManagement = () => {
     try {
       const response = await fetch(`${API_BASE_URL}/user-management/users`, {
         credentials: 'include',
+        cache: 'no-store',
         headers: {
           'Content-Type': 'application/json',
         },
@@ -59,10 +71,10 @@ export const useUsersManagement = () => {
         throw new Error(`Failed to fetch users: ${response.statusText}`);
       }
 
-      const result: ApiResponse<User[]> = await response.json();
+      const result: ApiResponse<ManagedUserPayload[]> = await response.json();
 
       if (result.success) {
-        setUsers(result.data);
+        setUsers(result.data.map(normalizeManagedUser));
       } else {
         throw new Error(result.message || 'Failed to fetch users');
       }
@@ -88,10 +100,10 @@ export const useUsersManagement = () => {
         throw new Error(`Failed to fetch user: ${response.statusText}`);
       }
 
-      const result: ApiResponse<UserWithRolesResponse> = await response.json();
+      const result: ApiResponse<ManagedUserPayload> = await response.json();
 
       if (result.success) {
-        return result.data;
+        return normalizeManagedUser(result.data);
       } else {
         throw new Error(result.message || 'Failed to fetch user');
       }
@@ -126,10 +138,11 @@ export const useUsersManagement = () => {
     }
   };
 
-  const assignRoleToUser = async (userId: number, roleId: number): Promise<boolean> => {
+  const assignRoleToUser = async (userId: number, roleId: number): Promise<User | null> => {
+    setAssigningRole(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/user-management/users/assign-role`, {
-        method: 'POST',
+      const response = await fetch(`${API_BASE_URL}/user-management/users/${userId}/role`, {
+        method: 'PUT',
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
@@ -141,12 +154,13 @@ export const useUsersManagement = () => {
         throw new Error(`Failed to assign role: ${response.statusText}`);
       }
 
-      const result: ApiResponse<any> = await response.json();
+      const result: ApiResponse<ManagedUserPayload> = await response.json();
 
       if (result.success) {
-        // Refresh users list
-        await fetchUsers();
-        return true;
+        const updated = normalizeManagedUser(result.data);
+        setUsers((current) => current.map((user) => user.userId === updated.userId ? updated : user));
+        void fetchUsers();
+        return updated;
       } else {
         throw new Error(result.message || 'Failed to assign role');
       }
@@ -154,7 +168,9 @@ export const useUsersManagement = () => {
       console.error('Error assigning role:', err);
       const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
       setError(errorMessage);
-      return false;
+      return null;
+    } finally {
+      setAssigningRole(false);
     }
   };
 
@@ -228,6 +244,7 @@ export const useUsersManagement = () => {
     users,
     roles,
     loading,
+    assigningRole,
     error,
     fetchUsers,
     fetchUserWithRoles,

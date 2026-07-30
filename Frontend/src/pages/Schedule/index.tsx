@@ -48,6 +48,7 @@ import { useSelectionKeyboard } from '../../hooks/useSelectionKeyboard';
 import toast from '../../utils/toast';
 import { taskStatusTokens } from '../../styles/designTokens';
 import { useUserPreferences } from '../../contexts/UserPreferencesContext';
+import { isAllowedTaskTransition } from '../../utils/taskWorkflow';
 
 /* ================== Types ================== */
 type TabPanelProps = {
@@ -83,17 +84,6 @@ const SchedulePage = () => {
   // Multi-select hook - using taskId as id
   const multiSelect = useMultiSelect<{ id: string }>();
   
-  // Debug log
-  React.useEffect(() => {
-    console.log('[Schedule] multiSelect changed:', {
-      isSelectionMode: multiSelect.isSelectionMode,
-      selectedCount: multiSelect.selectedCount,
-      selectedIds: Array.from(multiSelect.selectedIds),
-      toggleSelect: typeof multiSelect.toggleSelect,
-      enterSelectionMode: typeof multiSelect.enterSelectionMode
-    });
-  }, [multiSelect.isSelectionMode, multiSelect.selectedCount, multiSelect.toggleSelect]);
-
   // Auto Scroll to Task Cards when entering Selection Mode
   React.useEffect(() => {
     if (multiSelect.isSelectionMode) {
@@ -166,10 +156,26 @@ const SchedulePage = () => {
     }),
   });
 
+  const getValidBulkTaskIds = (status: Task['status']) => {
+    const selectedTaskIds = Array.from(multiSelect.selectedIds);
+    const selectedTasks = selectedTaskIds
+      .map(taskId => tasksResponse?.tasks.find(task => task.taskId === taskId))
+      .filter((task): task is Task => Boolean(task));
+    const validIds = selectedTasks
+      .filter(task => isAllowedTaskTransition(task, status))
+      .map(task => task.taskId);
+    const skipped = selectedTaskIds.length - validIds.length;
+    if (skipped > 0) {
+      toast.warning(`${skipped} task(s) cannot move to ${status.replace('_', ' ')} and were skipped.`);
+    }
+    return validIds;
+  };
+
   // Fetch users
   const { data: users = [] } = useQuery({
     queryKey: ['users'],
     queryFn: userApi.getUsers,
+    enabled: taskDialogOpen,
   });
 
   const bookedDates = getBookedDates(editingTask);
@@ -177,18 +183,34 @@ const SchedulePage = () => {
   // Mutations
   const createTaskMutation = useMutation({
     mutationFn: (data: CreateTaskData) => taskApi.createTask(data),
-    onSuccess: () => {
+    onSuccess: (createdTask) => {
+      if (createdTask.assignedTo === user?.userId && ['todo', 'in_progress', 'review'].includes(createdTask.status)) {
+        queryClient.setQueryData(['my-work', user?.userId], (current: any) => current ? { ...current, items: [createdTask, ...current.items] } : current);
+      }
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
       queryClient.invalidateQueries({ queryKey: ['prioritySummary'] });
+      queryClient.invalidateQueries({ queryKey: ['my-work', user?.userId] });
+      toast.success(t('myWork.updated'));
     },
   });
 
   const updateTaskMutation = useMutation({
     mutationFn: ({ taskId, data }: { taskId: string; data: UpdateTaskData }) =>
       taskApi.updateTask(taskId, data),
-    onSuccess: () => {
+    onSuccess: (updatedTask) => {
+      queryClient.setQueryData(['my-work', user?.userId], (current: any) => {
+        if (!current) return current;
+        const active = ['todo', 'in_progress', 'review'].includes(updatedTask.status);
+        const items = current.items.filter((task: Task) => task.taskId !== updatedTask.taskId);
+        if (active && (updatedTask.assignedTo === user?.userId || (updatedTask.createdBy === user?.userId && updatedTask.status === 'review'))) {
+          items.unshift(updatedTask);
+        }
+        return { ...current, items };
+      });
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
       queryClient.invalidateQueries({ queryKey: ['prioritySummary'] });
+      queryClient.invalidateQueries({ queryKey: ['my-work', user?.userId] });
+      toast.success(t('myWork.updated'));
     },
   });
 
@@ -379,6 +401,17 @@ const SchedulePage = () => {
   };
 
   const handleUpdateTaskStatus = async (taskId: string, status: Task['status']) => {
+    const task = tasksResponse?.tasks.find(item => item.taskId === taskId);
+    if (task && !isAllowedTaskTransition(task, status)) {
+      await feedback.fire({
+        title: t('task.invalidTransitionTitle'),
+        text: t('task.invalidTransitionText'),
+        icon: 'warning',
+        timer: 2200,
+        showConfirmButton: false,
+      });
+      return;
+    }
     try {
       await updateTaskMutation.mutateAsync({ 
         taskId, 
@@ -401,10 +434,11 @@ const SchedulePage = () => {
         timer: 2000,
         showConfirmButton: false
       });
-    } catch (error) {
+    } catch (error: any) {
+      const apiError = error?.response?.data;
       await feedback.fire({
-        title: t('common.error'),
-        text: t('task.statusUpdateFailed'),
+        title: apiError?.code === 'INVALID_TASK_TRANSITION' ? t('task.invalidTransitionTitle') : t('common.error'),
+        text: apiError?.code === 'INVALID_TASK_TRANSITION' ? t('task.invalidTransitionText') : t('task.statusUpdateFailed'),
         icon: 'error',
         timer: 2000,
         showConfirmButton: false
@@ -538,27 +572,42 @@ const SchedulePage = () => {
         break;
 
       case 'done':
-        bulkUpdate({ taskIds: selectedTaskIds, status: 'done' });
+        {
+          const validIds = getValidBulkTaskIds('done');
+          if (validIds.length > 0) bulkUpdate({ taskIds: validIds, status: 'done' });
+        }
         break;
 
       case 'start':
-        bulkUpdate({ taskIds: selectedTaskIds, status: 'in_progress' });
+        {
+          const validIds = getValidBulkTaskIds('in_progress');
+          if (validIds.length > 0) bulkUpdate({ taskIds: validIds, status: 'in_progress' });
+        }
         break;
 
       case 'todo':
-        bulkUpdate({ taskIds: selectedTaskIds, status: 'todo' });
+        {
+          const validIds = getValidBulkTaskIds('todo');
+          if (validIds.length > 0) bulkUpdate({ taskIds: validIds, status: 'todo' });
+        }
         break;
 
       case 'draft':
-        bulkUpdate({ taskIds: selectedTaskIds, status: 'draft' });
+        toast.warning(t('task.invalidTransitionText'));
         break;
 
       case 'review':
-        bulkUpdate({ taskIds: selectedTaskIds, status: 'review' });
+        {
+          const validIds = getValidBulkTaskIds('review');
+          if (validIds.length > 0) bulkUpdate({ taskIds: validIds, status: 'review' });
+        }
         break;
 
       case 'cancel':
-        bulkUpdate({ taskIds: selectedTaskIds, status: 'cancelled' });
+        {
+          const validIds = getValidBulkTaskIds('cancelled');
+          if (validIds.length > 0) bulkUpdate({ taskIds: validIds, status: 'cancelled' });
+        }
         break;
 
       case 'assign':
@@ -829,7 +878,7 @@ const SchedulePage = () => {
                 <Box sx={{ px: { xs: 2, sm: 3, md: 4 } }}>
                   <Grid container spacing={{ xs: 2, sm: 3, md: 3 }}>
                     {groupedTasks[tab.key].map((task) => (
-                      <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={task.taskId}>
+                      <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4, xl: 3 }} key={task.taskId}>
                         <ScheduleTaskCard
                           task={task}
                           likeSummary={taskLikeSummaries[task.taskId]}
@@ -876,16 +925,19 @@ const SchedulePage = () => {
         }}
         onSave={async (taskData: any) => {
           try {
+            const { dueDateRange, createdAt, updatedAt, ...editableTaskData } = taskData;
             const dataToSave = {
-              ...taskData,
-              startDate: taskData.dueDateRange?.[0] ? taskData.dueDateRange[0].toISOString() : taskData.startDate || null,
-              endDate: taskData.dueDateRange?.[1] ? taskData.dueDateRange[1].toISOString() : taskData.endDate || null,
-              dueDate: (!taskData.dueDateRange?.[0] && !taskData.startDate) ? 
+              ...editableTaskData,
+              startDate: dueDateRange?.[0] ? dueDateRange[0].toISOString() : taskData.startDate || null,
+              endDate: dueDateRange?.[1] ? dueDateRange[1].toISOString() : taskData.endDate || null,
+              dueDate: (!dueDateRange?.[0] && !taskData.startDate) ?
                 (taskData.dueDate instanceof Date ? taskData.dueDate.toISOString() : taskData.dueDate) : null
             };
             
             if (editingTask) {
-              await updateTaskMutation.mutateAsync({ taskId: editingTask.taskId, data: dataToSave as UpdateTaskData });
+              const { status, ...editableData } = dataToSave;
+              const updateData = status === editingTask.status ? editableData : dataToSave;
+              await updateTaskMutation.mutateAsync({ taskId: editingTask.taskId, data: updateData as UpdateTaskData });
             } else {
               await createTaskMutation.mutateAsync(dataToSave as CreateTaskData);
             }

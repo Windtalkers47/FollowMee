@@ -85,8 +85,8 @@ export const CustomThemeProvider = ({ children }: { children: ReactNode }) => {
         warning: { main: isDark ? brandColors.amberDark : brandColors.amber },
         error: { main: isDark ? brandColors.redDark : brandColors.red },
         background: {
-          default: isDark ? '#0D1110' : '#F4F8F5',
-          paper: isDark ? '#171C1A' : '#FFFFFF',
+          default: isDark ? '#121A17' : '#F4F8F5',
+          paper: isDark ? '#1B2520' : '#FFFFFF',
         },
         text: {
           primary: isDark ? '#F4F7F5' : '#17211A',
@@ -120,7 +120,7 @@ export const CustomThemeProvider = ({ children }: { children: ReactNode }) => {
             body: {
               minHeight: '100%',
               margin: 0,
-              backgroundColor: isDark ? '#0D1110' : '#F4F8F5',
+              backgroundColor: isDark ? '#121A17' : '#F4F8F5',
               backgroundImage: 'none',
               backgroundAttachment: 'fixed',
             },

@@ -89,6 +89,7 @@ const UsersPage = () => {
     users,
     roles,
     loading,
+    assigningRole,
     error,
     fetchUsers,
     assignRoleToUser,
@@ -109,6 +110,7 @@ const UsersPage = () => {
   const [newUser, setNewUser] = useState(emptyNewUser);
   const [creatingUser, setCreatingUser] = useState(false);
   const [createError, setCreateError] = useState('');
+  const [assignRoleError, setAssignRoleError] = useState('');
 
   // Calculate role counts
   const getRoleCounts = () => {
@@ -146,14 +148,22 @@ const UsersPage = () => {
     selectedRole: '',
     availableRoles: []
   });
+  const selectedUserIsSuperAdmin = Boolean(
+    assignRoleDialog.user?.roles?.some((role) => normalizeRoleName(role) === ROLE_NAMES.SUPERADMIN),
+  );
 
   const handleAssignRoleOpen = useCallback((user: User) => {
+    const normalizedRole = user.roles[0] ? normalizeRoleName(user.roles[0]) : undefined;
+    const selectedRole = normalizedRole === ROLE_NAMES.SUPERADMIN
+      ? 'SUPER_ADMIN'
+      : normalizedRole?.toUpperCase() || '';
     setAssignRoleDialog({
       open: true,
       user,
-      selectedRole: user.roles[0] || '',
+      selectedRole,
       availableRoles: roles
     });
+    setAssignRoleError('');
   }, [roles]);
 
   const handleAssignRoleClose = useCallback(() => {
@@ -163,6 +173,7 @@ const UsersPage = () => {
       selectedRole: '',
       availableRoles: []
     });
+    setAssignRoleError('');
   }, []);
 
   const handleCreateUser = async () => {
@@ -193,70 +204,73 @@ const UsersPage = () => {
     if (!assignRoleDialog.user || !assignRoleDialog.selectedRole) return;
 
     try {
-      // Check if trying to assign Super Admin when it's already taken
       const normalizedSelectedRole = normalizeRoleName(assignRoleDialog.selectedRole);
-      if (normalizedSelectedRole === 'Superadmin' && isSuperAdminTaken && assignRoleDialog.selectedRole !== "SUPER_ADMIN") {
-        await feedback.fire({
-          icon: 'warning',
-          title: 'Super Admin Already Assigned',
-          text: 'There can only be one Super Admin in the system. Please remove the existing Super Admin role before assigning a new one.',
-          customClass: {
-            popup: 'swal2-warning-dialog'
-          }
+      if (normalizedSelectedRole === ROLE_NAMES.SUPERADMIN && isSuperAdminTaken && !selectedUserIsSuperAdmin) {
+        setAssignRoleError(t('users.superAdminTaken'));
+        await feedback.warning({
+          title: t('users.superAdminTakenTitle'),
+          message: t('users.superAdminTaken'),
+          dedupeKey: 'superadmin-already-assigned',
         });
         return;
       }
 
-      // Find the role ID from the selected role name
       const selectedRoleObj = roles.find(r => r.roleName === normalizedSelectedRole);
       
       if (!selectedRoleObj) {
-        await feedback.fire({
-          icon: 'error',
-          title: 'Invalid Role',
-          text: 'The selected role could not be found.',
-          customClass: {
-            popup: 'swal2-error-dialog'
-          }
+        setAssignRoleError(t('users.invalidRole'));
+        await feedback.error({
+          title: t('users.assignmentFailed'),
+          message: t('users.invalidRole'),
         });
         return;
       }
 
-      const success = await assignRoleToUser(assignRoleDialog.user.userId, selectedRoleObj.roleId);
+      setAssignRoleError('');
+      const updatedUser = await assignRoleToUser(assignRoleDialog.user.userId, selectedRoleObj.roleId);
 
-      if (success) {
-        await feedback.fire({
-          icon: 'success',
-          title: 'Role Assigned Successfully',
-          text: `Role "${assignRoleDialog.selectedRole.replace('_', ' ')}" has been assigned to ${assignRoleDialog.user.userName} ${assignRoleDialog.user.userLastName}`,
-          customClass: {
-            popup: 'swal2-success-dialog'
-          }
+      if (updatedUser) {
+        const displayName = `${updatedUser.userName} ${updatedUser.userLastName || ''}`.trim();
+        const canonicalRole = updatedUser.role?.roleName || updatedUser.roles[0] || selectedRoleObj.roleName;
+        handleAssignRoleClose();
+        await feedback.success({
+          title: t('users.roleChanged'),
+          message: t('users.roleChangedText', { name: displayName, role: canonicalRole }),
+          entity: { type: 'user', id: updatedUser.userId, label: displayName },
+          dedupeKey: `role-changed-${updatedUser.userId}-${canonicalRole}`,
+          nextAction: {
+            label: t('users.viewUser'),
+            onClick: () => {
+              document.querySelector(`[data-user-id="${updatedUser.userId}"]`)?.scrollIntoView({
+                behavior: 'smooth',
+                block: 'center',
+              });
+            },
+          },
         });
       } else {
-        await feedback.fire({
-          icon: 'error',
-          title: 'Assignment Failed',
-          text: 'Failed to assign role. Please try again.',
-          customClass: {
-            popup: 'swal2-error-dialog'
-          }
+        setAssignRoleError(t('users.assignmentTryAgain'));
+        await feedback.error({
+          title: t('users.assignmentFailed'),
+          message: t('users.assignmentTryAgain'),
+          retryAction: {
+            label: t('feedback.retry'),
+            onClick: () => document.getElementById('assign-role-submit')?.click(),
+          },
+          persistent: true,
+          dedupeKey: `role-change-failed-${assignRoleDialog.user.userId}`,
         });
       }
     } catch (error) {
       console.error('Error assigning role:', error);
-      await feedback.fire({
-        icon: 'error',
-        title: 'Error',
-        text: 'An error occurred while assigning role.',
-        customClass: {
-          popup: 'swal2-error-dialog'
-        }
+      setAssignRoleError(t('users.assignmentTryAgain'));
+      await feedback.error({
+        title: t('users.assignmentFailed'),
+        message: error instanceof Error ? error.message : t('users.assignmentTryAgain'),
+        persistent: true,
       });
     }
-
-    handleAssignRoleClose();
-  }, [assignRoleDialog, roles, assignRoleToUser, handleAssignRoleClose, isSuperAdminTaken]);
+  }, [assignRoleDialog, roles, assignRoleToUser, handleAssignRoleClose, isSuperAdminTaken, selectedUserIsSuperAdmin, t]);
 
   const handleRoleChange = useCallback((role: string) => {
     setAssignRoleDialog(prev => ({
@@ -341,6 +355,7 @@ const UsersPage = () => {
                 <Typography variant="body2" color="text.secondary" noWrap>{user.userEmail}</Typography>
                 <Box display="flex" gap={0.75} flexWrap="wrap" sx={{ mt: 1.5 }}>
                   {user.roles?.map((role) => <Chip key={role} label={role.replace('_', ' ')} size="small" variant="outlined" />)}
+                  {user.roles?.length === 0 && <Chip label={t('users.unassignedRole')} size="small" variant="outlined" color="warning" />}
                   <Chip label={user.isActive ? t('common.active') : t('common.inactive')} size="small" color={user.isActive ? 'success' : 'default'} variant="outlined" />
                 </Box>
               </Box>
@@ -369,7 +384,7 @@ const UsersPage = () => {
               </TableHead>
               <TableBody>
                 {users?.map((user) => (
-                  <TableRow key={user.userId} hover>
+                  <TableRow key={user.userId} hover data-user-id={user.userId}>
                     <TableCell>
                       <Box display="flex" alignItems="center" gap={2}>
                         <Avatar
@@ -407,6 +422,9 @@ const UsersPage = () => {
                             variant="outlined"
                           />
                         ))}
+                        {user.roles?.length === 0 && (
+                          <Chip label={t('users.unassignedRole')} size="small" color="warning" variant="outlined" />
+                        )}
                       </Box>
                     </TableCell>
                     <TableCell>
@@ -491,7 +509,7 @@ const UsersPage = () => {
       {/* Assign Role Dialog */}
       <Dialog
         open={assignRoleDialog.open}
-        onClose={handleAssignRoleClose}
+        onClose={() => !assigningRole && handleAssignRoleClose()}
         maxWidth="sm"
         fullWidth
       >
@@ -500,16 +518,20 @@ const UsersPage = () => {
         </DialogTitle>
         <DialogContent>
           <Box mt={2}>
+            {assignRoleError && (
+              <Alert severity="error" sx={{ mb: 2 }}>{assignRoleError}</Alert>
+            )}
             <FormControl fullWidth>
               <InputLabel>{t('common.role')}</InputLabel>
               <Select
                 value={assignRoleDialog.selectedRole}
                 label={t('common.role')}
                 onChange={(e) => handleRoleChange(e.target.value)}
+                disabled={assigningRole}
               >
                 <MenuItem 
                   value="SUPER_ADMIN"
-                  disabled={isSuperAdminTaken && assignRoleDialog.selectedRole !== "SUPER_ADMIN"}
+                  disabled={isSuperAdminTaken && !selectedUserIsSuperAdmin}
                 >
                   <Box display="flex" alignItems="center" gap={1} justifyContent="space-between" width="100%">
                     <Box display="flex" alignItems="center" gap={1}>
@@ -614,13 +636,14 @@ const UsersPage = () => {
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleAssignRoleClose}>{t('common.cancel')}</Button>
+          <Button onClick={handleAssignRoleClose} disabled={assigningRole}>{t('common.cancel')}</Button>
           <Button
+            id="assign-role-submit"
             onClick={handleAssignRoleConfirm}
             variant="contained"
-            disabled={!assignRoleDialog.selectedRole}
+            disabled={!assignRoleDialog.selectedRole || assigningRole}
           >
-            {t('users.assignRole')}
+            {assigningRole ? t('users.assigningRole') : t('users.assignRole')}
           </Button>
         </DialogActions>
       </Dialog>

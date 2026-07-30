@@ -36,7 +36,26 @@ export class TaskResponseDto {
     laugh: number;
     angry: number;
     comments: number;
+    wow?: number;
+    sad?: number;
+    userLike?: 'like' | 'love' | 'laugh' | 'angry' | 'wow' | 'sad';
   };
+  workflow?: {
+    currentStatus: 'draft' | 'todo' | 'in_progress' | 'review' | 'done' | 'cancelled';
+    allowedTransitions: Array<'draft' | 'todo' | 'in_progress' | 'review' | 'done' | 'cancelled'>;
+    canEdit: boolean;
+    canApprove: boolean;
+    canSubmitReview: boolean;
+    canRequestChanges: boolean;
+    canCancel: boolean;
+    primaryAction?: 'start' | 'submit_review' | 'review' | 'view';
+    nextActor?: {
+      userId: number;
+      displayName: string;
+      reason: 'assigned_work' | 'approval_required';
+    };
+  };
+  attentionReason?: 'assigned' | 'approval_required';
 }
 
 export class TaskListResponseDto {
@@ -53,4 +72,16 @@ export class TaskListResponseDto {
     userLastName: string;
     completedTasks: number;
   }[];
+}
+
+export class MyWorkResponseDto {
+  items!: TaskResponseDto[];
+  counts!: {
+    todo: number;
+    inProgress: number;
+    review: number;
+    approvalRequired: number;
+    overdue: number;
+  };
+  pageInfo!: { nextCursor?: string };
 }

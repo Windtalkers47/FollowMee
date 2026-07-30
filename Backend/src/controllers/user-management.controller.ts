@@ -9,16 +9,7 @@ export class UserManagementController {
    */
   async getAllUsers(req: Request, res: Response) {
     try {
-      // Get basic user data first
-      const basicUsers = await this.userService.getAllUsers();
-      
-      // Get roles for each user
-      const usersWithRoles = await Promise.all(
-        basicUsers.map(async (user) => {
-          const userWithRoles = await this.userService.getUserWithRoles(user.userId);
-          return userWithRoles;
-        })
-      );
+      const usersWithRoles = await this.userService.getAllManagedUsers();
 
       return res.json({
         success: true,
@@ -50,7 +41,7 @@ export class UserManagementController {
         });
       }
 
-      const user = await this.userService.getUserWithRoles(userId);
+      const user = await this.userService.getManagedUser(userId);
       return res.json({
         success: true,
         data: user
@@ -80,11 +71,11 @@ export class UserManagementController {
         });
       }
 
-      const result = await this.userService.assignRoleToUser(userId, roleId, req.user?.userId);
+      const result = await this.userService.assignRoleToUser(Number(userId), Number(roleId), req.user?.userId);
       return res.json({
         success: true,
         message: 'Role assigned successfully',
-        data: { userId, roleId }
+        data: result
       });
     } catch (error: unknown) {
       console.error('Error assigning role to user:', error);
@@ -93,6 +84,33 @@ export class UserManagementController {
         success: false,
         message: 'Failed to assign role',
         error: errorMessage
+      });
+    }
+  }
+
+  async replaceUserRole(req: Request, res: Response) {
+    try {
+      const userId = Number(req.params.id);
+      const roleId = Number(req.body.roleId);
+      if (!Number.isInteger(userId) || !Number.isInteger(roleId)) {
+        return res.status(400).json({
+          success: false,
+          message: 'A valid user ID and roleId are required',
+        });
+      }
+      const user = await this.userService.assignRoleToUser(userId, roleId, req.user?.userId);
+      return res.json({
+        success: true,
+        message: 'Role assigned successfully',
+        data: user,
+      });
+    } catch (error: unknown) {
+      console.error('Error replacing user role:', error);
+      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to assign role',
+        error: errorMessage,
       });
     }
   }

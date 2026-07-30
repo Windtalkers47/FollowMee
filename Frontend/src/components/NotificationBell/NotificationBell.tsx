@@ -64,9 +64,12 @@ const NotificationBell = ({ onDropdownToggle }: NotificationBellProps) => {
         max={99}
         sx={{
           '& .MuiBadge-badge': {
+            backgroundColor: theme.palette.mode === 'dark' ? '#B42318' : '#B42318',
+            color: '#FFFFFF',
+            fontWeight: 800,
             right: 4,
             top: 4,
-            fontSize: '0.7rem',
+            fontSize: '0.72rem',
             height: '18px',
             minWidth: '18px',
             boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)',

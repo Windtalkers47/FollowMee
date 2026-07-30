@@ -43,7 +43,7 @@ export const useSmartSuggestions = ({
       
       if (data.failed.length > 0) {
         toast.warning(
-          `Updated ${data.updated} tasks. ${data.failed.length} failed (permission denied).`
+          `Updated ${data.updated} tasks. ${data.failed.length} failed.`
         );
       } else {
         toast.success(`Updated ${data.updated} tasks successfully!`);

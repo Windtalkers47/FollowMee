@@ -196,7 +196,7 @@ const NotificationAnalytics = () => {
               <MenuItem value={90}>{t('analytics.lastDays', { count: 90 })}</MenuItem>
             </Select>
           </FormControl>
-          <Button variant="outlined" startIcon={<Download />} onClick={exportCsv}>{t('analytics.export')}</Button>
+          <Button variant="outlined" startIcon={<Download />} onClick={exportCsv} disabled={!metrics || metrics.totalSent === 0}>{t('analytics.export')}</Button>
         </Stack>
       </Stack>
 

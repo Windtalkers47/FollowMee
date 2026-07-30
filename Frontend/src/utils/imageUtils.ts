@@ -9,6 +9,38 @@ export const isCloudinaryUrl = (url: string | null | undefined): boolean => {
   return !!(url && url.includes('cloudinary.com'));
 };
 
+export const getOptimizedImageUrl = (url: string | null | undefined, width: number): string | undefined => {
+  if (!url) return undefined;
+  const targetWidth = Math.max(64, Math.round(width));
+  if (isCloudinaryUrl(url) && url.includes('/upload/')) {
+    return url.replace('/upload/', `/upload/f_auto,q_auto,w_${targetWidth},c_fill/`);
+  }
+  try {
+    const parsed = new URL(url);
+    if (parsed.hostname.endsWith('imgix.net')) {
+      parsed.searchParams.set('w', String(targetWidth));
+      parsed.searchParams.set('auto', 'format,compress');
+      parsed.searchParams.set('fit', 'crop');
+      return parsed.toString();
+    }
+  } catch {
+    // Keep non-URL image sources unchanged.
+  }
+  return url;
+};
+
+export const getResponsiveImageProps = (url: string | null | undefined, sizes: string) => {
+  if (!url) return { sizes };
+  if (!isCloudinaryUrl(url) && !url.includes('imgix.net')) {
+    return { src: url, sizes };
+  }
+  return {
+    src: getOptimizedImageUrl(url, 640),
+    srcSet: [320, 640, 960].map(width => `${getOptimizedImageUrl(url, width)} ${width}w`).join(', '),
+    sizes,
+  };
+};
+
 /**
  * Validate if a Cloudinary image URL is properly formatted
  */

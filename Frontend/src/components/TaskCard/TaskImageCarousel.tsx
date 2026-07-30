@@ -1,6 +1,7 @@
 import React from 'react';
 import { Box, Typography } from '@mui/material';
 import { TaskImage as TaskImageType } from '../../api/task.api';
+import { getResponsiveImageProps } from '../../utils/imageUtils';
 
 interface TaskImageCarouselProps {
   images: TaskImageType[];
@@ -75,7 +76,7 @@ const TaskImageCarousel: React.FC<TaskImageCarouselProps> = ({ images, onImageCl
           >
             <Box
               component="img"
-              src={image.imageUrl}
+              {...getResponsiveImageProps(image.imageUrl, '(max-width: 600px) 100vw, (max-width: 1200px) 50vw, 640px')}
               alt=""
               loading="lazy"
               sx={{

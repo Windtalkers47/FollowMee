@@ -146,28 +146,22 @@ export class DashboardService {
   async getTaskStats(): Promise<TaskStats> {
     const now = new Date();
 
-    // Get tasks by status
-    const todoCount = await this.taskRepository.count({
-      where: { isActive: true, status: 'todo' }
-    });
+    const grouped = await this.taskRepository
+      .createQueryBuilder('task')
+      .select('task.status', 'status')
+      .addSelect('COUNT(task.taskId)', 'count')
+      .where('task.isActive = :active', { active: true })
+      .groupBy('task.status')
+      .getRawMany<{ status: string; count: string }>();
+    const countByStatus = (status: string) => Number(grouped.find(row => row.status === status)?.count || 0);
+    const draftCount = countByStatus('draft');
+    const todoCount = countByStatus('todo');
+    const inProgressCount = countByStatus('in_progress');
+    const reviewCount = countByStatus('review');
+    const doneCount = countByStatus('done');
+    const cancelledCount = countByStatus('cancelled');
 
-    const inProgressCount = await this.taskRepository.count({
-      where: { isActive: true, status: 'in_progress' }
-    });
-
-    const reviewCount = await this.taskRepository.count({
-      where: { isActive: true, status: 'review' }
-    });
-
-    const doneCount = await this.taskRepository.count({
-      where: { isActive: true, status: 'done' }
-    });
-
-    const cancelledCount = await this.taskRepository.count({
-      where: { isActive: true, status: 'cancelled' }
-    });
-
-    const totalTasks = todoCount + inProgressCount + reviewCount + doneCount + cancelledCount;
+    const totalTasks = draftCount + todoCount + inProgressCount + reviewCount + doneCount + cancelledCount;
     const pendingTasks = todoCount + inProgressCount + reviewCount;
     
     const completionRate = totalTasks > 0 
@@ -207,6 +201,7 @@ export class DashboardService {
       totalTasks,
       completionRate,
       tasksByStatus: {
+        draft: draftCount,
         todo: todoCount,
         in_progress: inProgressCount,
         review: reviewCount,
@@ -224,8 +219,8 @@ export class DashboardService {
     // Get all users with their completed task counts
     const userStats = await this.userRepository
       .createQueryBuilder('user')
-      .leftJoin('tasks', 't', 't.createdBy = user.userId AND t.status = :status', { status: 'done' })
-      .leftJoin('tasks', 't_active', 't_active.createdBy = user.userId AND t_active.isActive = :isActive', { isActive: true })
+      .leftJoin('tasks', 't', 't.assignedTo = user.userId AND t.status = :status AND t.isActive = :isActive', { status: 'done', isActive: true })
+      .leftJoin('tasks', 't_active', 't_active.assignedTo = user.userId AND t_active.isActive = :isActive', { isActive: true })
       .select('user.userId', 'userId')
       .addSelect('user.userName', 'userName')
       .addSelect('user.userLastName', 'userLastName')
@@ -296,7 +291,7 @@ export class DashboardService {
     // Get top performers
     const topPerformersRaw = await this.userRepository
       .createQueryBuilder('user')
-      .leftJoin('tasks', 't', 't.createdBy = user.userId AND t.status = :status', { status: 'done' })
+      .leftJoin('tasks', 't', 't.assignedTo = user.userId AND t.status = :status AND t.isActive = :isActive', { status: 'done', isActive: true })
       .select('user.userId', 'userId')
       .addSelect('user.userName', 'userName')
       .addSelect('user.userLastName', 'userLastName')

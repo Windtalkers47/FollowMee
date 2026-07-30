@@ -16,6 +16,8 @@ import { ImageUpload } from '../ImageUpload/ImageUpload';
 import { RangeCalendar } from '../RangeCalendar/RangeCalendar';
 import { formatRelativeTime } from '../../utils/dateUtils';
 import { AccessTime, Update } from '@mui/icons-material';
+import { useUserPreferences } from '../../contexts/UserPreferencesContext';
+import type { TaskStatus } from '../../utils/taskWorkflow';
 
 interface TaskFormFieldsProps {
   formData: any;
@@ -26,6 +28,7 @@ interface TaskFormFieldsProps {
   onInputChange: (field: string, value: any) => void;
   onImagesChange: (images: TaskImage[]) => void;
   bookedDates?: Date[]; // New prop for booked dates
+  allowedStatuses: TaskStatus[];
 }
 
 export const TaskFormFields: React.FC<TaskFormFieldsProps> = ({
@@ -36,32 +39,34 @@ export const TaskFormFields: React.FC<TaskFormFieldsProps> = ({
   isSubmitting,
   onInputChange,
   onImagesChange,
-  bookedDates = []
+  bookedDates = [],
+  allowedStatuses
 }) => {
+  const { t } = useUserPreferences();
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
         {/* Basic Information */}
         <Card elevation={0} variant="outlined">
           <CardContent>
             <Typography variant="subtitle1" gutterBottom>
-              Basic Information
+              {t('task.form.basic')}
             </Typography>
             
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               <TextField
                 fullWidth
-                label="Title *"
+                label={t('task.form.title')}
                 value={formData.title}
                 onChange={(e) => onInputChange('title', e.target.value)}
                 error={!!formErrors.title}
                 helperText={formErrors.title}
                 disabled={isSubmitting}
-                placeholder="Enter task title..."
+                placeholder={t('task.form.enterTitle')}
               />
 
               <TextField
                 fullWidth
-                label="Description"
+                label={t('task.form.description')}
                 multiline
                 rows={4}
                 value={formData.description}
@@ -69,21 +74,21 @@ export const TaskFormFields: React.FC<TaskFormFieldsProps> = ({
                 error={!!formErrors.description}
                 helperText={formErrors.description}
                 disabled={isSubmitting}
-                placeholder="Enter task description..."
+                placeholder={t('task.form.enterDescription')}
               />
 
               <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
                 <FormControl sx={{ flex: 1, minWidth: 200 }}>
-                  <InputLabel id="assigned-to-label">Assigned To</InputLabel>
+                  <InputLabel id="assigned-to-label">{t('task.form.assignedTo')}</InputLabel>
                   <Select
                     labelId="assigned-to-label"
                     id="assigned-to-select"
                     value={formData.assignedTo || ''}
-                    label="Assigned To"
+                    label={t('task.form.assignedTo')}
                     onChange={(e) => onInputChange('assignedTo', e.target.value || undefined)}
                     disabled={isSubmitting}
                   >
-                    <MenuItem value="">Unassigned</MenuItem>
+                    <MenuItem value="">{t('task.form.unassigned')}</MenuItem>
                     {users.map((user) => (
                       <MenuItem key={user.userId} value={user.userId}>
                         {user.userName} {user.userLastName}
@@ -93,21 +98,20 @@ export const TaskFormFields: React.FC<TaskFormFieldsProps> = ({
                 </FormControl>
 
                 <FormControl sx={{ flex: 1, minWidth: 200 }}>
-                  <InputLabel id="status-label">Status</InputLabel>
+                  <InputLabel id="status-label">{t('task.form.status')}</InputLabel>
                   <Select
                     labelId="status-label"
                     id="status-select"
                     value={formData.status}
-                    label="Status"
+                    label={t('task.form.status')}
                     onChange={(e) => onInputChange('status', e.target.value)}
                     disabled={isSubmitting}
                   >
-                    <MenuItem value="draft">Draft</MenuItem>
-                    <MenuItem value="todo">To Do</MenuItem>
-                    <MenuItem value="in_progress">In Progress</MenuItem>
-                    <MenuItem value="review">Review</MenuItem>
-                    <MenuItem value="done">Done</MenuItem>
-                    <MenuItem value="cancelled">Cancelled</MenuItem>
+                    {allowedStatuses.map(status => (
+                      <MenuItem key={status} value={status}>
+                        {{ draft: 'Draft', todo: 'To Do', in_progress: 'In Progress', review: 'Review', done: 'Done', cancelled: 'Cancelled' }[status]}
+                      </MenuItem>
+                    ))}
                   </Select>
                 </FormControl>
               </Box>
@@ -120,7 +124,7 @@ export const TaskFormFields: React.FC<TaskFormFieldsProps> = ({
                     disabled={isSubmitting}
                     error={!!formErrors.dueDateRange}
                     helperText={formErrors.dueDateRange}
-                    label={formData.dueDateRange && formData.dueDateRange[0] && formData.dueDateRange[1] ? "Date Range" : "Due Date"}
+                    label={formData.dueDateRange && formData.dueDateRange[0] && formData.dueDateRange[1] ? t('task.form.dateRange') : t('task.form.dueDate')}
                     bookedDates={bookedDates}
                   />
                 </Box>
@@ -138,7 +142,7 @@ export const TaskFormFields: React.FC<TaskFormFieldsProps> = ({
                     bgcolor: 'action.hover',
                   }}>
                     <AccessTime sx={{ fontSize: 15 }} aria-hidden="true" />
-                    Created: {formatRelativeTime(formData.createdAt)}
+                    {t('task.form.created')}: {formatRelativeTime(formData.createdAt)}
                   </Typography>
                 )}
                 {formData.updatedAt && formData.updatedAt !== formData.createdAt && (
@@ -151,7 +155,7 @@ export const TaskFormFields: React.FC<TaskFormFieldsProps> = ({
                     bgcolor: 'action.hover',
                   }}>
                     <Update sx={{ fontSize: 15 }} aria-hidden="true" />
-                    Updated: {formatRelativeTime(formData.updatedAt)}
+                    {t('task.form.updated')}: {formatRelativeTime(formData.updatedAt)}
                   </Typography>
                 )}
               </Box>
@@ -163,7 +167,7 @@ export const TaskFormFields: React.FC<TaskFormFieldsProps> = ({
         <Card elevation={0} variant="outlined">
           <CardContent>
             <Typography variant="subtitle1" gutterBottom>
-              Task Images
+              {t('task.form.images')}
             </Typography>
             
             <ImageUpload
@@ -174,7 +178,7 @@ export const TaskFormFields: React.FC<TaskFormFieldsProps> = ({
             />
 
             <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-              You can upload up to 10 images. Supported formats: JPG, PNG, GIF, WebP. Maximum file size: 5MB per image.
+              {t('task.form.imageHelp')}
             </Typography>
           </CardContent>
         </Card>

@@ -23,8 +23,8 @@ import {
   TextField,
   Paper,
 } from '@mui/material';
-import Swal from 'sweetalert2';
-import { styled } from '@mui/material/styles';
+import feedback from '../../services/feedback.service';
+import { alpha, styled } from '@mui/material/styles';
 import { Link as RouterLink } from 'react-router-dom';
 import { Customer as CustomerType, CustomerStatus } from '../../types/customer.types';
 import { CustomerFormData, ApiError } from '@/components/customers/CustomerForm';
@@ -73,7 +73,7 @@ const StatsCard: React.FC<{
   return (
     <Card sx={{
       borderRadius: 3,
-      p: { xs: 2, md: 3 },
+      p: { xs: 1.5, md: 3 },
       position: 'relative',
       overflow: 'hidden',
       boxShadow: 'none',
@@ -91,9 +91,9 @@ const StatsCard: React.FC<{
               <Box display="flex" alignItems="center" gap={0.5} mt={1}>
                 {trend && (
                   trend.direction === 'up' ? (
-                    <TrendingUpIcon fontSize="small" sx={{ color: '#10b981', fontSize: 16 }} />
+                    <TrendingUpIcon fontSize="small" sx={{ color: 'success.main', fontSize: 16 }} />
                   ) : (
-                    <TrendingDownIcon fontSize="small" sx={{ color: '#ef4444', fontSize: 16 }} />
+                    <TrendingDownIcon fontSize="small" sx={{ color: 'error.main', fontSize: 16 }} />
                   )
                 )}
                 <Typography variant="caption" color={trend?.direction === 'up' ? 'success.main' : 'text.secondary'} fontWeight={500}>
@@ -103,8 +103,8 @@ const StatsCard: React.FC<{
             )}
           </Box>
           <Box sx={{
-            width: 64,
-            height: 64,
+            width: { xs: 42, sm: 52, md: 64 },
+            height: { xs: 42, sm: 52, md: 64 },
             borderRadius: '50%',
             background: iconBg,
             display: 'flex',
@@ -124,12 +124,12 @@ const StatsCard: React.FC<{
 // ============================================
 // Engagement Meter Component
 // ============================================
-const EngagementMeter = styled('div')<{ value: number }>(({ value }) => ({
+const EngagementMeter = styled('div')<{ value: number }>(({ value, theme }) => ({
   height: 6,
   borderRadius: 3,
   background: `linear-gradient(90deg, 
-    ${value > 70 ? '#10b981' : value > 40 ? '#f59e0b' : '#ef4444'} 0%, 
-    ${value > 70 ? '#34d399' : value > 40 ? '#fbbf24' : '#f87171'} ${value}%, 
+    ${value > 70 ? theme.palette.success.main : value > 40 ? theme.palette.warning.main : theme.palette.error.main} 0%,
+    ${value > 70 ? theme.palette.success.light : value > 40 ? theme.palette.warning.light : theme.palette.error.light} ${value}%,
     rgba(0,0,0,0.08) ${value}%)`,
   width: '100%',
   marginTop: 6,
@@ -316,14 +316,13 @@ const CustomerPage = () => {
         result = await createCustomer(payload);
       }
   
-      Swal.close();
+      feedback.close();
   
       if (result && !result.success) {
-        await Swal.fire({
+        await feedback.fire({
           icon: 'error',
           title: 'Operation Failed',
           text: result.message || 'An error occurred',
-          confirmButtonColor: '#d33',
         });
         
         if (result.message?.toLowerCase().includes('email')) {
@@ -332,7 +331,7 @@ const CustomerPage = () => {
         return;
       }
   
-      await Swal.fire({
+      await feedback.fire({
         icon: 'success',
         title: 'Success!',
         text: 'Customer saved successfully',
@@ -351,11 +350,10 @@ const CustomerPage = () => {
       if (message.toLowerCase().includes('email')) {
         setFormApiError({ field: 'customerEmail', message: message });
       } else {
-        await Swal.fire({
+        await feedback.fire({
           icon: 'error',
           title: 'Error',
           text: message,
-          confirmButtonColor: '#d33',
         });
       }
     }
@@ -366,7 +364,7 @@ const CustomerPage = () => {
   useEffect(() => {
     if (error) {
       const showError = async () => {
-        await Swal.fire({ icon: 'error', title: 'Error', text: error, confirmButtonColor: '#d33' });
+        await feedback.fire({ icon: 'error', title: 'Error', text: error });
       };
       showError();
     }
@@ -377,7 +375,7 @@ const CustomerPage = () => {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
         <Box textAlign="center">
-          <CircularProgress size={60} thickness={4} sx={{ color: '#10b981' }} />
+          <CircularProgress size={60} thickness={4} color="primary" />
           <Typography variant="body1" color="text.secondary" mt={2} fontWeight={500}>
             Loading customers...
           </Typography>
@@ -447,14 +445,14 @@ const CustomerPage = () => {
               </Box>
             </Box>
 
-            <Box display="flex" gap={2} flexWrap="wrap">
+            <Box display="flex" gap={1} flexWrap="wrap" sx={{ width: { xs: '100%', sm: 'auto' } }}>
               <Button
                 component={RouterLink}
                 to="/customer-profile"
                 variant="outlined"
                 sx={{ borderRadius: 3, textTransform: 'none', px: 2.5, py: 1.25, fontWeight: 600 }}
               >
-                Manage Profile Cards
+                Profile Cards
               </Button>
               <Button
                 variant="contained"
@@ -469,27 +467,22 @@ const CustomerPage = () => {
                   fontSize: '0.95rem',
                 }}
               >
-                Add New Customer
+                Add customer
               </Button>
 
-              <Button
-                variant="outlined"
-                startIcon={<RefreshIcon />}
+              <Tooltip title="Refresh customers">
+              <IconButton
+                aria-label="Refresh customers"
                 onClick={refetch}
                 disabled={loading}
                 sx={{
-                  borderRadius: 3,
-                  textTransform: 'none',
-                  px: 2.5,
-                  py: 1.25,
-                  fontWeight: 600,
-                  fontSize: '0.95rem',
-                  borderWidth: 2,
-                  '&:hover': { borderWidth: 2 },
+                  border: '1px solid',
+                  borderColor: 'divider',
                 }}
               >
-                Refresh
-              </Button>
+                <RefreshIcon />
+              </IconButton>
+              </Tooltip>
             </Box>
           </Box>
         </Box>
@@ -497,25 +490,25 @@ const CustomerPage = () => {
         {/* Stats Dashboard - 4 Cards Grid */}
         <Box 
           display="grid" 
-          gridTemplateColumns={{ xs: '1fr', sm: 'repeat(2, 1fr)', lg: 'repeat(4, 1fr)' }} 
-          gap={{ xs: 2, sm: 3, md: 4 }} 
-          mb={{ xs: 4, md: 6 }}
+          gridTemplateColumns={{ xs: 'repeat(2, minmax(0, 1fr))', lg: 'repeat(4, 1fr)' }}
+          gap={{ xs: 1.25, sm: 2, md: 3 }}
+          mb={{ xs: 3, md: 5 }}
         >
           <StatsCard
             title="Total Customers"
             value={totalCustomers}
             subtitle={`${getStatusCount('active')} active`}
             icon={<GroupIcon sx={{ fontSize: 32 }} />}
-            iconBg="rgba(16, 185, 129, 0.12)"
-            iconColor="#10b981"
+            iconBg={alpha(theme.palette.primary.main, 0.12)}
+            iconColor={theme.palette.primary.main}
           />
           <StatsCard
             title="Active Now"
             value={getStatusCount('active')}
             subtitle={totalCustomers > 0 ? `${Math.round((getStatusCount('active') / totalCustomers) * 100)}% of total` : '0% of total'}
             icon={<CheckCircleIcon sx={{ fontSize: 32 }} />}
-            iconBg="rgba(16, 185, 129, 0.12)"
-            iconColor="#10b981"
+            iconBg={alpha(theme.palette.success.main, 0.12)}
+            iconColor={theme.palette.success.main}
             trend={{ value: 5, direction: 'up' }}
           />
           <StatsCard
@@ -523,16 +516,16 @@ const CustomerPage = () => {
             value={getStatusCount('inactive')}
             subtitle="Needs attention"
             icon={<AccessTimeIcon sx={{ fontSize: 32 }} />}
-            iconBg="rgba(245, 158, 11, 0.15)"
-            iconColor="#f59e0b"
+            iconBg={alpha(theme.palette.warning.main, 0.15)}
+            iconColor={theme.palette.warning.main}
           />
           <StatsCard
             title="Canceled"
             value={getStatusCount('canceled')}
             subtitle="Not active anymore"
             icon={<BlockIcon sx={{ fontSize: 32 }} />}
-            iconBg="rgba(239, 68, 68, 0.15)"
-            iconColor="#ef4444"
+            iconBg={alpha(theme.palette.error.main, 0.15)}
+            iconColor={theme.palette.error.main}
           />
         </Box>
 
@@ -697,20 +690,18 @@ const CustomerPage = () => {
                   '&:hover': { bgcolor: 'primary.dark' }
                 }}
                 onClick={async () => {
-                  const result = await Swal.fire({
+                  const result = await feedback.fire({
                     title: 'Mark as Active',
                     text: `Are you sure you want to mark ${selected.length} customer(s) as active?`,
                     icon: 'question',
                     showCancelButton: true,
-                    confirmButtonColor: '#28a745',
-                    cancelButtonColor: '#6c757d',
                     confirmButtonText: 'Yes, mark as active'
                   });
                   
                   if (result.isConfirmed) {
                     try {
                       await customerApi.bulkUpdateStatus(selected, 'active');
-                      await Swal.fire({
+                      await feedback.fire({
                         icon: 'success',
                         title: 'Success',
                         text: `${selected.length} customer(s) marked as active`,
@@ -721,11 +712,10 @@ const CustomerPage = () => {
                       setSelected([]);
                       refetch();
                     } catch (error) {
-                      await Swal.fire({
+                      await feedback.fire({
                         icon: 'error',
                         title: 'Error',
                         text: 'Failed to update customers',
-                        confirmButtonColor: '#d33'
                       });
                     }
                   }
@@ -744,20 +734,18 @@ const CustomerPage = () => {
                   '&:hover': { bgcolor: 'action.hover' }
                 }}
                 onClick={async () => {
-                  const result = await Swal.fire({
+                  const result = await feedback.fire({
                     title: 'Mark as Inactive',
                     text: `Are you sure you want to mark ${selected.length} customer(s) as inactive?`,
                     icon: 'question',
                     showCancelButton: true,
-                    confirmButtonColor: '#ffc107',
-                    cancelButtonColor: '#6c757d',
                     confirmButtonText: 'Yes, mark as inactive'
                   });
                   
                   if (result.isConfirmed) {
                     try {
                       await customerApi.bulkUpdateStatus(selected, 'inactive');
-                      await Swal.fire({
+                      await feedback.fire({
                         icon: 'success',
                         title: 'Success',
                         text: `${selected.length} customer(s) marked as inactive`,
@@ -768,11 +756,10 @@ const CustomerPage = () => {
                       setSelected([]);
                       refetch();
                     } catch (error) {
-                      await Swal.fire({
+                      await feedback.fire({
                         icon: 'error',
                         title: 'Error',
                         text: 'Failed to update customers',
-                        confirmButtonColor: '#d33'
                       });
                     }
                   }
@@ -792,20 +779,18 @@ const CustomerPage = () => {
                   '&:hover': { bgcolor: 'error.main', color: 'error.contrastText' }
                 }}
                 onClick={async () => {
-                  const result = await Swal.fire({
+                  const result = await feedback.fire({
                     title: 'Delete Customers',
                     text: `Are you sure you want to delete ${selected.length} customer(s)?`,
                     icon: 'warning',
                     showCancelButton: true,
-                    confirmButtonColor: '#dc3545',
-                    cancelButtonColor: '#6c757d',
                     confirmButtonText: 'Yes, delete',
                   });
 
                   if (result.isConfirmed) {
                     try {
                       await customerApi.bulkDelete(selected);
-                      await Swal.fire({
+                      await feedback.fire({
                         icon: 'success',
                         title: 'Deleted',
                         text: `${selected.length} customer(s) deleted`,
@@ -816,11 +801,10 @@ const CustomerPage = () => {
                       setSelected([]);
                       refetch();
                     } catch (error) {
-                      await Swal.fire({
+                      await feedback.fire({
                         icon: 'error',
                         title: 'Error',
                         text: 'Failed to delete customers',
-                        confirmButtonColor: '#d33'
                       });
                     }
                   }
@@ -852,7 +836,7 @@ const CustomerPage = () => {
         <Box>
           {loading && displayCustomers.length === 0 ? (
             <Box textAlign="center" py={8}>
-              <CircularProgress size={40} sx={{ color: '#10b981' }} />
+              <CircularProgress size={40} color="primary" />
               <Typography variant="body2" color="text.secondary" mt={2}>
                 Loading customers...
               </Typography>
@@ -938,9 +922,9 @@ const CustomerPage = () => {
                                 width: 14,
                                 height: 14,
                                 borderRadius: '50%',
-                                bgcolor: 
-                                  customer.status === 'active' ? '#10b981' :
-                                  customer.status === 'inactive' ? '#f59e0b' : '#ef4444',
+                                bgcolor:
+                                  customer.status === 'active' ? 'success.main' :
+                                  customer.status === 'inactive' ? 'warning.main' : 'error.main',
                                 border: `3px solid ${isDarkMode ? '#1e293b' : '#fff'}`,
                                 boxShadow: customer.status === 'active' ? '0 0 8px rgba(16, 185, 129, 0.5)' : 'none',
                               }}
@@ -983,7 +967,7 @@ const CustomerPage = () => {
                           </Typography>
                           {customer.status === 'active' && (
                             <Tooltip title="Verified" arrow>
-                              <CheckCircleIcon fontSize="small" sx={{ color: '#10b981', fontSize: 18 }} />
+                              <CheckCircleIcon fontSize="small" sx={{ color: 'success.main', fontSize: 18 }} />
                             </Tooltip>
                           )}
                         </Box>
@@ -1006,16 +990,19 @@ const CustomerPage = () => {
                             borderRadius: 2,
                             fontWeight: 600,
                             fontSize: { xs: '0.7rem', sm: '0.75rem' },
-                            bgcolor: 
-                              customer.status === 'active' ? 'rgba(16, 185, 129, 0.12)' :
-                              customer.status === 'inactive' ? 'rgba(245, 158, 11, 0.12)' : 'rgba(239, 68, 68, 0.12)',
-                            color: 
-                              customer.status === 'active' ? '#10b981' :
-                              customer.status === 'inactive' ? '#f59e0b' : '#ef4444',
-                            border: `1px solid ${
-                              customer.status === 'active' ? 'rgba(16, 185, 129, 0.3)' :
-                              customer.status === 'inactive' ? 'rgba(245, 158, 11, 0.3)' : 'rgba(239, 68, 68, 0.3)'
-                            }`,
+                            bgcolor: alpha(
+                              customer.status === 'active' ? theme.palette.success.main :
+                              customer.status === 'inactive' ? theme.palette.warning.main : theme.palette.error.main,
+                              0.12,
+                            ),
+                            color:
+                              customer.status === 'active' ? 'success.main' :
+                              customer.status === 'inactive' ? 'warning.main' : 'error.main',
+                            border: `1px solid ${alpha(
+                              customer.status === 'active' ? theme.palette.success.main :
+                              customer.status === 'inactive' ? theme.palette.warning.main : theme.palette.error.main,
+                              0.3,
+                            )}`,
                           }}
                         />
                         
@@ -1029,7 +1016,7 @@ const CustomerPage = () => {
                               variant="body2" 
                               fontWeight={700}
                               sx={{
-                                color: engagementScore > 70 ? '#10b981' : engagementScore > 40 ? '#f59e0b' : '#ef4444'
+                                color: engagementScore > 70 ? 'success.main' : engagementScore > 40 ? 'warning.main' : 'error.main'
                               }}
                             >
                               {engagementScore}%
@@ -1353,7 +1340,7 @@ const CustomerPage = () => {
                 };
 
                 await updateCustomer(selectedMember.customerId, updateData);
-                await Swal.fire({
+                await feedback.fire({
                   icon: 'success',
                   title: 'Status Updated',
                   text: `Customer marked as ${status}`,
@@ -1366,13 +1353,11 @@ const CustomerPage = () => {
               }
 
               case 'delete': {
-                const result = await Swal.fire({
+                const result = await feedback.fire({
                   title: 'Delete Customer',
                   text: `Are you sure you want to delete ${selectedMember.fullName || selectedMember.customerName}?`,
                   icon: 'warning',
                   showCancelButton: true,
-                  confirmButtonColor: '#d33',
-                  cancelButtonColor: '#6c757d',
                   confirmButtonText: 'Yes, delete',
                   cancelButtonText: 'Cancel',
                 });
@@ -1380,7 +1365,7 @@ const CustomerPage = () => {
                 if (result.isConfirmed) {
                   const deleteResult = await deleteCustomer(selectedMember.customerId);
                   if (deleteResult.success) {
-                    await Swal.fire({
+                    await feedback.fire({
                       icon: 'success',
                       title: 'Deleted',
                       text: 'Customer has been deleted successfully',
@@ -1390,11 +1375,10 @@ const CustomerPage = () => {
                     });
                     refetch();
                   } else {
-                    await Swal.fire({
+                    await feedback.fire({
                       icon: 'error',
                       title: 'Error',
                       text: deleteResult.message || 'Failed to delete customer',
-                      confirmButtonColor: '#d33',
                     });
                   }
                 }
@@ -1402,7 +1386,7 @@ const CustomerPage = () => {
               }
 
               case 'report':
-                await Swal.fire({
+                await feedback.fire({
                   icon: 'info',
                   title: 'Report Submitted',
                   text: 'The report has been submitted successfully.',
@@ -1417,11 +1401,10 @@ const CustomerPage = () => {
             }
           } catch (error) {
             console.error('Error handling action:', error);
-            await Swal.fire({
+            await feedback.fire({
               icon: 'error',
               title: 'Action Failed',
               text: 'Failed to perform the requested action',
-              confirmButtonColor: '#d33',
             });
           } finally {
             handleActionMenuClose();

@@ -64,10 +64,8 @@ const App = () => {
   const dispatch = useAppDispatch();
   const queryClient = useQueryClient();
 
-  const { checkingSession, isAuthenticated } = useAppSelector((state) => ({
-    checkingSession: state.auth.checkingSession,
-    isAuthenticated: state.auth.isAuthenticated,
-  }));
+  const checkingSession = useAppSelector((state) => state.auth.checkingSession);
+  const isAuthenticated = useAppSelector((state) => state.auth.isAuthenticated);
 
   const currentUser = useAppSelector((state) => state.auth.user);
 

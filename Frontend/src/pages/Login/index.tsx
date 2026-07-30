@@ -36,6 +36,7 @@ export default function LoginPage() {
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
   const theme = useTheme();
+  const accessibleAccent = theme.palette.mode === 'dark' ? theme.palette.primary.light : '#17692D';
 
   const loading = useSelector(selectAuthLoading);
   const error = useSelector(selectAuthError);
@@ -106,7 +107,7 @@ export default function LoginPage() {
         }}
       >
         <Box sx={{ display: { xs: 'none', md: 'block' }, pr: 2 }}>
-          <Typography variant="overline" color="primary.main" fontWeight={800}>
+          <Typography variant="overline" sx={{ color: accessibleAccent }} fontWeight={800}>
             FollowMee profile cards
           </Typography>
           <Typography variant="h2" fontWeight={800} sx={{ mt: 1, mb: 2, maxWidth: 540 }}>
@@ -303,6 +304,7 @@ export default function LoginPage() {
                       <IconButton
                         onClick={() => setShowPassword(prev => !prev)}
                         edge="end"
+                        aria-label={showPassword ? 'Hide password' : 'Show password'}
                         sx={{ color: 'text.secondary' }}
                       >
                         {showPassword ? <VisibilityOff /> : <Visibility />}
@@ -361,7 +363,7 @@ export default function LoginPage() {
                 variant="body2"
                 sx={{
                   textDecoration: 'none',
-                  color: 'primary.main',
+                  color: accessibleAccent,
                   fontWeight: 600,
                   '&:hover': {
                     textDecoration: 'underline',
@@ -423,7 +425,7 @@ export default function LoginPage() {
                 sx={{
                   fontWeight: 700,
                   textDecoration: 'none',
-                  color: 'primary.main',
+                  color: accessibleAccent,
                   ml: 0.5,
                   '&:hover': {
                     textDecoration: 'underline',

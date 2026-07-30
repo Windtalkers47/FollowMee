@@ -12,7 +12,7 @@ import {
   Save as SaveIcon,
   Cancel as CancelIcon
 } from '@mui/icons-material';
-import Swal from 'sweetalert2';
+import feedback from '../../services/feedback.service';
 import { Task, User } from '../../api/task.api';
 import { useTaskForm } from '../../hooks/useTaskForm';
 import { TaskFormFields } from './TaskFormFields';
@@ -38,24 +38,24 @@ export const TaskForm: React.FC<TaskFormProps> = ({
 
   const handleSubmit = async () => {
     try {
-      Swal.fire({
+      feedback.fire({
         title: taskForm.isEditing ? 'Updating Task...' : 'Creating Task...',
         text: 'Please wait...',
         allowOutsideClick: false,
         didOpen: () => {
-          Swal.showLoading();
+          feedback.showLoading();
         }
       });
 
       // Call the async onSave function directly
       const saved = await taskForm.handleSubmit();
       if (!saved) {
-        Swal.close();
+        feedback.close();
         return;
       }
       
       // Show success message
-      await Swal.fire({
+      await feedback.fire({
         icon: 'success',
         title: taskForm.isEditing ? 'Task Updated!' : 'Task Created!',
         text: taskForm.isEditing 
@@ -67,7 +67,7 @@ export const TaskForm: React.FC<TaskFormProps> = ({
       onClose();
     } catch (error) {
       // Show error message
-      Swal.fire({
+      feedback.fire({
         icon: 'error',
         title: 'Operation Failed',
         text: taskForm.isEditing 

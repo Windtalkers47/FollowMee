@@ -51,7 +51,7 @@ import { userApi } from '../../api/user.api';
 import TaskCard from '../../components/TaskCard';
 import TaskCardLiquid from '../../components/TaskCard/TaskCardLiquid';
 import { TaskForm } from '../../components/TaskForm/TaskForm';
-import Swal from 'sweetalert2';
+import feedback from '../../services/feedback.service';
 import { getTaskPermissions, hasAnyPermission } from '../../permissions/taskPermissions';
 import { getBookedDates } from '../../utils/dateUtils';
 import { useLiquidGlass } from '../../contexts/LiquidGlassContext';
@@ -278,11 +278,10 @@ const PostsPage = () => {
     mutationFn: ({ taskId, data }: { taskId: string; data?: { completionNote?: string } }) =>
       taskApi.markTaskAsDone(taskId, data),
     onSuccess: (response) => {
-      Swal.fire({
+      feedback.fire({
         icon: 'success',
         title: 'Task Submitted for Review!',
         text: `"${response.task.title}" has been submitted for review. The task creator will review and approve it.`,
-        confirmButtonColor: '#3b82f6',
         confirmButtonText: 'Got it!'
       });
       queryClient.invalidateQueries({ queryKey: ['all-tasks'] });
@@ -469,13 +468,11 @@ const PostsPage = () => {
   };
 
   const handleMarkTaskUndone = async (taskId: string) => {
-    const result = await Swal.fire({
+    const result = await feedback.fire({
       title: 'Are you sure?',
       text: 'This will move the task back to To Do. The assignee will need to work on it again.',
       icon: 'warning',
       showCancelButton: true,
-      confirmButtonColor: '#f59e0b',
-      cancelButtonColor: '#6c757d',
       confirmButtonText: 'Yes, undo it',
       cancelButtonText: 'Cancel'
     });
@@ -485,25 +482,23 @@ const PostsPage = () => {
   };
 
   const handleApproveTask = async (taskId: string) => {
-    const result = await Swal.fire({
+    const result = await feedback.fire({
       title: 'Approve Task',
       text: 'Are you sure you want to approve this task? This will mark it as completed.',
       icon: 'question',
       showCancelButton: true,
-      confirmButtonColor: '#4caf50',
-      cancelButtonColor: '#d32f2f',
       confirmButtonText: 'Yes, approve it!',
       cancelButtonText: 'Cancel',
       reverseButtons: true,
       showLoaderOnConfirm: true,
       preConfirm: () => {
-        Swal.showLoading();
+        feedback.showLoading();
         return approveTaskMutation.mutateAsync(taskId);
       }
     });
 
     if (result.isConfirmed) {
-      await Swal.fire({
+      await feedback.fire({
         title: 'Approved!',
         text: 'Task has been approved successfully.',
         icon: 'success',
@@ -514,19 +509,17 @@ const PostsPage = () => {
   };
 
   const handleStartProgress = async (taskId: string) => {
-    const result = await Swal.fire({
+    const result = await feedback.fire({
       title: 'Start Working?',
       text: 'Ready to start working on this task? Let\'s do this! ',
       icon: 'question',
       showCancelButton: true,
-      confirmButtonColor: '#ff9800',
-      cancelButtonColor: '#757575',
       confirmButtonText: 'Let\'s go! ',
       cancelButtonText: 'Not yet',
       reverseButtons: true,
       showLoaderOnConfirm: true,
       preConfirm: () => {
-        Swal.showLoading();
+        feedback.showLoading();
         return updateTaskMutation.mutateAsync({ 
           taskId, 
           data: { status: 'in_progress' as const } 
@@ -535,7 +528,7 @@ const PostsPage = () => {
     });
 
     if (result.isConfirmed) {
-      await Swal.fire({
+      await feedback.fire({
         title: 'Let\'s Get Started! ',
         html: `
           <div style="text-align: center;">
@@ -548,7 +541,6 @@ const PostsPage = () => {
         `,
         icon: 'success',
         confirmButtonText: 'Working on it!',
-        confirmButtonColor: '#2196f3',
         timer: 2000,
         showConfirmButton: true
       });
@@ -556,19 +548,17 @@ const PostsPage = () => {
   };
 
   const handleCancelTask = async (taskId: string) => {
-    const result = await Swal.fire({
+    const result = await feedback.fire({
       title: 'Cancel Task?',
       text: 'Are you sure you want to cancel this task? This will move it to the cancelled tab.',
       icon: 'warning',
       showCancelButton: true,
-      confirmButtonColor: '#ff9800',
-      cancelButtonColor: '#757575',
       confirmButtonText: 'Yes, cancel it!',
       cancelButtonText: 'No, keep it',
       reverseButtons: true,
       showLoaderOnConfirm: true,
       preConfirm: () => {
-        Swal.showLoading();
+        feedback.showLoading();
         return updateTaskMutation.mutateAsync({ 
           taskId, 
           data: { status: 'cancelled' as const } 
@@ -577,7 +567,7 @@ const PostsPage = () => {
     });
 
     if (result.isConfirmed) {
-      await Swal.fire({
+      await feedback.fire({
         title: 'Task Cancelled',
         text: 'The task has been moved to cancelled.',
         icon: 'info',
@@ -603,7 +593,7 @@ const PostsPage = () => {
         'draft': 'Task moved to Draft'
       };
       
-      await Swal.fire({
+      await feedback.fire({
         title: 'Status Updated',
         text: statusMessages[status] || 'Task status updated',
         icon: 'success',
@@ -611,7 +601,7 @@ const PostsPage = () => {
         showConfirmButton: false
       });
     } catch (error) {
-      await Swal.fire({
+      await feedback.fire({
         title: 'Error',
         text: 'Failed to update task status',
         icon: 'error',
@@ -643,7 +633,11 @@ const PostsPage = () => {
     if (!taskId || !linkedTask || completed.some(task => task.taskId === linkedTask.taskId)) return completed;
     return [linkedTask, ...completed];
   })();
-  const completedTasksList = isSearching ? (searchResults?.tasks || []) : (allTasksResponse?.tasks || []);
+  const completedTasksList = (() => {
+    const completed = isSearching ? (searchResults?.tasks || []) : (allTasksResponse?.tasks || []);
+    if (!taskId || !linkedTask || completed.some(task => task.taskId === linkedTask.taskId)) return completed;
+    return [linkedTask, ...completed];
+  })();
 
   const tabs = [
     { label: 'My activity', key: 'assigned' },
@@ -1158,7 +1152,7 @@ const PostsPage = () => {
         <DialogTitle sx={{ textAlign: 'center', pb: 1 }}>
           <TrophyIcon sx={{ fontSize: 44, mb: 1, color: 'primary.main' }} />
           <Typography variant="h6" color="warning.main" fontWeight="bold" component="div">
-            Task Reopened! 🔄
+            Task reopened
           </Typography>
         </DialogTitle>
         <DialogContent sx={{ textAlign: 'center', py: 2 }}>
@@ -1181,11 +1175,11 @@ const PostsPage = () => {
                   {undoneTaskData.newRank.completedTasks} completed tasks
                 </Typography>
                 <Typography variant="body2" color="warning.main" sx={{ mt: 1 }}>
-                  💡 Take your time and do your best. You've got this!
+                  Take your time and do your best. You've got this.
                 </Typography>
                 {undoneTaskData.newRank.rank <= 3 && (
                   <Typography variant="body2" color="warning.main" sx={{ mt: 1 }}>
-                    🎯 Still in the Top 3! Keep up the great work!
+                    You're still in the top three. Keep up the great work.
                   </Typography>
                 )}
                 {undoneTaskData.newRank.rank > 3 && (

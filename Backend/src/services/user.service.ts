@@ -289,7 +289,7 @@ export class UserService {
     await this.userRoleRepository.create({ userId, roleId });
 
     if (actorUserId && actorUserId !== userId) {
-      void NotificationHelper.notifyRoleChanged(role.roleName, actorUserId, [userId]);
+      await NotificationHelper.notifyRoleChanged(role.roleName, actorUserId, [userId]);
     }
 
     return true;
@@ -313,7 +313,7 @@ export class UserService {
 
     const removed = await this.userRoleRepository.removeRole(userId, roleId);
     if (removed && actorUserId && actorUserId !== userId) {
-      void NotificationHelper.notifyRoleChanged('No assigned role', actorUserId, [userId]);
+      await NotificationHelper.notifyRoleChanged('No assigned role', actorUserId, [userId]);
     }
     return removed;
   }

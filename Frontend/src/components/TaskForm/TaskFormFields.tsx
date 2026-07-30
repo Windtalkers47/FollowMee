@@ -15,6 +15,7 @@ import { TaskImage, User } from '../../api/task.api';
 import { ImageUpload } from '../ImageUpload/ImageUpload';
 import { RangeCalendar } from '../RangeCalendar/RangeCalendar';
 import { formatRelativeTime } from '../../utils/dateUtils';
+import { AccessTime, Update } from '@mui/icons-material';
 
 interface TaskFormFieldsProps {
   formData: any;
@@ -128,27 +129,29 @@ export const TaskFormFields: React.FC<TaskFormFieldsProps> = ({
               {/* Time Information */}
               <Box sx={{ mt: 2, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
                 {formData.createdAt && (
-                  <Typography variant="caption" color="text.secondary" sx={{ 
+                  <Typography variant="caption" color="text.secondary" sx={{
                     display: 'flex',
                     alignItems: 'center',
                     gap: 0.5,
                     padding: '4px 8px',
-                    borderRadius: '4px',
-                    backgroundColor: 'rgba(0, 0, 0, 0.04)'
+                    borderRadius: 1,
+                    bgcolor: 'action.hover',
                   }}>
-                    🕐 Created: {formatRelativeTime(formData.createdAt)}
+                    <AccessTime sx={{ fontSize: 15 }} aria-hidden="true" />
+                    Created: {formatRelativeTime(formData.createdAt)}
                   </Typography>
                 )}
                 {formData.updatedAt && formData.updatedAt !== formData.createdAt && (
-                  <Typography variant="caption" color="text.secondary" sx={{ 
+                  <Typography variant="caption" color="text.secondary" sx={{
                     display: 'flex',
                     alignItems: 'center',
                     gap: 0.5,
                     padding: '4px 8px',
-                    borderRadius: '4px',
-                    backgroundColor: 'rgba(0, 0, 0, 0.04)'
+                    borderRadius: 1,
+                    bgcolor: 'action.hover',
                   }}>
-                    ✏️ Updated: {formatRelativeTime(formData.updatedAt)}
+                    <Update sx={{ fontSize: 15 }} aria-hidden="true" />
+                    Updated: {formatRelativeTime(formData.updatedAt)}
                   </Typography>
                 )}
               </Box>

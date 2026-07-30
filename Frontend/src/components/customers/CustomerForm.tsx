@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
-import Swal from 'sweetalert2';
+import feedback from '../../services/feedback.service';
 import {
   TextField,
   Button,
@@ -291,7 +291,7 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
       setIsUploadingImage(true);
       
       // Show loading toast
-      Swal.fire({
+      feedback.fire({
         title: 'Processing Image...',
         text: 'Please wait while we process your image',
         icon: 'info',
@@ -299,7 +299,7 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
         allowEscapeKey: false,
         showConfirmButton: false,
         didOpen: () => {
-          Swal.showLoading();
+          feedback.showLoading();
         }
       });
       
@@ -327,8 +327,8 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
       }
 
       // Close loading toast and show success
-      Swal.close();
-      Swal.fire({
+      feedback.close();
+      feedback.fire({
         icon: 'success',
         title: 'Image Processed',
         text: 'Your image has been processed successfully!',
@@ -340,8 +340,8 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
     } catch (error) {
       console.error('Error processing image:', error);
       setUploadError('Failed to process image. Please try another one.');
-      Swal.close();
-      Swal.fire({
+      feedback.close();
+      feedback.fire({
         icon: 'error',
         title: 'Processing Failed',
         text: 'Failed to process image. Please try another one.',
@@ -353,13 +353,11 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
 
   const handleRemoveImage = async () => {
     // Show confirmation dialog before removing image
-    const result = await Swal.fire({
+    const result = await feedback.fire({
       title: 'Remove Image?',
       text: 'Are you sure you want to remove this image? It will be deleted from Cloudinary and database.',
       icon: 'warning',
       showCancelButton: true,
-      confirmButtonColor: '#d33',
-      cancelButtonColor: '#308',
       confirmButtonText: 'Yes, remove it!',
       cancelButtonText: 'Cancel',
     });
@@ -384,7 +382,7 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
       }
 
       // Show success toast
-      Swal.fire({
+      feedback.fire({
         icon: 'success',
         title: 'Image Removed',
         text: 'Your image has been removed successfully! Click "Update" to save changes.',
@@ -409,7 +407,7 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
   // Handle form submission with proper type safety
   const onSubmitForm = async (formData: FormValues) => {
     // Show loading state for form submission
-    Swal.fire({
+    feedback.fire({
       title: initialData?.customerId ? 'Updating Customer...' : 'Creating Customer...',
       text: 'Please wait while we process your request',
       icon: 'info',
@@ -417,7 +415,7 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
       allowEscapeKey: false,
       showConfirmButton: false,
       didOpen: () => {
-        Swal.showLoading();
+        feedback.showLoading();
       }
     });
 
@@ -456,7 +454,7 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
       } catch (error) {
         console.error('Error processing image:', error);
         setUploadError('Failed to process the image. Please try again.');
-        Swal.close();
+        feedback.close();
         return;
       } finally {
         setIsProcessingImage(false);

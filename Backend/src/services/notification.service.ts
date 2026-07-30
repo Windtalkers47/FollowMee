@@ -19,6 +19,7 @@ import { emailService } from './email.service';
 import { pushNotificationService } from './push-notification.service';
 import { NotificationMetricService } from './notification-metric.service';
 import { shouldAggregate } from '../utils/notification-aggregator.util';
+import { UserPreference } from '../entities/UserPreference';
 
 export class NotificationService {
   private notificationRepository: NotificationRepository;
@@ -28,6 +29,7 @@ export class NotificationService {
   private groupActorRepository: Repository<NotificationGroupActor>;
   private pushNotificationService: typeof pushNotificationService;
   private metricService: NotificationMetricService;
+  private userPreferenceRepository: Repository<UserPreference>;
 
   constructor(dataSource: DataSource) {
     this.notificationRepository = new NotificationRepository();
@@ -37,6 +39,7 @@ export class NotificationService {
     this.groupActorRepository = dataSource.getRepository(NotificationGroupActor);
     this.pushNotificationService = pushNotificationService;
     this.metricService = new NotificationMetricService(dataSource);
+    this.userPreferenceRepository = dataSource.getRepository(UserPreference);
   }
 
   /**
@@ -176,7 +179,7 @@ export class NotificationService {
     }
 
     // Step 9: Track analytics event (P3-PIPELINE: W5-METRICS)
-    await this.trackNotificationCreated(savedNotification, recipientUserIds);
+    await this.trackNotificationCreated(savedNotification, recipients);
 
     return this.mapToResponseDto(savedNotification);
   }
@@ -375,6 +378,9 @@ export class NotificationService {
       }
       
       try {
+        const preference = await this.userPreferenceRepository.findOne({
+          where: { userId: user.userId },
+        });
         const emailResult = await emailService.sendNotificationEmail(
           { email: user.userEmail, name: user.userName },
           {
@@ -383,7 +389,8 @@ export class NotificationService {
             type: notificationType,
             actionUrl: notification.actionUrl || undefined,
           },
-          settings
+          settings,
+          preference?.locale || 'en'
         );
         
         if (emailResult) {
@@ -654,17 +661,14 @@ export class NotificationService {
    */
   private async trackNotificationCreated(
     notification: Notification,
-    recipientUserIds: number[]
+    recipients: NotificationRecipient[]
   ): Promise<void> {
     try {
-      // Track notification created event (minimal tracking, no user agent/ip)
-      for (const userId of recipientUserIds) {
-        await this.metricService.trackOpen(
-          0, // recipientId not available at creation time
-          userId,
+      for (const recipient of recipients) {
+        await this.metricService.recordDelivery(
+          recipient.recipientId,
+          recipient.userId,
           notification.notificationId,
-          undefined, // userAgent not available
-          undefined // ipAddress not available
         );
       }
       console.log(`[Notification] Analytics tracked for notification ${notification.notificationId}`);

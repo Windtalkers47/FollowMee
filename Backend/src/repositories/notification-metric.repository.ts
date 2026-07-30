@@ -86,6 +86,21 @@ export class NotificationMetricRepository extends BaseRepository<NotificationMet
   constructor() {
     super(NotificationMetric);
   }
+
+  async recordDelivery(dto: CreateMetricDto): Promise<NotificationMetric> {
+    const existing = await this.findOne({
+      recipientId: dto.recipientId,
+      userId: dto.userId,
+    } as any);
+    if (existing) return existing;
+
+    return this.save(this.create({
+      ...dto,
+      deviceType: 'unknown',
+      browserType: 'unknown',
+      osType: 'unknown',
+    }));
+  }
   
   /**
    * สร้างหรืออัพเดท metric (upsert)

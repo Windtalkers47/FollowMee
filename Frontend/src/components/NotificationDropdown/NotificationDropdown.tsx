@@ -34,7 +34,11 @@ const NotificationDropdown = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
-  const notifications = useAppSelector(selectNotifications).filter(item => !item.isArchived && !item.isDeleted);
+  const storedNotifications = useAppSelector(selectNotifications);
+  const notifications = useMemo(
+    () => storedNotifications.filter(item => !item.isArchived && !item.isDeleted),
+    [storedNotifications],
+  );
   const loading = useAppSelector(selectNotificationLoading);
   const error = useAppSelector(selectNotificationError);
   const unreadCount = useAppSelector(selectUnreadCount);

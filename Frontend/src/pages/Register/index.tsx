@@ -17,7 +17,7 @@ import {
   InputAdornment,
 } from '@mui/material';
 import { LockOutlined, Visibility, VisibilityOff } from '@mui/icons-material';
-import Swal from 'sweetalert2';
+import feedback from '../../services/feedback.service';
 
 interface FormErrors {
   userName: string;
@@ -216,7 +216,7 @@ const Register = () => {
       setIsLoading(true);
       
       // Show loading
-      Swal.showLoading();
+      feedback.showLoading();
       
       // Register the user
       const registrationData: RegisterCredentials = {
@@ -230,13 +230,13 @@ const Register = () => {
       const response = await authApi.register(registrationData);
       
       // Hide loading
-      Swal.hideLoading();
+      feedback.hideLoading();
       
       // Check if it was a reactivation or new registration
       const isReactivation = response.success && response.message === 'Account reactivated successfully';
       
       // Show appropriate success message
-      await Swal.fire({
+      await feedback.fire({
         icon: 'success',
         title: isReactivation ? 'Welcome Back!' : 'Registration Successful',
         text: isReactivation 
@@ -268,13 +268,13 @@ const Register = () => {
       console.error('Registration error:', error);
       
       // Hide loading
-      Swal.hideLoading();
+      feedback.hideLoading();
       
       // Show detailed error message
       const errorMessage = error.message || 'Registration failed. Please try again.';
       const isDuplicateEmail = errorMessage.includes('Duplicate entry') || errorMessage.includes('already in use') || errorMessage.includes('Email already in use');
       
-      await Swal.fire({
+      await feedback.fire({
         icon: 'error',
         title: isDuplicateEmail ? 'Email Already Exists' : 'Registration Failed',
         text: isDuplicateEmail 
@@ -303,16 +303,16 @@ const Register = () => {
       animation: 'shake 0.5s cubic-bezier(.36,.07,.19,.97) both',
       '& .MuiOutlinedInput-root': {
         '& fieldset': {
-          borderColor: '#f44336',
+          borderColor: 'error.main',
           borderWidth: '2px',
         },
         '&:hover fieldset': {
-          borderColor: '#f44336',
+          borderColor: 'error.main',
         },
         '&.Mui-focused fieldset': {
-          borderColor: '#f44336',
+          borderColor: 'error.main',
           borderWidth: '2px',
-          boxShadow: '0 0 0 4px rgba(244, 67, 54, 0.2)',
+          boxShadow: 'none',
         },
       },
     } : {}),

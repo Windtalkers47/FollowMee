@@ -17,6 +17,7 @@ import {
   Card,
   CardContent,
   useTheme,
+  useMediaQuery,
   Tooltip,
   Dialog,
   DialogTitle,
@@ -29,7 +30,7 @@ import {
   TextField,
   Alert
 } from '@mui/material';
-import { styled } from '@mui/material/styles';
+import { alpha, styled } from '@mui/material/styles';
 import {
   PersonAdd as PersonAddIcon,
   AdminPanelSettings as AdminIcon,
@@ -41,7 +42,7 @@ import {
 
 import { useUsersManagement, User, Role } from '../../hooks/useUsersManagement';
 import { ROLE_NAMES, normalizeRoleName } from '../../constants/roles';
-import Swal from 'sweetalert2';
+import feedback from '../../services/feedback.service';
 
 // Styled components
 const StyledCard = styled(Card)(({ theme }) => ({
@@ -81,6 +82,7 @@ const getRoleColor = (role: string) => {
 
 const UsersPage = () => {
   const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const {
     users,
     roles,
@@ -192,7 +194,7 @@ const UsersPage = () => {
       // Check if trying to assign Super Admin when it's already taken
       const normalizedSelectedRole = normalizeRoleName(assignRoleDialog.selectedRole);
       if (normalizedSelectedRole === 'Superadmin' && isSuperAdminTaken && assignRoleDialog.selectedRole !== "SUPER_ADMIN") {
-        await Swal.fire({
+        await feedback.fire({
           icon: 'warning',
           title: 'Super Admin Already Assigned',
           text: 'There can only be one Super Admin in the system. Please remove the existing Super Admin role before assigning a new one.',
@@ -207,7 +209,7 @@ const UsersPage = () => {
       const selectedRoleObj = roles.find(r => r.roleName === normalizedSelectedRole);
       
       if (!selectedRoleObj) {
-        await Swal.fire({
+        await feedback.fire({
           icon: 'error',
           title: 'Invalid Role',
           text: 'The selected role could not be found.',
@@ -221,7 +223,7 @@ const UsersPage = () => {
       const success = await assignRoleToUser(assignRoleDialog.user.userId, selectedRoleObj.roleId);
 
       if (success) {
-        await Swal.fire({
+        await feedback.fire({
           icon: 'success',
           title: 'Role Assigned Successfully',
           text: `Role "${assignRoleDialog.selectedRole.replace('_', ' ')}" has been assigned to ${assignRoleDialog.user.userName} ${assignRoleDialog.user.userLastName}`,
@@ -230,7 +232,7 @@ const UsersPage = () => {
           }
         });
       } else {
-        await Swal.fire({
+        await feedback.fire({
           icon: 'error',
           title: 'Assignment Failed',
           text: 'Failed to assign role. Please try again.',
@@ -241,7 +243,7 @@ const UsersPage = () => {
       }
     } catch (error) {
       console.error('Error assigning role:', error);
-      await Swal.fire({
+      await feedback.fire({
         icon: 'error',
         title: 'Error',
         text: 'An error occurred while assigning role.',
@@ -262,15 +264,13 @@ const UsersPage = () => {
   }, []);
 
   const handleDeleteUser = useCallback(async (user: User) => {
-    const result = await Swal.fire({
+    const result = await feedback.fire({
       title: 'Are you sure?',
       text: `You are about to delete ${user.userName} ${user.userLastName || ''}. This action cannot be undone!`,
       icon: 'warning',
       showCancelButton: true,
       confirmButtonText: 'Yes, delete user!',
       cancelButtonText: 'Cancel',
-      confirmButtonColor: '#dc3545',
-      cancelButtonColor: '#6c757d',
       reverseButtons: true,
     });
 
@@ -278,7 +278,7 @@ const UsersPage = () => {
       try {
         const success = await deleteUser(user.userId);
         if (success) {
-          await Swal.fire({
+          await feedback.fire({
             icon: 'success',
             title: 'User Deleted!',
             text: `${user.userName} has been successfully deleted.`,
@@ -288,11 +288,10 @@ const UsersPage = () => {
           });
         }
       } catch (error) {
-        await Swal.fire({
+        await feedback.fire({
           icon: 'error',
           title: 'Deletion Failed',
           text: 'Failed to delete the user. Please try again.',
-          confirmButtonColor: '#dc3545',
         });
       }
     }
@@ -330,7 +329,7 @@ const UsersPage = () => {
         </Button>
       )}
 
-      <Box sx={{ display: { xs: 'grid', md: 'none' }, gap: 1.5, mb: 2 }}>
+      <Box aria-hidden={!isMobile} sx={{ display: { xs: 'grid', md: 'none' }, gap: 1.5, mb: 2 }}>
         {users?.map((user) => (
           <Paper key={user.userId} variant="outlined" sx={{ p: 2, borderRadius: 3 }}>
             <Box display="flex" alignItems="flex-start" gap={1.5}>
@@ -352,7 +351,7 @@ const UsersPage = () => {
         ))}
       </Box>
 
-      <StyledCard sx={{ display: { xs: 'none', md: 'block' } }}>
+      <StyledCard aria-hidden={isMobile} sx={{ display: { xs: 'none', md: 'block' } }}>
         <CardContent sx={{ p: 0 }}>
           <TableContainer>
             <Table>
@@ -413,9 +412,9 @@ const UsersPage = () => {
                         label={user.isActive ? 'Active' : 'Inactive'}
                         size="small"
                         sx={{
-                          bgcolor: user.isActive ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
-                          color: user.isActive ? '#10b981' : '#ef4444',
-                          border: `1px solid ${user.isActive ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
+                          bgcolor: alpha(user.isActive ? theme.palette.success.main : theme.palette.error.main, 0.12),
+                          color: user.isActive ? 'success.main' : 'error.main',
+                          border: `1px solid ${alpha(user.isActive ? theme.palette.success.main : theme.palette.error.main, 0.3)}`,
                           fontWeight: 600,
                         }}
                       />

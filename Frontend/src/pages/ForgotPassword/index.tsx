@@ -12,7 +12,7 @@ import {
   Link,
 } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
-import Swal from 'sweetalert2';
+import feedback from '../../services/feedback.service';
 
 const ForgotPassword = () => {
   const [email, setEmail] = useState('');
@@ -23,7 +23,7 @@ const ForgotPassword = () => {
     e.preventDefault();
 
     if (!email) {
-      await Swal.fire({
+      await feedback.fire({
         icon: 'error',
         title: 'Email Required',
         text: 'Please enter your email address',
@@ -35,7 +35,7 @@ const ForgotPassword = () => {
     }
 
     if (!/\S+@\S+\.\S+/.test(email)) {
-      await Swal.fire({
+      await feedback.fire({
         icon: 'error',
         title: 'Invalid Email',
         text: 'Please enter a valid email address',
@@ -50,7 +50,7 @@ const ForgotPassword = () => {
       setIsLoading(true);
       await authApi.forgotPassword(email);
       
-      await Swal.fire({
+      await feedback.fire({
         icon: 'success',
         title: 'Reset Email Sent!',
         html: `We've sent a password reset link to <strong>${email}</strong><br><br>If you don't see the email, check your spam folder or try again.`,
@@ -64,7 +64,7 @@ const ForgotPassword = () => {
         }
       });
     } catch (error: any) {
-      await Swal.fire({
+      await feedback.fire({
         icon: 'error',
         title: 'Send Failed',
         text: error.message || 'Failed to send reset email',

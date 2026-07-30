@@ -1,11 +1,12 @@
 import React from 'react';
-import { Menu, MenuItem, Typography, useTheme } from '@mui/material';
+import { Menu, MenuItem } from '@mui/material';
 import {
   Edit as EditIcon,
   Delete as DeleteIcon,
   Cancel as CancelIcon,
+  ArrowForward as ArrowForwardIcon,
 } from '@mui/icons-material';
-import Swal from 'sweetalert2';
+import feedback from '../../services/feedback.service';
 import { Task } from '../../api/task.api';
 import { TaskPermissions } from '../../permissions/taskPermissions';
 
@@ -30,8 +31,6 @@ const TaskMenu: React.FC<TaskMenuProps> = ({
   onCancel,
   onUpdateTaskStatus,
 }) => {
-  const theme = useTheme();
-  const isDark = theme.palette.mode === 'dark';
   const handleEdit = () => {
     onEdit?.(task);
     onMenuClose();
@@ -43,13 +42,11 @@ const TaskMenu: React.FC<TaskMenuProps> = ({
   };
 
   const handleCancel = () => {
-    Swal.fire({
+    feedback.fire({
       title: 'Cancel Task?',
       text: 'Are you sure you want to cancel this task?',
       icon: 'warning',
       showCancelButton: true,
-      confirmButtonColor: '#f44336',
-      cancelButtonColor: '#757575',
       confirmButtonText: 'Yes, cancel it!',
       cancelButtonText: 'No, keep it',
       reverseButtons: true
@@ -62,13 +59,11 @@ const TaskMenu: React.FC<TaskMenuProps> = ({
   };
 
   const handleDelete = () => {
-    Swal.fire({
+    feedback.fire({
       title: 'Are you sure?',
       text: 'You won\'t be able to revert this task!',
       icon: 'warning',
       showCancelButton: true,
-      confirmButtonColor: '#d33',
-      cancelButtonColor: '#6c757d',
       confirmButtonText: 'Yes, delete it!',
       cancelButtonText: 'Cancel',
       reverseButtons: true
@@ -91,17 +86,10 @@ const TaskMenu: React.FC<TaskMenuProps> = ({
       PaperProps={{
         sx: {
           borderRadius: 2,
-          background: isDark
-            ? 'rgba(255, 255, 255, 0.1)'
-            : 'rgba(255, 255, 255, 0.8)',
-          backdropFilter: 'blur(20px) saturate(180%)',
-          WebkitBackdropFilter: 'blur(20px) saturate(180%)',
-          border: isDark
-            ? '1px solid rgba(255, 255, 255, 0.15)'
-            : '1px solid rgba(0, 0, 0, 0.08)',
-          boxShadow: isDark
-            ? '0 4px 20px rgba(0,0,0,0.5)'
-            : '0 4px 20px rgba(0,0,0,0.1)',
+          bgcolor: 'background.paper',
+          border: '1px solid',
+          borderColor: 'divider',
+          boxShadow: 3,
         }
       }}
     >
@@ -110,11 +98,9 @@ const TaskMenu: React.FC<TaskMenuProps> = ({
         disabled={!permissions.canEdit}
         sx={{
           fontSize: '0.875rem',
-          color: isDark ? '#fff' : '#000',
+          color: 'text.primary',
           '&:hover': {
-            background: isDark
-              ? 'rgba(255, 255, 255, 0.08)'
-              : 'rgba(0, 0, 0, 0.04)',
+            bgcolor: 'action.hover',
           },
           '&.Mui-disabled': {
             opacity: 0.4,
@@ -131,18 +117,16 @@ const TaskMenu: React.FC<TaskMenuProps> = ({
           disabled={!permissions.canEdit}
           sx={{
             fontSize: '0.875rem',
-            color: '#0A84FF',
+            color: 'info.main',
             '&:hover': {
-              background: isDark
-                ? 'rgba(10, 132, 255, 0.1)'
-                : 'rgba(10, 132, 255, 0.08)',
+              bgcolor: 'action.hover',
             },
             '&.Mui-disabled': {
               opacity: 0.4,
             }
           }}
         >
-          <Typography sx={{ mr: 1.5, fontSize: 16 }}>→</Typography>
+          <ArrowForwardIcon fontSize="small" sx={{ mr: 1.5 }} />
           Move to Todo
         </MenuItem>
       )}
@@ -153,11 +137,9 @@ const TaskMenu: React.FC<TaskMenuProps> = ({
           disabled={!permissions.canCancel}
           sx={{
             fontSize: '0.875rem',
-            color: '#FF9500',
+            color: 'warning.main',
             '&:hover': {
-              background: isDark
-                ? 'rgba(255, 159, 10, 0.1)'
-                : 'rgba(255, 159, 10, 0.08)',
+              bgcolor: 'action.hover',
             },
             '&.Mui-disabled': {
               opacity: 0.4,
@@ -174,11 +156,9 @@ const TaskMenu: React.FC<TaskMenuProps> = ({
         disabled={!permissions.canDelete}
         sx={{
           fontSize: '0.875rem',
-          color: '#FF3B30',
+          color: 'error.main',
           '&:hover': {
-            background: isDark
-              ? 'rgba(255, 59, 48, 0.1)'
-              : 'rgba(255, 59, 48, 0.08)',
+            bgcolor: 'action.hover',
           },
           '&.Mui-disabled': {
             opacity: 0.4,

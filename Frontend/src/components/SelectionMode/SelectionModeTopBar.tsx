@@ -26,6 +26,7 @@ import {
   CheckBoxOutlineBlank as SelectAllIcon,
   CheckBox as UnselectAllIcon,
 } from '@mui/icons-material';
+import { taskStatusTokens } from '../../styles/designTokens';
 
 interface SelectionModeTopBarProps {
   selectedCount: number;
@@ -54,12 +55,12 @@ export const SelectionModeTopBar: React.FC<SelectionModeTopBarProps> = ({
   const [selectedStatus, setSelectedStatus] = React.useState<'draft' | 'todo' | 'in_progress' | 'review' | 'done' | 'cancelled' | null>(null);
 
   const statusOptions = [
-    { value: 'draft' as const, label: 'Draft', description: 'Keep work private before planning', color: '#8E8E93' },
-    { value: 'todo' as const, label: 'To do', description: 'Ready to be picked up', color: '#007AFF' },
-    { value: 'in_progress' as const, label: 'In progress', description: 'Work is currently underway', color: '#FF9F0A' },
-    { value: 'review' as const, label: 'Review', description: 'Waiting for feedback or approval', color: '#5E5CE6' },
-    { value: 'done' as const, label: 'Done', description: 'Work has been completed', color: '#34C759' },
-    { value: 'cancelled' as const, label: 'Cancelled', description: 'Work will not continue', color: '#FF3B30' },
+    { value: 'draft' as const, label: taskStatusTokens.draft.label, description: 'Keep work private before planning', color: taskStatusTokens.draft.color },
+    { value: 'todo' as const, label: taskStatusTokens.todo.label, description: 'Ready to be picked up', color: taskStatusTokens.todo.color },
+    { value: 'in_progress' as const, label: taskStatusTokens.in_progress.label, description: 'Work is currently underway', color: taskStatusTokens.in_progress.color },
+    { value: 'review' as const, label: taskStatusTokens.review.label, description: 'Waiting for feedback or approval', color: taskStatusTokens.review.color },
+    { value: 'done' as const, label: taskStatusTokens.done.label, description: 'Work has been completed', color: taskStatusTokens.done.color },
+    { value: 'cancelled' as const, label: taskStatusTokens.cancelled.label, description: 'Work will not continue', color: taskStatusTokens.cancelled.color },
   ];
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
@@ -81,12 +82,12 @@ export const SelectionModeTopBar: React.FC<SelectionModeTopBarProps> = ({
     setMoveDialogOpen(true);
   };
 
-  if (selectedCount === 0) {
+  if (!isVisible) {
     return null;
   }
 
   return (
-    <Slide direction="up" in={isVisible && selectedCount > 0} mountOnEnter unmountOnExit timeout={300}>
+    <Slide direction="up" in={isVisible} mountOnEnter unmountOnExit timeout={300}>
       <Box
         role="toolbar"
         aria-label="Selection mode toolbar"
@@ -143,7 +144,7 @@ export const SelectionModeTopBar: React.FC<SelectionModeTopBarProps> = ({
               display: { xs: 'none', sm: 'block' },
             }}
           >
-            Selected
+            {selectedCount > 0 ? 'Selected' : 'Select tasks'}
           </Typography>
 
           {/* Select All / Unselect All Toggle Button */}
@@ -274,10 +275,10 @@ export const SelectionModeTopBar: React.FC<SelectionModeTopBarProps> = ({
           </Tooltip>
 
           {/* Close Button (Rightmost) */}
-          <Tooltip title="Close Selection Mode">
+          <Tooltip title="Exit selection mode">
             <IconButton
               onClick={onClose}
-              aria-label="Close selection mode"
+              aria-label="Exit selection mode"
               sx={{
                 width: { xs: 'auto', sm: 40 },
                 height: { xs: 48, sm: 40 },

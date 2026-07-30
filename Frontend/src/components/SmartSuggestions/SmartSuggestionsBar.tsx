@@ -22,6 +22,8 @@ import {
   KeyboardArrowUp as CollapseIcon
 } from '@mui/icons-material';
 import { PrioritySuggestion, SuggestionAction } from '../../api/task.api';
+import { alpha } from '@mui/material/styles';
+import { useUserPreferences } from '../../contexts/UserPreferencesContext';
 
 interface SmartSuggestionsBarProps {
   suggestions: PrioritySuggestion[];
@@ -35,6 +37,7 @@ export const SmartSuggestionsBar: React.FC<SmartSuggestionsBarProps> = ({
   onDismiss
 }) => {
   const theme = useTheme();
+  const { t } = useUserPreferences();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [isExpanded, setIsExpanded] = useState(!isMobile);
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
@@ -54,9 +57,25 @@ export const SmartSuggestionsBar: React.FC<SmartSuggestionsBarProps> = ({
     setDismissedIds(prev => new Set(prev).add(id));
   };
 
-  const getActionColor = (action: SuggestionAction) => {
-    return action.color || '#0A84FF';
-  };
+  const getActionColor = (_action: SuggestionAction) => theme.palette.primary.main;
+  const getTitle = (suggestion: PrioritySuggestion) => ({
+    overdue: t('suggestion.overdue.title'),
+    today: t('suggestion.today.title'),
+    tomorrow: t('suggestion.tomorrow.title'),
+    soon: t('suggestion.soon.title'),
+  })[suggestion.translationKey];
+  const getMessage = (suggestion: PrioritySuggestion) => ({
+    overdue: t('suggestion.overdue.message', { count: suggestion.count }),
+    today: t('suggestion.today.message', { count: suggestion.count }),
+    tomorrow: t('suggestion.tomorrow.message', { count: suggestion.count }),
+    soon: t('suggestion.soon.message', { count: suggestion.count }),
+  })[suggestion.translationKey];
+  const getActionLabel = (action: SuggestionAction) => ({
+    'mark-done': t('suggestion.action.markDone'),
+    'start-all': t('suggestion.action.startAll'),
+    reschedule: t('suggestion.action.reschedule'),
+    review: t('suggestion.action.review'),
+  })[action.type];
 
   const getActionIcon = (type: SuggestionAction['type']) => {
     switch (type) {
@@ -67,27 +86,17 @@ export const SmartSuggestionsBar: React.FC<SmartSuggestionsBarProps> = ({
     }
   };
 
-  const getBackgroundGradient = (type: PrioritySuggestion['type']) => {
-    switch (type) {
-      case 'overdue':
-        return `linear-gradient(135deg, rgba(255, 59, 48, 0.15) 0%, rgba(255, 59, 48, 0.05) 100%)`;
-      case 'due-today':
-        return `linear-gradient(135deg, rgba(52, 199, 89, 0.15) 0%, rgba(52, 199, 89, 0.05) 100%)`;
-      case 'due-tomorrow':
-        return `linear-gradient(135deg, rgba(10, 132, 255, 0.15) 0%, rgba(10, 132, 255, 0.05) 100%)`;
-      case 'due-within-3-days':
-        return `linear-gradient(135deg, rgba(175, 82, 222, 0.15) 0%, rgba(175, 82, 222, 0.05) 100%)`;
-    }
+  const getSuggestionColor = (type: PrioritySuggestion['type']) => {
+    if (type === 'overdue') return theme.palette.error.main;
+    if (type === 'due-today') return theme.palette.warning.main;
+    if (type === 'due-tomorrow') return theme.palette.info.main;
+    return theme.palette.primary.main;
   };
 
-  const getBorderColor = (type: PrioritySuggestion['type']) => {
-    switch (type) {
-      case 'overdue': return 'rgba(255, 59, 48, 0.3)';
-      case 'due-today': return 'rgba(52, 199, 89, 0.3)';
-      case 'due-tomorrow': return 'rgba(10, 132, 255, 0.3)';
-      case 'due-within-3-days': return 'rgba(175, 82, 222, 0.3)';
-    }
-  };
+  const getBackgroundGradient = (type: PrioritySuggestion['type']) =>
+    alpha(getSuggestionColor(type), theme.palette.mode === 'dark' ? 0.16 : 0.09);
+  const getBorderColor = (type: PrioritySuggestion['type']) =>
+    alpha(getSuggestionColor(type), 0.3);
 
   return (
     <Slide direction="down" in={visibleSuggestions.length > 0} mountOnEnter unmountOnExit>
@@ -120,7 +129,7 @@ export const SmartSuggestionsBar: React.FC<SmartSuggestionsBarProps> = ({
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                color: primarySuggestion.actions[0]?.color || '#fff'
+                color: getSuggestionColor(primarySuggestion.type)
               }}
             >
               <FireIcon sx={{ fontSize: 20 }} />
@@ -137,7 +146,7 @@ export const SmartSuggestionsBar: React.FC<SmartSuggestionsBarProps> = ({
                     fontSize: { xs: '0.875rem', sm: '0.9375rem' }
                   }}
                 >
-                  {primarySuggestion.title}
+                  {getTitle(primarySuggestion)}
                 </Typography>
                 <Chip
                   label={primarySuggestion.count}
@@ -161,7 +170,7 @@ export const SmartSuggestionsBar: React.FC<SmartSuggestionsBarProps> = ({
                   mb: 2
                 }}
               >
-                {primarySuggestion.message}
+                {getMessage(primarySuggestion)}
               </Typography>
 
               {/* Action Buttons */}
@@ -195,7 +204,7 @@ export const SmartSuggestionsBar: React.FC<SmartSuggestionsBarProps> = ({
                       }
                     }}
                   >
-                    {action.label}
+                    {getActionLabel(action)}
                   </Button>
                 ))}
 
@@ -271,7 +280,7 @@ export const SmartSuggestionsBar: React.FC<SmartSuggestionsBarProps> = ({
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  color: suggestion.actions[0]?.color || '#fff'
+                  color: getSuggestionColor(suggestion.type)
                 }}
               >
                 <FireIcon sx={{ fontSize: 16 }} />
@@ -287,7 +296,7 @@ export const SmartSuggestionsBar: React.FC<SmartSuggestionsBarProps> = ({
                       fontSize: '0.875rem'
                     }}
                   >
-                    {suggestion.title}
+                    {getTitle(suggestion)}
                   </Typography>
                   <Chip
                     label={suggestion.count}
@@ -309,13 +318,13 @@ export const SmartSuggestionsBar: React.FC<SmartSuggestionsBarProps> = ({
                     fontSize: '0.75rem'
                   }}
                 >
-                  {suggestion.message}
+                  {getMessage(suggestion)}
                 </Typography>
               </Box>
 
               <Box display="flex" gap={0.5}>
                 {suggestion.actions.map((action) => (
-                  <Tooltip key={action.id} title={action.label}>
+                  <Tooltip key={action.id} title={getActionLabel(action)}>
                     <IconButton
                       size="small"
                       onClick={() => onActionClick(suggestion, action)}

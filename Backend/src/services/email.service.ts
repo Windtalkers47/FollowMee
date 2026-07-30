@@ -156,7 +156,8 @@ class EmailService {
       type: string;
       actionUrl?: string;
     },
-    settings?: UserNotificationSettings | null
+    settings?: UserNotificationSettings | null,
+    locale: 'en' | 'th' = 'en'
   ): Promise<boolean> {
     // Check if user has email enabled in settings
     if (settings && !settings.emailEnabled) {
@@ -165,8 +166,8 @@ class EmailService {
     }
 
     const subject = `FollowMee: ${notification.title}`;
-    const html = this.createNotificationEmailHtml(notification);
-    const text = this.createNotificationEmailText(notification);
+    const html = this.createNotificationEmailHtml(notification, locale);
+    const text = this.createNotificationEmailText(notification, locale);
 
     return this.sendEmail({
       to: recipient,
@@ -184,9 +185,18 @@ class EmailService {
     message: string;
     type: string;
     actionUrl?: string;
-  }): string {
+  }, locale: 'en' | 'th'): string {
+    const copy = locale === 'th'
+      ? {
+          button: 'ดูรายละเอียด',
+          footer: 'คุณได้รับอีเมลนี้เพราะเปิดการแจ้งเตือนทางอีเมลใน FollowMee',
+        }
+      : {
+          button: 'View details',
+          footer: 'You received this email because email notifications are enabled in FollowMee.',
+        };
     const actionButton = notification.actionUrl
-      ? `<a href="${notification.actionUrl}" style="display: inline-block; padding: 10px 20px; background-color: #10b981; color: white; text-decoration: none; border-radius: 5px; margin-top: 15px;">ดูรายละเอียด</a>`
+      ? `<a href="${this.escapeHtml(notification.actionUrl)}" style="display:inline-block;padding:11px 20px;background:#6d4aff;color:#fff;text-decoration:none;border-radius:10px;margin-top:15px;font-weight:600">${copy.button}</a>`
       : '';
 
     return `
@@ -212,14 +222,14 @@ class EmailService {
       box-shadow: 0 1px 3px rgba(0,0,0,0.1);
     }
     .header {
-      border-bottom: 2px solid #10b981;
+      border-bottom: 2px solid #6d4aff;
       padding-bottom: 15px;
       margin-bottom: 20px;
     }
     .logo {
       font-size: 24px;
       font-weight: bold;
-      color: #10b981;
+      color: #6d4aff;
     }
     .title {
       font-size: 20px;
@@ -253,8 +263,8 @@ class EmailService {
     ${actionButton}
     
     <div class="footer">
-      <p>คุณได้รับอีเมลนี้เนื่องจากคุณได้เปิดการแจ้งเตือนทางอีเมลใน FollowMee</p>
-      <p>© ${new Date().getFullYear()} FollowMee. All rights reserved.</p>
+      <p>${copy.footer}</p>
+      <p>&copy; ${new Date().getFullYear()} FollowMee. All rights reserved.</p>
     </div>
   </div>
 </body>
@@ -270,20 +280,34 @@ class EmailService {
     message: string;
     type: string;
     actionUrl?: string;
-  }): string {
-    let text = `FollowMee Notification\n\n`;
-    text += `หัวข้อ: ${notification.title}\n\n`;
-    text += `ข้อความ: ${notification.message}\n\n`;
-    
-    if (notification.actionUrl) {
-      text += `ดูรายละเอียด: ${notification.actionUrl}\n\n`;
-    }
-    
-    text += `--\n`;
-    text += `คุณได้รับอีเมลนี้เนื่องจากคุณได้เปิดการแจ้งเตือนทางอีเมลใน FollowMee\n`;
-    text += `© ${new Date().getFullYear()} FollowMee. All rights reserved.`;
-    
-    return text;
+  }, locale: 'en' | 'th'): string {
+    const labels = locale === 'th'
+      ? {
+          heading: 'การแจ้งเตือนจาก FollowMee',
+          title: 'หัวข้อ',
+          message: 'ข้อความ',
+          details: 'ดูรายละเอียด',
+          footer: 'คุณได้รับอีเมลนี้เพราะเปิดการแจ้งเตือนทางอีเมลใน FollowMee',
+        }
+      : {
+          heading: 'FollowMee notification',
+          title: 'Title',
+          message: 'Message',
+          details: 'View details',
+          footer: 'You received this email because email notifications are enabled in FollowMee.',
+        };
+    return [
+      labels.heading,
+      '',
+      `${labels.title}: ${notification.title}`,
+      '',
+      `${labels.message}: ${notification.message}`,
+      notification.actionUrl ? `\n${labels.details}: ${notification.actionUrl}` : '',
+      '',
+      '--',
+      labels.footer,
+      `© ${new Date().getFullYear()} FollowMee.`,
+    ].join('\n');
   }
 
   /**
@@ -291,10 +315,10 @@ class EmailService {
    */
   private escapeHtml(text: string): string {
     const map: Record<string, string> = {
-      '&': '&',
-      '<': '<',
-      '>': '>',
-      '"': '"',
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
       "'": '&#039;',
     };
     return text.replace(/[&<>"']/g, (m) => map[m]);

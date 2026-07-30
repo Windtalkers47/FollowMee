@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import type { ReactNode } from 'react';
 import {
   FormControl,
   InputLabel,
@@ -11,14 +12,22 @@ import {
   Alert,
   useTheme
 } from '@mui/material';
+import {
+  AdminPanelSettingsOutlined,
+  InfoOutlined,
+  PersonOutline,
+  ShieldOutlined,
+  WorkspacePremiumOutlined,
+} from '@mui/icons-material';
+import { brandColors } from '../../styles/designTokens';
 
 interface RoleOption {
   value: string;
   label: string;
   description: string;
   level: number;
-  color?: string;
-  icon?: string;
+  color: string;
+  icon: ReactNode;
 }
 
 interface RoleSelectorProps {
@@ -42,32 +51,32 @@ const roleOptions: RoleOption[] = [
     label: 'Customer',
     description: 'Regular user access. Can view and manage their own profile and basic features.',
     level: 1,
-    color: '#4CAF50',
-    icon: '👤'
+    color: brandColors.iosGreen,
+    icon: <PersonOutline fontSize="small" />
   },
   {
     value: 'Moderator',
     label: 'Moderator',
     description: 'Can view and moderate users, customers, and tasks. Perfect for content moderation and basic user management.',
     level: 50,
-    color: '#FF9800',
-    icon: '🛡️'
+    color: brandColors.amber,
+    icon: <ShieldOutlined fontSize="small" />
   },
   {
     value: 'Admin',
     label: 'Administrator',
     description: 'Can manage users, customers, tasks, and system settings. Cannot manage roles or permissions.',
     level: 100,
-    color: '#2196F3',
-    icon: '⚙️'
+    color: brandColors.blue,
+    icon: <AdminPanelSettingsOutlined fontSize="small" />
   },
   {
     value: 'Superadmin',
     label: 'Super Administrator',
     description: 'Complete system control. Can manage everything including users, roles, permissions, and all system settings. Only one allowed.',
     level: 999,
-    color: '#F44336',
-    icon: '🔥'
+    color: brandColors.red,
+    icon: <WorkspacePremiumOutlined fontSize="small" />
   }
 ];
 
@@ -183,8 +192,9 @@ const RoleSelector: React.FC<RoleSelectorProps> = ({
         )}
         
         <FormHelperText>
-          <Typography variant="caption" color="primary">
-            💡 Choose the role that best fits your needs. Higher roles have more permissions but also more responsibility.
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
+            <InfoOutlined sx={{ fontSize: 16 }} aria-hidden="true" />
+            Choose the role that best fits the user's responsibilities.
           </Typography>
         </FormHelperText>
       </FormControl>

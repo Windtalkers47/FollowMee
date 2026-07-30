@@ -87,6 +87,14 @@ export class NotificationMetricService {
     return createHash('sha256').update(ipAddress).digest('hex');
   }
 
+  async recordDelivery(
+    recipientId: number,
+    userId: number,
+    notificationId: number,
+  ): Promise<NotificationMetric> {
+    return this.metricRepository.recordDelivery({ recipientId, userId, notificationId });
+  }
+
   /**
    * Track open event
    * เมื่อผู้ใช้เปิด notification

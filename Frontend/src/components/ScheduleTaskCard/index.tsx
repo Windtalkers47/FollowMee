@@ -1,499 +1,117 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
-  Box,
-  Typography,
-  Chip,
-  IconButton,
-  Menu,
-  MenuItem,
-  Button,
-  useTheme,
-  Checkbox
+  Box, Typography, Chip, IconButton, Menu, MenuItem, Button, Checkbox,
+  Dialog, DialogContent, DialogTitle, Tooltip, LinearProgress, useTheme,
 } from '@mui/material';
-import Swal from 'sweetalert2';
 import {
-  MoreVert as MoreVertIcon,
-  Edit as EditIcon,
-  Delete as DeleteIcon,
-  CalendarToday as CalendarIcon,
-  Person as PersonIcon,
-  Cancel as CancelIcon,
-  Check as CheckIcon
+  MoreVert as MoreVertIcon, Edit as EditIcon, Delete as DeleteIcon,
+  CalendarToday as CalendarIcon, Person as PersonIcon, Cancel as CancelIcon,
+  Check as CheckIcon, ArrowForward as ArrowForwardIcon, Close as CloseIcon,
+  Image as ImageIcon, AssignmentInd as AssignmentIndIcon,
 } from '@mui/icons-material';
-import { parseISO, isPast, isToday } from 'date-fns';
+import feedback from '../../services/feedback.service';
 import { Task, TaskLikeSummary } from '../../api/task.api';
 import { getTaskPermissions } from '../../permissions/taskPermissions';
-// Removed useLongPress - using Tap instead for better UX
+import { feedbackTokens, taskStatusTokens, type TaskStatus } from '../../styles/designTokens';
+import { differenceInCalendarDays, format, isToday, isValid, parseISO } from 'date-fns';
 
 interface Props {
-  task: Task;
-  likeSummary?: TaskLikeSummary;
-  currentUserId: number;
-  onEdit: (task: Task) => void;
-  onDelete: (taskId: string) => void;
+  task: Task; likeSummary?: TaskLikeSummary; currentUserId: number;
+  onEdit: (task: Task) => void; onDelete: (taskId: string) => void;
   onComment?: (taskId: string, comment: string) => void;
-  onStartProgress?: (taskId: string) => void;
-  onApprove?: (taskId: string) => void;
-  onReject?: (taskId: string) => void;
-  onCancel?: (taskId: string) => void;
-  onUpdateTaskStatus?: (taskId: string, status: Task['status']) => void;
-  onMarkDone?: (taskId: string) => void;
-  onMarkUndone?: (taskId: string) => void;
+  onApprove?: (taskId: string) => void; onReject?: (taskId: string) => void;
+  onMarkDone?: (taskId: string) => void; onMarkUndone?: (taskId: string) => void;
   onUndo?: (taskId: string) => void;
-  // Selection mode props
-  isSelected?: boolean;
-  onToggleSelect?: (taskId: string) => void;
-  isInSelectionMode?: boolean;
-  onEnterSelectionMode?: () => void;
-  onCardClick?: () => void;
+  onStartProgress?: (taskId: string) => void; onCancel?: (taskId: string) => void;
+  onUpdateTaskStatus?: (taskId: string, status: Task['status']) => void;
+  isSelected?: boolean; onToggleSelect?: (taskId: string) => void;
+  isInSelectionMode?: boolean; onEnterSelectionMode?: () => void; onCardClick?: () => void;
 }
 
-const getStatusColor = (status: string) => {
-  switch (status) {
-    case 'draft': return '#9e9e9e';
-    case 'todo': return '#0A84FF';
-    case 'in_progress': return '#FF9F0A';
-    case 'done': return '#30D158';
-    case 'review': return '#9c27b0';
-    case 'cancelled': return '#f44336';
-    default: return '#8E8E93';
-  }
+const dueMeta = (task: Task) => {
+  const raw = task.endDate || task.dueDate;
+  if (!raw) return { label: 'No due date', color: 'text.secondary', date: null, days: null };
+  const date = new Date(raw);
+  if (!isValid(date)) return { label: 'No due date', color: 'text.secondary', date: null, days: null };
+  const days = differenceInCalendarDays(date, new Date());
+  if (days < 0) return { label: `Overdue by ${Math.abs(days)} ${Math.abs(days) === 1 ? 'day' : 'days'}`, color: feedbackTokens.error, date, days };
+  if (isToday(date)) return { label: 'Due today', color: feedbackTokens.warning, date, days: 0 };
+  if (days <= 3) return { label: `Due in ${days} ${days === 1 ? 'day' : 'days'}`, color: feedbackTokens.warning, date, days };
+  return { label: `Due ${format(date, 'MMM d, yyyy')}`, color: 'text.secondary', date, days };
 };
 
-const getDue = (task: Task) => {
-  if (!task.dueDate) return null;
-
-  const date = parseISO(task.dueDate);
-  const now = new Date();
-
-  if (isPast(date) && !isToday(date)) {
-    return { text: 'Overdue', color: '#FF3B30' };
-  }
-  if (isToday(date)) {
-    return { text: 'Today', color: '#FF9F0A' };
-  }
-  return { text: 'Upcoming', color: '#34C759' };
+const progressFor = (task: Task) => {
+  if (task.status === 'done') return 100;
+  if (!task.startDate || !(task.endDate || task.dueDate)) return null;
+  const start = new Date(task.startDate).getTime();
+  const end = new Date((task.endDate || task.dueDate) as string).getTime();
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return null;
+  return Math.max(0, Math.min(100, Math.round(((Date.now() - start) / (end - start)) * 100)));
 };
 
 const ScheduleTaskCard: React.FC<Props> = ({
-  task,
-  likeSummary,
-  currentUserId,
-  onEdit,
-  onDelete,
-  onComment,
-  onStartProgress,
-  onApprove,
-  onReject,
-  onCancel,
-  onUpdateTaskStatus,
-  onMarkDone,
-  onMarkUndone,
-  onUndo,
-  // Selection mode props
-  isSelected = false,
-  onToggleSelect,
-  isInSelectionMode = false,
-  onEnterSelectionMode,
-  onCardClick
+  task, currentUserId, onEdit, onDelete, onStartProgress, onCancel,
+  onUpdateTaskStatus, isSelected = false, onToggleSelect, isInSelectionMode = false,
+  onEnterSelectionMode, onCardClick,
 }) => {
   const theme = useTheme();
-  const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
-  const isDark = theme.palette.mode === 'dark';
+  const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
+  const [lightbox, setLightbox] = useState<string | null>(null);
+  const permissions = useMemo(() => getTaskPermissions({ userId: currentUserId, task }), [currentUserId, task]);
+  const status = taskStatusTokens[task.status as TaskStatus] || taskStatusTokens.draft;
+  const due = dueMeta(task);
+  const progress = progressFor(task);
+  const images = (task.images || []).slice().sort((a, b) => a.imageOrder - b.imageOrder);
+  const visibleImages = images.slice(0, 4);
+  const handleCardClick = () => isInSelectionMode ? onToggleSelect?.(task.taskId) : onCardClick?.();
 
-  const permissions = useMemo(() =>
-    getTaskPermissions({ userId: currentUserId, task }),
-    [currentUserId, task]
-  );
-
-  const due = getDue(task);
-
-  // Tap handler for selection mode - simpler and more discoverable than long press
-  const handleCardClick = () => {
-    if (isInSelectionMode) {
-      // In selection mode: tap toggles selection
-      onToggleSelect?.(task.taskId);
-    } else {
-      // Normal mode: open detail or start working
-      onCardClick?.();
-    }
+  const confirmDelete = async () => {
+    setAnchorEl(null);
+    const result = await feedback.fire({ title: 'Delete task?', text: `This will permanently remove “${task.title}”.`, icon: 'warning', showCancelButton: true, confirmButtonText: 'Delete task', cancelButtonText: 'Keep task', reverseButtons: true });
+    if (result.isConfirmed) onDelete(task.taskId);
   };
 
-  const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>, checked: boolean) => {
-    e.stopPropagation();
-    console.log('[ScheduleTaskCard] Checkbox changed:', task.taskId, 'checked:', checked);
-    console.log('[ScheduleTaskCard] Current isSelected:', isSelected);
-    onToggleSelect?.(task.taskId);
-  };
+  return <>
+    <Box data-testid={`task-card-${task.taskId}`} onClick={handleCardClick} sx={{ height: '100%', minHeight: 360, p: { xs: 2, sm: 2.5 }, borderRadius: 3, cursor: isInSelectionMode ? 'pointer' : 'pointer', position: 'relative', backgroundColor: isSelected ? (theme.palette.mode === 'dark' ? 'rgba(52,199,89,.14)' : '#F0FBF2') : 'background.paper', border: isSelected ? `2px solid ${feedbackTokens.success}` : '1px solid', borderColor: isSelected ? feedbackTokens.success : 'divider', transition: 'border-color .2s, background-color .2s', '&:hover': { borderColor: isSelected ? feedbackTokens.success : 'text.secondary' } }}>
+      {images.length > 0 && <Box onClick={(e) => e.stopPropagation()} sx={{ display: 'grid', gridTemplateColumns: visibleImages.length > 1 ? 'repeat(2, 1fr)' : '1fr', gap: .5, mb: 2, borderRadius: 2, overflow: 'hidden', height: visibleImages.length === 1 ? 150 : 120 }}>
+        {visibleImages.map((image, index) => <Box key={image.imageId} component="img" src={image.imageUrl} alt={`${task.title} image ${index + 1}`} loading="lazy" onClick={() => setLightbox(image.imageUrl)} sx={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'zoom-in', gridColumn: visibleImages.length === 3 && index === 0 ? 'span 2' : 'auto' }} />)}
+        {images.length > 4 && <Box sx={{ position: 'absolute', mt: 9, ml: 'calc(100% - 74px)', bgcolor: 'rgba(0,0,0,.68)', color: '#fff', borderRadius: 1, px: 1, py: .5, fontSize: 12 }}>+{images.length - 4}</Box>}
+      </Box>}
 
-  const handleCheckboxClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    e.preventDefault();
-    console.log('[ScheduleTaskCard] Checkbox clicked:', task.taskId);
-    console.log('[ScheduleTaskCard] isInSelectionMode:', isInSelectionMode);
-    
-    // Always enter selection mode first
-    onEnterSelectionMode?.();
-    
-    // Then toggle selection immediately (not via setTimeout)
-    onToggleSelect?.(task.taskId);
-  };
-
-  return (
-    <Box
-      data-testid={`task-card-${task.taskId}`}
-      onClick={handleCardClick}
-      sx={{
-        display: 'flex',
-        flexDirection: 'column',
-        height: '100%',
-        minHeight: 220,
-        p: 3,
-        borderRadius: 3,
-        cursor: isInSelectionMode ? 'pointer' : 'default',
-        position: 'relative',
-
-        backgroundColor: isSelected ? 'action.selected' : 'background.paper',
-        border: isSelected
-          ? `2px solid ${theme.palette.primary.main}`
-          : `1px solid ${theme.palette.divider}`,
-        boxShadow: 'none',
-        transition: 'background-color 0.2s ease, border-color 0.2s ease',
-        '&:hover': {
-          backgroundColor: isSelected ? 'action.selected' : 'action.hover',
-          borderColor: isSelected ? 'primary.main' : 'text.disabled',
-        },
-      }}
-    >
-      {/* Header - Checkbox + Title + Menu */}
-      <Box 
-        display="flex" 
-        alignItems="flex-start" 
-        gap={2.5} 
-        mb={2} 
-        sx={{ 
-          position: 'relative',
-        }}
-      >
-        {/* Checkbox - Only visible in selection mode or when selected */}
-        <Box
-          onClick={(e) => {
-            e.stopPropagation();
-            e.preventDefault();
-          }}
-          sx={{
-            opacity: isInSelectionMode || isSelected ? 1 : 0,
-            transition: 'opacity 0.2s ease',
-            flexShrink: 0,
-            pt: 0.5,
-            zIndex: 10,
-            pointerEvents: 'auto',
-          }}
-          className="task-checkbox"
-        >
-          <Checkbox
-            checked={isSelected}
-            onChange={handleCheckboxChange}
-            onClick={handleCheckboxClick}
-            size="medium"
-            sx={{
-              p: 0.5,
-              color: isSelected ? '#0A84FF' : (isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.4)'),
-              '&.Mui-checked': {
-                color: '#0A84FF',
-              },
-              '& .MuiSvgIcon-root': {
-                fontSize: 22,
-              }
-            }}
-          />
+      <Box display="flex" alignItems="flex-start" gap={1} mb={1.5}>
+        {isInSelectionMode && <Checkbox checked={isSelected} onChange={() => onToggleSelect?.(task.taskId)} onClick={(e) => e.stopPropagation()} inputProps={{ 'aria-label': `Select ${task.title}` }} sx={{ p: .25, mt: -.3, color: 'text.secondary', '&.Mui-checked': { color: feedbackTokens.success } }} />}
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Box display="flex" gap={.75} flexWrap="wrap" mb={.75}>
+            <Chip label={status.label} size="small" sx={{ bgcolor: status.color, color: '#fff', fontWeight: 700, height: 24 }} />
+            {due.days !== null && <Chip icon={<CalendarIcon sx={{ fontSize: 14 }} />} label={due.label} size="small" variant="outlined" sx={{ color: due.color, borderColor: due.color.startsWith('#') ? `${due.color}55` : 'divider', height: 24 }} />}
+          </Box>
+          <Typography variant="h6" fontWeight={750} sx={{ lineHeight: 1.25, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{task.title}</Typography>
         </Box>
-
-        {/* Title */}
-        <Typography
-          fontWeight={600}
-          fontSize="1.05rem"
-          sx={{
-            lineHeight: 1.4,
-            color: isDark ? '#fff' : '#000',
-            flex: 1,
-            minWidth: 0,
-            display: '-webkit-box',
-            WebkitLineClamp: 2,
-            WebkitBoxOrient: 'vertical',
-            overflow: 'hidden'
-          }}
-        >
-          {task.title}
-        </Typography>
-
-        {/* Menu Button */}
-        <IconButton
-          size="small"
-          onClick={(e) => {
-            e.stopPropagation();
-            setAnchorEl(e.currentTarget);
-          }}
-          sx={{
-            color: isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.4)',
-            p: 0.5,
-            flexShrink: 0,
-            '&:hover': {
-              color: isDark ? '#fff' : '#000',
-              background: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
-            }
-          }}
-        >
-          <MoreVertIcon fontSize="small" />
-        </IconButton>
+        <Tooltip title="More actions"><IconButton size="small" aria-label={`More actions for ${task.title}`} aria-haspopup="menu" onClick={(e) => { e.stopPropagation(); setAnchorEl(e.currentTarget); }}><MoreVertIcon /></IconButton></Tooltip>
       </Box>
 
-      {/* Description - Flexible content area */}
-      {task.description && (
-        <Typography
-          variant="body2"
-          sx={{
-            opacity: 0.6,
-            mb: 2,
-            lineHeight: 1.5,
-            color: isDark ? '#fff' : '#000',
-            display: '-webkit-box',
-            WebkitLineClamp: 3,
-            WebkitBoxOrient: 'vertical',
-            overflow: 'hidden',
-            flex: '0 0 auto',
-            minHeight: 0,
-          }}
-        >
-          {task.description}
-        </Typography>
-      )}
+      {task.description && <Typography variant="body2" color="text.secondary" sx={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', mb: 1.5 }}>{task.description}</Typography>}
 
-      {/* Meta chips */}
-      <Box display="flex" gap={1} flexWrap="wrap" mb={2}>
-        {/* Status Chip */}
-        <Chip
-          label={task.status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
-          size="small"
-          sx={{
-            background: getStatusColor(task.status),
-            color: '#fff',
-            fontWeight: 500,
-            fontSize: '0.75rem',
-            height: 24,
-            borderRadius: 1.5,
-          }}
-        />
-
-        {/* Assignee */}
-        {task.assignedTo && (
-          <Chip
-            icon={<PersonIcon sx={{ fontSize: 14 }} />}
-            label={task.assignedToUser?.userName || `User ${task.assignedTo}`}
-            size="small"
-            variant="outlined"
-            sx={{
-              fontSize: '0.75rem',
-              height: 24,
-              borderRadius: 1.5,
-              borderColor: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.1)',
-              color: isDark ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.6)',
-              '& .MuiChip-icon': {
-                color: isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.4)',
-              }
-            }}
-          />
-        )}
-
-        {/* Due Date */}
-        {due && (
-          <Chip
-            icon={<CalendarIcon sx={{ fontSize: 14 }} />}
-            label={due.text}
-            size="small"
-            variant="outlined"
-            sx={{
-              fontSize: '0.75rem',
-              height: 24,
-              borderRadius: 1.5,
-              borderColor: `${due.color}40`,
-              color: due.color,
-              '& .MuiChip-icon': {
-                color: due.color,
-              }
-            }}
-          />
-        )}
+      <Box sx={{ display: 'grid', gap: .75, mb: 1.5 }}>
+        <Typography variant="body2" color="text.secondary" display="flex" alignItems="center" gap={.75}><PersonIcon sx={{ fontSize: 17 }} />Assigned to <strong>{task.assignedToUser?.userName || 'Unassigned'}</strong></Typography>
+        <Typography variant="body2" color="text.secondary" display="flex" alignItems="center" gap={.75}><AssignmentIndIcon sx={{ fontSize: 17 }} />Created by <strong>{task.createdByUser?.userName || 'Unknown'}</strong></Typography>
+        {due.date && <Typography variant="caption" color="text.secondary">{format(due.date, 'MMM d, yyyy')}</Typography>}
       </Box>
 
-      {/* Spacer - pushes actions to bottom */}
+      {progress !== null && <Box sx={{ mb: 1.5 }}><Box display="flex" justifyContent="space-between" mb={.5}><Typography variant="caption" color="text.secondary">{progress === 100 ? 'Completed' : 'Time progress'}</Typography><Typography variant="caption" fontWeight={700}>{progress}%</Typography></Box><LinearProgress variant="determinate" value={progress} color={due.days !== null && due.days < 0 ? 'error' : 'success'} sx={{ height: 6, borderRadius: 999 }} /></Box>}
       <Box sx={{ flex: 1 }} />
+      {onStartProgress && permissions.canStart && !isInSelectionMode && <Button fullWidth variant="outlined" color="primary" startIcon={<CheckIcon />} onClick={(e) => { e.stopPropagation(); onStartProgress(task.taskId); }} sx={{ minHeight: 44, textTransform: 'none', borderRadius: 2 }}>Start working</Button>}
+      {isInSelectionMode && <Typography variant="caption" color="text.secondary" textAlign="center">{isSelected ? 'Selected' : 'Tap to select'}</Typography>}
 
-      {/* CTA Button - Start Progress */}
-      {permissions.canStart && onStartProgress && !isInSelectionMode && (
-        <Button
-          fullWidth
-          onClick={(e) => {
-            e.stopPropagation();
-            onStartProgress(task.taskId);
-          }}
-          sx={{
-            borderRadius: 2,
-            textTransform: 'none',
-            fontWeight: 500,
-            fontSize: '0.875rem',
-            py: 1,
-            mt: 'auto',
-            background: isDark ? 'rgba(10, 132, 255, 0.2)' : 'rgba(10, 132, 255, 0.1)',
-            color: '#0A84FF',
-            border: isDark ? '1px solid rgba(10, 132, 255, 0.3)' : '1px solid rgba(10, 132, 255, 0.2)',
-            '&:hover': {
-              background: isDark ? 'rgba(10, 132, 255, 0.3)' : 'rgba(10, 132, 255, 0.15)',
-            }
-          }}
-          startIcon={<CheckIcon />}
-        >
-          Start Working
-        </Button>
-      )}
-
-      {/* Selection Mode Hint */}
-      {isInSelectionMode && !isSelected && (
-        <Typography
-          variant="caption"
-          sx={{
-            display: 'block',
-            textAlign: 'center',
-            color: isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)',
-            mt: 1
-          }}
-        >
-          Tap to select
-        </Typography>
-      )}
-
-      {/* Menu */}
-      <Menu
-        anchorEl={anchorEl}
-        open={Boolean(anchorEl)}
-        onClose={() => setAnchorEl(null)}
-        PaperProps={{
-          sx: {
-            backgroundColor: 'background.paper',
-            border: '1px solid',
-            borderColor: 'divider',
-            borderRadius: 2,
-            minWidth: 160,
-            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.12)',
-          }
-        }}
-        transformOrigin={{ horizontal: 'right', vertical: 'top' }}
-        anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
-      >
-        <MenuItem
-          onClick={() => {
-            onEdit(task);
-            setAnchorEl(null);
-          }}
-          disabled={!permissions.canEdit}
-          sx={{
-            fontSize: '0.875rem',
-            color: isDark ? '#fff' : '#000',
-            '&:hover': {
-              background: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.04)',
-            },
-            '&.Mui-disabled': {
-              opacity: 0.4,
-            }
-          }}
-        >
-          <EditIcon fontSize="small" sx={{ mr: 1.5 }} />
-          Edit
-        </MenuItem>
-
-        {task.status === 'draft' && onUpdateTaskStatus && (
-          <MenuItem
-            onClick={() => {
-              onUpdateTaskStatus(task.taskId, 'todo');
-              setAnchorEl(null);
-            }}
-            disabled={!permissions.canEdit}
-            sx={{
-              fontSize: '0.875rem',
-              color: '#0A84FF',
-              '&:hover': {
-                background: isDark ? 'rgba(10, 132, 255, 0.1)' : 'rgba(10, 132, 255, 0.08)',
-              },
-              '&.Mui-disabled': {
-                opacity: 0.4,
-              }
-            }}
-          >
-            <Typography sx={{ mr: 1.5, fontSize: 16 }}>→</Typography>
-            Move to Todo
-          </MenuItem>
-        )}
-
-        {task.status !== 'cancelled' && onCancel && (
-          <MenuItem
-            onClick={() => {
-              onCancel?.(task.taskId);
-              setAnchorEl(null);
-            }}
-            disabled={!permissions.canCancel}
-            sx={{
-              fontSize: '0.875rem',
-              color: '#FF9500',
-              '&:hover': {
-                background: isDark ? 'rgba(255, 159, 10, 0.1)' : 'rgba(255, 159, 10, 0.08)',
-              },
-              '&.Mui-disabled': {
-                opacity: 0.4,
-              }
-            }}
-          >
-            <CancelIcon fontSize="small" sx={{ mr: 1.5 }} />
-            Cancel Task
-          </MenuItem>
-        )}
-
-        <MenuItem
-          onClick={async () => {
-            setAnchorEl(null);
-            const result = await Swal.fire({
-              title: 'Delete Task?',
-              text: 'Are you sure you want to delete this task? This action cannot be undone.',
-              icon: 'warning',
-              showCancelButton: true,
-              confirmButtonColor: '#FF3B30',
-              cancelButtonColor: '#757575',
-              confirmButtonText: 'Yes, delete it!',
-              cancelButtonText: 'Cancel',
-              reverseButtons: true,
-            });
-
-            if (result.isConfirmed) {
-              onDelete(task.taskId);
-            }
-          }}
-          disabled={!permissions.canDelete}
-          sx={{
-            fontSize: '0.875rem',
-            color: '#FF3B30',
-            '&:hover': {
-              background: isDark ? 'rgba(255, 59, 48, 0.1)' : 'rgba(255, 59, 48, 0.08)',
-            },
-            '&.Mui-disabled': {
-              opacity: 0.4,
-            }
-          }}
-        >
-          <DeleteIcon fontSize="small" sx={{ mr: 1.5 }} />
-          Delete
-        </MenuItem>
+      <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={() => setAnchorEl(null)} onClick={(e) => e.stopPropagation()}>
+        <MenuItem onClick={() => { onEdit(task); setAnchorEl(null); }} disabled={!permissions.canEdit}><EditIcon fontSize="small" sx={{ mr: 1.5 }} />Edit task</MenuItem>
+        {task.status === 'draft' && onUpdateTaskStatus && <MenuItem onClick={() => { onUpdateTaskStatus(task.taskId, 'todo'); setAnchorEl(null); }} disabled={!permissions.canEdit}><ArrowForwardIcon fontSize="small" sx={{ mr: 1.5 }} />Move to To do</MenuItem>}
+        {task.status !== 'cancelled' && onCancel && <MenuItem onClick={() => { onCancel(task.taskId); setAnchorEl(null); }} disabled={!permissions.canCancel}><CancelIcon fontSize="small" sx={{ mr: 1.5 }} />Cancel task</MenuItem>}
+        <MenuItem onClick={() => void confirmDelete()} disabled={!permissions.canDelete} sx={{ color: 'error.main' }}><DeleteIcon fontSize="small" sx={{ mr: 1.5 }} />Delete task</MenuItem>
       </Menu>
     </Box>
-  );
+    <Dialog open={Boolean(lightbox)} onClose={() => setLightbox(null)} maxWidth="lg"><DialogTitle sx={{ pr: 6 }}>{task.title}<IconButton aria-label="Close image preview" onClick={() => setLightbox(null)} sx={{ position: 'absolute', right: 8, top: 8 }}><CloseIcon /></IconButton></DialogTitle><DialogContent sx={{ p: 1 }}><Box component="img" src={lightbox || ''} alt={`${task.title} full preview`} sx={{ width: '100%', maxHeight: '75vh', objectFit: 'contain' }} /></DialogContent></Dialog>
+  </>;
 };
 
 export default ScheduleTaskCard;

@@ -232,6 +232,7 @@ export interface BulkActionResult {
 
 export interface PrioritySuggestion {
   id: string;
+  translationKey: 'overdue' | 'today' | 'tomorrow' | 'soon';
   title: string;
   type: 'due-today' | 'due-tomorrow' | 'overdue' | 'due-within-3-days';
   taskIds: string[];

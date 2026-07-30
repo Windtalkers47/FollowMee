@@ -7,17 +7,27 @@
     "start": "concurrently -n \"BACKEND,FRONTEND\" -c \"bgBlue.bold,bgGreen.bold\" \"npm run start:backend\" \"npm run start:frontend\"",
     "start:backend": "cd backend && npm run dev",
     "start:frontend": "cd frontend && npm run dev",
+    "start:e2e": "concurrently -n \"E2E-BACKEND,E2E-FRONTEND\" -c \"bgBlue.bold,bgGreen.bold\" \"npm run start:e2e:backend\" \"npm run start:e2e:frontend\"",
+    "start:e2e:backend": "cross-env PORT=5110 DB_NAME=followmee_e2e JWT_SECRET=followmee-e2e-jwt-secret-2026 CORS_ORIGIN=http://localhost:5175 FRONTEND_URL=http://localhost:5175 DOTENV_CONFIG_PATH=Backend/.env TS_NODE_PROJECT=Backend/tsconfig.json node -r ./Backend/node_modules/dotenv/config -r ./Backend/node_modules/ts-node/register Backend/src/server.ts",
+    "start:e2e:frontend": "cross-env VITE_API_URL=http://localhost:5110/api VITE_WS_URL=http://localhost:5110 npm --prefix Frontend run dev -- --port 5175 --strictPort",
     "build": "cd frontend && npm run build",
     "test": "npm run test:e2e",
     "test:e2e": "playwright test",
+    "e2e:db:reset": "node Backend/scripts/setup-e2e-db.cjs",
+    "test:e2e:seeded": "npm run e2e:db:reset && cross-env E2E_SEEDED=1 E2E_BASE_URL=http://localhost:5175 playwright test",
+    "test:integration:seeded": "npm run e2e:db:reset && cross-env DB_NAME=followmee_e2e npm --prefix Backend run test:integration",
     "test:e2e:ui": "playwright test --ui",
-    "test:e2e:report": "playwright show-report"
+    "test:e2e:report": "playwright show-report",
+    "test:bundle": "node scripts/check-bundle-budget.cjs",
+    "build:check": "npm --prefix Frontend run build && npm run test:bundle"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "devDependencies": {
+    "@axe-core/playwright": "^4.12.1",
     "@playwright/test": "^1.62.0",
-    "concurrently": "^8.2.2"
+    "concurrently": "^8.2.2",
+    "cross-env": "^10.1.0"
   }
 }

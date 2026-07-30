@@ -27,12 +27,18 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     emptyOutDir: true,
+    manifest: true,
     // Security: Minify and obfuscate in production
     minify: 'terser',
     rollupOptions: {
       output: {
         manualChunks: {
-          vendor: ['react', 'react-dom'],
+          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          'vendor-mui': ['@mui/material', '@mui/icons-material', '@emotion/react', '@emotion/styled'],
+          'vendor-query': ['@tanstack/react-query', '@reduxjs/toolkit', 'react-redux'],
+          'vendor-charts': ['chart.js', 'react-chartjs-2'],
+          'vendor-media': ['html-to-image', 'qrcode'],
+          'vendor-motion': ['framer-motion'],
         },
       },
     },

@@ -10,6 +10,7 @@ import {
   useTheme,
   Avatar,
   Button,
+  Alert,
 } from '@mui/material';
 import {
   People as PeopleIcon,
@@ -76,6 +77,7 @@ const DashboardPage: React.FC = () => {
   // Loading states - แยกตามส่วน
   const [isStatsLoading, setIsStatsLoading] = useState(true);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [statsError, setStatsError] = useState(false);
   
   // Data states
   const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
@@ -95,10 +97,11 @@ const DashboardPage: React.FC = () => {
   const fetchStatsOnly = useCallback(async (range: TimeRange) => {
     try {
       setIsStatsLoading(true);
+      setStatsError(false);
       const stats = await getDashboardStats(range);
       setDashboardStats(stats);
     } catch (error) {
-      console.error('Failed to fetch stats:', error);
+      setStatsError(true);
     } finally {
       setIsStatsLoading(false);
     }
@@ -123,15 +126,12 @@ const DashboardPage: React.FC = () => {
   useEffect(() => {
     const initialLoad = async () => {
       setIsInitialLoading(true);
-      await Promise.all([
-        fetchStatsOnly(timeRange),
-        fetchStaticData(),
-      ]);
+      await fetchStaticData();
       setIsInitialLoading(false);
     };
     
     initialLoad();
-  }, []);
+  }, [fetchStaticData]);
 
   // Debounced time range change - เรียกเฉพาะ Stats
   useEffect(() => {
@@ -486,6 +486,20 @@ const DashboardPage: React.FC = () => {
             Here's what's happening with your business today
           </Typography>
         </Box>
+
+        {statsError && (
+          <Alert
+            severity="error"
+            action={
+              <Button color="inherit" size="small" onClick={() => fetchStatsOnly(timeRange)}>
+                Retry
+              </Button>
+            }
+            sx={{ mb: 3 }}
+          >
+            Dashboard statistics could not be loaded.
+          </Alert>
+        )}
 
         {/* Quick Actions */}
         <Box display="flex" gap={2} mb={4} flexWrap="wrap">

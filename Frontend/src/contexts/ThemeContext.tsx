@@ -1,45 +1,64 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo } from 'react';
 import type { ReactNode } from 'react';
 import { alpha, createTheme, ThemeProvider as MuiThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { useLiquidGlass } from './LiquidGlassContext';
 import { brandColors, layoutTokens, radii, shadows } from '../styles/designTokens';
+import { useUserPreferences } from './UserPreferencesContext';
+import type { BrandTheme, ColorModePreference } from '../services/userPreferences.api';
 
 type ThemeMode = 'light' | 'dark';
 
 interface ThemeContextType {
   toggleColorMode: () => void;
   mode: ThemeMode;
+  colorMode: ColorModePreference;
+  brandTheme: BrandTheme;
+  setColorMode: (mode: ColorModePreference) => Promise<void>;
+  setBrandTheme: (theme: BrandTheme) => Promise<void>;
 }
 
 const ThemeContext = createContext<ThemeContextType>({
   toggleColorMode: () => undefined,
   mode: 'light',
+  colorMode: 'system',
+  brandTheme: 'purple',
+  setColorMode: async () => undefined,
+  setBrandTheme: async () => undefined,
 });
 
 export const useThemeContext = () => useContext(ThemeContext);
 
 export const CustomThemeProvider = ({ children }: { children: ReactNode }) => {
-  const [mode, setMode] = useState<ThemeMode>(() =>
-    localStorage.getItem('theme') === 'dark' ? 'dark' : 'light'
-  );
+  const {
+    resolvedMode: mode,
+    colorMode: colorModePreference,
+    brandTheme,
+    setColorMode,
+    setBrandTheme,
+  } = useUserPreferences();
   const { isLiquidGlassEnabled, liquidGlassSettings } = useLiquidGlass();
 
-  useEffect(() => {
-    localStorage.setItem('theme', mode);
-  }, [mode]);
-
-  const colorMode = useMemo(
+  const themeControls = useMemo(
     () => ({
-      toggleColorMode: () => setMode((current) => (current === 'light' ? 'dark' : 'light')),
+      toggleColorMode: () => void setColorMode(mode === 'light' ? 'dark' : 'light'),
       mode,
+      colorMode: colorModePreference,
+      brandTheme,
+      setColorMode,
+      setBrandTheme,
     }),
-    [mode]
+    [brandTheme, colorModePreference, mode, setBrandTheme, setColorMode]
   );
 
   const theme = useMemo(() => {
     const isDark = mode === 'dark';
-    const primary = isDark ? brandColors.iosGreenDark : brandColors.iosGreen;
+    const primary = brandTheme === 'purple'
+      ? (isDark ? brandColors.purpleDark : brandColors.purple)
+      : (isDark ? brandColors.iosGreenDark : brandColors.iosGreen);
+    const primaryPressed = brandTheme === 'purple'
+      ? brandColors.purplePressed
+      : brandColors.iosGreenPressed;
     const border = isDark ? alpha('#FFFFFF', 0.1) : alpha('#17211A', 0.08);
     const navSurface = isDark
       ? alpha('#151A18', isLiquidGlassEnabled ? 0.78 : 0.96)
@@ -54,8 +73,8 @@ export const CustomThemeProvider = ({ children }: { children: ReactNode }) => {
         primary: {
           main: primary,
           light: '#63D77C',
-          dark: brandColors.iosGreenPressed,
-          contrastText: '#07120A',
+          dark: primaryPressed,
+          contrastText: '#FFFFFF',
         },
         secondary: {
           main: isDark ? brandColors.indigoDark : brandColors.indigo,
@@ -156,11 +175,11 @@ export const CustomThemeProvider = ({ children }: { children: ReactNode }) => {
           styleOverrides: {
             root: { minHeight: layoutTokens.controlHeight, borderRadius: radii.control, paddingInline: 18 },
             containedPrimary: {
-              color: '#07120A',
+              color: '#FFFFFF',
               backgroundColor: primary,
               boxShadow: `0 8px 20px ${alpha(primary, 0.22)}`,
               '&:hover': {
-                backgroundColor: isDark ? '#55D975' : '#2DBA50',
+                backgroundColor: primaryPressed,
                 boxShadow: `0 10px 24px ${alpha(primary, 0.3)}`,
               },
             },
@@ -169,6 +188,8 @@ export const CustomThemeProvider = ({ children }: { children: ReactNode }) => {
         MuiIconButton: {
           styleOverrides: {
             root: {
+              minWidth: 44,
+              minHeight: 44,
               borderRadius: radii.control,
               '&:hover': { backgroundColor: alpha(primary, 0.1) },
             },
@@ -181,9 +202,20 @@ export const CustomThemeProvider = ({ children }: { children: ReactNode }) => {
               marginInline: 8,
               borderRadius: 12,
               '&.Mui-selected': {
-                color: isDark ? '#D8FFE1' : '#17692D',
+                color: isDark ? '#FFFFFF' : primaryPressed,
                 backgroundColor: alpha(primary, isDark ? 0.16 : 0.13),
                 '&:hover': { backgroundColor: alpha(primary, isDark ? 0.22 : 0.18) },
+              },
+            },
+          },
+        },
+        MuiTab: {
+          styleOverrides: {
+            root: {
+              minHeight: 44,
+              '&.Mui-selected': {
+                color: isDark ? '#FFFFFF' : primaryPressed,
+                fontWeight: 700,
               },
             },
           },
@@ -234,15 +266,15 @@ export const CustomThemeProvider = ({ children }: { children: ReactNode }) => {
         },
       },
     });
-  }, [isLiquidGlassEnabled, liquidGlassSettings.blurIntensity, liquidGlassSettings.reduceTransparency, mode]);
+  }, [brandTheme, isLiquidGlassEnabled, liquidGlassSettings.blurIntensity, liquidGlassSettings.reduceTransparency, mode]);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', mode);
-    localStorage.setItem('theme', mode);
-  }, [mode]);
+    document.documentElement.setAttribute('data-brand-theme', brandTheme);
+  }, [brandTheme, mode]);
 
   return (
-    <ThemeContext.Provider value={colorMode}>
+    <ThemeContext.Provider value={themeControls}>
       <MuiThemeProvider theme={theme}>
         <CssBaseline enableColorScheme />
         {children}

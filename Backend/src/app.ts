@@ -33,6 +33,7 @@ import commentReactionRoutes from './routes/comment-reaction.routes';
 import notificationRoutes from './routes/notification.routes';
 import dashboardRoutes from './routes/dashboard.routes';
 import publicProfileRoutes from './routes/public-profile.routes';
+import userPreferenceRoutes from './routes/user-preference.routes';
 
 // Load environment variables
 dotenv.config();
@@ -140,8 +141,8 @@ class App {
           process.env.CORS_ORIGIN || ''
         ].filter(Boolean) as string[];
 
-        // Check for exact match or if origin starts with allowed origin (for subdomains)
-        const isAllowed = allowedOrigins.includes(origin) || allowedOrigins.some(allowed => origin?.startsWith(allowed));
+        // Origins include scheme and port; only exact configured origins are trusted.
+        const isAllowed = allowedOrigins.includes(origin);
         if (isAllowed) {
           callback(null, true);
         } else {
@@ -150,7 +151,7 @@ class App {
       },
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-      allowedHeaders: ['Content-Type', 'Authorization', 'x-application-name'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'x-application-name', 'x-user-locale'],
       exposedHeaders: ['set-cookie']
     }));
 
@@ -217,6 +218,7 @@ class App {
 
     // User routes
     this.app.use('/api/users', userRoutes);
+    this.app.use('/api/user-preferences', userPreferenceRoutes);
 
     // Task routes
     this.app.use('/api/tasks', taskRoutes);

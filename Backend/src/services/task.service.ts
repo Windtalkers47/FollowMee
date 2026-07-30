@@ -64,7 +64,7 @@ export class TaskService {
 
     // Send notification if task is assigned to someone
     if (savedTask.assignedTo && savedTask.assignedTo !== userId) {
-      NotificationHelper.notifyTaskAssigned(
+      await NotificationHelper.notifyTaskAssigned(
         savedTask.title,
         `/posts/${savedTask.taskId}`,
         userId,
@@ -217,7 +217,7 @@ export class TaskService {
       task.assignedTo = updateTaskDto.assignedTo;
 
       if (task.assignedTo && task.assignedTo !== oldAssignedTo && task.assignedTo !== userId) {
-        NotificationHelper.notifyTaskAssigned(
+        await NotificationHelper.notifyTaskAssigned(
           task.title,
           `/posts/${task.taskId}`,
           userId,
@@ -294,7 +294,7 @@ export class TaskService {
     const assignmentChanged = updateTaskDto.assignedTo !== undefined
       && updateTaskDto.assignedTo !== previousAssignedTo;
     if (updateTaskDto.status && updateTaskDto.status !== previousStatus) {
-      void NotificationHelper.notifyTaskStatus(
+      await NotificationHelper.notifyTaskStatus(
         updateTaskDto.status === 'done'
           ? NotificationType.TASK_COMPLETED
           : NotificationType.TASK_UPDATED,
@@ -306,7 +306,7 @@ export class TaskService {
         relatedRecipients
       );
     } else if (!assignmentChanged && Object.keys(updateTaskDto).length > 0) {
-      void NotificationHelper.notifyTaskUpdated(
+      await NotificationHelper.notifyTaskUpdated(
         savedTask.title,
         savedTask.taskId,
         userId,
@@ -389,7 +389,7 @@ export class TaskService {
     }
 
     await this.customTaskRepository.updateTaskStatus(taskId, 'review');
-    void NotificationHelper.notifyTaskStatus(
+    await NotificationHelper.notifyTaskStatus(
       NotificationType.TASK_UPDATED,
       'Task ready for review',
       'Work was submitted for review',
@@ -436,7 +436,7 @@ export class TaskService {
     task.completionScore = 0;
     task.reopenedCount = (task.reopenedCount || 0) + 1;
     await this.taskRepository.save(task);
-    void NotificationHelper.notifyTaskStatus(
+    await NotificationHelper.notifyTaskStatus(
       NotificationType.TASK_UPDATED,
       'Task needs changes',
       'The task was returned to To Do',
@@ -481,7 +481,7 @@ export class TaskService {
     task.completedAt = completedAt;
     task.completionScore = Math.max(4, 10 + onTimeBonus - reopenPenalty);
     await this.taskRepository.save(task);
-    void NotificationHelper.notifyTaskStatus(
+    await NotificationHelper.notifyTaskStatus(
       NotificationType.TASK_COMPLETED,
       'Task approved',
       'Your completed work was approved',
@@ -682,7 +682,7 @@ export class TaskService {
 
         // Send notification if task is assigned to someone new
         if (assignedTo && assignedTo !== oldAssignedTo && assignedTo !== userId) {
-          NotificationHelper.notifyTaskAssigned(
+          await NotificationHelper.notifyTaskAssigned(
             task.title,
             `/posts/${task.taskId}`,
             userId,
@@ -752,6 +752,7 @@ export class TaskService {
     if (overdue.length > 0) {
       suggestions.push({
         id: 'overdue',
+        translationKey: 'overdue',
         title: 'งานที่เกินกำหนด',
         type: 'overdue',
         taskIds: overdue.map(t => t.taskId),
@@ -769,6 +770,7 @@ export class TaskService {
     if (dueToday.length > 0) {
       suggestions.push({
         id: 'due-today',
+        translationKey: 'today',
         title: 'งานครบกำหนดวันนี้',
         type: 'due-today',
         taskIds: dueToday.map(t => t.taskId),
@@ -786,6 +788,7 @@ export class TaskService {
     if (dueTomorrow.length > 0) {
       suggestions.push({
         id: 'due-tomorrow',
+        translationKey: 'tomorrow',
         title: 'งานครบกำหนดพรุ่งนี้',
         type: 'due-tomorrow',
         taskIds: dueTomorrow.map(t => t.taskId),
@@ -803,6 +806,7 @@ export class TaskService {
     if (dueWithin3Days.length > 0) {
       suggestions.push({
         id: 'due-within-3-days',
+        translationKey: 'soon',
         title: 'งานครบกำหนดใน 3 วัน',
         type: 'due-within-3-days',
         taskIds: dueWithin3Days.map(t => t.taskId),

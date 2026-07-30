@@ -24,8 +24,9 @@ import {
   CheckBoxOutlineBlank as CheckBoxOutlineBlankIcon
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { useAppSelector } from '../../store/store';
-import Swal from 'sweetalert2';
+import feedback from '../../services/feedback.service';
 import { 
   taskApi, 
   Task, 
@@ -45,6 +46,7 @@ import { useMultiSelect } from '../../hooks/useMultiSelect';
 import { useSmartSuggestions } from '../../hooks/useSmartSuggestions';
 import { useSelectionKeyboard } from '../../hooks/useSelectionKeyboard';
 import toast from '../../utils/toast';
+import { taskStatusTokens } from '../../styles/designTokens';
 
 /* ================== Types ================== */
 type TabPanelProps = {
@@ -64,6 +66,7 @@ const TabPanel = ({ children, value, index }: TabPanelProps) => (
 
 /* ================== Page ================== */
 const SchedulePage = () => {
+  const navigate = useNavigate();
   const theme = useTheme();
   const isDarkMode = theme.palette.mode === 'dark';
   const [activeTab, setActiveTab] = useState(0);
@@ -263,25 +266,23 @@ const SchedulePage = () => {
   };
 
   const handleApproveTask = async (taskId: string) => {
-    const result = await Swal.fire({
+    const result = await feedback.fire({
       title: 'Approve Task',
       text: 'Are you sure you want to approve this task?',
       icon: 'question',
       showCancelButton: true,
-      confirmButtonColor: '#10b981',
-      cancelButtonColor: '#d32f2f',
       confirmButtonText: 'Yes, approve it!',
       cancelButtonText: 'Cancel',
       reverseButtons: true,
       showLoaderOnConfirm: true,
       preConfirm: () => {
-        Swal.showLoading();
+        feedback.showLoading();
         return approveTaskMutation.mutateAsync(taskId);
       }
     });
 
     if (result.isConfirmed) {
-      await Swal.fire({
+      await feedback.fire({
         title: 'Approved!',
         text: 'Task has been approved successfully.',
         icon: 'success',
@@ -292,25 +293,23 @@ const SchedulePage = () => {
   };
 
   const handleRejectTask = async (taskId: string) => {
-    const result = await Swal.fire({
+    const result = await feedback.fire({
       title: 'Reject Task',
       text: 'Are you sure you want to reject this task?',
       icon: 'warning',
       showCancelButton: true,
-      confirmButtonColor: '#f44336',
-      cancelButtonColor: '#757575',
       confirmButtonText: 'Yes, reject it!',
       cancelButtonText: 'Cancel',
       reverseButtons: true,
       showLoaderOnConfirm: true,
       preConfirm: () => {
-        Swal.showLoading();
+        feedback.showLoading();
         return markTaskUndoneMutation.mutateAsync(taskId);
       }
     });
 
     if (result.isConfirmed) {
-      await Swal.fire({
+      await feedback.fire({
         title: 'Rejected!',
         text: 'Task has been rejected and sent back.',
         icon: 'success',
@@ -321,25 +320,23 @@ const SchedulePage = () => {
   };
 
   const handleUndoTask = async (taskId: string) => {
-    const result = await Swal.fire({
+    const result = await feedback.fire({
       title: 'Reopen Task?',
       text: 'Are you sure you want to reopen this completed task?',
       icon: 'question',
       showCancelButton: true,
-      confirmButtonColor: '#ff9800',
-      cancelButtonColor: '#757575',
       confirmButtonText: 'Yes, reopen it!',
       cancelButtonText: 'Cancel',
       reverseButtons: true,
       showLoaderOnConfirm: true,
       preConfirm: () => {
-        Swal.showLoading();
+        feedback.showLoading();
         return markTaskUndoneMutation.mutateAsync(taskId);
       }
     });
 
     if (result.isConfirmed) {
-      await Swal.fire({
+      await feedback.fire({
         title: 'Task Reopened!',
         text: 'The task has been reopened for improvement.',
         icon: 'info',
@@ -350,19 +347,17 @@ const SchedulePage = () => {
   };
 
   const handleCancelTask = async (taskId: string) => {
-    const result = await Swal.fire({
+    const result = await feedback.fire({
       title: 'Cancel Task?',
       text: 'Are you sure you want to cancel this task?',
       icon: 'warning',
       showCancelButton: true,
-      confirmButtonColor: '#ff9800',
-      cancelButtonColor: '#757575',
       confirmButtonText: 'Yes, cancel it!',
       cancelButtonText: 'No, keep it',
       reverseButtons: true,
       showLoaderOnConfirm: true,
       preConfirm: () => {
-        Swal.showLoading();
+        feedback.showLoading();
         return updateTaskMutation.mutateAsync({ 
           taskId, 
           data: { status: 'cancelled' as const } 
@@ -371,7 +366,7 @@ const SchedulePage = () => {
     });
 
     if (result.isConfirmed) {
-      await Swal.fire({
+      await feedback.fire({
         title: 'Task Cancelled',
         text: 'The task has been moved to cancelled.',
         icon: 'info',
@@ -397,7 +392,7 @@ const SchedulePage = () => {
         'draft': 'Task moved to Draft'
       };
       
-      await Swal.fire({
+      await feedback.fire({
         title: 'Status Updated',
         text: statusMessages[status] || 'Task status updated',
         icon: 'success',
@@ -405,7 +400,7 @@ const SchedulePage = () => {
         showConfirmButton: false
       });
     } catch (error) {
-      await Swal.fire({
+      await feedback.fire({
         title: 'Error',
         text: 'Failed to update task status',
         icon: 'error',
@@ -416,19 +411,17 @@ const SchedulePage = () => {
   };
 
   const handleStartProgress = async (taskId: string) => {
-    const result = await Swal.fire({
+    const result = await feedback.fire({
       title: 'Start Working?',
       text: 'Ready to start working on this task?',
       icon: 'question',
       showCancelButton: true,
-      confirmButtonColor: '#ff9800',
-      cancelButtonColor: '#757575',
       confirmButtonText: 'Let\'s go!',
       cancelButtonText: 'Not yet',
       reverseButtons: true,
       showLoaderOnConfirm: true,
       preConfirm: () => {
-        Swal.showLoading();
+        feedback.showLoading();
         return updateTaskMutation.mutateAsync({ 
           taskId, 
           data: { status: 'in_progress' as const } 
@@ -437,7 +430,7 @@ const SchedulePage = () => {
     });
 
     if (result.isConfirmed) {
-      await Swal.fire({
+      await feedback.fire({
         title: 'Let\'s Get Started!',
         text: 'You\'re now working on this task.',
         icon: 'success',
@@ -483,15 +476,19 @@ const SchedulePage = () => {
       });
   }, [tasksResponse?.tasks, dateFilter, sortBy]);
 
-  const groupedTasks = {
-    all: filteredTasks,
-    draft: filteredTasks.filter(task => task.status === 'draft'),
-    todo: filteredTasks.filter(task => task.status === 'todo'),
-    in_progress: filteredTasks.filter(task => task.status === 'in_progress'),
-    review: filteredTasks.filter(task => task.status === 'review'),
-    done: filteredTasks.filter(task => task.status === 'done'),
-    cancelled: filteredTasks.filter(task => task.status === 'cancelled'),
-  };
+  const groupedTasks = useMemo(() => filteredTasks.reduce((groups, task) => {
+    groups.all.push(task);
+    groups[task.status]?.push(task);
+    return groups;
+  }, {
+    all: [] as Task[],
+    draft: [] as Task[],
+    todo: [] as Task[],
+    in_progress: [] as Task[],
+    review: [] as Task[],
+    done: [] as Task[],
+    cancelled: [] as Task[],
+  }), [filteredTasks]);
 
   // Load like summaries
   React.useEffect(() => {
@@ -502,15 +499,15 @@ const SchedulePage = () => {
     });
   }, [filteredTasks, taskLikeSummaries]);
 
-  const tabs = [
-    { label: 'All Tasks', key: 'all' as const, color: '#757575' },
-    { label: 'Drafts', key: 'draft' as const, color: '#9e9e9e' },
-    { label: 'To Do', key: 'todo' as const, color: '#2196f3' },
-    { label: 'In Progress', key: 'in_progress' as const, color: '#ff9800' },
-    { label: 'Review', key: 'review' as const, color: '#9c27b0' },
-    { label: 'Done', key: 'done' as const, color: '#4caf50' },
-    { label: 'Cancelled', key: 'cancelled' as const, color: '#f44336' },
-  ];
+  const tabs = useMemo(() => [
+    { label: 'All Tasks', key: 'all' as const, color: taskStatusTokens.draft.color },
+    { label: 'Drafts', key: 'draft' as const, color: taskStatusTokens.draft.color },
+    { label: 'To Do', key: 'todo' as const, color: taskStatusTokens.todo.color },
+    { label: 'In Progress', key: 'in_progress' as const, color: taskStatusTokens.in_progress.color },
+    { label: 'Review', key: 'review' as const, color: taskStatusTokens.review.color },
+    { label: 'Done', key: 'done' as const, color: taskStatusTokens.done.color },
+    { label: 'Cancelled', key: 'cancelled' as const, color: taskStatusTokens.cancelled.color },
+  ], []);
 
   // Handle bulk actions from toolbar
   const handleBulkAction = async (action: 'delete' | 'done' | 'start' | 'todo' | 'draft' | 'review' | 'cancel' | 'assign') => {
@@ -523,13 +520,11 @@ const SchedulePage = () => {
 
     switch (action) {
       case 'delete':
-        const deleteResult = await Swal.fire({
+        const deleteResult = await feedback.fire({
           title: `Delete ${selectedTaskIds.length} tasks?`,
           text: 'This action cannot be undone.',
           icon: 'warning',
           showCancelButton: true,
-          confirmButtonColor: '#FF3B30',
-          cancelButtonColor: '#757575',
           confirmButtonText: 'Yes, delete all!',
           cancelButtonText: 'Cancel',
           reverseButtons: true,
@@ -572,7 +567,10 @@ const SchedulePage = () => {
   };
 
   // Get current tab tasks for select all - convert to { id: string } format
-  const currentTabTasks = (groupedTasks[tabs[activeTab].key] || []).map(task => ({ id: task.taskId }));
+  const currentTabTasks = useMemo(
+    () => (groupedTasks[tabs[activeTab].key] || []).map(task => ({ id: task.taskId })),
+    [activeTab, groupedTasks, tabs],
+  );
 
   return (
     <Box sx={{ width: '100%', maxWidth: '100vw', overflow: 'hidden' }}>
@@ -616,7 +614,7 @@ const SchedulePage = () => {
                   fontSize: '0.95rem',
                 }}
               >
-                Select
+                Select tasks
               </Button>
             )}
             
@@ -700,9 +698,16 @@ const SchedulePage = () => {
           )}
           <Box sx={{ width: 1, height: 24, borderLeft: `1px solid ${isDarkMode ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.1)'}` }} />
           <Tooltip title="Refresh">
-            <IconButton onClick={() => refetch()} disabled={isLoading} sx={{ p: 1.25, borderRadius: 2 }}>
-              <RefreshIcon sx={{ fontSize: 22, animation: isLoading ? 'spin 1s linear infinite' : 'none' }} />
-            </IconButton>
+            <span>
+              <IconButton
+                aria-label="Refresh tasks"
+                onClick={() => refetch()}
+                disabled={isLoading}
+                sx={{ p: 1.25, borderRadius: 2 }}
+              >
+                <RefreshIcon sx={{ fontSize: 22, animation: isLoading ? 'spin 1s linear infinite' : 'none' }} />
+              </IconButton>
+            </span>
           </Tooltip>
         </Box>
 
@@ -845,6 +850,7 @@ const SchedulePage = () => {
                           onCancel={handleCancelTask}
                           onStartProgress={handleStartProgress}
                           onUpdateTaskStatus={handleUpdateTaskStatus}
+                          onCardClick={() => navigate(`/posts/${task.taskId}`)}
                         />
                       </Grid>
                     ))}

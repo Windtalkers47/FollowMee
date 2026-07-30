@@ -12,7 +12,7 @@ import {
   IconButton
 } from '@mui/material';
 import { Visibility, VisibilityOff } from '@mui/icons-material';
-import Swal from 'sweetalert2';
+import feedback from '../../services/feedback.service';
 
 // Hide browser's built-in password reveal button
 const styles = `
@@ -66,7 +66,7 @@ const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
 
   if (password !== confirmPassword) {
-    await Swal.fire({
+    await feedback.fire({
       icon: 'error',
       title: 'Password Mismatch',
       text: 'Passwords do not match',
@@ -78,7 +78,7 @@ const handleSubmit = async (e: React.FormEvent) => {
   }
 
   if (password.length < 8) {
-    await Swal.fire({
+    await feedback.fire({
       icon: 'error',
       title: 'Password Too Short',
       text: 'Password must be at least 8 characters long',
@@ -112,7 +112,7 @@ const handleSubmit = async (e: React.FormEvent) => {
     const responseData = await response.json();
 
     if (!response.ok) {
-      await Swal.fire({
+      await feedback.fire({
         icon: 'error',
         title: 'Reset Failed',
         text: responseData.message || 'Failed to reset password',
@@ -123,7 +123,7 @@ const handleSubmit = async (e: React.FormEvent) => {
       throw new Error(responseData.message || 'Failed to reset password');
     }
 
-    await Swal.fire({
+    await feedback.fire({
       icon: 'success',
       title: 'Password Reset Successful!',
       text: 'Your password has been updated successfully. Redirecting to login page...',
@@ -137,7 +137,7 @@ const handleSubmit = async (e: React.FormEvent) => {
     navigate('/login');
   } catch (error: any) {
     console.error('Reset password error:', error);
-    await Swal.fire({
+    await feedback.fire({
       icon: 'error',
       title: 'Reset Failed',
       text: error.message || 'Failed to reset password. Please try again.',

@@ -1,4 +1,7 @@
-import Swal, { SweetAlertIcon, SweetAlertPosition } from 'sweetalert2';
+import feedback, { type FeedbackIcon } from '../services/feedback.service';
+
+type SweetAlertIcon = FeedbackIcon;
+type SweetAlertPosition = string;
 
 export interface ToastOptions {
   title?: string;
@@ -36,10 +39,6 @@ export const showToast = (options: ToastOptions) => {
     showConfirmButton: false,
     timer: 3000,
     timerProgressBar: true,
-    didOpen: (toast: any) => {
-      toast.addEventListener('mouseenter', Swal.stopTimer);
-      toast.addEventListener('mouseleave', Swal.resumeTimer);
-    },
     customClass: {
       container: 'swal2-container-modern',
       popup: 'swal2-popup-modern',
@@ -48,7 +47,7 @@ export const showToast = (options: ToastOptions) => {
     }
   };
 
-  return Swal.fire({
+  return feedback.fire({
     ...defaultOptions,
     ...options,
   });
@@ -112,15 +111,13 @@ export const showConfirm = async (
   text?: string,
   options?: Partial<ToastOptions>
 ): Promise<boolean> => {
-  const result = await Swal.fire({
+  const result = await feedback.fire({
     title,
     text,
     icon: 'question',
     showCancelButton: true,
     confirmButtonText: 'Yes, do it!',
     cancelButtonText: 'Cancel',
-    confirmButtonColor: '#3085d6',
-    cancelButtonColor: '#d33',
     reverseButtons: true,
     customClass: {
       popup: 'swal2-confirm-dialog',
@@ -135,15 +132,13 @@ export const showConfirm = async (
 
 // Delete confirmation
 export const showDeleteConfirm = async (itemName: string = 'this item'): Promise<boolean> => {
-  const result = await Swal.fire({
+  const result = await feedback.fire({
     title: 'Are you sure?',
     text: `You won't be able to revert ${itemName}!`,
     icon: 'question',
     showCancelButton: true,
     confirmButtonText: 'Yes, delete it!',
     cancelButtonText: 'Cancel',
-    confirmButtonColor: '#dc3545',
-    cancelButtonColor: '#d33',
     reverseButtons: true,
     customClass: {
       popup: 'swal2-delete-dialog',
@@ -155,14 +150,11 @@ export const showDeleteConfirm = async (itemName: string = 'this item'): Promise
 
 // Loading dialog
 export const showLoading = (title: string = 'Loading...') => {
-  return Swal.fire({
+  return feedback.fire({
     title,
     allowOutsideClick: false,
     allowEscapeKey: false,
     showConfirmButton: false,
-    didOpen: () => {
-      Swal.showLoading();
-    },
     customClass: {
       popup: 'swal2-loading-dialog',
     }
@@ -171,7 +163,7 @@ export const showLoading = (title: string = 'Loading...') => {
 
 // Close loading dialog
 export const closeLoading = () => {
-  Swal.close();
+  feedback.close();
 };
 
 // Input dialog
@@ -181,7 +173,7 @@ export const showInput = async (
   inputValue: string = '',
   inputPlaceholder: string = ''
 ): Promise<string | null> => {
-  const result = await Swal.fire({
+  const result = await feedback.fire({
     title,
     input: 'text',
     inputLabel,
@@ -190,8 +182,6 @@ export const showInput = async (
     showCancelButton: true,
     confirmButtonText: 'Submit',
     cancelButtonText: 'Cancel',
-    confirmButtonColor: '#3085d6',
-    cancelButtonColor: '#d33',
     customClass: {
       popup: 'swal2-input-dialog',
       confirmButton: 'swal2-confirm-button',
@@ -204,7 +194,7 @@ export const showInput = async (
 
 // Custom animated success
 export const showAnimatedSuccess = (title: string, text?: string) => {
-  return Swal.fire({
+  return feedback.fire({
     icon: 'success',
     title,
     text,
@@ -225,13 +215,12 @@ export const showAnimatedSuccess = (title: string, text?: string) => {
 
 // Custom animated error
 export const showAnimatedError = (title: string, text?: string) => {
-  return Swal.fire({
+  return feedback.fire({
     icon: 'error',
     title,
     text,
     showConfirmButton: true,
     confirmButtonText: 'OK',
-    confirmButtonColor: '#dc3545',
     customClass: {
       popup: 'swal2-animated-error',
     },

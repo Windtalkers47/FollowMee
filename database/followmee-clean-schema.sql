@@ -1,5 +1,5 @@
 -- FollowMee clean schema
--- Schema version: 2026-07-26 / Public Profile major update
+-- Schema version: 2026-07-28 / User preferences, purple theme and localization
 -- MySQL 8.0+ / MariaDB 10.6+
 --
 -- WARNING: This script drops every FollowMee table and all data in it.
@@ -20,6 +20,7 @@ DROP TABLE IF EXISTS `notification_recipients`;
 DROP TABLE IF EXISTS `notification_queue`;
 DROP TABLE IF EXISTS `notifications`;
 DROP TABLE IF EXISTS `push_subscriptions`;
+DROP TABLE IF EXISTS `user_preferences`;
 DROP TABLE IF EXISTS `user_notification_settings`;
 DROP TABLE IF EXISTS `comment_reactions`;
 DROP TABLE IF EXISTS `task_likes`;
@@ -481,6 +482,22 @@ CREATE TABLE `user_notification_settings` (
     CHECK (`quietHoursEnd` IS NULL OR `quietHoursEnd` BETWEEN 0 AND 23)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE `user_preferences` (
+  `preferenceId` INT NOT NULL AUTO_INCREMENT,
+  `userId` INT NOT NULL,
+  `locale` ENUM('en', 'th') NOT NULL DEFAULT 'en',
+  `brandTheme` ENUM('purple', 'green') NOT NULL DEFAULT 'purple',
+  `colorMode` ENUM('light', 'dark', 'system') NOT NULL DEFAULT 'system',
+  `createdAt` TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updatedAt` TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)
+    ON UPDATE CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (`preferenceId`),
+  UNIQUE KEY `uq_user_preferences_user` (`userId`),
+  CONSTRAINT `fk_user_preferences_user`
+    FOREIGN KEY (`userId`) REFERENCES `users` (`userId`)
+    ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE `notification_queue` (
   `queueId` INT NOT NULL AUTO_INCREMENT,
   `notificationType` VARCHAR(50) NOT NULL,
@@ -580,7 +597,8 @@ INSERT INTO `migrations` (`timestamp`, `name`) VALUES
   (1791000000000, 'CreatePublicProfiles1791000000000'),
   (1792000000000, 'RepairUserIdentity1792000000000'),
   (1793000000000, 'AddVerifiedTaskScoring1793000000000'),
-  (1794000000000, 'OptimizeNotificationInbox1794000000000');
+  (1794000000000, 'OptimizeNotificationInbox1794000000000'),
+  (1795000000000, 'AddUserPreferences1795000000000');
 
 INSERT INTO `roles` (`roleName`, `description`, `roleLevel`) VALUES
   ('Superadmin', 'Full system access', 999),

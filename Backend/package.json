@@ -7,6 +7,7 @@
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "test:ci": "jest --ci --coverage --forceExit",
+    "test:integration": "jest --config jest.integration.config.ts --runInBand",
     "dev": "nodemon --watch src/**/*.ts --exec ts-node src/server.ts",
     "start": "node dist/server.js",
     "build": "tsc",

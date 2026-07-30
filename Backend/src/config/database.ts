@@ -23,6 +23,8 @@ import { NotificationMetric } from '../entities/NotificationMetric';
 import { PublicProfile } from '../entities/PublicProfile';
 import { PublicProfileLink } from '../entities/PublicProfileLink';
 import { PublicProfileEvent } from '../entities/PublicProfileEvent';
+import { PushSubscription } from '../entities/PushSubscription';
+import { UserPreference } from '../entities/UserPreference';
 
 dotenv.config();
 
@@ -64,6 +66,8 @@ const dataSourceOptions: DataSourceOptions = {
     PublicProfile,
     PublicProfileLink,
     PublicProfileEvent,
+    PushSubscription,
+    UserPreference,
     // Other entities will be loaded automatically by the glob pattern
     path.join(__dirname, '../entities/**/*.entity{.ts,.js}')
   ],

@@ -17,6 +17,7 @@ const config: Config = {
 
   // Test match pattern
   testMatch: ['**/__tests__/**/*.test.ts'],
+  testPathIgnorePatterns: ['/node_modules/', '/__tests__/integration/'],
 
   // Coverage configuration
   collectCoverageFrom: [

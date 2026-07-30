@@ -14,7 +14,7 @@ import { DoneAll, NotificationsNone } from '@mui/icons-material';
 import NotificationItem from '../../components/NotificationItem/NotificationItem';
 import { notificationApi } from '../../api/notification.api';
 import { NotificationRecipient } from '../../types/notification.types';
-import { useAppDispatch } from '../../store/store';
+import { useAppDispatch, useAppSelector } from '../../store/store';
 import { fetchUnreadCount } from '../../store/slices/notificationSlice';
 import ConfirmDialog from '../../components/ConfirmDialog/ConfirmDialog';
 
@@ -22,6 +22,8 @@ type View = 'all' | 'unread' | 'archived';
 
 const NotificationsPage = () => {
   const dispatch = useAppDispatch();
+  const realtimeItems = useAppSelector(state => state.notifications.notifications);
+  const realtimeTotal = useAppSelector(state => state.notifications.total);
   const [view, setView] = useState<View>('all');
   const [items, setItems] = useState<NotificationRecipient[]>([]);
   const [total, setTotal] = useState(0);
@@ -49,6 +51,21 @@ const NotificationsPage = () => {
   }, [view]);
 
   useEffect(() => { void load(); }, [load]);
+
+  useEffect(() => {
+    if (view === 'archived' || realtimeItems.length === 0) return;
+    const eligible = realtimeItems.filter(item =>
+      !item.isArchived &&
+      !item.isDeleted &&
+      (view !== 'unread' || !item.isRead)
+    );
+    setItems(current => {
+      const known = new Set(current.map(item => item.recipientId));
+      const additions = eligible.filter(item => !known.has(item.recipientId));
+      return additions.length > 0 ? [...additions, ...current] : current;
+    });
+    setTotal(current => Math.max(current, realtimeTotal));
+  }, [realtimeItems, realtimeTotal, view]);
 
   const run = async (action: () => Promise<unknown>) => {
     await action();

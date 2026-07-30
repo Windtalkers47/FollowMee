@@ -24,10 +24,12 @@ import {
   Undo,
 } from '@mui/icons-material';
 import { formatDistanceToNow } from 'date-fns';
+import { enUS, th } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
 import SmartAvatar from '../SmartAvatar/SmartAvatar';
 import { NotificationRecipient } from '../../types/notification.types';
 import { trackClick, trackOpen } from '../../api/notification.api';
+import { useUserPreferences } from '../../contexts/UserPreferencesContext';
 
 interface NotificationItemProps {
   recipient: NotificationRecipient;
@@ -40,8 +42,19 @@ interface NotificationItemProps {
   archived?: boolean;
 }
 
-const getLabel = (type: string) =>
-  type.toLowerCase().replaceAll('_', ' ').replace(/\b\w/g, letter => letter.toUpperCase());
+const getLabel = (type: string, locale: 'en' | 'th') => {
+  if (locale === 'th') {
+    if (type.includes('ASSIGNED')) return 'มอบหมายงาน';
+    if (type.includes('COMMENT')) return 'ความคิดเห็น';
+    if (type.includes('REPLY')) return 'การตอบกลับ';
+    if (type.includes('REACTION') || type.includes('LIKE')) return 'ความรู้สึก';
+    if (type.includes('DEADLINE')) return 'กำหนดส่ง';
+    if (type.includes('ROLE')) return 'สิทธิ์ผู้ใช้';
+    if (type.includes('TASK')) return 'งาน';
+    return 'ระบบ';
+  }
+  return type.toLowerCase().replaceAll('_', ' ').replace(/\b\w/g, letter => letter.toUpperCase());
+};
 
 const NotificationItem = ({
   recipient,
@@ -54,6 +67,7 @@ const NotificationItem = ({
   archived = false,
 }: NotificationItemProps) => {
   const theme = useTheme();
+  const { locale, t } = useUserPreferences();
   const navigate = useNavigate();
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   const { notification } = recipient;
@@ -92,13 +106,14 @@ const NotificationItem = ({
         gap: 1.25,
         borderBottom: '1px solid',
         borderColor: 'divider',
-        bgcolor: recipient.isRead ? 'transparent' : alpha(color, theme.palette.mode === 'dark' ? 0.13 : 0.07),
+        bgcolor: 'transparent',
+        borderLeft: recipient.isRead ? '3px solid transparent' : `3px solid ${color}`,
         position: 'relative',
         '&:hover': { bgcolor: 'action.hover' },
       }}
     >
       {!recipient.isRead && (
-        <Box aria-label="Unread" sx={{ position: 'absolute', left: 6, top: 20, width: 7, height: 7, borderRadius: '50%', bgcolor: color }} />
+        <Box aria-label={t('notification.unread')} sx={{ position: 'absolute', left: 6, top: 20, width: 7, height: 7, borderRadius: '50%', bgcolor: color }} />
       )}
       {notification.actorUser ? (
         <SmartAvatar user={notification.actorUser} sx={{ width: 40, height: 40 }} />
@@ -134,16 +149,19 @@ const NotificationItem = ({
             {notification.title}
           </Typography>
           <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0 }}>
-            {formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true })}
+            {formatDistanceToNow(new Date(notification.createdAt), {
+              addSuffix: true,
+              locale: locale === 'th' ? th : enUS,
+            })}
           </Typography>
         </Box>
         <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
           {notification.message}
         </Typography>
-        <Chip label={getLabel(notification.notificationType)} size="small" sx={{ mt: 0.75, height: 22, bgcolor: alpha(color, 0.11), color, fontWeight: 650 }} />
+        <Chip label={getLabel(notification.notificationType, locale)} size="small" sx={{ mt: 0.75, height: 22, bgcolor: alpha(color, 0.11), color, fontWeight: 650 }} />
       </Box>
       <IconButton
-        aria-label="Notification actions"
+        aria-label={t('notification.actions')}
         size="small"
         onClick={event => {
           event.stopPropagation();
@@ -156,25 +174,25 @@ const NotificationItem = ({
       <Menu anchorEl={menuAnchor} open={Boolean(menuAnchor)} onClose={() => setMenuAnchor(null)}>
         {recipient.isRead ? (
           onMarkAsUnread && <MenuItem onClick={event => { event.stopPropagation(); onMarkAsUnread(recipient.recipientId); setMenuAnchor(null); }}>
-            <ListItemIcon><Undo fontSize="small" /></ListItemIcon><ListItemText>Mark as unread</ListItemText>
+            <ListItemIcon><Undo fontSize="small" /></ListItemIcon><ListItemText>{t('notification.markUnread')}</ListItemText>
           </MenuItem>
         ) : (
           <MenuItem onClick={event => { event.stopPropagation(); onMarkAsRead(recipient.recipientId); setMenuAnchor(null); }}>
-            <ListItemIcon><DoneAll fontSize="small" /></ListItemIcon><ListItemText>Mark as read</ListItemText>
+            <ListItemIcon><DoneAll fontSize="small" /></ListItemIcon><ListItemText>{t('notification.markRead')}</ListItemText>
           </MenuItem>
         )}
         {archived ? (
           onRestore && <MenuItem onClick={event => { event.stopPropagation(); onRestore(recipient.recipientId); setMenuAnchor(null); }}>
-            <ListItemIcon><RestoreOutlined fontSize="small" /></ListItemIcon><ListItemText>Restore</ListItemText>
+            <ListItemIcon><RestoreOutlined fontSize="small" /></ListItemIcon><ListItemText>{t('notification.restore')}</ListItemText>
           </MenuItem>
         ) : (
           onArchive && <MenuItem onClick={event => { event.stopPropagation(); onArchive(recipient.recipientId); setMenuAnchor(null); }}>
-            <ListItemIcon><ArchiveOutlined fontSize="small" /></ListItemIcon><ListItemText>Archive</ListItemText>
+            <ListItemIcon><ArchiveOutlined fontSize="small" /></ListItemIcon><ListItemText>{t('notification.archive')}</ListItemText>
           </MenuItem>
         )}
         {archived && onDelete && (
           <MenuItem sx={{ color: 'error.main' }} onClick={event => { event.stopPropagation(); onDelete(recipient.recipientId); setMenuAnchor(null); }}>
-            <ListItemText>Delete permanently</ListItemText>
+            <ListItemText>{t('notification.delete')}</ListItemText>
           </MenuItem>
         )}
       </Menu>

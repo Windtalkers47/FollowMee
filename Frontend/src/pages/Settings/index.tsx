@@ -16,6 +16,8 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
+  ToggleButton,
+  ToggleButtonGroup,
 } from '@mui/material';
 import {
   Settings as SettingsIcon,
@@ -26,9 +28,11 @@ import {
   BorderAll as BorderAllIcon,
   SchoolRounded as SchoolRoundedIcon,
   ExpandMoreRounded as ExpandMoreRoundedIcon,
+  LanguageRounded as LanguageRoundedIcon,
+  LightModeRounded as LightModeRoundedIcon,
+  DarkModeRounded as DarkModeRoundedIcon,
+  SettingsBrightnessRounded as SettingsBrightnessRoundedIcon,
 } from '@mui/icons-material';
-// useLiquidGlass is imported above with GradientPresetKey
-import LiquidGlassSettings from '../../components/LiquidGlassSettings';
 import { useAppDispatch, useAppSelector } from '../../store/store';
 import {
   selectSettings,
@@ -40,6 +44,8 @@ import { useEffect } from 'react';
 import { gradientPresets, GradientPresetKey } from '../../styles/liquidGlassStyles';
 import { useLiquidGlass } from '../../contexts/LiquidGlassContext';
 import { REPLAY_TOUR_EVENT } from '../../components/ProductTour/ProductTour';
+import { useUserPreferences } from '../../contexts/UserPreferencesContext';
+import feedback from '../../services/feedback.service';
 
 // Default settings for fallback
 const defaultLiquidGlassSettings = {
@@ -56,6 +62,24 @@ const SettingsPage = () => {
   const dispatch = useAppDispatch();
   const notificationSettings = useAppSelector(selectSettings);
   const settingsLoading = useAppSelector(selectSettingsLoading);
+  const {
+    locale,
+    brandTheme,
+    colorMode,
+    setLocale,
+    setBrandTheme,
+    setColorMode,
+    t,
+  } = useUserPreferences();
+
+  const savePreference = async (action: () => Promise<void>) => {
+    try {
+      await action();
+      await feedback.fire({ icon: 'success', title: t('settings.saved'), toast: true, timer: 2200 });
+    } catch {
+      await feedback.fire({ icon: 'error', title: t('settings.saveError'), toast: true, timer: 4200 });
+    }
+  };
 
   useEffect(() => {
     dispatch(fetchSettings());
@@ -90,9 +114,66 @@ const SettingsPage = () => {
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 4 }}>
         <SettingsIcon sx={{ fontSize: 32, color: 'primary.main' }} />
         <Typography variant="h4" fontWeight="bold">
-          Settings
+          {t('settings.title')}
         </Typography>
       </Box>
+
+      <Paper sx={{ p: { xs: 2, sm: 3 }, mb: 3 }}>
+        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2, mb: 2 }}>
+          <LanguageRoundedIcon color="primary" />
+          <Box>
+            <Typography variant="h6">{t('settings.language')}</Typography>
+            <Typography variant="body2" color="text.secondary">
+              {t('settings.languageHelp')}
+            </Typography>
+          </Box>
+        </Box>
+        <ToggleButtonGroup
+          exclusive
+          value={locale}
+          onChange={(_event, value) => value && savePreference(() => setLocale(value))}
+          aria-label={t('settings.language')}
+          fullWidth
+        >
+          <ToggleButton value="en">{t('settings.english')}</ToggleButton>
+          <ToggleButton value="th">{t('settings.thai')}</ToggleButton>
+        </ToggleButtonGroup>
+      </Paper>
+
+      <Paper sx={{ p: { xs: 2, sm: 3 }, mb: 3 }}>
+        <Typography variant="h6">{t('settings.theme')}</Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          {t('settings.themeHelp')}
+        </Typography>
+        <ToggleButtonGroup
+          exclusive
+          value={brandTheme}
+          onChange={(_event, value) => value && savePreference(() => setBrandTheme(value))}
+          aria-label={t('settings.theme')}
+          fullWidth
+          sx={{ mb: 3 }}
+        >
+          <ToggleButton value="purple">{t('settings.purple')}</ToggleButton>
+          <ToggleButton value="green">{t('settings.green')}</ToggleButton>
+        </ToggleButtonGroup>
+
+        <Typography variant="h6">{t('settings.appearance')}</Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          {t('settings.appearanceHelp')}
+        </Typography>
+        <ToggleButtonGroup
+          exclusive
+          value={colorMode}
+          onChange={(_event, value) => value && savePreference(() => setColorMode(value))}
+          aria-label={t('settings.appearance')}
+          fullWidth
+          sx={{ '& .MuiToggleButton-root': { gap: 1, minWidth: 0 } }}
+        >
+          <ToggleButton value="system"><SettingsBrightnessRoundedIcon fontSize="small" />{t('settings.system')}</ToggleButton>
+          <ToggleButton value="light"><LightModeRoundedIcon fontSize="small" />{t('settings.light')}</ToggleButton>
+          <ToggleButton value="dark"><DarkModeRoundedIcon fontSize="small" />{t('settings.dark')}</ToggleButton>
+        </ToggleButtonGroup>
+      </Paper>
 
       <Paper sx={{ p: { xs: 2, sm: 3 }, mb: 3 }}>
         <Typography variant="overline" color="text.secondary">Help</Typography>
@@ -255,24 +336,6 @@ const SettingsPage = () => {
             />
           </FormGroup>
 
-          <Divider sx={{ my: 3 }} />
-
-          {/* Legacy LiquidGlassSettings Component - keep for backward compatibility */}
-          <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 2 }}>
-            Advanced Controls
-          </Typography>
-          <LiquidGlassSettings
-            glassOpacity={liquidGlassSettings.glassOpacity}
-            setGlassOpacity={(value) => updateLiquidGlassSettings({ glassOpacity: value })}
-            showBorders={liquidGlassSettings.showBorders}
-            setShowBorders={(value) => updateLiquidGlassSettings({ showBorders: value })}
-            blurIntensity={liquidGlassSettings.blurIntensity}
-            setBlurIntensity={(value) => updateLiquidGlassSettings({ blurIntensity: value })}
-            glassStyle={liquidGlassSettings.glassStyle}
-            setGlassStyle={(value) => updateLiquidGlassSettings({ glassStyle: value })}
-            contrastLevel={liquidGlassSettings.contrastLevel}
-            setContrastLevel={(value) => updateLiquidGlassSettings({ contrastLevel: value })}
-          />
           </AccordionDetails>
         </Accordion>
       )}

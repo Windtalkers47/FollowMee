@@ -4,7 +4,7 @@ import { useAppDispatch, useAppSelector } from '../store/store';
 import { ThemeToggle } from '../components/ThemeToggle';
 import { logout, updateUser } from '../store/slices/authSlice';
 import { userApi } from '../api/user.api';
-import Swal from 'sweetalert2';
+import feedback from '../services/feedback.service';
 import SmartAvatar from '../components/SmartAvatar';
 import NotificationBell from '../components/NotificationBell/NotificationBell';
 import NotificationDropdown from '../components/NotificationDropdown/NotificationDropdown';
@@ -20,6 +20,7 @@ import {
   Divider,
   IconButton,
   ListItem,
+  ListSubheader,
   ListItemButton,
   ListItemIcon,
   ListItemText,
@@ -57,9 +58,10 @@ import {
   Close as CloseIcon,
   CloudUpload,
   Analytics,
+  MoreHoriz,
 } from '@mui/icons-material';
 import ProductTour from '../components/ProductTour/ProductTour';
-import { semanticHex } from '../styles/designTokens';
+import { useUserPreferences } from '../contexts/UserPreferencesContext';
 
 const drawerWidth = 260;
 const collapsedWidth = 76;
@@ -86,6 +88,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
   const location = useLocation();
   const dispatch = useAppDispatch();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const { t } = useUserPreferences();
 
   // Get current user to check role
   const currentUser = useAppSelector((state) => state.auth.user);
@@ -93,18 +96,33 @@ const MainLayout = ({ children }: MainLayoutProps) => {
   const canManageUsers = isSuperAdmin || currentUser?.roles?.includes('Admin') || false;
 
   // Filter menu items based on user role
-  const filteredMenuItems = menuItems.filter((item) => {
+  const filteredMenuItems = useMemo(() => menuItems.filter((item) => {
     // Admins can manage users; only Superadmin can manage privileged roles.
     if (item.path === '/users' && !canManageUsers) {
       return false;
     }
     return true;
-  });
+  }), [canManageUsers]);
+  const menuLabels = useMemo<Record<string, string>>(() => ({
+    '/dashboard': t('nav.dashboard'),
+    '/schedule': t('nav.tasks'),
+    '/customer': t('nav.customers'),
+    '/customer-profile': t('nav.profiles'),
+    '/notification-analytics': t('nav.analytics'),
+    '/posts': t('nav.activity'),
+    '/users': t('nav.users'),
+  }), [t]);
+  const groupLabels = useMemo<Record<string, string>>(() => ({
+    Workspace: t('nav.workspace'),
+    Insights: t('nav.insights'),
+    Administration: t('nav.administration'),
+  }), [t]);
 
   const [open, setOpen] = useState(true);
   const [mobileOpen, setMobileOpen] = useState(false);
   const showDrawerLabels = isMobile || open;
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [mobileMoreAnchor, setMobileMoreAnchor] = useState<null | HTMLElement>(null);
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
@@ -119,6 +137,18 @@ const MainLayout = ({ children }: MainLayoutProps) => {
     confirmPassword: '',
     userImageUrl: currentUser?.userImageUrl || null,
   });
+
+  useEffect(() => {
+    setProfileData(current => ({
+      ...current,
+      userName: currentUser?.userName || '',
+      userLastName: currentUser?.userLastName || '',
+      userEmail: currentUser?.userEmail || '',
+      userPhone1: currentUser?.userPhone1 || '',
+      userPhone2: currentUser?.userPhone2 || '',
+      userImageUrl: currentUser?.userImageUrl || null,
+    }));
+  }, [currentUser]);
 
   const handleDrawerToggle = useCallback(() => {
     if (isMobile) {
@@ -158,13 +188,11 @@ const MainLayout = ({ children }: MainLayoutProps) => {
   }, []);
   
   const handleRemoveProfileImage = useCallback(async () => {
-    const result = await Swal.fire({
+    const result = await feedback.fire({
       title: 'Remove Image?',
       text: 'Are you sure you want to remove your profile image? It will be deleted from Cloudinary and database.',
       icon: 'warning',
       showCancelButton: true,
-      confirmButtonColor: semanticHex.error,
-      cancelButtonColor: '#8E8E93',
       confirmButtonText: 'Yes, remove it!',
       cancelButtonText: 'Cancel',
     });
@@ -173,7 +201,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
       setProfileData(prev => ({ ...prev, userImageUrl: null }));
       
       // Show success toast
-      Swal.fire({
+      feedback.fire({
         icon: 'success',
         title: 'Image Removed',
         text: 'Your profile image has been removed successfully! Click "Save Changes" to update your profile.',
@@ -194,11 +222,10 @@ const MainLayout = ({ children }: MainLayoutProps) => {
   const handleProfileUpdate = useCallback(async () => {
     try {
       if (!currentUser?.userId) {
-        await Swal.fire({
+        await feedback.fire({
           icon: 'error',
           title: 'User not found',
           text: 'Please try again or contact support.',
-          confirmButtonColor: semanticHex.error,
         });
         return;
       }
@@ -206,11 +233,10 @@ const MainLayout = ({ children }: MainLayoutProps) => {
       // Only validate passwords if user is trying to change password (typed something)
       if (profileData.userPassword || profileData.confirmPassword) {
         if (profileData.userPassword !== profileData.confirmPassword) {
-          await Swal.fire({
+          await feedback.fire({
             icon: 'error',
             title: 'Password Mismatch',
             text: 'The passwords you entered do not match. Please try again.',
-            confirmButtonColor: semanticHex.error,
           });
           return;
         }
@@ -247,18 +273,17 @@ const MainLayout = ({ children }: MainLayoutProps) => {
 
       // Check if anything was actually changed
       if (Object.keys(updateData).length === 0) {
-        await Swal.fire({
+        await feedback.fire({
         icon: 'warning',
         title: 'No Changes',
         text: 'No changes were made to your profile.',
-        confirmButtonColor: semanticHex.primary,
       });
         return;
       }
 
       // Show loading state for profile update
       setIsUpdatingProfile(true);
-      Swal.fire({
+      feedback.fire({
         title: 'Updating Profile...',
         text: 'Please wait while we update your profile',
         icon: 'info',
@@ -266,7 +291,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
         allowEscapeKey: false,
         showConfirmButton: false,
         didOpen: () => {
-          Swal.showLoading();
+          feedback.showLoading();
         }
       });
 
@@ -284,8 +309,8 @@ const MainLayout = ({ children }: MainLayoutProps) => {
       }));
 
       // Close loading and show success
-      Swal.close();
-      Swal.fire({
+      feedback.close();
+      feedback.fire({
         icon: 'success',
         title: 'Profile Updated!',
         text: 'Your profile has been successfully updated.',
@@ -295,12 +320,11 @@ const MainLayout = ({ children }: MainLayoutProps) => {
       });
       handleProfileModalClose();
     } catch (error) {
-      Swal.close();
-      await Swal.fire({
+      feedback.close();
+      await feedback.fire({
         icon: 'error',
         title: 'Update Failed',
         text: 'Failed to update your profile. Please try again.',
-        confirmButtonColor: semanticHex.error,
       });
     } finally {
       setIsUpdatingProfile(false);
@@ -335,18 +359,17 @@ const MainLayout = ({ children }: MainLayoutProps) => {
   const handleAccountDelete = useCallback(async () => {
     try {
       if (!currentUser?.userId) {
-        await Swal.fire({
+        await feedback.fire({
           icon: 'error',
           title: 'User not found',
           text: 'Please try again or contact support.',
-          confirmButtonColor: semanticHex.error,
         });
         return;
       }
 
       await userApi.deleteUser(currentUser.userId);
 
-      await Swal.fire({
+      await feedback.fire({
         icon: 'success',
         title: 'Account Deleted!',
         text: 'Your account has been successfully deleted.',
@@ -357,11 +380,10 @@ const MainLayout = ({ children }: MainLayoutProps) => {
       handleDeleteModalClose();
       handleLogout();
     } catch (error) {
-      await Swal.fire({
+      await feedback.fire({
         icon: 'error',
         title: 'Deletion Failed',
         text: 'Failed to delete your account. Please try again.',
-        confirmButtonColor: semanticHex.error,
       });
     }
   }, [currentUser, handleLogout]);
@@ -405,7 +427,11 @@ const MainLayout = ({ children }: MainLayoutProps) => {
           )}
         </Box>
 
-        <IconButton size="small" onClick={handleDrawerToggle}>
+        <IconButton
+          size="small"
+          onClick={handleDrawerToggle}
+          aria-label={open ? 'Collapse navigation' : 'Expand navigation'}
+        >
           {open ? <ChevronLeft /> : <ChevronRight />}
         </IconButton>
       </Box>
@@ -422,9 +448,24 @@ const MainLayout = ({ children }: MainLayoutProps) => {
           return (
             <React.Fragment key={item.text}>
               {showDrawerLabels && (index === 0 || item.group !== filteredMenuItems[index - 1].group) && (
-                <Typography variant="overline" color="text.secondary" sx={{ display: 'block', px: 2, pt: index === 0 ? 1 : 2, pb: 0.25, letterSpacing: '.08em' }}>
-                  {item.group}
-                </Typography>
+                <ListSubheader
+                  disableSticky
+                  component="li"
+                  sx={{
+                    color: 'text.secondary',
+                    bgcolor: 'transparent',
+                    px: 2,
+                    pt: index === 0 ? 1 : 2,
+                    pb: 0.25,
+                    lineHeight: 1.5,
+                    letterSpacing: '.08em',
+                    textTransform: 'uppercase',
+                    fontSize: '0.75rem',
+                    fontWeight: 700,
+                  }}
+                >
+                  {groupLabels[item.group] || item.group}
+                </ListSubheader>
               )}
               <ListItem disablePadding>
                 <ListItemButton
@@ -452,7 +493,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
 
                   {showDrawerLabels && (
                     <ListItemText
-                      primary={item.text}
+                      primary={menuLabels[item.path] || item.text}
                       primaryTypographyProps={{
                         fontWeight: active ? 600 : 500,
                       }}
@@ -479,7 +520,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
             <ListItemIcon sx={{ minWidth: 0, mr: showDrawerLabels ? 1.5 : 0 }}>
               <Settings />
             </ListItemIcon>
-            {showDrawerLabels && <ListItemText primary="Settings" />}
+            {showDrawerLabels && <ListItemText primary={t('nav.settings')} />}
           </ListItemButton>
         </ListItem>
 
@@ -491,12 +532,12 @@ const MainLayout = ({ children }: MainLayoutProps) => {
             <ListItemIcon sx={{ minWidth: 0, mr: showDrawerLabels ? 1.5 : 0 }}>
               <Logout />
             </ListItemIcon>
-            {showDrawerLabels && <ListItemText primary="Logout" />}
+            {showDrawerLabels && <ListItemText primary={t('nav.logout')} />}
           </ListItemButton>
         </ListItem>
       </List>
     </Box>
-  ), [filteredMenuItems, handleDrawerToggle, handleLogout, location.pathname, navigate, open, showDrawerLabels]);
+  ), [filteredMenuItems, groupLabels, handleDrawerToggle, handleLogout, isMobile, location.pathname, menuLabels, navigate, open, showDrawerLabels, t]);
 
   /* ================= Layout ================= */
 
@@ -645,18 +686,20 @@ const MainLayout = ({ children }: MainLayoutProps) => {
             py: { xs: 2, sm: 3 },
           }}
         >
-          {children}
+            {children}
         </Box>
       </Box>
 
       <BottomNavigation
         showLabels
         value={
-          ['/dashboard', '/schedule', '/customer', '/customer-profile'].find((path) =>
-            location.pathname.startsWith(path)
-          ) || false
+          location.pathname === '/dashboard' ? '/dashboard'
+          : location.pathname.startsWith('/schedule') ? '/schedule'
+          : location.pathname.startsWith('/customer-profile') ? '/customer-profile'
+          : location.pathname.startsWith('/customer') ? '/customer'
+          : '/more'
         }
-        onChange={(_event, value) => navigate(value)}
+        onChange={(_event, value) => value !== '/more' && navigate(value)}
         sx={{
           display: { xs: 'flex', md: 'none' },
           position: 'fixed',
@@ -681,11 +724,44 @@ const MainLayout = ({ children }: MainLayoutProps) => {
           '& .MuiBottomNavigationAction-label': { fontSize: '0.68rem' },
         }}
       >
-        <BottomNavigationAction label="Home" value="/dashboard" icon={<Dashboard />} />
-        <BottomNavigationAction label="Tasks" value="/schedule" icon={<Schedule />} />
-        <BottomNavigationAction label="Customers" value="/customer" icon={<Group />} />
-        <BottomNavigationAction label="Profiles" value="/customer-profile" icon={<AccountCircle />} />
+        <BottomNavigationAction label={t('nav.dashboard')} value="/dashboard" icon={<Dashboard />} />
+        <BottomNavigationAction label={t('nav.tasks')} value="/schedule" icon={<Schedule />} />
+        <BottomNavigationAction label={t('nav.customers')} value="/customer" icon={<Group />} />
+        <BottomNavigationAction label={t('nav.profiles')} value="/customer-profile" icon={<AccountCircle />} />
+        <BottomNavigationAction
+          label={t('nav.more')}
+          value="/more"
+          icon={<MoreHoriz />}
+          onClick={(event) => setMobileMoreAnchor(event.currentTarget)}
+          aria-label={t('nav.more')}
+        />
       </BottomNavigation>
+      <Menu
+        anchorEl={mobileMoreAnchor}
+        open={Boolean(mobileMoreAnchor)}
+        onClose={() => setMobileMoreAnchor(null)}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+        transformOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        {[
+          { label: t('nav.activity'), path: '/posts', icon: <PostAdd fontSize="small" /> },
+          { label: t('nav.analytics'), path: '/notification-analytics', icon: <Analytics fontSize="small" /> },
+          ...(canManageUsers ? [{ label: t('nav.users'), path: '/users', icon: <PeopleAlt fontSize="small" /> }] : []),
+          { label: t('nav.settings'), path: '/settings', icon: <Settings fontSize="small" /> },
+        ].map(item => (
+          <MenuItem
+            key={item.path}
+            selected={location.pathname.startsWith(item.path)}
+            onClick={() => {
+              setMobileMoreAnchor(null);
+              navigate(item.path);
+            }}
+          >
+            <ListItemIcon>{item.icon}</ListItemIcon>
+            {item.label}
+          </MenuItem>
+        ))}
+      </Menu>
 
       <ProductTour userKey={currentUser?.userId || currentUser?.userEmail || 'guest'} />
 
@@ -731,7 +807,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
             <Typography variant="h6" sx={{ color: theme.palette.mode === 'dark' ? '#ffffff' : '#1a1a1a', fontWeight: 600 }}>
               Edit Profile
             </Typography>
-            <IconButton onClick={handleProfileModalClose}>
+            <IconButton onClick={handleProfileModalClose} aria-label="Close profile editor">
               <CloseIcon />
             </IconButton>
           </Box>
@@ -774,7 +850,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
                           setIsUploadingImage(true);
                           
                           // Show loading toast
-                          Swal.fire({
+                          feedback.fire({
                             title: 'Processing Image...',
                             text: 'Please wait while we process your image',
                             icon: 'info',
@@ -782,7 +858,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
                             allowEscapeKey: false,
                             showConfirmButton: false,
                             didOpen: () => {
-                              Swal.showLoading();
+                              feedback.showLoading();
                             }
                           });
                           
@@ -794,8 +870,8 @@ const MainLayout = ({ children }: MainLayoutProps) => {
                             }));
                             
                             // Close loading and show success
-                            Swal.close();
-                            Swal.fire({
+                            feedback.close();
+                            feedback.fire({
                               icon: 'success',
                               title: 'Image Processed',
                               text: 'Your image has been processed successfully!',
@@ -807,8 +883,8 @@ const MainLayout = ({ children }: MainLayoutProps) => {
                           };
                           reader.onerror = () => {
                             setIsUploadingImage(false);
-                            Swal.close();
-                            Swal.fire({
+                            feedback.close();
+                            feedback.fire({
                               icon: 'error',
                               title: 'Processing Failed',
                               text: 'Failed to process image. Please try another one.',
@@ -817,8 +893,8 @@ const MainLayout = ({ children }: MainLayoutProps) => {
                           reader.readAsDataURL(file);
                         } catch (error) {
                           setIsUploadingImage(false);
-                          Swal.close();
-                          Swal.fire({
+                          feedback.close();
+                          feedback.fire({
                             icon: 'error',
                             title: 'Processing Failed',
                             text: 'Failed to process image. Please try another one.',

@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, useNavigate } from 'react-router-dom';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import FollowMeeFeedbackProvider from '../../components/FeedbackProvider/FollowMeeFeedbackProvider';
 import feedback from '../../services/feedback.service';
 
@@ -12,7 +12,9 @@ vi.mock('../../contexts/UserPreferencesContext', () => ({
       'feedback.cancel': 'Cancel',
       'feedback.confirmTitle': 'Confirm action',
       'feedback.close': 'Close',
+      'feedback.done': 'Done',
     }[key] || key),
+    brandTheme: 'purple',
   }),
 }));
 
@@ -27,6 +29,7 @@ const renderProvider = (child: React.ReactNode = <div>Application</div>) =>
 
 describe('FollowMeeFeedbackProvider', () => {
   beforeEach(() => vi.clearAllMocks());
+  afterEach(() => vi.useRealTimers());
 
   it('queues modal decisions and resolves each promise exactly once', async () => {
     renderProvider();
@@ -76,6 +79,29 @@ describe('FollowMeeFeedbackProvider', () => {
 
     expect(await screen.findByRole('status')).toBeInTheDocument();
     expect(screen.getAllByText('Role changed')).toHaveLength(1);
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('uses a branded modal for milestone outcomes and closes it automatically', async () => {
+    vi.useFakeTimers();
+    renderProvider();
+    await act(async () => {
+      await feedback.success({
+        title: 'Role changed',
+        message: 'Coca Cola is now Admin.',
+        importance: 'milestone',
+        duration: 5000,
+      });
+    });
+
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Done' })).toBeInTheDocument();
+    await act(async () => {
+      vi.advanceTimersByTime(5000);
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(300);
+    });
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 

@@ -159,48 +159,49 @@ Errors are returned in the following format:
         Task: {
           type: 'object',
           properties: {
-            taskId: { type: 'integer', description: 'Task ID' },
-            taskTitle: { type: 'string', description: 'Task title' },
-            taskDescription: { type: 'string', description: 'Task description' },
+            taskId: { type: 'string', format: 'uuid', description: 'Task ID' },
+            title: { type: 'string', description: 'Task title' },
+            description: { type: 'string', description: 'Task description' },
             status: { 
               type: 'string', 
-              enum: ['pending', 'in_progress', 'completed', 'cancelled'],
+              enum: ['draft', 'todo', 'in_progress', 'review', 'done', 'cancelled'],
               description: 'Task status',
-            },
-            priority: {
-              type: 'string',
-              enum: ['low', 'medium', 'high', 'urgent'],
-              description: 'Task priority',
             },
             startDate: { type: 'string', format: 'date-time', description: 'Start date' },
             endDate: { type: 'string', format: 'date-time', description: 'End date' },
             dueDate: { type: 'string', format: 'date-time', description: 'Due date' },
             assignedTo: { type: 'integer', description: 'Assigned user ID' },
             createdBy: { type: 'integer', description: 'Creator user ID' },
-            customerId: { type: 'integer', description: 'Associated customer ID' },
             createdAt: { type: 'string', format: 'date-time' },
             updatedAt: { type: 'string', format: 'date-time' },
           },
         },
         CreateTask: {
           type: 'object',
-          required: ['taskTitle'],
+          required: ['title'],
           properties: {
-            taskTitle: { type: 'string', minLength: 1, maxLength: 200 },
-            taskDescription: { type: 'string', maxLength: 2000 },
+            title: { type: 'string', minLength: 1, maxLength: 255 },
+            description: { type: 'string', maxLength: 2000 },
             status: { 
               type: 'string', 
-              enum: ['pending', 'in_progress', 'completed', 'cancelled'],
-            },
-            priority: {
-              type: 'string',
-              enum: ['low', 'medium', 'high', 'urgent'],
+              enum: ['draft', 'todo'],
+              description: 'Draft is private to the creator. To do requires assignedTo.',
             },
             startDate: { type: 'string', format: 'date-time' },
             endDate: { type: 'string', format: 'date-time' },
             dueDate: { type: 'string', format: 'date-time' },
             assignedTo: { type: 'integer' },
-            customerId: { type: 'integer' },
+            images: {
+              type: 'array',
+              maxItems: 10,
+              items: {
+                type: 'object',
+                properties: {
+                  imageUrl: { type: 'string', format: 'uri' },
+                  imageOrder: { type: 'integer' },
+                },
+              },
+            },
           },
         },
 

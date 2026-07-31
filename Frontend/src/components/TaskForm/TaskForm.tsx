@@ -12,17 +12,17 @@ import {
   Save as SaveIcon,
   Cancel as CancelIcon
 } from '@mui/icons-material';
-import feedback from '../../services/feedback.service';
-import { Task, User } from '../../api/task.api';
-import { useTaskForm } from '../../hooks/useTaskForm';
+import { CreateTaskData, Task, User } from '../../api/task.api';
+import { TaskSaveIntent, useTaskForm } from '../../hooks/useTaskForm';
 import { TaskFormFields } from './TaskFormFields';
+import { useUserPreferences } from '../../contexts/UserPreferencesContext';
 
 interface TaskFormProps {
   task?: Task;
   users: User[];
   open: boolean;
   onClose: () => void;
-  onSave: (task: Task) => Promise<void> | void;
+  onSave: (task: CreateTaskData, intent: TaskSaveIntent) => Promise<void> | void;
   bookedDates?: Date[]; // New prop for booked dates
 }
 
@@ -34,48 +34,12 @@ export const TaskForm: React.FC<TaskFormProps> = ({
   onSave,
   bookedDates = []
 }) => {
+  const { t } = useUserPreferences();
   const taskForm = useTaskForm({ task, users, onSave });
 
-  const handleSubmit = async () => {
-    try {
-      // Validate before opening the loading feedback so invalid submissions do not
-      // flash a loading dialog and immediately close it again.
-      if (!taskForm.validateForm()) return;
-
-      feedback.fire({
-        title: taskForm.isEditing ? 'Updating Task...' : 'Creating Task...',
-        text: 'Please wait...',
-        allowOutsideClick: false,
-      });
-
-      // Call the async onSave function directly
-      const result = await taskForm.handleSubmit();
-      if (!result) {
-        feedback.close();
-        return;
-      }
-      
-      // Show success message
-      await feedback.fire({
-        icon: 'success',
-        title: taskForm.isEditing ? 'Task Updated!' : 'Task Created!',
-        text: taskForm.isEditing 
-          ? 'Your task has been updated successfully.' 
-          : 'Your task has been created successfully.',
-        timer: 2000,
-        showConfirmButton: false
-      });
-      onClose();
-    } catch (error) {
-      // Show error message
-      feedback.fire({
-        icon: 'error',
-        title: 'Operation Failed',
-        text: taskForm.isEditing 
-          ? 'Failed to update task. Please try again.' 
-          : 'Failed to create task. Please try again.',
-      });
-    }
+  const handleSubmit = async (intent: TaskSaveIntent) => {
+    const saved = await taskForm.handleSubmit(intent);
+    if (saved) onClose();
   };
 
   const handleCancel = () => {
@@ -88,7 +52,7 @@ export const TaskForm: React.FC<TaskFormProps> = ({
     <Dialog open={open} onClose={handleCancel} maxWidth="md" fullWidth>
       <DialogTitle>
         <Typography variant="h6" component="div">
-          {taskForm.isEditing ? 'Edit Task' : 'Create New Task'}
+          {taskForm.isEditing ? t('task.form.editTask') : t('task.form.createTask')}
         </Typography>
       </DialogTitle>
 
@@ -102,7 +66,6 @@ export const TaskForm: React.FC<TaskFormProps> = ({
           onInputChange={taskForm.handleInputChange}
           onImagesChange={taskForm.handleImagesChange}
           bookedDates={bookedDates}
-          allowedStatuses={taskForm.allowedStatuses}
         />
       </DialogContent>
 
@@ -112,16 +75,26 @@ export const TaskForm: React.FC<TaskFormProps> = ({
           disabled={taskForm.isSubmitting}
           startIcon={<CancelIcon />}
         >
-          Cancel
+          {t('common.cancel')}
         </Button>
         
+        {(!task || task.status === 'draft') && (
+          <Button
+            onClick={() => handleSubmit('draft')}
+            disabled={taskForm.isSubmitting}
+            variant="outlined"
+            startIcon={taskForm.isSubmitting ? <CircularProgress size={20} /> : <SaveIcon />}
+          >
+            {t('task.form.saveDraft')}
+          </Button>
+        )}
         <Button
-          onClick={handleSubmit}
+          onClick={() => handleSubmit(!task || task.status === 'draft' ? 'publish' : 'save')}
           disabled={taskForm.isSubmitting}
           variant="contained"
           startIcon={taskForm.isSubmitting ? <CircularProgress size={20} /> : <SaveIcon />}
         >
-          {taskForm.isEditing ? 'Update Task' : 'Create Task'}
+          {!task || task.status === 'draft' ? t('task.form.assignTask') : t('task.form.saveChanges')}
         </Button>
       </DialogActions>
     </Dialog>

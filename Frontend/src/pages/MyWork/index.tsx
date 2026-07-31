@@ -20,8 +20,9 @@ import { useAppSelector } from '../../store/store';
 import { useUserPreferences } from '../../contexts/UserPreferencesContext';
 import feedback from '../../services/feedback.service';
 import { getOptimizedImageUrl } from '../../utils/imageUtils';
+import TaskFocusCard from '../../components/SmartSuggestions/TaskFocusCard';
 
-type WorkFilter = 'all' | 'todo' | 'in_progress' | 'review' | 'overdue';
+type WorkFilter = 'all' | 'todo' | 'in_progress' | 'review' | 'approval' | 'overdue' | 'due_today' | 'due_soon';
 
 const MyWorkPage = () => {
   const { t } = useUserPreferences();
@@ -41,18 +42,33 @@ const MyWorkPage = () => {
       action === 'start'
         ? taskApi.updateTask(task.taskId, { status: 'in_progress' })
         : taskApi.submitTaskForReview(task.taskId),
-    onSuccess: () => {
+    onSuccess: (_updatedTask, variables) => {
       queryClient.invalidateQueries({ queryKey: ['my-work', userId] });
-      feedback.success(t('myWork.updated'), t('myWork.updatedText'));
+      feedback.success({
+        title: t('myWork.updated'),
+        message: t('myWork.updatedText'),
+        importance: variables.action === 'submit_review' ? 'milestone' : 'routine',
+        nextAction: variables.action === 'submit_review'
+          ? { label: t('myWork.open'), onClick: () => navigate(`/tasks/${variables.task.taskId}`) }
+          : undefined,
+      });
     },
     onError: () => feedback.error(t('myWork.updateFailed'), t('feedback.tryAgain')),
   });
 
   const sections = useMemo(() => {
-    const now = Date.now();
+    const today = new Date();
+    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+    const tomorrowStart = todayStart + 24 * 60 * 60 * 1000;
+    const soonEnd = todayStart + 4 * 24 * 60 * 60 * 1000;
     const matchesFilter = (task: Task) => {
       if (filter === 'all') return true;
-      if (filter === 'overdue') return Boolean(task.endDate && new Date(task.endDate).getTime() < now);
+      if (filter === 'approval') return task.attentionReason === 'approval_required';
+      const due = task.endDate || task.dueDate;
+      const dueTime = due ? new Date(due).getTime() : 0;
+      if (filter === 'overdue') return Boolean(dueTime && dueTime < todayStart);
+      if (filter === 'due_today') return dueTime >= todayStart && dueTime < tomorrowStart;
+      if (filter === 'due_soon') return dueTime >= tomorrowStart && dueTime < soonEnd;
       return task.status === filter;
     };
     const items = (data?.items || []).filter(matchesFilter);
@@ -138,14 +154,15 @@ const MyWorkPage = () => {
         <Button variant="outlined" startIcon={<ScheduleIcon />} onClick={() => navigate('/schedule')}>{t('myWork.openSchedule')}</Button>
       </Stack>
 
-      {(data?.counts.approvalRequired || 0) > 0 && (
-        <Alert
-          severity="warning"
-          action={<Button color="inherit" onClick={() => setFilter('review')}>{t('myWork.viewReviewQueue')}</Button>}
-          sx={{ mb: 2 }}
-        >
-          {t('myWork.approvalSummary', { count: data?.counts.approvalRequired || 0 })}
-        </Alert>
+      <TaskFocusCard
+        scope="personal"
+        focus={data?.focus}
+        onFilter={(target) => setFilter(target as WorkFilter)}
+      />
+      {data?.focus && !data.focus.primary && (
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5 }}>
+          {t('focus.personal.empty')}
+        </Typography>
       )}
 
       <Grid container spacing={1.5} mb={3}>
@@ -179,7 +196,8 @@ const MyWorkPage = () => {
           <Stack spacing={1.5}>
             {section.tasks.map((task) => {
               const action = getAction(task);
-              const end = task.endDate ? new Date(task.endDate) : null;
+              const dueValue = task.endDate || task.dueDate;
+              const end = dueValue ? new Date(dueValue) : null;
               const overdue = Boolean(end && end.getTime() < Date.now());
               return (
                 <Card key={task.taskId} data-task-id={task.taskId} variant="outlined" sx={{ borderRadius: 3 }}>

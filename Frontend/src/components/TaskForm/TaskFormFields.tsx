@@ -9,7 +9,8 @@ import {
   Select,
   MenuItem,
   Typography,
-  Alert
+  Alert,
+  FormHelperText
 } from '@mui/material';
 import { TaskImage, User } from '../../api/task.api';
 import { ImageUpload } from '../ImageUpload/ImageUpload';
@@ -17,7 +18,6 @@ import { RangeCalendar } from '../RangeCalendar/RangeCalendar';
 import { formatRelativeTime } from '../../utils/dateUtils';
 import { AccessTime, Update } from '@mui/icons-material';
 import { useUserPreferences } from '../../contexts/UserPreferencesContext';
-import type { TaskStatus } from '../../utils/taskWorkflow';
 
 interface TaskFormFieldsProps {
   formData: any;
@@ -28,7 +28,6 @@ interface TaskFormFieldsProps {
   onInputChange: (field: string, value: any) => void;
   onImagesChange: (images: TaskImage[]) => void;
   bookedDates?: Date[]; // New prop for booked dates
-  allowedStatuses: TaskStatus[];
 }
 
 export const TaskFormFields: React.FC<TaskFormFieldsProps> = ({
@@ -39,8 +38,7 @@ export const TaskFormFields: React.FC<TaskFormFieldsProps> = ({
   isSubmitting,
   onInputChange,
   onImagesChange,
-  bookedDates = [],
-  allowedStatuses
+  bookedDates = []
 }) => {
   const { t } = useUserPreferences();
   return (
@@ -78,7 +76,7 @@ export const TaskFormFields: React.FC<TaskFormFieldsProps> = ({
               />
 
               <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-                <FormControl sx={{ flex: 1, minWidth: 200 }}>
+                <FormControl error={!!formErrors.assignedTo} sx={{ flex: 1, minWidth: 200 }}>
                   <InputLabel id="assigned-to-label">{t('task.form.assignedTo')}</InputLabel>
                   <Select
                     labelId="assigned-to-label"
@@ -95,24 +93,7 @@ export const TaskFormFields: React.FC<TaskFormFieldsProps> = ({
                       </MenuItem>
                     ))}
                   </Select>
-                </FormControl>
-
-                <FormControl sx={{ flex: 1, minWidth: 200 }}>
-                  <InputLabel id="status-label">{t('task.form.status')}</InputLabel>
-                  <Select
-                    labelId="status-label"
-                    id="status-select"
-                    value={formData.status}
-                    label={t('task.form.status')}
-                    onChange={(e) => onInputChange('status', e.target.value)}
-                    disabled={isSubmitting}
-                  >
-                    {allowedStatuses.map(status => (
-                      <MenuItem key={status} value={status}>
-                        {{ draft: 'Draft', todo: 'To Do', in_progress: 'In Progress', review: 'Review', done: 'Done', cancelled: 'Cancelled' }[status]}
-                      </MenuItem>
-                    ))}
-                  </Select>
+                  {formErrors.assignedTo && <FormHelperText>{formErrors.assignedTo}</FormHelperText>}
                 </FormControl>
               </Box>
 

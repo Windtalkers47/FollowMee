@@ -9,6 +9,29 @@ export interface User {
   userImageUrl?: string;
 }
 
+export type TaskFocusKind =
+  | 'approval_required'
+  | 'overdue'
+  | 'due_today'
+  | 'due_soon'
+  | 'waiting_review';
+
+export interface TaskFocusSummary {
+  primary?: {
+    kind: TaskFocusKind;
+    count: number;
+    targetFilter: string;
+  };
+  counts: {
+    overdue: number;
+    dueToday: number;
+    dueSoon: number;
+    waitingReview?: number;
+    approvalRequired?: number;
+  };
+  revision: string;
+}
+
 export interface Task {
   taskId: string;
   title: string;
@@ -50,6 +73,10 @@ export interface Task {
     currentStatus: Task['status'];
     allowedTransitions: Task['status'][];
     canEdit: boolean;
+    canEditMetadata: boolean;
+    canReassign: boolean;
+    canPublish: boolean;
+    canStart: boolean;
     canApprove: boolean;
     canSubmitReview: boolean;
     canRequestChanges: boolean;
@@ -72,7 +99,10 @@ export interface MyWorkResponse {
     review: number;
     approvalRequired: number;
     overdue: number;
+    dueToday: number;
+    dueSoon: number;
   };
+  focus?: TaskFocusSummary;
   pageInfo: { nextCursor?: string };
 }
 
@@ -184,11 +214,14 @@ export interface TaskQueryParams {
   search?: string;
   clearSearch?: boolean;
   includeStats?: boolean;
+  includeFocus?: boolean;
   status?: 'draft' | 'todo' | 'in_progress' | 'review' | 'done' | 'cancelled';
   assignedTo?: number;
   createdBy?: number;
   page?: number;
   limit?: number;
+  dueFilter?: 'all' | 'overdue' | 'today' | 'soon' | 'week';
+  sort?: 'updated_desc' | 'due_asc' | 'title_asc';
 }
 
 export interface TaskListResponse {
@@ -197,6 +230,8 @@ export interface TaskListResponse {
   page: number;
   limit: number;
   totalPages: number;
+  statusCounts?: Record<string, number>;
+  focus?: TaskFocusSummary;
   topPerformers?: {
     userId: number;
     userName: string;

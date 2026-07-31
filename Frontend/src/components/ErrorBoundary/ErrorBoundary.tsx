@@ -80,7 +80,7 @@ export class ErrorBoundary extends Component<Props, State> {
               sx={{
                 p: 4,
                 borderRadius: 2,
-                background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(250, 250, 250, 0.95))',
+                bgcolor: 'background.paper',
                 backdropFilter: 'blur(10px)',
               }}
             >
@@ -131,7 +131,7 @@ export class ErrorBoundary extends Component<Props, State> {
                   startIcon={<RefreshIcon />}
                   onClick={this.handleRetry}
                   sx={{
-                    background: 'linear-gradient(135deg, #34C759, #30D158)',
+                    bgcolor: 'primary.main',
                   }}
                 >
                   Try Again

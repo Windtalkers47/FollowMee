@@ -8,83 +8,83 @@
 export const gradientPresets = {
   classicBluePurple: {
     name: 'Classic Blue-Purple',
-    light: 'linear-gradient(135deg, rgba(102, 126, 234, 0.25), rgba(118, 75, 162, 0.25))',
-    dark: 'linear-gradient(135deg, rgba(102, 126, 234, 0.35), rgba(118, 75, 162, 0.35))',
-    border: 'linear-gradient(135deg, rgba(102, 126, 234, 0.5), rgba(118, 75, 162, 0.5))',
-    primary: '#4a6cf7',
-    secondary: '#a64dff',
+    light: 'rgba(231, 221, 240, 0.88)',
+    dark: 'rgba(53, 42, 58, 0.92)',
+    border: 'rgba(179, 158, 181, 0.55)',
+    primary: '#72527C',
+    secondary: '#8E7696',
   },
   pinkPeach: {
     name: 'Pink Peach',
-    light: 'linear-gradient(135deg, rgba(251, 194, 235, 0.25), rgba(252, 213, 206, 0.25))',
-    dark: 'linear-gradient(135deg, rgba(251, 194, 235, 0.35), rgba(252, 213, 206, 0.35))',
-    border: 'linear-gradient(135deg, rgba(251, 194, 235, 0.5), rgba(252, 213, 206, 0.5))',
-    primary: '#f472b6',
-    secondary: '#fca5a5',
+    light: 'rgba(245, 228, 232, 0.9)',
+    dark: 'rgba(69, 50, 57, 0.92)',
+    border: 'rgba(234, 207, 214, 0.65)',
+    primary: '#8C626D',
+    secondary: '#A77B72',
   },
   warmLight: {
     name: 'Warm Light',
-    light: 'linear-gradient(135deg, rgba(219, 190, 254, 0.25), rgba(224, 242, 254, 0.25))',
-    dark: 'linear-gradient(135deg, rgba(219, 190, 254, 0.35), rgba(224, 242, 254, 0.35))',
-    border: 'linear-gradient(135deg, rgba(219, 190, 254, 0.5), rgba(224, 242, 254, 0.5))',
-    primary: '#3b82f6',
-    secondary: '#0ea5e9',
+    light: 'rgba(238, 232, 242, 0.9)',
+    dark: 'rgba(42, 35, 46, 0.92)',
+    border: 'rgba(179, 158, 181, 0.5)',
+    primary: '#72527C',
+    secondary: '#6F8290',
   },
   freshGreen: {
     name: 'Fresh Green',
-    light: 'linear-gradient(135deg, rgba(209, 250, 229, 0.25), rgba(236, 253, 245, 0.25))',
-    dark: 'linear-gradient(135deg, rgba(209, 250, 229, 0.35), rgba(236, 253, 245, 0.35))',
-    border: 'linear-gradient(135deg, rgba(209, 250, 229, 0.5), rgba(236, 253, 245, 0.5))',
-    primary: '#10b981',
-    secondary: '#34d399',
+    light: 'rgba(229, 241, 231, 0.9)',
+    dark: 'rgba(36, 48, 41, 0.92)',
+    border: 'rgba(143, 175, 153, 0.55)',
+    primary: '#466B52',
+    secondary: '#668773',
   },
   skyBlue: {
     name: 'Sky Blue',
-    light: 'linear-gradient(135deg, rgba(224, 242, 254, 0.25), rgba(240, 249, 255, 0.25))',
-    dark: 'linear-gradient(135deg, rgba(224, 242, 254, 0.35), rgba(240, 249, 255, 0.35))',
-    border: 'linear-gradient(135deg, rgba(224, 242, 254, 0.5), rgba(240, 249, 255, 0.5))',
-    primary: '#0284c7',
-    secondary: '#38bdf8',
+    light: 'rgba(232, 240, 242, 0.9)',
+    dark: 'rgba(34, 45, 49, 0.92)',
+    border: 'rgba(151, 176, 183, 0.55)',
+    primary: '#536F78',
+    secondary: '#718B92',
   },
   oceanBlue: {
     name: 'Ocean Blue',
-    light: 'linear-gradient(135deg, rgba(99, 102, 241, 0.25), rgba(139, 92, 246, 0.25))',
-    dark: 'linear-gradient(135deg, rgba(99, 102, 241, 0.35), rgba(139, 92, 246, 0.35))',
-    border: 'linear-gradient(135deg, rgba(99, 102, 241, 0.5), rgba(139, 92, 246, 0.5))',
-    primary: '#6366f1',
-    secondary: '#a855f7',
+    light: 'rgba(233, 231, 240, 0.9)',
+    dark: 'rgba(43, 39, 54, 0.92)',
+    border: 'rgba(154, 142, 176, 0.55)',
+    primary: '#665B7A',
+    secondary: '#7F6E91',
   },
   sunset: {
     name: 'Sunset',
-    light: 'linear-gradient(135deg, rgba(255, 81, 47, 0.25), rgba(221, 36, 118, 0.25))',
-    dark: 'linear-gradient(135deg, rgba(255, 81, 47, 0.35), rgba(221, 36, 118, 0.35))',
-    border: 'linear-gradient(135deg, rgba(255, 81, 47, 0.5), rgba(221, 36, 118, 0.5))',
-    primary: '#ef4444',
-    secondary: '#ec4899',
+    light: 'rgba(245, 226, 221, 0.9)',
+    dark: 'rgba(67, 49, 47, 0.92)',
+    border: 'rgba(218, 177, 168, 0.58)',
+    primary: '#906158',
+    secondary: '#986A79',
   },
   darkRed: {
     name: 'Dark Red',
-    light: 'linear-gradient(135deg, rgba(59, 10, 10, 0.25), rgba(127, 29, 29, 0.25))',
-    dark: 'linear-gradient(135deg, rgba(59, 10, 10, 0.35), rgba(127, 29, 29, 0.35))',
-    border: 'linear-gradient(135deg, rgba(59, 10, 10, 0.5), rgba(127, 29, 29, 0.5))',
-    primary: '#dc2626',
-    secondary: '#991b1b',
+    light: 'rgba(237, 222, 222, 0.9)',
+    dark: 'rgba(61, 43, 45, 0.92)',
+    border: 'rgba(179, 132, 132, 0.55)',
+    primary: '#835653',
+    secondary: '#714746',
   },
   darkPurple: {
     name: 'Dark Purple',
-    light: 'linear-gradient(135deg, rgba(30, 41, 59, 0.25), rgba(51, 65, 85, 0.25))',
-    dark: 'linear-gradient(135deg, rgba(30, 41, 59, 0.35), rgba(51, 65, 85, 0.35))',
-    border: 'linear-gradient(135deg, rgba(30, 41, 59, 0.5), rgba(51, 65, 85, 0.5))',
-    primary: '#7c3aed',
-    secondary: '#5b21b6',
+    light: 'rgba(231, 225, 234, 0.9)',
+    dark: 'rgba(42, 35, 46, 0.94)',
+    border: 'rgba(144, 124, 151, 0.55)',
+    primary: '#694E72',
+    secondary: '#594060',
   },
   dark: {
     name: 'Dark',
-    light: 'linear-gradient(135deg, rgba(15, 23, 42, 0.25), rgba(30, 41, 59, 0.25))',
-    dark: 'linear-gradient(135deg, rgba(15, 23, 42, 0.35), rgba(30, 41, 59, 0.35))',
-    border: 'linear-gradient(135deg, rgba(15, 23, 42, 0.5), rgba(30, 41, 59, 0.5))',
-    primary: '#3b82f6',
-    secondary: '#8b5cf6',
+    light: 'rgba(233, 236, 234, 0.9)',
+    dark: 'rgba(31, 38, 33, 0.94)',
+    border: 'rgba(121, 139, 126, 0.5)',
+    primary: '#4E6655',
+    secondary: '#655A70',
   },
 };
 
@@ -115,11 +115,8 @@ export const getGlassCardStyles = (
 ) => {
   const preset = gradientPresets[settings.gradientPreset];
   const gradient = isDarkMode ? preset.dark : preset.light;
-  const borderGradient = preset.border;
 
-  // Determine opacity based on settings
-  const bgOpacity = settings.reduceTransparency ? 0.95 : 0.7;
-  const blurStrength = settings.reduceTransparency ? 8 : 20;
+  const blurStrength = settings.reduceTransparency ? 0 : 8;
 
   // Border settings
   const borderWidth = settings.addBorders ? 1 : 0;
@@ -128,33 +125,23 @@ export const getGlassCardStyles = (
     : isDarkMode ? 'rgba(255, 255, 255, 0.15)' : 'rgba(255, 255, 255, 0.4)';
 
   // Shadow settings
-  const shadowOpacity = settings.increaseContrast ? 0.2 : 0.1;
-  const shadowBlur = isProminent ? 20 : 12;
+  const shadowOpacity = settings.increaseContrast ? 0.12 : 0.07;
+  const shadowBlur = isProminent ? 16 : 10;
 
   // Rank-based border highlight
-  const rankBorderColors = {
-    0: 'linear-gradient(135deg, #FFD700, #FFA500)', // Gold for #1
-    1: 'linear-gradient(135deg, #C0C0C0, #E8E8E8)', // Silver for #2
-    2: 'linear-gradient(135deg, #CD7F32, #E4A07B)', // Bronze for #3
-  };
-
   return {
     background: gradient,
     backdropFilter: `blur(${blurStrength}px)`,
     WebkitBackdropFilter: `blur(${blurStrength}px)`,
-    backgroundColor: isDarkMode 
-      ? `rgba(30, 30, 40, ${bgOpacity})` 
-      : `rgba(255, 255, 255, ${bgOpacity})`,
     borderRadius: 16,
     border: `${borderWidth}px solid ${borderColor}`,
     boxShadow: `0 ${shadowBlur}px ${shadowBlur * 2}px rgba(0, 0, 0, ${shadowOpacity})`,
-    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+    transition: 'box-shadow 180ms ease, border-color 180ms ease',
     ...(rankIndex !== undefined && rankIndex < 3 && {
-      borderTop: `3px solid ${rankIndex === 0 ? '#FFD700' : rankIndex === 1 ? '#C0C0C0' : '#CD7F32'}`,
+      borderTop: `3px solid ${rankIndex === 0 ? '#9B7545' : rankIndex === 1 ? '#7B8187' : '#936B55'}`,
     }),
     '&:hover': {
-      transform: 'translateY(-4px)',
-      boxShadow: `0 ${shadowBlur + 8}px ${shadowBlur * 2 + 16}px rgba(0, 0, 0, ${shadowOpacity + 0.1})`,
+      boxShadow: `0 ${shadowBlur + 4}px ${shadowBlur * 2 + 8}px rgba(0, 0, 0, ${shadowOpacity + 0.04})`,
     },
   };
 };
@@ -166,16 +153,12 @@ export const getGlassInputStyles = (
 ) => {
   const preset = gradientPresets[settings.gradientPreset];
   const gradient = isDarkMode ? preset.dark : preset.light;
-  const bgOpacity = settings.reduceTransparency ? 0.98 : 0.8;
-  const blurStrength = settings.reduceTransparency ? 8 : 16;
+  const blurStrength = settings.reduceTransparency ? 0 : 6;
 
   return {
     background: gradient,
     backdropFilter: `blur(${blurStrength}px)`,
     WebkitBackdropFilter: `blur(${blurStrength}px)`,
-    backgroundColor: isDarkMode 
-      ? `rgba(40, 40, 50, ${bgOpacity})` 
-      : `rgba(255, 255, 255, ${bgOpacity})`,
     borderRadius: 16,
     border: settings.addBorders 
       ? `1px solid ${isDarkMode ? 'rgba(255, 255, 255, 0.2)' : 'rgba(255, 255, 255, 0.5)'}`
@@ -199,8 +182,6 @@ export const getGlassButtonStyles = (
   variant: 'contained' | 'outlined' | 'text' = 'contained'
 ) => {
   const preset = gradientPresets[settings.gradientPreset];
-  const bgOpacity = settings.reduceTransparency ? 0.95 : 0.85;
-
   if (variant === 'contained') {
     return {
       background: preset.light,

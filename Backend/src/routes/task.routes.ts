@@ -23,6 +23,32 @@ router.use(authenticateToken);
 router.post('/', (req, res, next) => taskController.createTask(req, res, next));
 
 // Get tasks with filtering and pagination
+/**
+ * @swagger
+ * /tasks:
+ *   get:
+ *     tags: [Tasks]
+ *     summary: Search and page through the organization schedule
+ *     parameters:
+ *       - in: query
+ *         name: status
+ *         schema: { type: string, enum: [draft, todo, in_progress, review, done, cancelled] }
+ *       - in: query
+ *         name: dueFilter
+ *         schema: { type: string, enum: [all, overdue, today, soon, week] }
+ *       - in: query
+ *         name: includeFocus
+ *         schema: { type: boolean }
+ *         description: Include organization focus and status counts without an extra request
+ *       - in: query
+ *         name: page
+ *         schema: { type: integer, minimum: 1 }
+ *       - in: query
+ *         name: limit
+ *         schema: { type: integer, minimum: 1, maximum: 100 }
+ *     responses:
+ *       200: { description: Paged tasks plus optional organization focus }
+ */
 router.get('/', (req, res, next) => taskController.getTasks(req, res, next));
 
 // Get current user's tasks
@@ -59,7 +85,7 @@ router.get('/my-rank', (req, res, next) => taskController.getUserRank(req, res, 
 // ==================== Bulk Actions Routes ====================
 // IMPORTANT: Must be before /:taskId routes to avoid conflicts
 
-// Get priority summary with smart suggestions
+// Deprecated compatibility endpoint. New clients use focus embedded in task responses.
 router.get('/priority-summary', (req, res, next) => taskController.getPrioritySummary(req, res, next));
 
 // Bulk update status for multiple tasks

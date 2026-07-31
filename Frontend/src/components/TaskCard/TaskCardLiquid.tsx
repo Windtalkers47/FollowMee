@@ -88,18 +88,17 @@ const TaskCardLiquid: React.FC<TaskCardLiquidProps> = ({
   // Liquid Glass UI Style from context
   const preset = gradientPresets[liquidGlassSettings.gradientPreset];
   const gradient = theme.palette.mode === 'dark' ? preset.dark : preset.light;
-  const borderGradient = preset.border;
   
-  const bgOpacity = liquidGlassSettings.reduceTransparency ? 0.95 : 0.7;
-  const blurStrength = liquidGlassSettings.reduceTransparency ? 8 : 20;
+  const bgOpacity = liquidGlassSettings.reduceTransparency ? 0.92 : 0.76;
+  const blurStrength = liquidGlassSettings.reduceTransparency ? 0 : 8;
   
   const borderWidth = liquidGlassSettings.addBorders ? 1 : 0;
   const borderColor = liquidGlassSettings.increaseContrast 
     ? theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.3)' : 'rgba(0, 0, 0, 0.15)'
     : theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.15)' : 'rgba(255, 255, 255, 0.4)';
   
-  const shadowOpacity = liquidGlassSettings.increaseContrast ? 0.2 : 0.1;
-  const backdropFilterValue = `blur(${blurStrength}px) saturate(180%)`;
+  const shadowOpacity = liquidGlassSettings.increaseContrast ? 0.12 : 0.07;
+  const backdropFilterValue = `blur(${blurStrength}px)`;
 
   // Use comments hook for comment functionality
   // useComments({ taskId: task.taskId, enabled: showComments });
@@ -138,16 +137,12 @@ const TaskCardLiquid: React.FC<TaskCardLiquidProps> = ({
           background: gradient,
           backdropFilter: backdropFilterValue,
           WebkitBackdropFilter: backdropFilterValue,
-          backgroundColor: theme.palette.mode === 'dark' 
-            ? `rgba(30, 30, 40, ${bgOpacity})` 
-            : `rgba(255, 255, 255, ${bgOpacity})`,
           border: `${borderWidth}px solid ${borderColor}`,
-          boxShadow: `0 8px 32px 0 rgba(0, 0, 0, ${shadowOpacity}), 0 2px 8px 0 rgba(0, 0, 0, ${shadowOpacity * 0.5}), inset 0 1px 0 0 rgba(255, 255, 255, ${liquidGlassSettings.addBorders ? 0.1 : 0.2})`,
+          boxShadow: `0 8px 22px rgba(0, 0, 0, ${shadowOpacity})`,
           overflow: 'visible',
-          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+          transition: 'box-shadow 180ms ease, border-color 180ms ease',
           '&:hover': {
-            transform: 'translateY(-4px) scale(1.01)',
-            boxShadow: `0 12px 40px 0 rgba(0, 0, 0, ${shadowOpacity + 0.1}), 0 4px 12px 0 rgba(0, 0, 0, ${shadowOpacity * 0.5 + 0.1}), inset 0 1px 0 0 rgba(255, 255, 255, ${liquidGlassSettings.addBorders ? 0.15 : 0.25})`,
+            boxShadow: `0 10px 26px rgba(0, 0, 0, ${shadowOpacity + 0.04})`,
           }
         }}
       >

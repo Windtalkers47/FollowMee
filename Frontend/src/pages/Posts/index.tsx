@@ -877,12 +877,17 @@ const PostsPage = () => {
           setTaskDialogOpen(false);
           setEditingTask(undefined);
         }}
-        onSave={async (taskData: any) => {
+        onSave={async (taskData: any, intent) => {
           try {
             // Handle date conversion for backend
             const { dueDateRange, createdAt, updatedAt, ...editableTaskData } = taskData;
             const dataToSave = {
               ...editableTaskData,
+              status: intent === 'publish'
+                ? 'todo'
+                : intent === 'draft'
+                  ? 'draft'
+                  : taskData.status,
               // Handle date range - convert Date objects to ISO strings
               startDate: dueDateRange?.[0] ? dueDateRange[0].toISOString() : taskData.startDate || null,
               endDate: dueDateRange?.[1] ? dueDateRange[1].toISOString() : taskData.endDate || null,
@@ -895,7 +900,9 @@ const PostsPage = () => {
               const { status, ...editableData } = dataToSave;
               await updateTaskMutation.mutateAsync({
                 taskId: editingTask.taskId,
-                data: status === editingTask.status ? editableData as UpdateTaskData : dataToSave as UpdateTaskData
+                data: intent === 'publish' && editingTask.status === 'draft'
+                  ? dataToSave as UpdateTaskData
+                  : editableData as UpdateTaskData
               });
             } else {
               await createTaskMutation.mutateAsync(dataToSave as any);

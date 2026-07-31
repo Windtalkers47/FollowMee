@@ -4,6 +4,7 @@ import { TaskLike } from '../entities/TaskLike';
 import { TaskComment } from '../entities/TaskComment';
 import { BaseRepository } from './base.repository';
 import { TaskQueryDto } from '../dtos/task.dto';
+import { createTaskFocusSummary, getBangkokDateBoundaries, TaskFocusSummary } from '../utils/task-focus.util';
 
 export class TaskRepository extends BaseRepository<Task> {
   constructor() {
@@ -20,6 +21,15 @@ export class TaskRepository extends BaseRepository<Task> {
       .leftJoinAndSelect('task.assignedToUser', 'assignedUser')
       .leftJoinAndSelect('task.createdByUser', 'createdUser')
       .where('task.isActive = :isActive', { isActive: true });
+
+    if (viewerUserId) {
+      qb.andWhere('(task.status != :draftStatus OR task.createdBy = :draftViewer)', {
+        draftStatus: 'draft',
+        draftViewer: viewerUserId,
+      });
+    } else {
+      qb.andWhere('task.status != :draftStatus', { draftStatus: 'draft' });
+    }
 
     // Search functionality - only search when explicitly requested
     if (query.search && !query.clearSearch) {
@@ -47,14 +57,33 @@ export class TaskRepository extends BaseRepository<Task> {
       qb.andWhere('task.createdBy = :createdBy', { createdBy: query.createdBy });
     }
 
+    const { todayStart, tomorrowStart, soonEnd, weekEnd } = getBangkokDateBoundaries();
+    const dueExpression = 'COALESCE(task.endDate, task.dueDate)';
+    if (query.dueFilter === 'overdue') {
+      qb.andWhere(`${dueExpression} IS NOT NULL AND ${dueExpression} < :todayStart`, { todayStart });
+      qb.andWhere('task.status NOT IN (:...terminalStatuses)', { terminalStatuses: ['done', 'cancelled'] });
+    } else if (query.dueFilter === 'today') {
+      qb.andWhere(`${dueExpression} >= :todayStart AND ${dueExpression} < :tomorrowStart`, { todayStart, tomorrowStart });
+    } else if (query.dueFilter === 'soon') {
+      qb.andWhere(`${dueExpression} >= :tomorrowStart AND ${dueExpression} < :soonEnd`, { tomorrowStart, soonEnd });
+    } else if (query.dueFilter === 'week') {
+      qb.andWhere(`${dueExpression} >= :todayStart AND ${dueExpression} < :weekEnd`, { todayStart, weekEnd });
+    }
+
     // Pagination
     if (query.page && query.limit) {
       qb.skip((query.page - 1) * query.limit)
         .take(query.limit);
     }
 
-    // Sorting
-    qb.orderBy('task.createdAt', 'DESC');
+    if (query.sort === 'title_asc') {
+      qb.orderBy('task.title', 'ASC');
+    } else if (query.sort === 'due_asc') {
+      qb.orderBy(`${dueExpression} IS NULL`, 'ASC')
+        .addOrderBy(dueExpression, 'ASC');
+    } else {
+      qb.orderBy('task.updatedAt', 'DESC');
+    }
 
     const [tasks, total] = await qb.getManyAndCount();
     if (tasks.length > 0) {
@@ -138,7 +167,7 @@ export class TaskRepository extends BaseRepository<Task> {
     });
   }
 
-  async findMyWork(userId: number, limit: number, cursor?: string): Promise<{ tasks: Task[]; counts: Record<string, number> }> {
+  async findMyWork(userId: number, limit: number, cursor?: string): Promise<{ tasks: Task[]; counts: Record<string, number | string> }> {
     const statuses = ['todo', 'in_progress', 'review'];
     const base = (qb: any) => qb
       .where('task.isActive = :isActive', { isActive: true })
@@ -166,25 +195,80 @@ export class TaskRepository extends BaseRepository<Task> {
       }
     }
 
-    const countRows = await base(this.repository.createQueryBuilder('task'))
-      .select('task.status', 'status')
-      .addSelect('COUNT(task.taskId)', 'count')
-      .groupBy('task.status')
-      .getRawMany();
-    const overdue = await base(this.repository.createQueryBuilder('task'))
-      .andWhere('task.endDate IS NOT NULL AND task.endDate < :now', { now: new Date() })
-      .getCount();
+    const { todayStart, tomorrowStart, soonEnd } = getBangkokDateBoundaries();
+    const dueExpression = 'COALESCE(task.endDate, task.dueDate)';
+    const countRow = await base(this.repository.createQueryBuilder('task'))
+      .select(`SUM(CASE WHEN task.status = 'todo' THEN 1 ELSE 0 END)`, 'todo')
+      .addSelect(`SUM(CASE WHEN task.status = 'in_progress' THEN 1 ELSE 0 END)`, 'in_progress')
+      .addSelect(`SUM(CASE WHEN task.status = 'review' THEN 1 ELSE 0 END)`, 'review')
+      .addSelect(`SUM(CASE WHEN ${dueExpression} IS NOT NULL AND ${dueExpression} < :todayStart THEN 1 ELSE 0 END)`, 'overdue')
+      .addSelect(`SUM(CASE WHEN ${dueExpression} >= :todayStart AND ${dueExpression} < :tomorrowStart THEN 1 ELSE 0 END)`, 'dueToday')
+      .addSelect(`SUM(CASE WHEN ${dueExpression} >= :tomorrowStart AND ${dueExpression} < :soonEnd THEN 1 ELSE 0 END)`, 'dueSoon')
+      .addSelect(`SUM(CASE WHEN task.createdBy = :approvalUserId AND task.status = 'review' THEN 1 ELSE 0 END)`, 'approvalRequired')
+      .addSelect('MAX(task.updatedAt)', 'latestUpdate')
+      .setParameters({ todayStart, tomorrowStart, soonEnd, approvalUserId: userId })
+      .getRawOne();
     const tasks = await listQuery.getMany();
-    const counts = countRows.reduce((result: Record<string, number>, row: { status: string; count: string }) => {
-      result[row.status] = Number(row.count);
-      return result;
-    }, {});
-    counts.overdue = overdue;
-    counts.approvalRequired = await base(this.repository.createQueryBuilder('task'))
-      .andWhere('task.createdBy = :approvalUserId', { approvalUserId: userId })
-      .andWhere('task.status = :approvalStatus', { approvalStatus: 'review' })
-      .getCount();
+    const counts = {
+      todo: Number(countRow?.todo) || 0,
+      in_progress: Number(countRow?.in_progress) || 0,
+      review: Number(countRow?.review) || 0,
+      overdue: Number(countRow?.overdue) || 0,
+      dueToday: Number(countRow?.dueToday) || 0,
+      dueSoon: Number(countRow?.dueSoon) || 0,
+      approvalRequired: Number(countRow?.approvalRequired) || 0,
+      latestUpdate: countRow?.latestUpdate ? new Date(countRow.latestUpdate).toISOString() : 'empty',
+    };
     return { tasks, counts };
+  }
+
+  async getScheduleMeta(viewerUserId?: number): Promise<{
+    statusCounts: Record<string, number>;
+    focus: TaskFocusSummary;
+  }> {
+    const { todayStart, tomorrowStart, soonEnd } = getBangkokDateBoundaries();
+    const dueExpression = 'COALESCE(task.endDate, task.dueDate)';
+    const qb = this.repository.createQueryBuilder('task')
+      .where('task.isActive = :active', { active: true });
+    if (viewerUserId) {
+      qb.andWhere('(task.status != :draftStatus OR task.createdBy = :draftViewer)', {
+        draftStatus: 'draft',
+        draftViewer: viewerUserId,
+      });
+    } else {
+      qb.andWhere('task.status != :draftStatus', { draftStatus: 'draft' });
+    }
+    const row = await qb
+      .select(`SUM(CASE WHEN task.status = 'draft' THEN 1 ELSE 0 END)`, 'draft')
+      .addSelect(`SUM(CASE WHEN task.status = 'todo' THEN 1 ELSE 0 END)`, 'todo')
+      .addSelect(`SUM(CASE WHEN task.status = 'in_progress' THEN 1 ELSE 0 END)`, 'in_progress')
+      .addSelect(`SUM(CASE WHEN task.status = 'review' THEN 1 ELSE 0 END)`, 'review')
+      .addSelect(`SUM(CASE WHEN task.status = 'done' THEN 1 ELSE 0 END)`, 'done')
+      .addSelect(`SUM(CASE WHEN task.status = 'cancelled' THEN 1 ELSE 0 END)`, 'cancelled')
+      .addSelect(`SUM(CASE WHEN task.status IN ('todo','in_progress','review') AND ${dueExpression} IS NOT NULL AND ${dueExpression} < :todayStart THEN 1 ELSE 0 END)`, 'overdue')
+      .addSelect(`SUM(CASE WHEN task.status IN ('todo','in_progress','review') AND ${dueExpression} >= :todayStart AND ${dueExpression} < :tomorrowStart THEN 1 ELSE 0 END)`, 'dueToday')
+      .addSelect(`SUM(CASE WHEN task.status IN ('todo','in_progress','review') AND ${dueExpression} >= :tomorrowStart AND ${dueExpression} < :soonEnd THEN 1 ELSE 0 END)`, 'dueSoon')
+      .addSelect(`SUM(CASE WHEN task.status = 'review' THEN 1 ELSE 0 END)`, 'waitingReview')
+      .addSelect('MAX(task.updatedAt)', 'latestUpdate')
+      .setParameters({ todayStart, tomorrowStart, soonEnd })
+      .getRawOne();
+    const statusCounts = {
+      draft: Number(row?.draft) || 0,
+      todo: Number(row?.todo) || 0,
+      in_progress: Number(row?.in_progress) || 0,
+      review: Number(row?.review) || 0,
+      done: Number(row?.done) || 0,
+      cancelled: Number(row?.cancelled) || 0,
+    };
+    return {
+      statusCounts: { ...statusCounts, all: Object.values(statusCounts).reduce((sum, count) => sum + count, 0) },
+      focus: createTaskFocusSummary({
+        overdue: Number(row?.overdue) || 0,
+        dueToday: Number(row?.dueToday) || 0,
+        dueSoon: Number(row?.dueSoon) || 0,
+        waitingReview: Number(row?.waitingReview) || 0,
+      }, row?.latestUpdate ? new Date(row.latestUpdate).toISOString() : 'empty', 'organization'),
+    };
   }
 
   async findTasksCreatedByUser(userId: number): Promise<Task[]> {

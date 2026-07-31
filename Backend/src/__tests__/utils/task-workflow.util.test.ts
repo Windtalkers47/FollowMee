@@ -41,14 +41,14 @@ describe('task workflow', () => {
       canApprove: true,
       canRequestChanges: true,
       primaryAction: 'review',
-      allowedTransitions: ['done', 'todo', 'cancelled'],
+      allowedTransitions: ['done', 'cancelled'],
       nextActor: { userId: 10, displayName: 'Owner One', reason: 'approval_required' },
     });
     expect(getTaskWorkflowCapabilities(task, 20)).toMatchObject({
       canApprove: false,
       canRequestChanges: false,
       primaryAction: 'view',
-      allowedTransitions: ['cancelled'],
+      allowedTransitions: [],
     });
     expect(getTaskWorkflowCapabilities(task, 99)).toMatchObject({
       canApprove: false,

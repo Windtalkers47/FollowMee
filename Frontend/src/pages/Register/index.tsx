@@ -240,11 +240,12 @@ const Register = () => {
       // Show appropriate success message
       await feedback.fire({
         icon: 'success',
+        importance: 'milestone',
         title: isReactivation ? t('auth.register.welcomeBack') : t('auth.register.success'),
         text: isReactivation 
           ? t('auth.register.reactivated')
           : t('auth.register.created'),
-        timer: 2000,
+        timer: 5000,
         timerProgressBar: true,
       });
 

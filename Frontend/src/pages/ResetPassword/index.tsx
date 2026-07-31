@@ -118,9 +118,10 @@ const handleSubmit = async (e: React.FormEvent) => {
 
     await feedback.fire({
       icon: 'success',
+      importance: 'milestone',
       title: t('auth.reset.successTitle'),
       text: t('auth.reset.successText'),
-      timer: 3000,
+      timer: 5000,
       timerProgressBar: true,
     });
     

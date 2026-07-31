@@ -148,7 +148,7 @@ export const SearchField = ({
           py: 1.3,
           transition: 'background 0.2s',
           '&:hover': {
-            background: 'linear-gradient(90deg, #1976d2 60%, #42a5f5 100%)',
+            bgcolor: 'primary.dark',
           },
         }}
         aria-label="Search"

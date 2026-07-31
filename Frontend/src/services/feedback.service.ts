@@ -15,7 +15,9 @@ export interface FeedbackEntity {
 export interface OutcomeOptions {
   title: string;
   message?: string;
+  importance?: 'routine' | 'milestone';
   nextAction?: FeedbackAction;
+  onDismiss?: () => void;
   entity?: FeedbackEntity;
   dedupeKey?: string;
   duration?: number;
@@ -57,6 +59,7 @@ export interface FeedbackOptions {
   text?: string;
   html?: string;
   icon?: FeedbackIcon;
+  importance?: 'routine' | 'milestone';
   timer?: number;
   timerProgressBar?: boolean;
   showConfirmButton?: boolean;
@@ -157,6 +160,7 @@ const fire = async (
     options: {
       title: options.title || (tone === 'error' ? 'Something went wrong' : 'Updated'),
       message,
+      importance: options.importance,
       duration: options.timer,
     },
   });

@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { alpha, createTheme, ThemeProvider as MuiThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { useLiquidGlass } from './LiquidGlassContext';
-import { brandColors, layoutTokens, radii, shadows } from '../styles/designTokens';
+import { brandColors, brandThemeTokens, layoutTokens, radii, shadows } from '../styles/designTokens';
 import { useUserPreferences } from './UserPreferencesContext';
 import type { BrandTheme, ColorModePreference } from '../services/userPreferences.api';
 
@@ -53,16 +53,13 @@ export const CustomThemeProvider = ({ children }: { children: ReactNode }) => {
 
   const theme = useMemo(() => {
     const isDark = mode === 'dark';
-    const primary = brandTheme === 'purple'
-      ? (isDark ? brandColors.purpleDark : brandColors.purple)
-      : (isDark ? brandColors.iosGreenDark : brandColors.iosGreen);
-    const primaryPressed = brandTheme === 'purple'
-      ? brandColors.purplePressed
-      : brandColors.iosGreenPressed;
-    const border = isDark ? alpha('#FFFFFF', 0.1) : alpha('#17211A', 0.08);
+    const semantic = brandThemeTokens[brandTheme][isDark ? 'dark' : 'light'];
+    const primary = semantic.action;
+    const primaryPressed = semantic.actionPressed;
+    const border = semantic.border;
     const navSurface = isDark
-      ? alpha('#151A18', isLiquidGlassEnabled ? 0.78 : 0.96)
-      : alpha('#FFFFFF', isLiquidGlassEnabled ? 0.76 : 0.96);
+      ? alpha(semantic.panel, isLiquidGlassEnabled ? 0.82 : 0.98)
+      : alpha(semantic.panel, isLiquidGlassEnabled ? 0.8 : 0.98);
     const blur = isLiquidGlassEnabled && !liquidGlassSettings.reduceTransparency
       ? `blur(${Math.min(liquidGlassSettings.blurIntensity, 28)}px) saturate(150%)`
       : 'none';
@@ -72,25 +69,27 @@ export const CustomThemeProvider = ({ children }: { children: ReactNode }) => {
         mode,
         primary: {
           main: primary,
-          light: '#63D77C',
+          light: semantic.accent,
           dark: primaryPressed,
-          contrastText: '#FFFFFF',
+          contrastText: isDark ? semantic.page : '#FFFFFF',
         },
         secondary: {
-          main: isDark ? brandColors.indigoDark : brandColors.indigo,
-          contrastText: '#FFFFFF',
+          main: semantic.accent,
+          light: semantic.secondary,
+          dark: primaryPressed,
+          contrastText: isDark ? semantic.page : semantic.text,
         },
-        success: { main: primary },
+        success: { main: brandTheme === 'green' ? primary : '#4F7A5A' },
         info: { main: isDark ? brandColors.blueDark : brandColors.blue },
         warning: { main: isDark ? brandColors.amberDark : brandColors.amber },
         error: { main: isDark ? brandColors.redDark : brandColors.red },
         background: {
-          default: isDark ? '#121A17' : '#F4F8F5',
-          paper: isDark ? '#1B2520' : '#FFFFFF',
+          default: semantic.page,
+          paper: semantic.panel,
         },
         text: {
-          primary: isDark ? '#F4F7F5' : '#17211A',
-          secondary: isDark ? '#A9B4AD' : '#5F6E64',
+          primary: semantic.text,
+          secondary: semantic.secondaryText,
         },
         divider: border,
       },
@@ -120,13 +119,13 @@ export const CustomThemeProvider = ({ children }: { children: ReactNode }) => {
             body: {
               minHeight: '100%',
               margin: 0,
-              backgroundColor: isDark ? '#121A17' : '#F4F8F5',
+              backgroundColor: semantic.page,
               backgroundImage: 'none',
               backgroundAttachment: 'fixed',
             },
             '*': { boxSizing: 'border-box' },
             '*:focus-visible': {
-              outline: `3px solid ${alpha(primary, 0.34)}`,
+              outline: `3px solid ${alpha(semantic.focusRing, 0.42)}`,
               outlineOffset: 2,
             },
           },
@@ -134,7 +133,7 @@ export const CustomThemeProvider = ({ children }: { children: ReactNode }) => {
         MuiAppBar: {
           styleOverrides: {
             root: {
-              color: isDark ? '#F4F7F5' : '#17211A',
+              color: semantic.text,
               background: navSurface,
               backdropFilter: blur,
               WebkitBackdropFilter: blur,
@@ -175,7 +174,7 @@ export const CustomThemeProvider = ({ children }: { children: ReactNode }) => {
           styleOverrides: {
             root: { minHeight: layoutTokens.controlHeight, borderRadius: radii.control, paddingInline: 18 },
             containedPrimary: {
-              color: '#FFFFFF',
+              color: isDark ? semantic.page : '#FFFFFF',
               backgroundColor: primary,
               boxShadow: `0 8px 20px ${alpha(primary, 0.22)}`,
               '&:hover': {
@@ -203,8 +202,8 @@ export const CustomThemeProvider = ({ children }: { children: ReactNode }) => {
               borderRadius: 12,
               '&.Mui-selected': {
                 color: isDark ? '#FFFFFF' : primaryPressed,
-                backgroundColor: alpha(primary, isDark ? 0.16 : 0.13),
-                '&:hover': { backgroundColor: alpha(primary, isDark ? 0.22 : 0.18) },
+                backgroundColor: semantic.active,
+                '&:hover': { backgroundColor: alpha(semantic.accent, isDark ? 0.3 : 0.38) },
               },
             },
           },
@@ -225,7 +224,7 @@ export const CustomThemeProvider = ({ children }: { children: ReactNode }) => {
             paper: {
               border: `1px solid ${border}`,
               borderRadius: radii.modal,
-              background: isDark ? '#171C1A' : '#FFFFFF',
+              background: semantic.panel,
               boxShadow: isDark
                 ? shadows.floatingDark
                 : shadows.floatingLight,
@@ -239,7 +238,7 @@ export const CustomThemeProvider = ({ children }: { children: ReactNode }) => {
           styleOverrides: {
             root: {
               borderRadius: radii.control,
-              backgroundColor: isDark ? alpha('#FFFFFF', 0.035) : alpha('#17211A', 0.025),
+              backgroundColor: isDark ? alpha('#FFFFFF', 0.035) : semantic.muted,
               '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
                 borderWidth: 2,
                 boxShadow: `0 0 0 3px ${alpha(primary, 0.12)}`,
@@ -252,7 +251,7 @@ export const CustomThemeProvider = ({ children }: { children: ReactNode }) => {
         },
         MuiTableCell: {
           styleOverrides: {
-            head: { color: isDark ? '#C7D1CA' : '#435249', fontWeight: 700, backgroundColor: isDark ? '#1C2320' : '#F7FAF8' },
+            head: { color: semantic.secondaryText, fontWeight: 700, backgroundColor: semantic.muted },
             root: { borderColor: border },
           },
         },

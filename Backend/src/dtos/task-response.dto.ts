@@ -1,5 +1,6 @@
 import { IsNotEmpty, IsString, Length } from 'class-validator';
 import { TaskImageResponseDto } from './task-image.dto';
+import type { TaskFocusSummary } from '../utils/task-focus.util';
 
 export class TaskResponseDto {
   taskId!: string;
@@ -44,6 +45,10 @@ export class TaskResponseDto {
     currentStatus: 'draft' | 'todo' | 'in_progress' | 'review' | 'done' | 'cancelled';
     allowedTransitions: Array<'draft' | 'todo' | 'in_progress' | 'review' | 'done' | 'cancelled'>;
     canEdit: boolean;
+    canEditMetadata: boolean;
+    canReassign: boolean;
+    canPublish: boolean;
+    canStart: boolean;
     canApprove: boolean;
     canSubmitReview: boolean;
     canRequestChanges: boolean;
@@ -64,6 +69,8 @@ export class TaskListResponseDto {
   page!: number;
   limit!: number;
   totalPages!: number;
+  statusCounts?: Record<string, number>;
+  focus?: TaskFocusSummary;
   
   // Performance statistics
   topPerformers?: {
@@ -82,6 +89,9 @@ export class MyWorkResponseDto {
     review: number;
     approvalRequired: number;
     overdue: number;
+    dueToday: number;
+    dueSoon: number;
   };
+  focus?: TaskFocusSummary;
   pageInfo!: { nextCursor?: string };
 }

@@ -37,6 +37,7 @@ interface SelectionModeTopBarProps {
   onClose: () => void;
   onBulkAction: (action: 'delete' | 'done' | 'start' | 'more' | 'draft' | 'todo' | 'in_progress' | 'review' | 'cancelled') => void;
   isVisible?: boolean;
+  allowedActions?: Array<'delete' | 'done' | 'start' | 'todo' | 'in_progress' | 'review' | 'cancelled'>;
 }
 
 export const SelectionModeTopBar: React.FC<SelectionModeTopBarProps> = ({
@@ -47,20 +48,23 @@ export const SelectionModeTopBar: React.FC<SelectionModeTopBarProps> = ({
   onDeselectAll,
   onClose,
   onBulkAction,
-  isVisible = true
+  isVisible = true,
+  allowedActions,
 }) => {
   const theme = useTheme();
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
   const [moveDialogOpen, setMoveDialogOpen] = React.useState(false);
   const [selectedStatus, setSelectedStatus] = React.useState<'todo' | 'in_progress' | 'review' | 'done' | 'cancelled' | null>(null);
 
+  const isAllowed = (action: 'delete' | 'done' | 'start' | 'todo' | 'in_progress' | 'review' | 'cancelled') =>
+    !allowedActions || allowedActions.includes(action);
   const statusOptions = [
     { value: 'todo' as const, label: taskStatusTokens.todo.label, description: 'Ready to be picked up', color: taskStatusTokens.todo.color },
     { value: 'in_progress' as const, label: taskStatusTokens.in_progress.label, description: 'Work is currently underway', color: taskStatusTokens.in_progress.color },
     { value: 'review' as const, label: taskStatusTokens.review.label, description: 'Waiting for feedback or approval', color: taskStatusTokens.review.color },
     { value: 'done' as const, label: taskStatusTokens.done.label, description: 'Work has been completed', color: taskStatusTokens.done.color },
     { value: 'cancelled' as const, label: taskStatusTokens.cancelled.label, description: 'Work will not continue', color: taskStatusTokens.cancelled.color },
-  ];
+  ].filter((option) => isAllowed(option.value));
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
@@ -200,7 +204,7 @@ export const SelectionModeTopBar: React.FC<SelectionModeTopBarProps> = ({
           }}
         >
           {/* Start Button */}
-          <Tooltip title="Start Progress">
+          {isAllowed('start') && <Tooltip title="Start Progress">
             <IconButton
               onClick={() => onBulkAction('start')}
               aria-label="Start progress on selected tasks"
@@ -222,10 +226,10 @@ export const SelectionModeTopBar: React.FC<SelectionModeTopBarProps> = ({
               <StartIcon fontSize="small" />
               <Typography component="span" sx={{ display: { xs: 'inline', sm: 'none' }, ml: 0.5, fontSize: '0.75rem', fontWeight: 700 }}>Start</Typography>
             </IconButton>
-          </Tooltip>
+          </Tooltip>}
 
           {/* Done Button */}
-          <Tooltip title="Mark as Done">
+          {isAllowed('done') && <Tooltip title="Mark as Done">
             <IconButton
               onClick={() => onBulkAction('done')}
               aria-label="Mark selected tasks as done"
@@ -247,10 +251,10 @@ export const SelectionModeTopBar: React.FC<SelectionModeTopBarProps> = ({
               <DoneIcon fontSize="small" />
               <Typography component="span" sx={{ display: { xs: 'inline', sm: 'none' }, ml: 0.5, fontSize: '0.75rem', fontWeight: 700 }}>Done</Typography>
             </IconButton>
-          </Tooltip>
+          </Tooltip>}
 
           {/* More Button */}
-          <Tooltip title="More Actions">
+          {(isAllowed('delete') || statusOptions.length > 0) && <Tooltip title="More Actions">
             <IconButton
               onClick={handleMenuOpen}
               aria-label="More bulk actions"
@@ -271,7 +275,7 @@ export const SelectionModeTopBar: React.FC<SelectionModeTopBarProps> = ({
               <MoreIcon fontSize="small" />
               <Typography component="span" sx={{ display: { xs: 'inline', sm: 'none' }, ml: 0.5, fontSize: '0.75rem', fontWeight: 700 }}>More</Typography>
             </IconButton>
-          </Tooltip>
+          </Tooltip>}
 
           {/* Close Button (Rightmost) */}
           <Tooltip title="Exit selection mode">
@@ -317,7 +321,7 @@ export const SelectionModeTopBar: React.FC<SelectionModeTopBarProps> = ({
           transformOrigin={{ horizontal: 'right', vertical: 'top' }}
           anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
         >
-          <MenuItem 
+          {isAllowed('delete') && <MenuItem
             onClick={() => handleActionClick('delete')}
                 sx={{
                   py: 1.5,
@@ -351,11 +355,11 @@ export const SelectionModeTopBar: React.FC<SelectionModeTopBarProps> = ({
                 Permanently remove
               </Typography>
             </Box>
-          </MenuItem>
+          </MenuItem>}
 
-          <Divider sx={{ my: 0.5 }} />
+          {isAllowed('delete') && statusOptions.length > 0 && <Divider sx={{ my: 0.5 }} />}
 
-          <MenuItem 
+          {statusOptions.length > 0 && <MenuItem
             onClick={handleMoveToClick}
             sx={{
               py: 1.5,
@@ -389,7 +393,7 @@ export const SelectionModeTopBar: React.FC<SelectionModeTopBarProps> = ({
                 Change status
               </Typography>
             </Box>
-          </MenuItem>
+          </MenuItem>}
         </Menu>
 
         <Dialog

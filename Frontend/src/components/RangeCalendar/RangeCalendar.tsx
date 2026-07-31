@@ -6,8 +6,10 @@ import {
   IconButton,
   Typography,
   Button,
-  Stack
+  Stack,
+  useTheme,
 } from '@mui/material';
+import { alpha } from '@mui/material/styles';
 import {
   ChevronLeft,
   ChevronRight,
@@ -36,6 +38,7 @@ export const RangeCalendar: React.FC<RangeCalendarProps> = ({
   helperText,
   bookedDates = []
 }) => {
+  const theme = useTheme();
   const [open, setOpen] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [yearPickerOpen, setYearPickerOpen] = useState(false);
@@ -90,7 +93,7 @@ export const RangeCalendar: React.FC<RangeCalendarProps> = ({
               variant="caption"
               sx={{ 
                 textAlign: 'center', 
-                color: 'rgba(255, 255, 255, 0.6)',
+                color: 'text.secondary',
                 fontSize: '12px',
                 fontWeight: 500
               }}
@@ -136,37 +139,38 @@ export const RangeCalendar: React.FC<RangeCalendarProps> = ({
                   borderRadius: '50%',
                   fontSize: '14px',
                   fontWeight: isSelected ? 600 : 400,
-                  color: isPastDate 
-                    ? 'rgba(255, 255, 255, 0.2)' 
-                    : isCurrentMonth 
-                    ? 'rgba(255, 255, 255, 0.9)' 
-                    : 'rgba(255, 255, 255, 0.4)',
-                  background: isInCurrentSelection
-                    ? 'linear-gradient(135deg, rgba(34, 197, 94, 0.8), rgba(16, 185, 129, 0.8))' 
-                    : isBooked && !isInCurrentSelection
-                    ? 'rgba(34, 197, 94, 0.3)'  // Lighter green for booked but not selected
-                    : isToday 
-                    ? 'rgba(255, 255, 255, 0.1)' 
+                  color: isInCurrentSelection
+                    ? 'primary.contrastText'
                     : isPastDate
-                    ? 'rgba(255, 255, 255, 0.02)'
+                    ? 'text.disabled'
+                    : isCurrentMonth
+                    ? 'text.primary'
+                    : 'text.secondary',
+                  background: isInCurrentSelection
+                    ? theme.palette.primary.main
+                    : isBooked && !isInCurrentSelection
+                    ? alpha(theme.palette.primary.main, 0.14)
+                    : isToday 
+                    ? theme.palette.action.hover
+                    : isPastDate
+                    ? theme.palette.action.disabledBackground
                     : 'transparent',
                   border: isInCurrentSelection
-                    ? '2px solid rgba(34, 197, 94, 1.0)' 
+                    ? `2px solid ${theme.palette.primary.main}`
                     : isBooked && !isInCurrentSelection
-                    ? '1px solid rgba(34, 197, 94, 0.6)'  // Thinner border for booked but not selected
-                    : 'none',
-                  backdropFilter: 'blur(10px)',
-                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                    ? `1px solid ${alpha(theme.palette.primary.main, 0.5)}`
+                    : isToday
+                    ? `1px solid ${theme.palette.divider}`
+                    : '1px solid transparent',
+                  transition: 'background-color 180ms ease, border-color 180ms ease',
                   opacity: isPastDate ? 0.4 : 1,
-                  boxShadow: isInCurrentSelection ? '0 4px 20px rgba(34, 197, 94, 0.4)' : 'none',
+                  boxShadow: 'none',
                   '&:hover': disabled || isPastDate ? {} : {
                     background: isInCurrentSelection 
-                      ? 'linear-gradient(135deg, rgba(34, 197, 94, 0.9), rgba(16, 185, 129, 0.9))' 
+                      ? theme.palette.primary.dark
                       : isBooked && !isInCurrentSelection
-                      ? 'rgba(34, 197, 94, 0.5)'  // Hover effect for booked dates
-                      : 'rgba(255, 255, 255, 0.15)',
-                    transform: 'scale(1.1)',
-                    boxShadow: '0 6px 25px rgba(34, 197, 94, 0.3)'
+                      ? alpha(theme.palette.primary.main, 0.22)
+                      : theme.palette.action.hover,
                   },
                   '@media (max-width: 600px)': {
                     width: 44,
@@ -188,8 +192,8 @@ export const RangeCalendar: React.FC<RangeCalendarProps> = ({
                       width: 6,
                       height: 6,
                       borderRadius: '50%',
-                      backgroundColor: 'rgba(34, 197, 94, 0.8)',
-                      border: '1px solid rgba(255, 255, 255, 0.8)'
+                      backgroundColor: 'primary.main',
+                      border: `1px solid ${theme.palette.background.paper}`,
                     }}
                   />
                 )}
@@ -220,27 +224,22 @@ export const RangeCalendar: React.FC<RangeCalendarProps> = ({
                 setYearPickerOpen(false);
               }}
               sx={{
-                color: 'rgba(255, 255, 255, 0.9)',
+                color: year === getYear(currentMonth) ? 'primary.contrastText' : 'text.primary',
                 background: year === getYear(currentMonth) 
-                  ? 'linear-gradient(135deg, rgba(59, 130, 246, 0.4), rgba(147, 51, 234, 0.4))' 
-                  : 'rgba(255, 255, 255, 0.05)',
-                backdropFilter: 'blur(15px)',
+                  ? theme.palette.primary.main
+                  : theme.palette.background.paper,
                 border: year === getYear(currentMonth) 
-                  ? '1px solid rgba(59, 130, 246, 0.6)' 
-                  : '1px solid rgba(255, 255, 255, 0.1)',
+                  ? `1px solid ${theme.palette.primary.main}`
+                  : `1px solid ${theme.palette.divider}`,
                 borderRadius: '12px',
                 padding: '12px 16px',
                 fontWeight: year === getYear(currentMonth) ? 600 : 400,
-                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                boxShadow: year === getYear(currentMonth) 
-                  ? '0 4px 20px rgba(59, 130, 246, 0.3)' 
-                  : '0 2px 10px rgba(0, 0, 0, 0.1)',
+                transition: 'background-color 180ms ease, border-color 180ms ease',
+                boxShadow: 'none',
                 '&:hover': {
                   background: year === getYear(currentMonth)
-                    ? 'linear-gradient(135deg, rgba(59, 130, 246, 0.5), rgba(147, 51, 234, 0.5))'
-                    : 'rgba(255, 255, 255, 0.1)',
-                  transform: 'translateY(-2px)',
-                  boxShadow: '0 6px 25px rgba(59, 130, 246, 0.2)'
+                    ? theme.palette.primary.dark
+                    : theme.palette.action.hover,
                 },
                 '@media (max-width: 600px)': {
                   padding: '14px 12px',
@@ -278,20 +277,18 @@ export const RangeCalendar: React.FC<RangeCalendarProps> = ({
           position: 'relative',
           padding: '12px 16px',
           borderRadius: '16px',
-          background: 'rgba(255, 255, 255, 0.1)',
-          backdropFilter: 'blur(20px)',
-          border: error ? '2px solid rgba(244, 67, 54, 0.5)' : '2px solid rgba(255, 255, 255, 0.2)',
+          background: 'background.paper',
+          border: error ? '2px solid' : '1px solid',
+          borderColor: error ? 'error.main' : 'divider',
           cursor: disabled ? 'not-allowed' : 'pointer',
-          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+          transition: 'background-color 180ms ease, border-color 180ms ease',
           minHeight: '56px',
           display: 'flex',
           alignItems: 'center',
-          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.2)',
+          boxShadow: 'none',
           '&:hover': disabled ? {} : {
-            background: 'rgba(255, 255, 255, 0.15)',
-            border: '2px solid rgba(59, 130, 246, 0.4)',
-            transform: 'translateY(-2px)',
-            boxShadow: '0 12px 40px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.3)'
+            background: 'action.hover',
+            borderColor: 'primary.main',
           },
           '@media (max-width: 600px)': {
             padding: '14px 18px',
@@ -302,17 +299,15 @@ export const RangeCalendar: React.FC<RangeCalendarProps> = ({
       >
         <Stack direction="row" alignItems="center" spacing={1}>
           <CalendarToday sx={{ 
-            color: 'rgba(59, 130, 246, 0.8)', 
+            color: 'primary.main',
             fontSize: 20,
-            filter: 'drop-shadow(0 2px 4px rgba(59, 130, 246, 0.3))'
           }} />
           <Typography
             variant="body1"
             sx={{
-              color: (value[0] || value[1]) ? '#1a1a1a' : 'rgba(0, 0, 0, 0.6)',
+              color: (value[0] || value[1]) ? 'text.primary' : 'text.secondary',
               flex: 1,
               fontWeight: 400,
-              textShadow: (value[0] || value[1]) ? 'none' : '0 1px 2px rgba(0, 0, 0, 0.1)'
             }}
           >
             {formatDisplayValue()}
@@ -325,14 +320,12 @@ export const RangeCalendar: React.FC<RangeCalendarProps> = ({
                 handleClear();
               }}
               sx={{ 
-                color: 'rgba(244, 67, 54, 0.8)',
-                background: 'rgba(255, 255, 255, 0.1)',
-                backdropFilter: 'blur(10px)',
+                color: 'error.main',
+                background: 'transparent',
                 borderRadius: '50%',
                 padding: '6px',
                 '&:hover': {
-                  background: 'rgba(244, 67, 54, 0.2)',
-                  color: 'rgba(244, 67, 54, 0.8)'
+                  background: 'action.hover',
                 }
               }}
             >
@@ -345,7 +338,7 @@ export const RangeCalendar: React.FC<RangeCalendarProps> = ({
           <Typography
             variant="caption"
             sx={{
-              color: error ? '#f44336' : '#666666',
+              color: error ? 'error.main' : 'text.secondary',
               marginTop: 0.5,
               display: 'block'
             }}
@@ -362,11 +355,10 @@ export const RangeCalendar: React.FC<RangeCalendarProps> = ({
         fullWidth
         PaperProps={{
           sx: {
-            background: 'rgba(17, 24, 39, 0.95)',
-            backdropFilter: 'blur(40px)',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
+            background: 'background.paper',
+            border: `1px solid ${theme.palette.divider}`,
             borderRadius: '24px',
-            boxShadow: '0 25px 50px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
+            boxShadow: theme.shadows[8],
             overflow: 'hidden',
             '@media (max-width: 600px)': {
               margin: '16px',
@@ -386,7 +378,7 @@ export const RangeCalendar: React.FC<RangeCalendarProps> = ({
           <Stack spacing={3}>
             {/* Header */}
             <Stack direction="row" alignItems="center" justifyContent="space-between">
-              <Typography variant="h6" sx={{ color: 'rgba(255, 255, 255, 0.9)' }}>
+              <Typography variant="h6" sx={{ color: 'text.primary' }}>
                 {format(currentMonth, 'MMMM yyyy')}
               </Typography>
               
@@ -395,18 +387,16 @@ export const RangeCalendar: React.FC<RangeCalendarProps> = ({
                   onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
                   disabled={disabled}
                   sx={{
-                    color: 'rgba(255, 255, 255, 0.8)',
-                    background: 'rgba(255, 255, 255, 0.1)',
-                    backdropFilter: 'blur(10px)',
+                    color: 'text.secondary',
+                    background: 'action.hover',
                     borderRadius: '50%',
                     padding: '8px',
                     '&:hover': {
-                      background: 'rgba(255, 255, 255, 0.2)',
-                      transform: 'scale(1.05)'
+                      background: 'action.selected',
                     },
                     '&:disabled': {
                       opacity: 0.3,
-                      color: 'rgba(255, 255, 255, 0.3)'
+                      color: 'text.disabled',
                     },
                     '@media (max-width: 600px)': {
                       padding: '10px'
@@ -420,15 +410,13 @@ export const RangeCalendar: React.FC<RangeCalendarProps> = ({
                   onClick={() => setYearPickerOpen(!yearPickerOpen)}
                   disabled={disabled}
                   sx={{
-                    color: 'rgba(255, 255, 255, 0.8)',
-                    background: 'rgba(59, 130, 246, 0.2)',
-                    backdropFilter: 'blur(10px)',
+                    color: 'primary.main',
+                    background: 'action.hover',
                     borderRadius: '50%',
                     padding: '8px',
-                    border: '1px solid rgba(59, 130, 246, 0.3)',
+                    border: `1px solid ${theme.palette.divider}`,
                     '&:hover': {
-                      background: 'rgba(59, 130, 246, 0.3)',
-                      transform: 'scale(1.05)'
+                      background: 'action.selected',
                     },
                     '&:disabled': {
                       opacity: 0.3
@@ -445,18 +433,16 @@ export const RangeCalendar: React.FC<RangeCalendarProps> = ({
                   onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
                   disabled={disabled}
                   sx={{
-                    color: 'rgba(255, 255, 255, 0.8)',
-                    background: 'rgba(255, 255, 255, 0.1)',
-                    backdropFilter: 'blur(10px)',
+                    color: 'text.secondary',
+                    background: 'action.hover',
                     borderRadius: '50%',
                     padding: '8px',
                     '&:hover': {
-                      background: 'rgba(255, 255, 255, 0.2)',
-                      transform: 'scale(1.05)'
+                      background: 'action.selected',
                     },
                     '&:disabled': {
                       opacity: 0.3,
-                      color: 'rgba(255, 255, 255, 0.3)'
+                      color: 'text.disabled',
                     },
                     '@media (max-width: 600px)': {
                       padding: '10px'
@@ -470,11 +456,10 @@ export const RangeCalendar: React.FC<RangeCalendarProps> = ({
 
             {/* Calendar or Year Picker */}
             <Box sx={{
-              background: 'rgba(255, 255, 255, 0.05)',
-              backdropFilter: 'blur(20px)',
+              background: 'background.default',
               borderRadius: '16px',
               padding: '20px',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
+              border: `1px solid ${theme.palette.divider}`,
               '@media (max-width: 600px)': {
                 padding: '16px',
                 borderRadius: '12px'
@@ -488,17 +473,15 @@ export const RangeCalendar: React.FC<RangeCalendarProps> = ({
               <Button
                 onClick={() => setOpen(false)}
                 sx={{
-                  color: 'rgba(255, 255, 255, 0.8)',
-                  background: 'rgba(255, 255, 255, 0.1)',
-                  backdropFilter: 'blur(10px)',
-                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  color: 'text.primary',
+                  background: 'background.paper',
+                  border: `1px solid ${theme.palette.divider}`,
                   borderRadius: '12px',
                   padding: '10px 20px',
                   fontWeight: 500,
-                  transition: 'all 0.3s ease',
+                  transition: 'background-color 180ms ease',
                   '&:hover': {
-                    background: 'rgba(255, 255, 255, 0.2)',
-                    transform: 'translateY(-1px)'
+                    background: 'action.hover',
                   },
                   '@media (max-width: 600px)': {
                     padding: '12px 16px',
@@ -512,19 +495,16 @@ export const RangeCalendar: React.FC<RangeCalendarProps> = ({
               <Button
                 onClick={() => setOpen(false)}
                 sx={{
-                  color: 'white',
-                  background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.8), rgba(147, 51, 234, 0.8))',
-                  backdropFilter: 'blur(10px)',
-                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  color: 'primary.contrastText',
+                  background: 'primary.main',
+                  border: `1px solid ${theme.palette.primary.main}`,
                   borderRadius: '12px',
                   padding: '10px 20px',
                   fontWeight: 600,
-                  boxShadow: '0 4px 20px rgba(59, 130, 246, 0.3)',
-                  transition: 'all 0.3s ease',
+                  boxShadow: 'none',
+                  transition: 'background-color 180ms ease',
                   '&:hover': {
-                    background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.9), rgba(147, 51, 234, 0.9))',
-                    transform: 'translateY(-2px)',
-                    boxShadow: '0 6px 25px rgba(59, 130, 246, 0.4)'
+                    background: 'primary.dark',
                   },
                   '@media (max-width: 600px)': {
                     padding: '12px 16px',

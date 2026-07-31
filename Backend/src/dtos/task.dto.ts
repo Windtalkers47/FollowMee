@@ -100,6 +100,9 @@ export class TaskQueryDto {
   includeStats?: boolean; // Flag to include performance statistics
 
   @IsOptional()
+  includeFocus?: boolean;
+
+  @IsOptional()
   @IsEnum(['draft', 'todo', 'in_progress', 'review', 'done', 'cancelled'])
   status?: 'draft' | 'todo' | 'in_progress' | 'review' | 'done' | 'cancelled';
 
@@ -114,6 +117,14 @@ export class TaskQueryDto {
 
   @IsOptional()
   limit?: number = 30;
+
+  @IsOptional()
+  @IsEnum(['all', 'overdue', 'today', 'week'])
+  dueFilter?: 'all' | 'overdue' | 'today' | 'soon' | 'week';
+
+  @IsOptional()
+  @IsEnum(['updated_desc', 'due_asc', 'title_asc'])
+  sort?: 'updated_desc' | 'due_asc' | 'title_asc';
 }
 
 // ==================== Bulk Action DTOs ====================

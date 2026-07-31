@@ -23,8 +23,9 @@ import AppDataSource from '../config/database';
 import { v4 as uuidv4 } from 'uuid';
 import { addDays, isPast, isToday, isTomorrow } from 'date-fns';
 import { webSocketService } from './websocket.service';
-import { assertTaskTransition, canTransitionTask, getTaskWorkflowCapabilities, TaskStatus } from '../utils/task-workflow.util';
+import { assertTaskTransition, getTaskWorkflowCapabilities, TaskStatus } from '../utils/task-workflow.util';
 import { TaskActionError } from '../errors/task-transition.error';
+import { createTaskFocusSummary } from '../utils/task-focus.util';
 
 export interface TaskLeaderboardEntry {
   userId: number;
@@ -45,10 +46,40 @@ export class TaskService {
     this.taskRepository = AppDataSource.getRepository(Task);
   }
 
+  private async safelyNotify(operation: () => Promise<unknown>, context: Record<string, unknown>): Promise<void> {
+    try {
+      await operation();
+    } catch (firstError) {
+      try {
+        await operation();
+      } catch (retryError) {
+        console.error('Task notification delivery failed', {
+          ...context,
+          error: retryError instanceof Error ? retryError.message : String(retryError),
+          firstError: firstError instanceof Error ? firstError.message : String(firstError),
+        });
+      }
+    }
+  }
+
   async createTask(createTaskDto: CreateTaskDto, userId: number): Promise<TaskResponseDto> {
     if ((createTaskDto.images?.length || 0) > 10) {
       throw new Error('A task can contain at most 10 images');
     }
+    const initialStatus = (createTaskDto.status || 'draft') as TaskStatus;
+    if (!['draft', 'todo'].includes(initialStatus)) {
+      const error = new Error('A new task can only be saved as draft or published as to do') as Error & { statusCode?: number; code?: string };
+      error.statusCode = 400;
+      error.code = 'INVALID_INITIAL_TASK_STATUS';
+      throw error;
+    }
+    if (initialStatus === 'todo' && !createTaskDto.assignedTo) {
+      const error = new Error('An assignee is required before publishing a task') as Error & { statusCode?: number; code?: string };
+      error.statusCode = 400;
+      error.code = 'TASK_ASSIGNEE_REQUIRED';
+      throw error;
+    }
+
     const task = new Task();
     task.taskId = uuidv4();
     task.title = createTaskDto.title;
@@ -58,21 +89,22 @@ export class TaskService {
     task.dueDate = createTaskDto.dueDate ? new Date(createTaskDto.dueDate) : undefined;
     task.startDate = createTaskDto.startDate ? new Date(createTaskDto.startDate) : undefined;
     task.endDate = createTaskDto.endDate ? new Date(createTaskDto.endDate) : undefined;
-    task.status = createTaskDto.status || 'draft';
+    task.status = initialStatus;
     task.isActive = true;
     task.completionScore = 0;
     task.reopenedCount = 0;
 
     const savedTask = await this.taskRepository.save(task);
 
-    // Send notification if task is assigned to someone
-    if (savedTask.assignedTo && savedTask.assignedTo !== userId) {
-      await NotificationHelper.notifyTaskAssigned(
+    // Draft assignment is private planning data until the creator publishes it.
+    if (savedTask.status !== 'draft' && savedTask.assignedTo && savedTask.assignedTo !== userId) {
+      const recipientId = savedTask.assignedTo;
+      await this.safelyNotify(() => NotificationHelper.notifyTaskAssigned(
         savedTask.title,
         `/tasks/${savedTask.taskId}`,
         userId,
-        [savedTask.assignedTo]
-      );
+        [recipientId]
+      ), { taskId: savedTask.taskId, action: 'create-assignment', recipientId });
     }
 
     // Handle images from request - convert to task images
@@ -122,15 +154,18 @@ export class TaskService {
       assignedTo: savedTask.assignedTo,
       status: savedTask.status,
       updatedAt: savedTask.updatedAt,
-    }, [savedTask.createdBy, savedTask.assignedTo, userId].filter((id): id is number => Boolean(id)));
+    }, (savedTask.status === 'draft'
+      ? [savedTask.createdBy]
+      : [savedTask.createdBy, savedTask.assignedTo, userId]
+    ).filter((id): id is number => Boolean(id)));
     return response;
   }
 
   async getTasks(query: TaskQueryDto, viewerUserId?: number): Promise<TaskListResponseDto> {
-    const [tasks, total] = await this.customTaskRepository.findTasksWithRelations(query, viewerUserId);
-
-    const page = query.page || 1;
-    const limit = query.limit || 10;
+    const page = Math.max(1, Number(query.page) || 1);
+    const limit = Math.min(100, Math.max(1, Number(query.limit) || 10));
+    const normalizedQuery = { ...query, page, limit };
+    const [tasks, total] = await this.customTaskRepository.findTasksWithRelations(normalizedQuery, viewerUserId);
     const totalPages = Math.ceil(total / limit);
 
     const response: TaskListResponseDto = {
@@ -144,6 +179,11 @@ export class TaskService {
     // Add performance statistics if requested
     if (query.includeStats && tasks.length > 0) {
       response.topPerformers = this.calculateTopPerformers(tasks);
+    }
+    if (query.includeFocus === true || String(query.includeFocus) === 'true') {
+      const meta = await this.customTaskRepository.getScheduleMeta(viewerUserId);
+      response.statusCounts = meta.statusCounts;
+      response.focus = meta.focus;
     }
 
     return response;
@@ -189,6 +229,9 @@ export class TaskService {
     if (!task) {
       throw new Error('Task not found');
     }
+    if (task.status === 'draft' && task.createdBy !== viewerUserId) {
+      throw new TaskActionError('Draft tasks are only visible to their creator', 'view_draft', 403, task.status as TaskStatus);
+    }
     return this.mapToResponseDto(task, viewerUserId);
   }
 
@@ -206,9 +249,9 @@ export class TaskService {
 
     const isStatusOnlyUpdate = Object.keys(updateTaskDto).length === 1 && updateTaskDto.status !== undefined;
     
-    // Allow both creator and assigned user to update the task
-    if (!isStatusOnlyUpdate && task.createdBy !== userId && task.assignedTo !== userId) {
-      throw new Error('You can only update tasks you created or are assigned to');
+    // Metadata and assignment belong to the creator. Assignees only move their work through action endpoints.
+    if (!isStatusOnlyUpdate && task.createdBy !== userId) {
+      throw new TaskActionError('Only the task creator can edit task details or assignment', 'edit_metadata', 403, task.status as TaskStatus);
     }
     
     if (isStatusOnlyUpdate && task.createdBy !== userId && task.assignedTo !== userId) {
@@ -218,17 +261,7 @@ export class TaskService {
     if (updateTaskDto.title !== undefined) task.title = updateTaskDto.title;
     if (updateTaskDto.description !== undefined) task.description = updateTaskDto.description;
     if (updateTaskDto.assignedTo !== undefined) {
-      const oldAssignedTo = task.assignedTo;
       task.assignedTo = updateTaskDto.assignedTo;
-
-      if (task.assignedTo && task.assignedTo !== oldAssignedTo && task.assignedTo !== userId) {
-        await NotificationHelper.notifyTaskAssigned(
-          task.title,
-          `/tasks/${task.taskId}`,
-          userId,
-          [task.assignedTo]
-        );
-      }
     }
     if (updateTaskDto.dueDate !== undefined) {
       task.dueDate = updateTaskDto.dueDate ? new Date(updateTaskDto.dueDate) : undefined;
@@ -240,6 +273,20 @@ export class TaskService {
       task.endDate = updateTaskDto.endDate ? new Date(updateTaskDto.endDate) : undefined;
     }
     if (updateTaskDto.status !== undefined) {
+      if (task.status === 'review' && updateTaskDto.status === 'todo') {
+        throw new TaskActionError(
+          'Use request changes with a reason to return a review task to to do',
+          'request_changes',
+          409,
+          task.status as TaskStatus,
+        );
+      }
+      if (task.status === 'draft' && updateTaskDto.status === 'todo' && !task.assignedTo) {
+        const error = new Error('An assignee is required before publishing a task') as Error & { statusCode?: number; code?: string };
+        error.statusCode = 400;
+        error.code = 'TASK_ASSIGNEE_REQUIRED';
+        throw error;
+      }
       assertTaskTransition(task, updateTaskDto.status as TaskStatus, userId);
       if (updateTaskDto.status === 'done') {
         const completedAt = new Date();
@@ -291,25 +338,40 @@ export class TaskService {
       .filter((id): id is number => Boolean(id) && id !== userId);
     const assignmentChanged = updateTaskDto.assignedTo !== undefined
       && updateTaskDto.assignedTo !== previousAssignedTo;
-    if (updateTaskDto.status && updateTaskDto.status !== previousStatus) {
-      await NotificationHelper.notifyTaskStatus(
-        updateTaskDto.status === 'done'
+    const becamePublished = previousStatus === 'draft' && savedTask.status === 'todo';
+    if (
+      savedTask.status !== 'draft'
+      && savedTask.assignedTo
+      && savedTask.assignedTo !== userId
+      && (assignmentChanged || becamePublished)
+    ) {
+      await this.safelyNotify(() => NotificationHelper.notifyTaskAssigned(
+        savedTask.title,
+        `/tasks/${savedTask.taskId}`,
+        userId,
+        [savedTask.assignedTo!],
+      ), { taskId: savedTask.taskId, action: becamePublished ? 'publish' : 'reassign', recipientId: savedTask.assignedTo });
+    }
+    if (savedTask.status !== 'draft' && updateTaskDto.status && updateTaskDto.status !== previousStatus) {
+      const requestedStatus = updateTaskDto.status;
+      await this.safelyNotify(() => NotificationHelper.notifyTaskStatus(
+        requestedStatus === 'done'
           ? NotificationType.TASK_COMPLETED
           : NotificationType.TASK_UPDATED,
-        updateTaskDto.status === 'done' ? 'Task approved' : 'Task status changed',
-        `Status changed from ${previousStatus.replace('_', ' ')} to ${updateTaskDto.status.replace('_', ' ')}`,
+        requestedStatus === 'done' ? 'Task approved' : 'Task status changed',
+        `Status changed from ${previousStatus.replace('_', ' ')} to ${requestedStatus.replace('_', ' ')}`,
         savedTask.title,
         savedTask.taskId,
         userId,
         relatedRecipients
-      );
-    } else if (!assignmentChanged && Object.keys(updateTaskDto).length > 0) {
-      await NotificationHelper.notifyTaskUpdated(
+      ), { taskId: savedTask.taskId, action: 'status-change', status: savedTask.status });
+    } else if (savedTask.status !== 'draft' && !assignmentChanged && Object.keys(updateTaskDto).length > 0) {
+      await this.safelyNotify(() => NotificationHelper.notifyTaskUpdated(
         savedTask.title,
         savedTask.taskId,
         userId,
         relatedRecipients
-      );
+      ), { taskId: savedTask.taskId, action: 'metadata-update' });
     }
     const response = await this.mapToResponseDto(savedTask, userId);
     webSocketService.emitDomainEvent('task:updated', {
@@ -318,7 +380,10 @@ export class TaskService {
       assignedTo: savedTask.assignedTo,
       status: savedTask.status,
       updatedAt: savedTask.updatedAt,
-    }, [savedTask.createdBy, previousAssignedTo, savedTask.assignedTo, userId].filter((id): id is number => Boolean(id)));
+    }, (savedTask.status === 'draft'
+      ? [savedTask.createdBy]
+      : [savedTask.createdBy, previousAssignedTo, savedTask.assignedTo, userId]
+    ).filter((id): id is number => Boolean(id)));
     if (savedTask.status === 'done' && previousStatus !== 'done') {
       webSocketService.broadcast('activity:created', { taskId: savedTask.taskId, status: savedTask.status, updatedAt: savedTask.updatedAt });
     }
@@ -332,8 +397,8 @@ export class TaskService {
       throw new Error('Task not found');
     }
 
-    if (task.createdBy !== userId && task.assignedTo !== userId) {
-      throw new Error('You can only delete tasks you created or are assigned to');
+    if (task.createdBy !== userId) {
+      throw new TaskActionError('Only the task creator can delete this task', 'delete', 403, task.status as TaskStatus);
     }
 
     // Delete all associated images from Cloudinary before deleting the task
@@ -356,7 +421,9 @@ export class TaskService {
 
   async getUserTasks(userId: number, includeAssigned: boolean = true): Promise<TaskResponseDto[]> {
     const tasks = await this.customTaskRepository.findTasksByAssignedUser(userId);
-    return await Promise.all(tasks.map(task => this.mapToResponseDto(task, userId)));
+    return await Promise.all(tasks
+      .filter((task) => task.status !== 'draft' || task.createdBy === userId)
+      .map(task => this.mapToResponseDto(task, userId)));
   }
 
   async getMyWork(userId: number, limit = 20, cursor?: string): Promise<MyWorkResponseDto> {
@@ -369,15 +436,24 @@ export class TaskService {
       return mapped;
     }));
     const last = result.tasks[result.tasks.length - 1];
+    const count = (key: string) => Number(result.counts[key]) || 0;
     return {
       items,
       counts: {
-        todo: result.counts.todo || 0,
-        inProgress: result.counts.in_progress || 0,
-        review: result.counts.review || 0,
-        approvalRequired: result.counts.approvalRequired || 0,
-        overdue: result.counts.overdue || 0,
+        todo: count('todo'),
+        inProgress: count('in_progress'),
+        review: count('review'),
+        approvalRequired: count('approvalRequired'),
+        overdue: count('overdue'),
+        dueToday: count('dueToday'),
+        dueSoon: count('dueSoon'),
       },
+      focus: createTaskFocusSummary({
+        approvalRequired: count('approvalRequired'),
+        overdue: count('overdue'),
+        dueToday: count('dueToday'),
+        dueSoon: count('dueSoon'),
+      }, String(result.counts.latestUpdate || 'empty'), 'personal'),
       pageInfo: {
         nextCursor: last
           ? Buffer.from(`${last.updatedAt.toISOString()}|${last.taskId}`).toString('base64url')
@@ -414,8 +490,8 @@ export class TaskService {
       throw new Error('Task not found');
     }
 
-    if (task.createdBy !== userId && task.assignedTo !== userId) {
-      throw new TaskActionError('Only the task creator or assignee can submit this task', 'submit_review', 403, task.status as TaskStatus);
+    if (task.assignedTo !== userId) {
+      throw new TaskActionError('Only the task assignee can submit this task', 'submit_review', 403, task.status as TaskStatus);
     }
 
     if (task.status !== 'in_progress') {
@@ -423,7 +499,7 @@ export class TaskService {
     }
 
     await this.customTaskRepository.updateTaskStatus(taskId, 'review');
-    await NotificationHelper.notifyTaskStatus(
+    await this.safelyNotify(() => NotificationHelper.notifyTaskStatus(
       NotificationType.TASK_UPDATED,
       'Task ready for review',
       'Work was submitted for review',
@@ -431,7 +507,7 @@ export class TaskService {
       task.taskId,
       userId,
       [task.createdBy]
-    );
+    ), { taskId, action: 'submit-review', recipientId: task.createdBy });
     const updatedTask = await this.customTaskRepository.findWithStats(taskId);
     if (!updatedTask) {
       throw new Error('Failed to retrieve updated task');
@@ -489,7 +565,7 @@ export class TaskService {
         isActive: true,
       }));
     });
-    await NotificationHelper.notifyTaskStatus(
+    await this.safelyNotify(() => NotificationHelper.notifyTaskStatus(
       NotificationType.TASK_UPDATED,
       'Task needs changes',
       trimmedReason,
@@ -497,7 +573,7 @@ export class TaskService {
       task.taskId,
       userId,
       task.assignedTo ? [task.assignedTo] : []
-    );
+    ), { taskId, action: 'request-changes', recipientId: task.assignedTo });
     const updatedTask = await this.customTaskRepository.findWithStats(taskId);
     if (!updatedTask) {
       throw new Error('Failed to retrieve updated task');
@@ -536,7 +612,7 @@ export class TaskService {
     task.completedAt = completedAt;
     task.completionScore = Math.max(4, 10 + onTimeBonus - reopenPenalty);
     await this.taskRepository.save(task);
-    await NotificationHelper.notifyTaskStatus(
+    await this.safelyNotify(() => NotificationHelper.notifyTaskStatus(
       NotificationType.TASK_COMPLETED,
       'Task approved',
       'Your completed work was approved',
@@ -544,7 +620,7 @@ export class TaskService {
       task.taskId,
       userId,
       task.assignedTo ? [task.assignedTo] : []
-    );
+    ), { taskId, action: 'approve', recipientId: task.assignedTo });
     const updatedTask = await this.customTaskRepository.findWithStats(taskId);
     if (!updatedTask) {
       throw new Error('Failed to retrieve updated task');
@@ -644,8 +720,8 @@ export class TaskService {
         affectedUsers.add(task.createdBy);
         if (task.assignedTo) affectedUsers.add(task.assignedTo);
 
-        // Check permission - user must be creator or assigned to
-        if (task.createdBy !== userId && task.assignedTo !== userId) {
+        // Bulk lifecycle changes belong to the creator; roles never bypass ownership.
+        if (task.createdBy !== userId) {
           failed.push({ taskId, reason: 'You do not have permission to update this task', code: 'TASK_UPDATE_FORBIDDEN' });
           continue;
         }
@@ -667,15 +743,33 @@ export class TaskService {
           task.completionScore = Math.max(4, 10 + onTimeBonus - reopenPenalty);
           await this.taskRepository.save(task);
         } else {
+          if (task.status === 'review' && status === 'todo') {
+            failed.push({
+              taskId,
+              reason: 'Use request changes with a reason to return a review task to to do',
+              code: 'INVALID_TASK_ACTION',
+            });
+            continue;
+          }
+          if (task.status === 'draft' && status === 'todo' && !task.assignedTo) {
+            failed.push({ taskId, reason: 'An assignee is required before publishing a task', code: 'TASK_ASSIGNEE_REQUIRED' });
+            continue;
+          }
           if (task.status === status) {
             updated++;
             continue;
           }
-          if (!canTransitionTask(task, status as TaskStatus)) {
-            failed.push({ taskId, reason: `Invalid task transition from ${task.status} to ${status}`, code: 'INVALID_TASK_TRANSITION' });
-            continue;
-          }
+          assertTaskTransition(task, status as TaskStatus, userId);
           await this.customTaskRepository.updateTaskStatus(taskId, status);
+          if (task.status === 'draft' && status === 'todo' && task.assignedTo && task.assignedTo !== userId) {
+            const recipientId = task.assignedTo;
+            await this.safelyNotify(() => NotificationHelper.notifyTaskAssigned(
+              task.title,
+              `/tasks/${task.taskId}`,
+              userId,
+              [recipientId],
+            ), { taskId: task.taskId, action: 'bulk-publish', recipientId });
+          }
         }
         updated++;
       } catch (error) {
@@ -710,8 +804,9 @@ export class TaskService {
         affectedUsers.add(task.createdBy);
         if (task.assignedTo) affectedUsers.add(task.assignedTo);
 
-        // Check permission - user must be creator or assigned to
-        if (task.createdBy !== userId && task.assignedTo !== userId) {
+        // Deletion belongs to the creator; assignees and administrative roles
+        // do not inherit ownership of the task.
+        if (task.createdBy !== userId) {
           failed.push(taskId);
           continue;
         }
@@ -759,14 +854,14 @@ export class TaskService {
         const oldAssignedTo = task.assignedTo;
         task.assignedTo = assignedTo;
 
-        // Send notification if task is assigned to someone new
-        if (assignedTo && assignedTo !== oldAssignedTo && assignedTo !== userId) {
-          await NotificationHelper.notifyTaskAssigned(
+        // Draft assignment remains private until the task is published.
+        if (task.status !== 'draft' && assignedTo && assignedTo !== oldAssignedTo && assignedTo !== userId) {
+          await this.safelyNotify(() => NotificationHelper.notifyTaskAssigned(
             task.title,
             `/tasks/${task.taskId}`,
             userId,
             [assignedTo]
-          );
+          ), { taskId: task.taskId, action: 'bulk-reassign', recipientId: assignedTo });
         }
 
         await this.taskRepository.save(task);
@@ -802,7 +897,7 @@ export class TaskService {
       limit: 1000
     });
 
-    const activeTasks = allTasks.filter(task => task.isActive && task.status !== 'done' && task.status !== 'cancelled');
+    const activeTasks = allTasks.filter(task => task.isActive && ['todo', 'in_progress', 'review'].includes(task.status));
 
     // Categorize tasks by urgency
     const dueToday: Task[] = [];

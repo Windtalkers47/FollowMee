@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { Task, TaskImage, CreateTaskData, User } from '../api/task.api';
-import { getTaskStatusOptions } from '../utils/taskWorkflow';
+import { useUserPreferences } from '../contexts/UserPreferencesContext';
+
+export type TaskSaveIntent = 'draft' | 'publish' | 'save';
 
 interface UseTaskFormProps {
   task?: Task;
   users: User[];
-  onSave: (task: Task) => Promise<void> | void;
+  onSave: (task: CreateTaskData, intent: TaskSaveIntent) => Promise<void> | void;
 }
 
 interface FormErrors {
@@ -13,6 +15,7 @@ interface FormErrors {
 }
 
 export const useTaskForm = ({ task, users, onSave }: UseTaskFormProps) => {
+  const { t } = useUserPreferences();
   const [formData, setFormData] = useState<CreateTaskData>({
     title: '',
     description: '',
@@ -91,27 +94,30 @@ export const useTaskForm = ({ task, users, onSave }: UseTaskFormProps) => {
     }));
   };
 
-  const validateForm = (): boolean => {
+  const validateForm = (intent: TaskSaveIntent = 'save'): boolean => {
     const errors: FormErrors = {};
 
     if (!formData.title.trim()) {
-      errors.title = 'Title is required';
+      errors.title = t('task.form.titleRequired');
     }
 
     if (formData.title.length > 255) {
-      errors.title = 'Title must be less than 255 characters';
+      errors.title = t('task.form.titleTooLong');
     }
 
     if (formData.description && formData.description.length > 2000) {
-      errors.description = 'Description must be less than 2000 characters';
+      errors.description = t('task.form.descriptionTooLong');
+    }
+    if (intent === 'publish' && !formData.assignedTo) {
+      errors.assignedTo = t('task.form.assigneeRequired');
     }
 
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
 
-  const handleSubmit = async () => {
-    if (!validateForm()) {
+  const handleSubmit = async (intent: TaskSaveIntent = 'save') => {
+    if (!validateForm(intent)) {
       return false;
     }
 
@@ -126,11 +132,11 @@ export const useTaskForm = ({ task, users, onSave }: UseTaskFormProps) => {
       };
 
       // Call the onSave callback with the task data instead of making API call here
-      await onSave(taskData as Task);
+      await onSave(taskData, intent);
       return true;
     } catch (error) {
       console.error('Failed to save task:', error);
-      setFormErrors({ submit: 'Failed to save task. Please try again.' });
+      setFormErrors({ submit: t('task.form.saveFailed') });
       return false;
     } finally {
       setIsSubmitting(false);
@@ -171,6 +177,5 @@ export const useTaskForm = ({ task, users, onSave }: UseTaskFormProps) => {
     isValid: Object.keys(formErrors).length === 0,
     isEditing: !!task,
     users,
-    allowedStatuses: getTaskStatusOptions(task),
   };
 };

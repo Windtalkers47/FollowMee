@@ -77,23 +77,23 @@ export const getTaskPermissions = ({
   return {
     canView: true,
 
-    canEdit: isOwner || isAssignee,
+    canEdit: task.workflow?.canEditMetadata ?? isOwner,
 
-    canDelete: isOwner || isAssignee,
+    canDelete: isOwner,
 
-    canCancel: (isOwner || isAssignee) && !isDone && task.status !== 'cancelled',
+    canCancel: task.workflow?.canCancel ?? (isOwner && !isDone && task.status !== 'cancelled'),
 
     canStart:
-      isAssignee && isTodo,
+      task.workflow?.canStart ?? (isAssignee && isTodo),
 
     canSubmit:
-      isAssignee && isInProgress,
+      task.workflow?.canSubmitReview ?? (isAssignee && isInProgress),
 
     canApprove:
-      isOwner && isReview,
+      task.workflow?.canApprove ?? (isOwner && isReview),
 
     canReject:
-      isOwner && isReview,
+      task.workflow?.canRequestChanges ?? (isOwner && isReview),
 
     canUndo: false,
   };

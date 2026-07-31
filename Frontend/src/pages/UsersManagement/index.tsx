@@ -193,8 +193,15 @@ const UsersPage = () => {
     }, newUser.roleId);
     setCreatingUser(false);
     if (ok) {
+      const displayName = `${newUser.userName} ${newUser.userLastName}`.trim();
       setCreateDialogOpen(false);
       setNewUser(emptyNewUser);
+      await feedback.success({
+        title: t('users.createdTitle'),
+        message: t('users.createdText', { name: displayName }),
+        importance: 'milestone',
+        dedupeKey: `user-created-${newUser.userEmail}`,
+      });
     } else {
       setCreateError(t('users.createFailed'));
     }
@@ -236,6 +243,7 @@ const UsersPage = () => {
         await feedback.success({
           title: t('users.roleChanged'),
           message: t('users.roleChangedText', { name: displayName, role: canonicalRole }),
+          importance: 'milestone',
           entity: { type: 'user', id: updatedUser.userId, label: displayName },
           dedupeKey: `role-changed-${updatedUser.userId}-${canonicalRole}`,
           nextAction: {
@@ -296,9 +304,10 @@ const UsersPage = () => {
         if (success) {
           await feedback.fire({
             icon: 'success',
+            importance: 'milestone',
             title: t('users.deletedTitle'),
             text: t('users.deletedText', { name: user.userName }),
-            timer: 2000,
+            timer: 5000,
             timerProgressBar: true,
             showConfirmButton: false,
           });

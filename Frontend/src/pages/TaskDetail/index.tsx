@@ -70,7 +70,12 @@ const TaskDetailPage = () => {
     mutationFn: () => taskApi.approveTask(taskId),
     onSuccess: ({ task }) => {
       syncTask(task);
-      feedback.success(t('taskDetail.approved'), t('taskDetail.approvedHint'));
+      feedback.success({
+        title: t('taskDetail.approved'),
+        message: t('taskDetail.approvedHint'),
+        importance: 'milestone',
+        nextAction: { label: t('nav.activity'), onClick: () => navigate('/posts') },
+      });
     },
     onError: () => feedback.error(t('feedback.failed'), t('feedback.tryAgain')),
   });
@@ -82,7 +87,12 @@ const TaskDetailPage = () => {
       queryClient.invalidateQueries({ queryKey: ['task-comments', taskId] });
       setChangesOpen(false);
       setReason('');
-      feedback.success(t('taskDetail.changesRequested'), t('taskDetail.changesRequestedHint'));
+      feedback.success({
+        title: t('taskDetail.changesRequested'),
+        message: t('taskDetail.changesRequestedHint'),
+        importance: 'milestone',
+        nextAction: { label: t('myWork.title'), onClick: () => navigate('/my-work') },
+      });
     },
     onError: () => feedback.error(t('feedback.failed'), t('feedback.tryAgain')),
   });

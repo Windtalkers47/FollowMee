@@ -38,6 +38,7 @@ import {
   useMediaQuery,
   BottomNavigation,
   BottomNavigationAction,
+  Tooltip,
 } from '@mui/material';
 
 import {
@@ -49,7 +50,6 @@ import {
   Logout,
   ChevronLeft,
   ChevronRight,
-  Home,
   Group,
   AccountCircle,
   PeopleAlt,
@@ -65,7 +65,7 @@ import ProductTour from '../components/ProductTour/ProductTour';
 import { useUserPreferences } from '../contexts/UserPreferencesContext';
 
 const drawerWidth = 260;
-const collapsedWidth = 76;
+const collapsedWidth = 96;
 const APP_BAR_HEIGHT = 64;
 const MOBILE_NAV_HEIGHT = 68;
 
@@ -83,6 +83,17 @@ const menuItems = [
   { text: 'Completed Work', icon: <PostAdd />, path: '/posts', exact: true, group: 'Insights' },
   { text: 'User Management', icon: <PeopleAlt />, path: '/users', exact: true, group: 'Administration' },
 ];
+
+const compactMenuLabels: Record<string, string> = {
+  '/dashboard': 'Dashboard',
+  '/my-work': 'My Work',
+  '/schedule': 'Schedule',
+  '/customer': 'Customers',
+  '/customer-profile': 'Profiles',
+  '/notification-analytics': 'Analytics',
+  '/posts': 'Completed',
+  '/users': 'Users',
+};
 
 const MainLayout = ({ children }: MainLayoutProps) => {
   const theme = useTheme();
@@ -126,7 +137,8 @@ const MainLayout = ({ children }: MainLayoutProps) => {
     Administration: t('nav.administration'),
   }), [t]);
 
-  const [open, setOpen] = useState(true);
+  const sidebarStorageKey = `followmee:sidebar:${currentUser?.userId || 'guest'}`;
+  const [open, setOpen] = useState(() => localStorage.getItem('followmee:sidebar:guest') !== 'collapsed');
   const [mobileOpen, setMobileOpen] = useState(false);
   const showDrawerLabels = isMobile || open;
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
@@ -145,6 +157,15 @@ const MainLayout = ({ children }: MainLayoutProps) => {
     confirmPassword: '',
     userImageUrl: currentUser?.userImageUrl || null,
   });
+
+  useEffect(() => {
+    const saved = localStorage.getItem(sidebarStorageKey);
+    if (saved) setOpen(saved !== 'collapsed');
+  }, [sidebarStorageKey]);
+
+  useEffect(() => {
+    localStorage.setItem(sidebarStorageKey, open ? 'expanded' : 'collapsed');
+  }, [open, sidebarStorageKey]);
 
   useEffect(() => {
     setProfileData(current => ({
@@ -315,9 +336,10 @@ const MainLayout = ({ children }: MainLayoutProps) => {
       feedback.close();
       feedback.fire({
         icon: 'success',
+        importance: profileData.userPassword ? 'milestone' : 'routine',
         title: 'Profile Updated!',
         text: 'Your profile has been successfully updated.',
-        timer: 2000,
+        timer: profileData.userPassword ? 5000 : 4000,
         timerProgressBar: true,
         showConfirmButton: false,
       });
@@ -372,16 +394,14 @@ const MainLayout = ({ children }: MainLayoutProps) => {
 
       await userApi.deleteUser(currentUser.userId);
 
-      await feedback.fire({
-        icon: 'success',
-        title: 'Account Deleted!',
-        text: 'Your account has been successfully deleted.',
-        timer: 2000,
-        timerProgressBar: true,
-        showConfirmButton: false,
-      });
       handleDeleteModalClose();
-      handleLogout();
+      await feedback.success({
+        importance: 'milestone',
+        title: 'Account Deleted!',
+        message: 'Your account has been successfully deleted.',
+        duration: 5000,
+        onDismiss: handleLogout,
+      });
     } catch (error) {
       await feedback.fire({
         icon: 'error',
@@ -399,10 +419,10 @@ const MainLayout = ({ children }: MainLayoutProps) => {
       <Box
         sx={{
           height: APP_BAR_HEIGHT,
-          px: 2,
+          px: showDrawerLabels ? 2 : 1.25,
           display: 'flex',
           alignItems: 'center',
-          justifyContent: showDrawerLabels ? 'space-between' : 'center',
+          justifyContent: 'space-between',
         }}
       >
         <Box
@@ -416,12 +436,14 @@ const MainLayout = ({ children }: MainLayoutProps) => {
               borderRadius: '11px',
               display: 'grid',
               placeItems: 'center',
-              color: '#07120A',
+              color: 'primary.contrastText',
               bgcolor: 'primary.main',
-              boxShadow: (currentTheme) => `0 8px 18px ${currentTheme.palette.primary.main}40`,
+              boxShadow: (currentTheme) => `0 8px 18px ${currentTheme.palette.primary.main}24`,
+              fontWeight: 850,
+              fontSize: 19,
             }}
           >
-            <Home sx={{ fontSize: 21 }} />
+            F
           </Box>
           {showDrawerLabels && (
             <Typography ml={1.25} fontWeight={750} letterSpacing="-0.025em">
@@ -434,6 +456,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
           size="small"
           onClick={handleDrawerToggle}
           aria-label={open ? 'Collapse navigation' : 'Expand navigation'}
+          sx={{ flexShrink: 0 }}
         >
           {open ? <ChevronLeft /> : <ChevronRight />}
         </IconButton>
@@ -442,14 +465,17 @@ const MainLayout = ({ children }: MainLayoutProps) => {
       <Divider />
 
       {/* Menu */}
-      <List sx={{ px: 1, pt: 1 }}>
+      <List sx={{ px: showDrawerLabels ? 1 : 0.75, pt: 1, overflowY: 'auto', flex: '1 1 auto', minHeight: 0 }}>
         {filteredMenuItems.map((item, index) => {
           const active = item.exact 
             ? location.pathname === item.path
             : location.pathname.startsWith(item.path);
+          const startsGroup = index > 0 && item.group !== filteredMenuItems[index - 1].group;
+          const label = menuLabels[item.path] || item.text;
 
           return (
             <React.Fragment key={item.text}>
+              {!showDrawerLabels && startsGroup && <Divider sx={{ my: 0.75, mx: 1 }} />}
               {showDrawerLabels && (index === 0 || item.group !== filteredMenuItems[index - 1].group) && (
                 <ListSubheader
                   disableSticky
@@ -471,72 +497,114 @@ const MainLayout = ({ children }: MainLayoutProps) => {
                 </ListSubheader>
               )}
               <ListItem disablePadding>
-                <ListItemButton
-                  selected={active}
-                  onClick={() => {
-                    navigate(item.path);
-                    if (isMobile) setMobileOpen(false);
-                  }}
-                  sx={{
-                    my: 0.5,
-                    justifyContent: showDrawerLabels ? 'flex-start' : 'center',
-                    '&.Mui-selected .MuiListItemIcon-root': { color: 'primary.main' },
-                  }}
-                >
-                  <ListItemIcon
+                <Tooltip title={!showDrawerLabels ? label : ''} placement="right" arrow>
+                  <ListItemButton
+                    selected={active}
+                    aria-label={label}
+                    onClick={() => {
+                      navigate(item.path);
+                      if (isMobile) setMobileOpen(false);
+                    }}
                     sx={{
-                      minWidth: 0,
-                      mr: showDrawerLabels ? 1.5 : 0,
-                      color: active ? 'primary.main' : 'text.secondary',
+                      my: 0.5,
+                      minHeight: showDrawerLabels ? 46 : 62,
+                      px: showDrawerLabels ? 2 : 0.5,
+                      py: showDrawerLabels ? 1 : 0.75,
+                      flexDirection: showDrawerLabels ? 'row' : 'column',
                       justifyContent: 'center',
+                      gap: showDrawerLabels ? 0 : 0.35,
+                      '&.Mui-selected .MuiListItemIcon-root': { color: 'primary.main' },
                     }}
                   >
-                    {item.icon}
-                  </ListItemIcon>
+                    <ListItemIcon
+                      sx={{
+                        minWidth: 0,
+                        mr: showDrawerLabels ? 1.5 : 0,
+                        color: active ? 'primary.main' : 'text.secondary',
+                        justifyContent: 'center',
+                        '& svg': { fontSize: 24 },
+                      }}
+                    >
+                      {item.icon}
+                    </ListItemIcon>
 
-                  {showDrawerLabels && (
                     <ListItemText
-                      primary={menuLabels[item.path] || item.text}
+                      primary={showDrawerLabels ? label : compactMenuLabels[item.path]}
+                      sx={{ m: 0, width: showDrawerLabels ? 'auto' : '100%' }}
                       primaryTypographyProps={{
-                        fontWeight: active ? 600 : 500,
+                        fontWeight: active ? 700 : 550,
+                        textAlign: showDrawerLabels ? 'left' : 'center',
+                        fontSize: showDrawerLabels ? 'inherit' : '0.68rem',
+                        lineHeight: showDrawerLabels ? 'inherit' : 1.05,
+                        whiteSpace: showDrawerLabels ? 'normal' : 'normal',
+                        sx: showDrawerLabels ? undefined : {
+                          display: '-webkit-box',
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: 'vertical',
+                          overflow: 'hidden',
+                        },
                       }}
                     />
-                  )}
-                </ListItemButton>
+                  </ListItemButton>
+                </Tooltip>
               </ListItem>
             </React.Fragment>
           );
         })}
       </List>
 
-      <Box flexGrow={1} />
-
       <Divider />
 
       {/* Bottom */}
       <List sx={{ px: 1, pb: 1 }}>
         <ListItem disablePadding>
-          <ListItemButton 
-            sx={{ borderRadius: 2 }}
-            onClick={() => navigate('/settings')}
-          >
-            <ListItemIcon sx={{ minWidth: 0, mr: showDrawerLabels ? 1.5 : 0 }}>
-              <Settings />
-            </ListItemIcon>
-            {showDrawerLabels && <ListItemText primary={t('nav.settings')} />}
-          </ListItemButton>
+          <Tooltip title={!showDrawerLabels ? t('nav.settings') : ''} placement="right" arrow>
+            <ListItemButton
+              aria-label={t('nav.settings')}
+              sx={{
+                borderRadius: 2,
+                minHeight: showDrawerLabels ? 46 : 58,
+                flexDirection: showDrawerLabels ? 'row' : 'column',
+                justifyContent: 'center',
+                gap: showDrawerLabels ? 0 : 0.25,
+              }}
+              onClick={() => navigate('/settings')}
+            >
+              <ListItemIcon sx={{ minWidth: 0, mr: showDrawerLabels ? 1.5 : 0, justifyContent: 'center' }}>
+                <Settings />
+              </ListItemIcon>
+              <ListItemText
+                primary={showDrawerLabels ? t('nav.settings') : 'Settings'}
+                sx={{ m: 0 }}
+                primaryTypographyProps={{ fontSize: showDrawerLabels ? 'inherit' : '0.68rem', lineHeight: 1.05, textAlign: 'center' }}
+              />
+            </ListItemButton>
+          </Tooltip>
         </ListItem>
 
         <ListItem disablePadding>
-          <ListItemButton
-            onClick={handleLogout}
-            sx={{ borderRadius: 2 }}
-          >
-            <ListItemIcon sx={{ minWidth: 0, mr: showDrawerLabels ? 1.5 : 0 }}>
-              <Logout />
-            </ListItemIcon>
-            {showDrawerLabels && <ListItemText primary={t('nav.logout')} />}
-          </ListItemButton>
+          <Tooltip title={!showDrawerLabels ? t('nav.logout') : ''} placement="right" arrow>
+            <ListItemButton
+              aria-label={t('nav.logout')}
+              onClick={handleLogout}
+              sx={{
+                borderRadius: 2,
+                minHeight: showDrawerLabels ? 46 : 58,
+                flexDirection: showDrawerLabels ? 'row' : 'column',
+                justifyContent: 'center',
+                gap: showDrawerLabels ? 0 : 0.25,
+              }}
+            >
+              <ListItemIcon sx={{ minWidth: 0, mr: showDrawerLabels ? 1.5 : 0, justifyContent: 'center' }}>
+                <Logout />
+              </ListItemIcon>
+              <ListItemText
+                primary={showDrawerLabels ? t('nav.logout') : 'Logout'}
+                sx={{ m: 0 }}
+                primaryTypographyProps={{ fontSize: showDrawerLabels ? 'inherit' : '0.68rem', lineHeight: 1.05, textAlign: 'center' }}
+              />
+            </ListItemButton>
+          </Tooltip>
         </ListItem>
       </List>
     </Box>
@@ -1092,7 +1160,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
             disabled={isUpdatingProfile || isUploadingImage}
             startIcon={isUpdatingProfile ? <CircularProgress size={16} /> : undefined}
             sx={{
-              background: 'linear-gradient(135deg, #34C759, #30D158)',
+              bgcolor: 'success.main',
             }}
           >
             {isUpdatingProfile ? 'Updating...' : 'Save Changes'}
@@ -1136,7 +1204,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
             variant="contained"
             color="error"
             sx={{
-              background: 'linear-gradient(135deg, rgba(244, 67, 54, 0.8), rgba(220, 38, 38, 0.8))',
+              bgcolor: 'error.main',
             }}
           >
             Delete Account

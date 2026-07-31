@@ -15,6 +15,7 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  Pagination,
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -31,19 +32,17 @@ import {
   taskApi, 
   Task, 
   CreateTaskData, 
-  UpdateTaskData, 
-  TaskLikeSummary,
-  bulkActionApi 
+  UpdateTaskData
 } from '../../api/task.api';
 import { userApi } from '../../api/user.api';
 import { likeApi } from '../../api/task.api';
 import { TaskForm } from '../../components/TaskForm/TaskForm';
 import { getBookedDates } from '../../utils/dateUtils';
 import ScheduleTaskCard from '../../components/ScheduleTaskCard';
-import SmartSuggestionsBar from '../../components/SmartSuggestions/SmartSuggestionsBar';
+import TaskFocusCard from '../../components/SmartSuggestions/TaskFocusCard';
 import SelectionModeTopBar from '../../components/SelectionMode/SelectionModeTopBar';
 import { useMultiSelect } from '../../hooks/useMultiSelect';
-import { useSmartSuggestions } from '../../hooks/useSmartSuggestions';
+import { useTaskBulkActions } from '../../hooks/useTaskBulkActions';
 import { useSelectionKeyboard } from '../../hooks/useSelectionKeyboard';
 import toast from '../../utils/toast';
 import { taskStatusTokens } from '../../styles/designTokens';
@@ -58,6 +57,7 @@ type TabPanelProps = {
 };
 
 type TaskStatus = 'draft' | 'todo' | 'in_progress' | 'review' | 'done' | 'cancelled';
+const tabKeys: Array<'all' | TaskStatus> = ['all', 'draft', 'todo', 'in_progress', 'review', 'done', 'cancelled'];
 
 /* ================== TabPanel ================== */
 const TabPanel = ({ children, value, index }: TabPanelProps) => (
@@ -77,12 +77,18 @@ const SchedulePage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | undefined>();
-  const [taskLikeSummaries, setTaskLikeSummaries] = useState<Record<string, TaskLikeSummary>>({});
   const [sortBy, setSortBy] = useState<'updated_desc' | 'due_asc' | 'title_asc'>('updated_desc');
-  const [dateFilter, setDateFilter] = useState<'all' | 'overdue' | 'today' | 'week'>('all');
+  const [dateFilter, setDateFilter] = useState<'all' | 'overdue' | 'today' | 'soon' | 'week'>('all');
+  const [page, setPage] = useState(1);
+  const [creatorOnlySelection, setCreatorOnlySelection] = useState(false);
 
   // Multi-select hook - using taskId as id
   const multiSelect = useMultiSelect<{ id: string }>();
+  const exitBulkMode = React.useCallback(() => {
+    multiSelect.exitSelectionMode();
+    setCreatorOnlySelection(false);
+    setPage(1);
+  }, [multiSelect.exitSelectionMode]);
   
   // Auto Scroll to Task Cards when entering Selection Mode
   React.useEffect(() => {
@@ -103,46 +109,19 @@ const SchedulePage = () => {
     }
   }, [multiSelect.isSelectionMode]);
 
-  // Smart suggestions hook
-  const {
-    suggestions,
-    handleSuggestionAction,
-    bulkUpdate,
-    bulkDelete,
-  } = useSmartSuggestions({
-    onSuccess: () => {
-      multiSelect.exitSelectionMode();
-    }
-  });
-
-  // Keyboard shortcuts for selection mode
-  useSelectionKeyboard({
-    isSelectionMode: multiSelect.isSelectionMode,
-    selectedCount: multiSelect.selectedCount,
-    onSelectAll: () => multiSelect.selectAll(currentTabTasks),
-    onDeselectAll: multiSelect.deselectAll,
-    onExitSelectionMode: multiSelect.exitSelectionMode,
-    onBulkAction: (action) => {
-      if (action === 'done') bulkUpdate({ taskIds: Array.from(multiSelect.selectedIds), status: 'done' });
-      if (action === 'start') bulkUpdate({ taskIds: Array.from(multiSelect.selectedIds), status: 'in_progress' });
-      if (action === 'delete') {
-        const selectedTaskIds = Array.from(multiSelect.selectedIds);
-        if (selectedTaskIds.length > 0) {
-          bulkDelete({ taskIds: selectedTaskIds });
-        }
-      }
-    },
-    enabled: true
-  });
+  // Bulk lifecycle mutations are intentionally separate from read-only Focus insights.
+  const { bulkUpdate, bulkDelete } = useTaskBulkActions(exitBulkMode);
 
   // Handle search
   const handleSearch = () => {
     setSearchQuery(searchInput);
+    setPage(1);
   };
 
   const handleClearSearch = () => {
     setSearchInput('');
     setSearchQuery('');
+    setPage(1);
   };
 
   const { user } = useAppSelector((state) => state.auth);
@@ -150,10 +129,25 @@ const SchedulePage = () => {
 
   // Fetch tasks
   const { data: tasksResponse, isLoading, error, refetch } = useQuery({
-    queryKey: ['tasks', { search: searchQuery }],
+    queryKey: ['tasks', {
+      search: searchQuery,
+      status: tabKeys[activeTab],
+      dateFilter,
+      sortBy,
+      page,
+      creatorOnlySelection,
+    }],
     queryFn: () => taskApi.getTasks({
       search: searchQuery || undefined,
+      status: tabKeys[activeTab] === 'all' ? undefined : tabKeys[activeTab] as TaskStatus,
+      dueFilter: dateFilter,
+      sort: sortBy,
+      page,
+      limit: 24,
+      includeFocus: true,
+      createdBy: creatorOnlySelection ? user?.userId : undefined,
     }),
+    placeholderData: (previous) => previous,
   });
 
   const getValidBulkTaskIds = (status: Task['status']) => {
@@ -166,10 +160,14 @@ const SchedulePage = () => {
       .map(task => task.taskId);
     const skipped = selectedTaskIds.length - validIds.length;
     if (skipped > 0) {
-      toast.warning(`${skipped} task(s) cannot move to ${status.replace('_', ' ')} and were skipped.`);
+      toast.warning(`This action is not available for every selected task.`);
+      return [];
     }
     return validIds;
   };
+  const isPrivilegedRole = Boolean(user?.roles?.some((role) => ['admin', 'superadmin'].includes(role.toLowerCase())));
+  const hasOwnedTaskOnPage = Boolean(tasksResponse?.tasks.some((task) => task.createdBy === user?.userId));
+  const canEnterBulkMode = isPrivilegedRole || hasOwnedTaskOnPage;
 
   // Fetch users
   const { data: users = [] } = useQuery({
@@ -188,16 +186,22 @@ const SchedulePage = () => {
         queryClient.setQueryData(['my-work', user?.userId], (current: any) => current ? { ...current, items: [createdTask, ...current.items] } : current);
       }
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
-      queryClient.invalidateQueries({ queryKey: ['prioritySummary'] });
       queryClient.invalidateQueries({ queryKey: ['my-work', user?.userId] });
-      toast.success(t('myWork.updated'));
+      void feedback.success({
+        title: createdTask.status === 'draft' ? t('task.form.saveDraft') : t('myWork.updated'),
+        message: createdTask.status === 'draft' ? createdTask.title : t('myWork.updatedText'),
+        importance: createdTask.status === 'draft' ? 'routine' : 'milestone',
+        nextAction: createdTask.status === 'draft'
+          ? undefined
+          : { label: t('myWork.open'), onClick: () => navigate(`/tasks/${createdTask.taskId}`) },
+      });
     },
   });
 
   const updateTaskMutation = useMutation({
     mutationFn: ({ taskId, data }: { taskId: string; data: UpdateTaskData }) =>
       taskApi.updateTask(taskId, data),
-    onSuccess: (updatedTask) => {
+    onSuccess: (updatedTask, variables) => {
       queryClient.setQueryData(['my-work', user?.userId], (current: any) => {
         if (!current) return current;
         const active = ['todo', 'in_progress', 'review'].includes(updatedTask.status);
@@ -208,9 +212,17 @@ const SchedulePage = () => {
         return { ...current, items };
       });
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
-      queryClient.invalidateQueries({ queryKey: ['prioritySummary'] });
       queryClient.invalidateQueries({ queryKey: ['my-work', user?.userId] });
-      toast.success(t('myWork.updated'));
+      if (!variables.data.status) {
+        void feedback.success({ title: t('myWork.updated'), message: updatedTask.title });
+      } else if (variables.data.status === 'todo' && editingTask?.status === 'draft') {
+        void feedback.success({
+          title: t('myWork.updated'),
+          message: t('myWork.updatedText'),
+          importance: 'milestone',
+          nextAction: { label: t('myWork.open'), onClick: () => navigate(`/tasks/${updatedTask.taskId}`) },
+        });
+      }
     },
   });
 
@@ -218,7 +230,6 @@ const SchedulePage = () => {
     mutationFn: taskApi.deleteTask,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
-      queryClient.invalidateQueries({ queryKey: ['prioritySummary'] });
     },
   });
 
@@ -242,7 +253,6 @@ const SchedulePage = () => {
       taskApi.markTaskAsDone(taskId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
-      queryClient.invalidateQueries({ queryKey: ['prioritySummary'] });
     },
   });
 
@@ -250,7 +260,6 @@ const SchedulePage = () => {
     mutationFn: (taskId: string) => taskApi.markTaskAsUndone(taskId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
-      queryClient.invalidateQueries({ queryKey: ['prioritySummary'] });
       refetch();
     },
   });
@@ -259,7 +268,6 @@ const SchedulePage = () => {
     mutationFn: (taskId: string) => taskApi.approveTask(taskId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
-      queryClient.invalidateQueries({ queryKey: ['prioritySummary'] });
       refetch();
     },
   });
@@ -310,7 +318,8 @@ const SchedulePage = () => {
         title: t('task.approvedTitle'),
         text: t('task.approvedText'),
         icon: 'success',
-        timer: 2000,
+        importance: 'milestone',
+        timer: 5000,
         showConfirmButton: false
       });
     }
@@ -337,7 +346,8 @@ const SchedulePage = () => {
         title: t('task.rejectedTitle'),
         text: t('task.rejectedText'),
         icon: 'success',
-        timer: 2000,
+        importance: 'milestone',
+        timer: 5000,
         showConfirmButton: false
       });
     }
@@ -431,7 +441,8 @@ const SchedulePage = () => {
         title: t('task.statusUpdated'),
         text: statusMessages[status] || t('task.statusUpdatedText'),
         icon: 'success',
-        timer: 2000,
+        importance: status === 'review' || status === 'done' ? 'milestone' : 'routine',
+        timer: status === 'review' || status === 'done' ? 5000 : 2000,
         showConfirmButton: false
       });
     } catch (error: any) {
@@ -476,41 +487,7 @@ const SchedulePage = () => {
     }
   };
 
-  // Fetch like summaries
-  const fetchLikeSummary = async (taskId: string) => {
-    try {
-      const summary = await likeApi.getTaskLikeSummary(taskId);
-      setTaskLikeSummaries(prev => ({ ...prev, [taskId]: summary }));
-    } catch (error) {
-      console.error('Error fetching like summary:', error);
-    }
-  };
-
-  const filteredTasks = useMemo(() => {
-    const now = new Date();
-    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const endOfToday = new Date(startOfToday.getTime() + 86400000);
-    const endOfWeek = new Date(startOfToday.getTime() + 7 * 86400000);
-    const matchesDate = (task: Task) => {
-      if (dateFilter === 'all') return true;
-      if (!task.dueDate) return false;
-      const due = new Date(task.dueDate);
-      if (dateFilter === 'overdue') return due < startOfToday && !['done', 'cancelled'].includes(task.status);
-      if (dateFilter === 'today') return due >= startOfToday && due < endOfToday;
-      return due >= startOfToday && due < endOfWeek;
-    };
-    return [...(tasksResponse?.tasks || [])]
-      .filter(matchesDate)
-      .sort((a, b) => {
-        if (sortBy === 'title_asc') return a.title.localeCompare(b.title);
-        if (sortBy === 'due_asc') {
-          if (!a.dueDate) return 1;
-          if (!b.dueDate) return -1;
-          return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
-        }
-        return new Date(b.updatedAt || b.createdAt).getTime() - new Date(a.updatedAt || a.createdAt).getTime();
-      });
-  }, [tasksResponse?.tasks, dateFilter, sortBy]);
+  const filteredTasks = tasksResponse?.tasks || [];
 
   const groupedTasks = useMemo(() => filteredTasks.reduce((groups, task) => {
     groups.all.push(task);
@@ -526,14 +503,21 @@ const SchedulePage = () => {
     cancelled: [] as Task[],
   }), [filteredTasks]);
 
-  // Load like summaries
-  React.useEffect(() => {
-    filteredTasks?.forEach(task => {
-      if (!taskLikeSummaries[task.taskId]) {
-        fetchLikeSummary(task.taskId);
-      }
-    });
-  }, [filteredTasks, taskLikeSummaries]);
+  const getLikeSummary = (task: Task) => {
+    const counts = task._count;
+    if (!counts) return undefined;
+    const total = counts.likes + counts.love + counts.laugh + counts.angry + (counts.wow || 0) + (counts.sad || 0);
+    return {
+      like: counts.likes,
+      love: counts.love,
+      laugh: counts.laugh,
+      angry: counts.angry,
+      wow: counts.wow || 0,
+      sad: counts.sad || 0,
+      total,
+      userLike: counts.userLike,
+    };
+  };
 
   const tabs = useMemo(() => [
     { label: t('schedule.allTasks'), key: 'all' as const, color: taskStatusTokens.draft.color },
@@ -622,18 +606,58 @@ const SchedulePage = () => {
     () => (groupedTasks[tabs[activeTab].key] || []).map(task => ({ id: task.taskId })),
     [activeTab, groupedTasks, tabs],
   );
+  const allowedBulkActions = useMemo(() => {
+    const selected = Array.from(multiSelect.selectedIds)
+      .map((taskId) => tasksResponse?.tasks.find((task) => task.taskId === taskId))
+      .filter((task): task is Task => Boolean(task));
+    if (selected.length === 0) return [];
+    const actions: Array<'delete' | 'done' | 'start' | 'todo' | 'in_progress' | 'review' | 'cancelled'> = [];
+    if (selected.every((task) => task.createdBy === user?.userId)) actions.push('delete');
+    if (selected.every((task) => task.workflow?.canStart && isAllowedTaskTransition(task, 'in_progress'))) actions.push('start', 'in_progress');
+    if (selected.every((task) => task.workflow?.canSubmitReview && isAllowedTaskTransition(task, 'review'))) actions.push('review');
+    if (selected.every((task) => task.workflow?.canApprove && isAllowedTaskTransition(task, 'done'))) actions.push('done');
+    if (selected.every((task) => task.workflow?.canPublish && isAllowedTaskTransition(task, 'todo'))) actions.push('todo');
+    if (selected.every((task) => task.workflow?.canCancel && isAllowedTaskTransition(task, 'cancelled'))) actions.push('cancelled');
+    return actions;
+  }, [multiSelect.selectedIds, tasksResponse?.tasks, user?.userId]);
+
+  // Keyboard shortcuts follow the exact same all-selected capability contract
+  // as the visible toolbar. They never bypass confirmation or partially mutate.
+  useSelectionKeyboard({
+    isSelectionMode: multiSelect.isSelectionMode,
+    selectedCount: multiSelect.selectedCount,
+    onSelectAll: () => multiSelect.selectAll(currentTabTasks),
+    onDeselectAll: multiSelect.deselectAll,
+    onExitSelectionMode: exitBulkMode,
+    onBulkAction: (action) => {
+      const requiredAction = action === 'start' ? 'start' : action;
+      if (!allowedBulkActions.includes(requiredAction)) {
+        toast.warning(t('schedule.actionUnavailableForSelection'));
+        return;
+      }
+      void handleBulkAction(action);
+    },
+    enabled: true,
+  });
 
   return (
     <Box sx={{ width: '100%', maxWidth: '100vw', overflow: 'hidden' }}>
-      {/* Smart Suggestions Bar */}
-      {suggestions.length > 0 && (
-        <Box sx={{ px: { xs: 2, sm: 3, md: 4 }, pt: 3 }}>
-          <SmartSuggestionsBar
-            suggestions={suggestions}
-            onActionClick={handleSuggestionAction}
-          />
-        </Box>
-      )}
+      <Box sx={{ px: { xs: 2, sm: 3, md: 4 }, pt: 3 }}>
+        <TaskFocusCard
+          scope="organization"
+          focus={tasksResponse?.focus}
+          onFilter={(target) => {
+            if (target === 'review') {
+              setActiveTab(tabKeys.indexOf('review'));
+              setDateFilter('all');
+            } else {
+              setActiveTab(0);
+              setDateFilter(target as typeof dateFilter);
+            }
+            setPage(1);
+          }}
+        />
+      </Box>
 
       {/* Header with Search */}
       <Box sx={{ px: { xs: 2, sm: 3, md: 4 }, mb: 3 }}>
@@ -651,11 +675,19 @@ const SchedulePage = () => {
           
           <Box display="flex" gap={2} flexWrap="wrap">
             {/* Select Button - Same style as Customer page */}
-            {!multiSelect.isSelectionMode && multiSelect.selectedCount === 0 && (
+            {!multiSelect.isSelectionMode && multiSelect.selectedCount === 0 && canEnterBulkMode && (
               <Button
                 variant="outlined"
                 startIcon={<CheckBoxOutlineBlankIcon />}
-                onClick={multiSelect.enterSelectionMode}
+                onClick={() => {
+                  setCreatorOnlySelection(true);
+                  setActiveTab(0);
+                  setDateFilter('all');
+                  setSearchInput('');
+                  setSearchQuery('');
+                  setPage(1);
+                  multiSelect.enterSelectionMode();
+                }}
                 sx={{
                   borderRadius: 3,
                   textTransform: 'none',
@@ -765,16 +797,23 @@ const SchedulePage = () => {
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', sm: '180px 200px' }, gap: 1.5, mt: 1.5, justifyContent: 'end' }}>
           <FormControl size="small">
             <InputLabel>{t('schedule.dueDate')}</InputLabel>
-            <Select label={t('schedule.dueDate')} value={dateFilter} onChange={(event) => setDateFilter(event.target.value as typeof dateFilter)}>
+            <Select label={t('schedule.dueDate')} value={dateFilter} onChange={(event) => {
+              setDateFilter(event.target.value as typeof dateFilter);
+              setPage(1);
+            }}>
               <MenuItem value="all">{t('schedule.anyDate')}</MenuItem>
               <MenuItem value="overdue">{t('schedule.overdue')}</MenuItem>
               <MenuItem value="today">{t('schedule.dueToday')}</MenuItem>
+              <MenuItem value="soon">{t('schedule.nextThreeDays')}</MenuItem>
               <MenuItem value="week">{t('schedule.nextSevenDays')}</MenuItem>
             </Select>
           </FormControl>
           <FormControl size="small">
             <InputLabel>{t('schedule.sort')}</InputLabel>
-            <Select label={t('schedule.sort')} value={sortBy} onChange={(event) => setSortBy(event.target.value as typeof sortBy)}>
+            <Select label={t('schedule.sort')} value={sortBy} onChange={(event) => {
+              setSortBy(event.target.value as typeof sortBy);
+              setPage(1);
+            }}>
               <MenuItem value="updated_desc">{t('schedule.recentlyUpdated')}</MenuItem>
               <MenuItem value="due_asc">{t('schedule.dueDate')}</MenuItem>
               <MenuItem value="title_asc">{t('schedule.titleAZ')}</MenuItem>
@@ -797,12 +836,16 @@ const SchedulePage = () => {
         >
           {tabs.map((tab) => {
             const isActive = activeTab === tabs.indexOf(tab);
-            const taskCount = groupedTasks[tab.key].length;
+            const taskCount = tasksResponse?.statusCounts?.[tab.key]
+              ?? (tab.key === tabs[activeTab].key ? tasksResponse?.total || 0 : 0);
             
             return (
               <Button
                 key={tab.key}
-                onClick={() => setActiveTab(tabs.indexOf(tab))}
+                onClick={() => {
+                  setActiveTab(tabs.indexOf(tab));
+                  setPage(1);
+                }}
                 sx={{
                   px: 2,
                   py: 1,
@@ -881,12 +924,12 @@ const SchedulePage = () => {
                       <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4, xl: 3 }} key={task.taskId}>
                         <ScheduleTaskCard
                           task={task}
-                          likeSummary={taskLikeSummaries[task.taskId]}
+                          likeSummary={getLikeSummary(task)}
                           currentUserId={user?.userId || 0}
                           isSelected={multiSelect.isSelected(task.taskId)}
-                          onToggleSelect={multiSelect.toggleSelect}
+                          onToggleSelect={task.createdBy === user?.userId ? multiSelect.toggleSelect : undefined}
                           isInSelectionMode={multiSelect.isSelectionMode}
-                          onEnterSelectionMode={multiSelect.enterSelectionMode}
+                          onEnterSelectionMode={task.createdBy === user?.userId ? multiSelect.enterSelectionMode : undefined}
                           onEdit={(task: Task) => {
                             setEditingTask(task);
                             setTaskDialogOpen(true);
@@ -901,11 +944,24 @@ const SchedulePage = () => {
                           onCancel={handleCancelTask}
                           onStartProgress={handleStartProgress}
                           onUpdateTaskStatus={handleUpdateTaskStatus}
-                          onCardClick={() => navigate(`/posts/${task.taskId}`)}
+                          onCardClick={() => navigate(`/tasks/${task.taskId}`)}
                         />
                       </Grid>
                     ))}
                   </Grid>
+                  {(tasksResponse?.totalPages || 1) > 1 && (
+                    <Box display="flex" justifyContent="center" mt={3}>
+                      <Pagination
+                        page={page}
+                        count={tasksResponse?.totalPages || 1}
+                        onChange={(_, nextPage) => {
+                          setPage(nextPage);
+                          window.scrollTo({ top: 0, behavior: 'smooth' });
+                        }}
+                        color="primary"
+                      />
+                    </Box>
+                  )}
                 </Box>
               )}
             </Box>
@@ -923,11 +979,16 @@ const SchedulePage = () => {
           setTaskDialogOpen(false);
           setEditingTask(undefined);
         }}
-        onSave={async (taskData: any) => {
+        onSave={async (taskData: any, intent) => {
           try {
             const { dueDateRange, createdAt, updatedAt, ...editableTaskData } = taskData;
             const dataToSave = {
               ...editableTaskData,
+              status: intent === 'publish'
+                ? 'todo'
+                : intent === 'draft'
+                  ? 'draft'
+                  : taskData.status,
               startDate: dueDateRange?.[0] ? dueDateRange[0].toISOString() : taskData.startDate || null,
               endDate: dueDateRange?.[1] ? dueDateRange[1].toISOString() : taskData.endDate || null,
               dueDate: (!dueDateRange?.[0] && !taskData.startDate) ?
@@ -936,7 +997,9 @@ const SchedulePage = () => {
             
             if (editingTask) {
               const { status, ...editableData } = dataToSave;
-              const updateData = status === editingTask.status ? editableData : dataToSave;
+              const updateData = intent === 'publish' && editingTask.status === 'draft'
+                ? dataToSave
+                : editableData;
               await updateTaskMutation.mutateAsync({ taskId: editingTask.taskId, data: updateData as UpdateTaskData });
             } else {
               await createTaskMutation.mutateAsync(dataToSave as CreateTaskData);
@@ -957,22 +1020,16 @@ const SchedulePage = () => {
         areAllSelected={multiSelect.areAllSelected(currentTabTasks)}
         onSelectAll={() => multiSelect.selectAll(currentTabTasks)}
         onDeselectAll={multiSelect.deselectAll}
-        onClose={multiSelect.exitSelectionMode}
+        onClose={exitBulkMode}
         isVisible={multiSelect.isSelectionMode}
+        allowedActions={allowedBulkActions}
         onBulkAction={(action) => {
-          if (action === 'done') {
-            bulkUpdate({ taskIds: Array.from(multiSelect.selectedIds), status: 'done' });
-          } else if (action === 'start') {
-            bulkUpdate({ taskIds: Array.from(multiSelect.selectedIds), status: 'in_progress' });
-          } else if (action === 'delete') {
-            const selectedTaskIds = Array.from(multiSelect.selectedIds);
-            if (selectedTaskIds.length > 0) {
-              bulkDelete({ taskIds: selectedTaskIds });
-            }
-          } else if (action === 'more') {
-            // Open more menu - handled by the menu in TopBar
-            toast.info('More actions coming soon');
-          }
+          if (action === 'delete') void handleBulkAction('delete');
+          else if (action === 'start' || action === 'in_progress') void handleBulkAction('start');
+          else if (action === 'done') void handleBulkAction('done');
+          else if (action === 'todo') void handleBulkAction('todo');
+          else if (action === 'review') void handleBulkAction('review');
+          else if (action === 'cancelled') void handleBulkAction('cancel');
         }}
       />
 

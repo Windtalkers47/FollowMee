@@ -107,7 +107,14 @@ const ScheduleTaskCard: React.FC<Props> = ({
 
       <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={() => setAnchorEl(null)} onClick={(e) => e.stopPropagation()}>
         <MenuItem onClick={() => { onEdit(task); setAnchorEl(null); }} disabled={!permissions.canEdit}><EditIcon fontSize="small" sx={{ mr: 1.5 }} />Edit task</MenuItem>
-        {task.status === 'draft' && onUpdateTaskStatus && <MenuItem onClick={() => { onUpdateTaskStatus(task.taskId, 'todo'); setAnchorEl(null); }} disabled={!permissions.canEdit}><ArrowForwardIcon fontSize="small" sx={{ mr: 1.5 }} />Move to To do</MenuItem>}
+        {task.status === 'draft' && onUpdateTaskStatus && (
+          <MenuItem
+            onClick={() => { onUpdateTaskStatus(task.taskId, 'todo'); setAnchorEl(null); }}
+            disabled={!task.workflow?.canPublish}
+          >
+            <ArrowForwardIcon fontSize="small" sx={{ mr: 1.5 }} />Publish task
+          </MenuItem>
+        )}
         {task.status !== 'cancelled' && onCancel && <MenuItem onClick={() => { onCancel(task.taskId); setAnchorEl(null); }} disabled={!permissions.canCancel}><CancelIcon fontSize="small" sx={{ mr: 1.5 }} />Cancel task</MenuItem>}
         <MenuItem onClick={() => void confirmDelete()} disabled={!permissions.canDelete} sx={{ color: 'error.main' }}><DeleteIcon fontSize="small" sx={{ mr: 1.5 }} />Delete task</MenuItem>
       </Menu>

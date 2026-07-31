@@ -2,6 +2,7 @@ import { Box, IconButton, SxProps, Theme } from '@mui/material';
 import { Refresh as RefreshIcon } from '@mui/icons-material';
 import { SearchField } from '../SearchField';
 import React from 'react';
+import { useUserPreferences } from '../../contexts/UserPreferencesContext';
 
 interface FilterBarProps {
   searchValue: string;
@@ -26,6 +27,7 @@ export const FilterBar = ({
   sx = {},
   loading = false,
 }: FilterBarProps) => {
+  const { t } = useUserPreferences();
   return (
     <Box
       sx={{
@@ -66,8 +68,8 @@ export const FilterBar = ({
           <IconButton 
             onClick={onRefresh}
             disabled={loading}
-            aria-label="Refresh data"
-            title="Refresh data"
+            aria-label={t('common.refresh')}
+            title={t('common.refresh')}
             sx={{
               width: { xs: 40, sm: 48 },
               height: { xs: 40, sm: 48 },

@@ -17,10 +17,12 @@ import { NotificationRecipient } from '../../types/notification.types';
 import { useAppDispatch, useAppSelector } from '../../store/store';
 import { fetchUnreadCount } from '../../store/slices/notificationSlice';
 import ConfirmDialog from '../../components/ConfirmDialog/ConfirmDialog';
+import { useUserPreferences } from '../../contexts/UserPreferencesContext';
 
 type View = 'all' | 'unread' | 'archived';
 
 const NotificationsPage = () => {
+  const { t } = useUserPreferences();
   const dispatch = useAppDispatch();
   const realtimeItems = useAppSelector(state => state.notifications.notifications);
   const realtimeTotal = useAppSelector(state => state.notifications.total);
@@ -76,12 +78,12 @@ const NotificationsPage = () => {
     <Box sx={{ maxWidth: 980, mx: 'auto', px: { xs: 1.5, sm: 3 }, py: { xs: 2, md: 4 } }}>
       <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" gap={2} alignItems={{ sm: 'center' }}>
         <Box>
-          <Typography variant="h3" fontWeight={800}>Notifications</Typography>
-          <Typography color="text.secondary">Assignments, replies and important changes that need your attention.</Typography>
+          <Typography variant="h3" fontWeight={800}>{t('notification.title')}</Typography>
+          <Typography color="text.secondary">{t('notification.subtitle')}</Typography>
         </Box>
         {view !== 'archived' && items.some(item => !item.isRead) && (
           <Button startIcon={<DoneAll />} variant="outlined" onClick={() => void run(() => notificationApi.markAllAsRead())}>
-            Mark all read
+            {t('notification.markAllRead')}
           </Button>
         )}
       </Stack>
@@ -94,20 +96,20 @@ const NotificationsPage = () => {
           scrollButtons={false}
           sx={{ px: 1, borderBottom: '1px solid', borderColor: 'divider' }}
         >
-          <Tab value="all" label="All" />
-          <Tab value="unread" label="Unread" />
-          <Tab value="archived" label="Archived" />
+          <Tab value="all" label={t('notification.tabAll')} />
+          <Tab value="unread" label={t('notification.tabUnread')} />
+          <Tab value="archived" label={t('notification.tabArchived')} />
         </Tabs>
 
         {loading ? (
           <Box sx={{ minHeight: 260, display: 'grid', placeItems: 'center' }}><CircularProgress /></Box>
         ) : error ? (
-          <Alert severity="error" action={<Button onClick={() => void load()}>Retry</Button>}>{error}</Alert>
+          <Alert severity="error" action={<Button onClick={() => void load()}>{t('feedback.retry')}</Button>}>{error}</Alert>
         ) : items.length === 0 ? (
           <Stack alignItems="center" spacing={1} sx={{ py: 8, px: 2, textAlign: 'center' }}>
             <NotificationsNone sx={{ fontSize: 42, color: 'text.disabled' }} />
-            <Typography fontWeight={750}>{view === 'archived' ? 'No archived notifications' : 'You are all caught up'}</Typography>
-            <Typography variant="body2" color="text.secondary">There are no notifications in this view.</Typography>
+            <Typography fontWeight={750}>{view === 'archived' ? t('notification.noArchived') : t('notification.caughtUp')}</Typography>
+            <Typography variant="body2" color="text.secondary">{t('notification.emptyView')}</Typography>
           </Stack>
         ) : (
           items.map(item => (
@@ -127,15 +129,15 @@ const NotificationsPage = () => {
         )}
         {!loading && items.length > 0 && (
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', p: 1.5, textAlign: 'center' }}>
-            Showing {items.length} of {total}
+            {t('notification.showing', { shown: items.length, total })}
           </Typography>
         )}
       </Paper>
       <ConfirmDialog
         open={deleteId !== null}
-        title="Delete archived notification?"
-        message="This notification will be permanently deleted and cannot be restored."
-        confirmLabel="Delete permanently"
+        title={t('notification.deleteArchivedTitle')}
+        message={t('notification.deleteArchivedText')}
+        confirmLabel={t('notification.delete')}
         danger
         onClose={() => setDeleteId(null)}
         onConfirm={() => {

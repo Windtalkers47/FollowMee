@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsOptional, IsBoolean, IsArray, IsInt, IsDateString } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsBoolean, IsArray, IsInt, IsDateString, IsObject } from 'class-validator';
 
 export class CreateNotificationDto {
   @IsString()
@@ -21,6 +21,18 @@ export class CreateNotificationDto {
   @IsString()
   @IsNotEmpty()
   message!: string;
+
+  @IsOptional()
+  @IsString()
+  titleKey?: string;
+
+  @IsOptional()
+  @IsString()
+  messageKey?: string;
+
+  @IsOptional()
+  @IsObject()
+  translationParams?: Record<string, string | number>;
 
   @IsOptional()
   actionUrl?: string;

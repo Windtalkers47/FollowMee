@@ -31,6 +31,15 @@ export class Notification {
   @Column({ name: 'message', type: 'text', nullable: false })
   message!: string;
 
+  @Column({ name: 'titleKey', type: 'varchar', length: 120, nullable: true })
+  titleKey?: string;
+
+  @Column({ name: 'messageKey', type: 'varchar', length: 120, nullable: true })
+  messageKey?: string;
+
+  @Column({ name: 'translationParams', type: 'json', nullable: true })
+  translationParams?: Record<string, string | number>;
+
   @Column({ name: 'actionUrl', type: 'varchar', length: 500, nullable: true })
   actionUrl?: string;
 

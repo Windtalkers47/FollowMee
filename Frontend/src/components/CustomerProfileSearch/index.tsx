@@ -2,6 +2,7 @@ import React from 'react';
 import { SearchField } from '../SearchField';
 import { Box, IconButton } from '@mui/material';
 import RefreshIcon from '@mui/icons-material/Refresh';
+import { useUserPreferences } from '../../contexts/UserPreferencesContext';
 
 interface CustomerProfileSearchProps {
   value: string;
@@ -26,6 +27,7 @@ export const CustomerProfileSearch: React.FC<CustomerProfileSearchProps> = ({
   loading = false,
   sx = {},
 }) => {
+  const { t } = useUserPreferences();
   return (
     <Box sx={{ mb: 3, ...sx }}>
       <Box display="flex" gap={1} alignItems="center">
@@ -45,8 +47,8 @@ export const CustomerProfileSearch: React.FC<CustomerProfileSearchProps> = ({
           <IconButton 
             onClick={onRefresh} 
             disabled={loading}
-            aria-label="Refresh"
-            title="Refresh"
+            aria-label={t('common.refresh')}
+            title={t('common.refresh')}
           >
             <RefreshIcon />
           </IconButton>

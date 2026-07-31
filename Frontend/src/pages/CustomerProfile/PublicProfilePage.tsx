@@ -24,9 +24,11 @@ import QRCode from 'qrcode';
 import { publicProfileApi } from '../../api/publicProfile.api';
 import ProfileLandingCard from '../../components/PublicProfile/ProfileLandingCard';
 import type { ProfileEventType, PublicProfileLanding } from '../../types/publicProfile.types';
+import { useUserPreferences } from '../../contexts/UserPreferencesContext';
 
 const PublicProfilePage = () => {
   const { slug = '' } = useParams();
+  const { t } = useUserPreferences();
   const captureRef = useRef<HTMLDivElement>(null);
   const [profile, setProfile] = useState<PublicProfileLanding | null>(null);
   const [loading, setLoading] = useState(true);
@@ -45,7 +47,7 @@ const PublicProfilePage = () => {
         const data = await publicProfileApi.getPublic(slug);
         setProfile(data);
         const title = data.seoTitle || `${data.displayName} · FollowMee`;
-        const descriptionText = data.seoDescription || data.headline || `View ${data.displayName} on FollowMee`;
+        const descriptionText = data.seoDescription || data.headline || t('profile.public.viewOnFollowMee', { name: data.displayName });
         const image = data.avatarUrl || '';
         document.title = title;
         const setMeta = (selector: string, attribute: 'name' | 'property', key: string, content: string) => {
@@ -70,7 +72,7 @@ const PublicProfilePage = () => {
           setMeta('meta[name="twitter:image"]', 'name', 'twitter:image', image);
         }
       } catch (loadError) {
-        setError(loadError instanceof Error ? loadError.message : 'This profile is unavailable');
+        setError(loadError instanceof Error ? loadError.message : t('profile.public.unavailableText'));
       } finally {
         setLoading(false);
       }
@@ -81,7 +83,7 @@ const PublicProfilePage = () => {
   const copy = async () => {
     await navigator.clipboard.writeText(profileUrl);
     record('share', 'copy');
-    setNotice('Profile link copied');
+    setNotice(t('profile.public.linkCopied'));
   };
 
   const share = async () => {
@@ -90,7 +92,7 @@ const PublicProfilePage = () => {
       if (navigator.share) {
         await navigator.share({
           title: profile.seoTitle || profile.displayName,
-          text: profile.headline || `View ${profile.displayName} on FollowMee`,
+          text: profile.headline || t('profile.public.viewOnFollowMee', { name: profile.displayName }),
           url: profileUrl,
         });
         record('share', 'native');
@@ -127,9 +129,9 @@ const PublicProfilePage = () => {
         link.click();
       }
       record('image_export');
-      setNotice('Profile image ready');
+      setNotice(t('profile.public.imageReady'));
     } catch (exportError) {
-      setNotice(exportError instanceof Error ? exportError.message : 'Unable to export image');
+      setNotice(exportError instanceof Error ? exportError.message : t('profile.public.exportError'));
     } finally {
       setWorking(false);
     }
@@ -158,8 +160,8 @@ const PublicProfilePage = () => {
     return (
       <Box minHeight="100svh" display="grid" sx={{ placeItems: 'center', p: 3, bgcolor: '#F4F7F4' }}>
         <Alert severity="info">
-          <Typography variant="h6">Profile not available</Typography>
-          {error || 'It may be private, unpublished, or the link may have changed.'}
+          <Typography variant="h6">{t('profile.public.unavailableTitle')}</Typography>
+          {error || t('profile.public.unavailableText')}
         </Alert>
       </Box>
     );
@@ -197,26 +199,26 @@ const PublicProfilePage = () => {
           zIndex: 3,
         }}
       >
-        <Tooltip title="Share">
+        <Tooltip title={t('profile.public.share')}>
           <IconButton onClick={share} color="primary"><IosShareRounded /></IconButton>
         </Tooltip>
-        <Tooltip title="Copy link">
+        <Tooltip title={t('profile.public.copyLink')}>
           <IconButton onClick={copy}><ContentCopyRounded /></IconButton>
         </Tooltip>
-        <Tooltip title="Save as image">
+        <Tooltip title={t('profile.public.saveImage')}>
           <span>
             <IconButton onClick={exportImage} disabled={working}><DownloadRounded /></IconButton>
           </span>
         </Tooltip>
-        <Tooltip title="QR code">
+        <Tooltip title={t('profile.public.qrCode')}>
           <IconButton onClick={openQr}><QrCode2Rounded /></IconButton>
         </Tooltip>
       </Stack>
 
       <Dialog open={Boolean(qrDataUrl)} onClose={() => setQrDataUrl('')} maxWidth="xs" fullWidth>
         <DialogContent sx={{ textAlign: 'center', p: 4 }}>
-          <Typography variant="h6" fontWeight={800}>Scan to open this profile</Typography>
-          <Box component="img" src={qrDataUrl} alt={`QR code for ${profile.displayName}`} sx={{ width: '100%', mt: 2 }} />
+          <Typography variant="h6" fontWeight={800}>{t('profile.public.scanTitle')}</Typography>
+          <Box component="img" src={qrDataUrl} alt={t('profile.public.qrAlt', { name: profile.displayName })} sx={{ width: '100%', mt: 2 }} />
           <Button
             fullWidth
             variant="contained"
@@ -228,7 +230,7 @@ const PublicProfilePage = () => {
               link.click();
             }}
           >
-            Download QR code
+            {t('profile.public.downloadQr')}
           </Button>
         </DialogContent>
       </Dialog>

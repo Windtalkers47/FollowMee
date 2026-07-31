@@ -645,7 +645,7 @@ const PostsPage = () => {
               opacity: !searchQuery.trim() || searchLoading ? 0.6 : 1,
             }}
           >
-            {searchLoading ? 'Searching...' : 'Search'}
+            {searchLoading ? t('activity.searching') : t('common.search')}
           </Button>
         </Box>
         {isSearching && (
@@ -657,7 +657,7 @@ const PostsPage = () => {
               color: getTextColor('tertiary'),
             }}
           >
-            Showing results for "{searchQuery}"
+            {t('activity.searchResults', { query: searchQuery })}
           </Typography>
         )}
       </Box>
@@ -715,7 +715,7 @@ const PostsPage = () => {
       {/* Error Display */}
       {allTasksError && (
         <Alert severity="error" sx={{ mb: 2 }}>
-          Failed to load tasks. Please try again.
+          {t('activity.loadError')}
         </Alert>
       )}
 
@@ -756,14 +756,14 @@ const PostsPage = () => {
         <DialogTitle sx={{ textAlign: 'center', pb: 1 }}>
           <DoneIcon color="success" sx={{ fontSize: 48, mb: 1 }} />
           <Typography variant="h6" color="success.main" fontWeight="bold" component="div">
-            Task completed
+            {t('activity.completedTitle')}
           </Typography>
         </DialogTitle>
         <DialogContent sx={{ textAlign: 'center', py: 2 }}>
           {doneTaskData && (
             <>
               <Typography variant="body1" sx={{ mb: 2 }}>
-                Great job! You completed "<strong>{doneTaskData.task.title}</strong>"
+                {t('activity.completedText', { title: doneTaskData.task.title })}
               </Typography>
               <Box sx={{ 
                 p: 2, 
@@ -773,19 +773,19 @@ const PostsPage = () => {
                 borderColor: 'success.main' 
               }}>
                 <Typography variant="h6" color="success.main" fontWeight="bold">
-                  Your New Rank: #{doneTaskData.newRank.rank}
+                  {t('activity.newRank', { rank: doneTaskData.newRank.rank })}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  {doneTaskData.newRank.completedTasks} completed tasks
+                  {t('activity.completedTasks', { count: doneTaskData.newRank.completedTasks })}
                 </Typography>
                 {doneTaskData.newRank.rank <= 3 && (
                   <Typography variant="body2" color="success.main" sx={{ mt: 1 }}>
-                    You're in the top three. Excellent work.
+                    {t('activity.topThree')}
                   </Typography>
                 )}
                 {doneTaskData.newRank.rank > 3 && (
                   <Typography variant="body2" color="success.main" sx={{ mt: 1 }}>
-                    Keep climbing — you're making strong progress.
+                    {t('activity.keepClimbing')}
                   </Typography>
                 )}
               </Box>
@@ -799,7 +799,7 @@ const PostsPage = () => {
             color="success"
             size="large"
           >
-            Awesome!
+            {t('activity.acknowledge')}
           </Button>
         </DialogActions>
       </Dialog>
@@ -816,14 +816,14 @@ const PostsPage = () => {
         <DialogTitle sx={{ textAlign: 'center', pb: 1 }}>
           <TrophyIcon sx={{ fontSize: 44, mb: 1, color: 'primary.main' }} />
           <Typography variant="h6" color="warning.main" fontWeight="bold" component="div">
-            Task reopened
+            {t('activity.reopenedTitle')}
           </Typography>
         </DialogTitle>
         <DialogContent sx={{ textAlign: 'center', py: 2 }}>
           {undoneTaskData && (
             <>
               <Typography variant="body1" sx={{ mb: 2 }}>
-                No worries! "<strong>{undoneTaskData.task.title}</strong>" has been reopened for improvement.
+                {t('activity.reopenedText', { title: undoneTaskData.task.title })}
               </Typography>
               <Box sx={{ 
                 p: 2, 
@@ -833,22 +833,22 @@ const PostsPage = () => {
                 borderColor: 'warning.main' 
               }}>
                 <Typography variant="h6" color="warning.main" fontWeight="bold">
-                  Your Current Rank: #{undoneTaskData.newRank.rank}
+                  {t('activity.currentRank', { rank: undoneTaskData.newRank.rank })}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  {undoneTaskData.newRank.completedTasks} completed tasks
+                  {t('activity.completedTasks', { count: undoneTaskData.newRank.completedTasks })}
                 </Typography>
                 <Typography variant="body2" color="warning.main" sx={{ mt: 1 }}>
-                  Take your time and do your best. You've got this.
+                  {t('activity.takeTime')}
                 </Typography>
                 {undoneTaskData.newRank.rank <= 3 && (
                   <Typography variant="body2" color="warning.main" sx={{ mt: 1 }}>
-                    You're still in the top three. Keep up the great work.
+                    {t('activity.stillTopThree')}
                   </Typography>
                 )}
                 {undoneTaskData.newRank.rank > 3 && (
                   <Typography variant="body2" color="warning.main" sx={{ mt: 1 }}>
-                    Every setback is useful feedback for the next attempt.
+                    {t('activity.setback')}
                   </Typography>
                 )}
               </Box>
@@ -862,7 +862,7 @@ const PostsPage = () => {
             color="warning"
             size="large"
           >
-            Got it!
+            {t('activity.gotIt')}
           </Button>
         </DialogActions>
       </Dialog>

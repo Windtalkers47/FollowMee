@@ -9,6 +9,7 @@ import {
 import feedback from '../../services/feedback.service';
 import { Task } from '../../api/task.api';
 import { TaskPermissions } from '../../permissions/taskPermissions';
+import { useUserPreferences } from '../../contexts/UserPreferencesContext';
 
 interface TaskMenuProps {
   anchorEl: HTMLElement | null;
@@ -31,6 +32,7 @@ const TaskMenu: React.FC<TaskMenuProps> = ({
   onCancel,
   onUpdateTaskStatus,
 }) => {
+  const { t } = useUserPreferences();
   const handleEdit = () => {
     onEdit?.(task);
     onMenuClose();
@@ -43,12 +45,12 @@ const TaskMenu: React.FC<TaskMenuProps> = ({
 
   const handleCancel = () => {
     feedback.fire({
-      title: 'Cancel Task?',
-      text: 'Are you sure you want to cancel this task?',
+      title: t('task.cancelTitle'),
+      text: t('task.cancelQuestion'),
       icon: 'warning',
       showCancelButton: true,
-      confirmButtonText: 'Yes, cancel it!',
-      cancelButtonText: 'No, keep it',
+      confirmButtonText: t('task.cancelConfirm'),
+      cancelButtonText: t('task.keep'),
       reverseButtons: true
     }).then((result) => {
       if (result.isConfirmed) {
@@ -60,12 +62,12 @@ const TaskMenu: React.FC<TaskMenuProps> = ({
 
   const handleDelete = () => {
     feedback.fire({
-      title: 'Are you sure?',
-      text: 'You won\'t be able to revert this task!',
+      title: t('task.deleteTitle'),
+      text: t('task.deleteQuestion'),
       icon: 'warning',
       showCancelButton: true,
-      confirmButtonText: 'Yes, delete it!',
-      cancelButtonText: 'Cancel',
+      confirmButtonText: t('task.deleteConfirm'),
+      cancelButtonText: t('common.cancel'),
       reverseButtons: true
     }).then((result) => {
       if (result.isConfirmed) {
@@ -108,7 +110,7 @@ const TaskMenu: React.FC<TaskMenuProps> = ({
         }}
       >
         <EditIcon fontSize="small" sx={{ mr: 1.5 }} />
-        Edit
+        {t('task.edit')}
       </MenuItem>
 
       {task.status === 'draft' && (
@@ -127,7 +129,7 @@ const TaskMenu: React.FC<TaskMenuProps> = ({
           }}
         >
           <ArrowForwardIcon fontSize="small" sx={{ mr: 1.5 }} />
-          Move to Todo
+          {t('task.moveTodo')}
         </MenuItem>
       )}
 
@@ -147,7 +149,7 @@ const TaskMenu: React.FC<TaskMenuProps> = ({
           }}
         >
           <CancelIcon fontSize="small" sx={{ mr: 1.5 }} />
-          Cancel Task
+          {t('task.cancel')}
         </MenuItem>
       )}
 
@@ -166,7 +168,7 @@ const TaskMenu: React.FC<TaskMenuProps> = ({
         }}
       >
         <DeleteIcon fontSize="small" sx={{ mr: 1.5 }} />
-        Delete
+        {t('task.delete')}
       </MenuItem>
     </Menu>
   );

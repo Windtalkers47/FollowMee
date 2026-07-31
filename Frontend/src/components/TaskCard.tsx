@@ -16,6 +16,7 @@ import { getTaskPermissions, TaskPermissions } from '../permissions/taskPermissi
 import TaskHeader from './TaskCard/TaskHeader';
 import TaskImage from './TaskCard/TaskImage';
 import TaskMeta from './TaskCard/TaskMeta';
+import { useUserPreferences } from '../contexts/UserPreferencesContext';
 import TaskReactions from './TaskCard/TaskReactions';
 import TaskActions from './TaskCard/TaskActions';
 import TaskSwipeAction from './TaskCard/TaskSwipeAction';
@@ -72,6 +73,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
   blurIntensity = 20,
   glassStyle = 'medium',
 }) => {
+  const { t } = useUserPreferences();
   const theme = useTheme();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [showComments, setShowComments] = useState(false);
@@ -244,7 +246,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setShowImagePreview(false)}>Close</Button>
+          <Button onClick={() => setShowImagePreview(false)}>{t('common.close')}</Button>
         </DialogActions>
       </Dialog>
     </>

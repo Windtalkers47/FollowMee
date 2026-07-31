@@ -53,6 +53,9 @@ import {
 import { gradientPresets } from '../../styles/liquidGlassStyles';
 import { webSocketService } from '../../services/websocket.service';
 import { brandColors } from '../../styles/designTokens';
+import { useUserPreferences } from '../../contexts/UserPreferencesContext';
+import { formatLocalizedDate, formatLocalizedNumber } from '../../utils/localeFormat';
+import type { MessageKey } from '../../i18n/messages';
 
 // Register ChartJS components (once, at module level)
 ChartJS.register(
@@ -73,6 +76,7 @@ const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAppSelector((state) => state.auth);
   const theme = useTheme();
+  const { locale, t } = useUserPreferences();
   
   // Loading states - แยกตามส่วน
   const [isStatsLoading, setIsStatsLoading] = useState(true);
@@ -210,11 +214,11 @@ const DashboardPage: React.FC = () => {
     return {
       labels: trend.map((item) => {
         const date = new Date(item.date);
-        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        return formatLocalizedDate(date, locale, { month: 'short', day: 'numeric' });
       }),
       datasets: [
         {
-          label: 'Active',
+          label: t('dashboard.activeSeries'),
           data: trend.map((item) => item.active),
           fill: true,
           backgroundColor: (context: any) => {
@@ -234,7 +238,7 @@ const DashboardPage: React.FC = () => {
           pointHoverBorderWidth: 2,
         },
         {
-          label: 'New',
+          label: t('dashboard.newSeries'),
           data: trend.map((item) => item.new),
           fill: true,
           backgroundColor: (context: any) => {
@@ -255,11 +259,18 @@ const DashboardPage: React.FC = () => {
         },
       ],
     };
-  }, [dashboardStats?.customerStats.customerTrend]);
+  }, [dashboardStats?.customerStats.customerTrend, locale, t]);
 
   const taskStatusData = dashboardStats?.taskStats.tasksByStatus
     ? {
-        labels: ['Draft', 'To Do', 'In Progress', 'Review', 'Done', 'Cancelled'],
+        labels: [
+          t('taskStatus.draft'),
+          t('taskStatus.todo'),
+          t('taskStatus.inProgress'),
+          t('taskStatus.review'),
+          t('taskStatus.done'),
+          t('taskStatus.cancelled'),
+        ],
         datasets: [
           {
             data: [
@@ -430,19 +441,9 @@ const DashboardPage: React.FC = () => {
   }), [isDarkMode]);
 
   const getChartTitle = useCallback(() => {
-    const titles: Record<TimeRange, string> = {
-      '1d': 'Customer Growth (24 Hours)',
-      '5d': 'Customer Growth (5 Days)',
-      '7d': 'Customer Growth (7 Days)',
-      '1m': 'Customer Growth (1 Month)',
-      '3m': 'Customer Growth (3 Months)',
-      '6m': 'Customer Growth (6 Months)',
-      'ytd': 'Customer Growth (Year to Date)',
-      '1y': 'Customer Growth (1 Year)',
-      '5y': 'Customer Growth (5 Years)',
-    };
-    return titles[timeRange];
-  }, [timeRange]);
+    const periodKey = `dashboard.period.${timeRange}` as MessageKey;
+    return t('dashboard.customerGrowth', { period: t(periodKey) });
+  }, [timeRange, t]);
 
   if (isInitialLoading) {
     return (
@@ -476,7 +477,7 @@ const DashboardPage: React.FC = () => {
               color: 'text.primary',
             }}
           >
-            Welcome back, {user?.userName || 'User'}
+            {t('dashboard.welcome', { name: user?.userName || t('common.user') })}
           </Typography>
           <Typography
             variant="subtitle1"
@@ -485,7 +486,7 @@ const DashboardPage: React.FC = () => {
               transition: 'color 0.3s ease',
             }}
           >
-            Here's what's happening with your business today
+            {t('dashboard.subtitle')}
           </Typography>
         </Box>
 
@@ -494,12 +495,12 @@ const DashboardPage: React.FC = () => {
             severity="error"
             action={
               <Button color="inherit" size="small" onClick={() => fetchStatsOnly(timeRange)}>
-                Retry
+                {t('feedback.retry')}
               </Button>
             }
             sx={{ mb: 3 }}
           >
-            Dashboard statistics could not be loaded.
+            {t('dashboard.statsError')}
           </Alert>
         )}
 
@@ -529,10 +530,10 @@ const DashboardPage: React.FC = () => {
             </Avatar>
             <Box>
               <Typography variant="subtitle2" fontWeight={600}>
-                Create Task
+                {t('dashboard.createTask')}
               </Typography>
               <Typography variant="caption" sx={{ opacity: 0.7 }}>
-                Add new task
+                {t('dashboard.createTaskHint')}
               </Typography>
             </Box>
           </LiquidGlassCard>
@@ -561,10 +562,10 @@ const DashboardPage: React.FC = () => {
             </Avatar>
             <Box>
               <Typography variant="subtitle2" fontWeight={600}>
-                View Customers
+                {t('dashboard.viewCustomers')}
               </Typography>
               <Typography variant="caption" sx={{ opacity: 0.7 }}>
-                Manage customers
+                {t('dashboard.viewCustomersHint')}
               </Typography>
             </Box>
           </LiquidGlassCard>
@@ -575,60 +576,60 @@ const DashboardPage: React.FC = () => {
           <Grid container spacing={3}>
             <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
               <StatCard
-                title="Total Customers"
-                value={dashboardStats?.customerStats.totalCustomers.toLocaleString() || '0'}
+                title={t('dashboard.totalCustomers')}
+                value={formatLocalizedNumber(dashboardStats?.customerStats.totalCustomers || 0, locale)}
                 icon={<PeopleIcon />}
                 color={brandColors.iosGreen}
                 trend={{
-                  value: `+${dashboardStats?.customerStats.customersByStatus.newThisWeek || 0} this period`,
+                  value: t('dashboard.thisPeriod', { count: formatLocalizedNumber(dashboardStats?.customerStats.customersByStatus.newThisWeek || 0, locale) }),
                   isPositive: true,
                 }}
-                subtitle={`${dashboardStats?.customerStats.customersByStatus.active.toLocaleString() || '0'} active`}
+                subtitle={t('dashboard.activeCount', { count: formatLocalizedNumber(dashboardStats?.customerStats.customersByStatus.active || 0, locale) })}
                 gradientPreset={gradientPreset}
                 isDarkMode={isDarkMode}
               />
             </Grid>
             <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
               <StatCard
-                title="Pending Tasks"
-                value={dashboardStats?.taskStats.pendingTasks.toLocaleString() || '0'}
+                title={t('dashboard.pendingTasks')}
+                value={formatLocalizedNumber(dashboardStats?.taskStats.pendingTasks || 0, locale)}
                 icon={<TaskIcon />}
                 color={brandColors.amber}
                 trend={{
-                  value: `${dashboardStats?.taskStats.completionRate || 0}% completion rate`,
+                  value: t('dashboard.completionRate', { rate: formatLocalizedNumber(dashboardStats?.taskStats.completionRate || 0, locale) }),
                   isPositive: true,
                 }}
-                subtitle="Need attention"
+                subtitle={t('dashboard.needAttention')}
                 gradientPreset={gradientPreset}
                 isDarkMode={isDarkMode}
               />
             </Grid>
             <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
               <StatCard
-                title="My Rank"
+                title={t('dashboard.myRank')}
                 value={`#${dashboardStats?.userRank.rank || '-'}`}
                 icon={<EmojiEventsIcon />}
                 color={brandColors.indigo}
                 trend={{
-                  value: `${dashboardStats?.userRank.completedTasks || 0} tasks`,
+                  value: t('dashboard.taskCount', { count: formatLocalizedNumber(dashboardStats?.userRank.completedTasks || 0, locale) }),
                   isPositive: true,
                 }}
-                subtitle={`of ${dashboardStats?.userRank.totalUsers || 0} users`}
+                subtitle={t('dashboard.ofUsers', { count: formatLocalizedNumber(dashboardStats?.userRank.totalUsers || 0, locale) })}
                 gradientPreset={gradientPreset}
                 isDarkMode={isDarkMode}
               />
             </Grid>
             <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
               <StatCard
-                title="Total Tasks"
-                value={dashboardStats?.taskStats.totalTasks.toLocaleString() || '0'}
+                title={t('dashboard.totalTasks')}
+                value={formatLocalizedNumber(dashboardStats?.taskStats.totalTasks || 0, locale)}
                 icon={<TrendingUpIcon />}
                 color={brandColors.blue}
                 trend={{
-                  value: `${dashboardStats?.taskStats.tasksByStatus.done || 0} completed`,
+                  value: t('dashboard.completedCount', { count: formatLocalizedNumber(dashboardStats?.taskStats.tasksByStatus.done || 0, locale) }),
                   isPositive: true,
                 }}
-                subtitle="All time"
+                subtitle={t('dashboard.allTime')}
                 gradientPreset={gradientPreset}
                 isDarkMode={isDarkMode}
               />
@@ -699,11 +700,11 @@ const DashboardPage: React.FC = () => {
                     <Line data={customerTrendData} options={chartOptions} />
                   ) : (
                     <Box display="flex" flexDirection="column" justifyContent="center" alignItems="center" height="100%" textAlign="center">
-                      <Typography fontWeight={700}>No customer history yet</Typography>
+                      <Typography fontWeight={700}>{t('dashboard.noCustomerHistory')}</Typography>
                       <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, mb: 2 }}>
-                        Add a customer to begin tracking growth.
+                        {t('dashboard.noCustomerHistoryHint')}
                       </Typography>
-                      <Button variant="outlined" onClick={handleViewCustomers}>View customers</Button>
+                      <Button variant="outlined" onClick={handleViewCustomers}>{t('dashboard.viewCustomers')}</Button>
                     </Box>
                   )}
                 </Box>
@@ -718,7 +719,7 @@ const DashboardPage: React.FC = () => {
               >
                 <Box display="flex" alignItems="center" gap={1} mb={3}>
                   <Typography variant="h6" sx={{ fontWeight: 700, color: isDarkMode ? '#fff' : '#1a1a1a', fontSize: { xs: '1rem', sm: '1.125rem' } }}>
-                    Task status
+                    {t('dashboard.taskStatus')}
                   </Typography>
                 </Box>
                 <Box height={{ xs: 220, sm: 280, md: 300 }}>
@@ -726,11 +727,11 @@ const DashboardPage: React.FC = () => {
                     <Bar data={taskStatusData} options={barChartOptions} />
                   ) : (
                     <Box display="flex" flexDirection="column" justifyContent="center" alignItems="center" height="100%" textAlign="center">
-                      <Typography fontWeight={700}>No task activity yet</Typography>
+                      <Typography fontWeight={700}>{t('dashboard.noTaskActivity')}</Typography>
                       <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, mb: 2 }}>
-                        Create a task to see status insights here.
+                        {t('dashboard.noTaskActivityHint')}
                       </Typography>
-                      <Button variant="outlined" onClick={handleCreateTask}>Create task</Button>
+                      <Button variant="outlined" onClick={handleCreateTask}>{t('dashboard.createTask')}</Button>
                     </Box>
                   )}
                 </Box>

@@ -232,7 +232,7 @@ export const SmartSuggestionsBar: React.FC<SmartSuggestionsBarProps> = ({
             </Box>
 
             {/* Dismiss Button */}
-            <Tooltip title="Dismiss">
+            <Tooltip title={t('common.dismiss')}>
               <IconButton
                 size="small"
                 onClick={(e) => handleDismiss(e, primarySuggestion.id)}

@@ -25,6 +25,7 @@ import type {
   PublicProfileRecord,
 } from '../../types/publicProfile.types';
 import { getProfileTemplate } from '../../styles/publicProfileTemplates';
+import { useUserPreferences } from '../../contexts/UserPreferencesContext';
 
 type LandingCardProfile = PublicProfileLanding | PublicProfileRecord;
 
@@ -60,6 +61,7 @@ const ProfileLandingCard = ({
   preview = false,
   onEvent,
 }: ProfileLandingCardProps) => {
+  const { t } = useUserPreferences();
   const preset = getProfileTemplate(profile.templateKey);
   const colors = {
     background: profile.themeConfig?.backgroundColor || preset.background,
@@ -120,7 +122,7 @@ const ProfileLandingCard = ({
       <Stack alignItems="center" spacing={2.25} sx={{ maxWidth: 520, mx: 'auto' }}>
         {preview && (
           <Chip
-            label="Live preview"
+            label={t('profile.preview.live')}
             size="small"
             sx={{ alignSelf: 'flex-end', bgcolor: colors.surface, color: colors.text }}
           />
@@ -304,7 +306,7 @@ const ProfileLandingCard = ({
         )}
 
         <Typography variant="caption" sx={{ pt: 2, opacity: 0.48, letterSpacing: '.08em' }}>
-          MADE WITH FOLLOWMEE
+          {t('profile.public.madeWith')}
         </Typography>
       </Stack>
     </Box>

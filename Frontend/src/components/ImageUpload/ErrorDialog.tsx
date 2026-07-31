@@ -21,6 +21,7 @@ import {
   CheckCircle as SuccessIcon,
   Close as CloseIcon
 } from '@mui/icons-material';
+import { useUserPreferences } from '../../contexts/UserPreferencesContext';
 
 export interface ErrorDialogProps {
   open: boolean;
@@ -41,6 +42,7 @@ const ErrorDialog: React.FC<ErrorDialogProps> = ({
   suggestions = [],
   fileName
 }) => {
+  const { t } = useUserPreferences();
   const getIcon = () => {
     switch (type) {
       case 'error':
@@ -130,13 +132,13 @@ const ErrorDialog: React.FC<ErrorDialogProps> = ({
 
       <DialogContent>
         <Alert severity={getAlertColor()} sx={{ mb: 3 }}>
-          <AlertTitle>{fileName ? `File: ${fileName}` : 'Upload Error'}</AlertTitle>
+          <AlertTitle>{fileName ? t('image.file', { name: fileName }) : t('image.uploadError')}</AlertTitle>
           {message}
         </Alert>
 
         <Box sx={{ mb: 2 }}>
           <Typography variant="subtitle2" gutterBottom>
-            How to fix this issue:
+            {t('image.fixTitle')}
           </Typography>
           <List>
             {allSuggestions.map((suggestion, index) => (
@@ -158,7 +160,7 @@ const ErrorDialog: React.FC<ErrorDialogProps> = ({
         {type === 'error' && (
           <Alert severity="info">
             <Typography variant="body2">
-              <strong>Tip:</strong> If you continue to see this error, try using a different image or contact support for help.
+              <strong>{t('image.tip')}</strong> {t('image.tipText')}
             </Typography>
           </Alert>
         )}
@@ -166,7 +168,7 @@ const ErrorDialog: React.FC<ErrorDialogProps> = ({
 
       <DialogActions>
         <Button onClick={onClose} variant="contained" autoFocus>
-          I Understand
+          {t('image.understand')}
         </Button>
       </DialogActions>
     </Dialog>

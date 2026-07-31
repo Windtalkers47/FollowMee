@@ -40,6 +40,9 @@ export interface Notification {
   entityId?: string;
   title: string;
   message: string;
+  titleKey?: string;
+  messageKey?: string;
+  translationParams?: Record<string, string | number>;
   actionUrl?: string;
   imageUrl?: string;
   isSystem: boolean;

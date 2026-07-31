@@ -28,6 +28,7 @@ import PersonIcon from '@mui/icons-material/Person';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { styled } from '@mui/material/styles';
+import { useUserPreferences } from '../../contexts/UserPreferencesContext';
 
 export type CustomerFormData = {
   customerId?: string;
@@ -189,6 +190,7 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
   apiError,
   onClearApiError,
 }) => {
+  const { t } = useUserPreferences();
   const [imagePreview, setImagePreview] = useState<string | null>(
     initialData?.customerImageUrl || null
   );
@@ -534,7 +536,7 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
         <DialogTitle>
           <Box display="flex" justifyContent="space-between" alignItems="center">
             <Typography variant="h6">
-              {initialData?.customerId ? 'Edit Customer' : 'Add New Customer'}
+              {initialData?.customerId ? t('customers.form.editTitle') : t('customers.form.addTitle')}
             </Typography>
             <IconButton onClick={handleClose} disabled={isSubmitting}>
               <CloseIcon />
@@ -543,7 +545,7 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
         </DialogTitle>
         <DialogContent>
           {/* Image Upload Section */}
-          <Section title="Profile Image" sx={{ textAlign: 'center' }}>
+          <Section title={t('customers.form.profileImage')} sx={{ textAlign: 'center' }}>
 
           <Stack spacing={2} alignItems="center">
             <ImagePreview>
@@ -562,7 +564,7 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
               }}>
                 <img
                   src={imagePreview}
-                  alt="Customer preview"
+                  alt={t('customers.form.previewAlt')}
                   style={{
                     width: '100%',
                     height: '100%',
@@ -634,7 +636,7 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
                 onClick={triggerFileSelect}
                 disabled={isUploadingImage}
               >
-                {isUploadingImage ? 'Processing...' : (imagePreview ? 'Change Image' : 'Upload Image')}
+                {isUploadingImage ? t('customers.form.processing') : (imagePreview ? t('customers.form.changeImage') : t('customers.form.uploadImage'))}
               </Button>
 
               {imagePreview && (
@@ -645,14 +647,14 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
                   sx={{ ml: 1 }}
                   disabled={isUploadingImage}
                 >
-                  Remove
+                  {t('customers.form.removeImage')}
                 </Button>
               )}
             </Box>
 
             <Box sx={{ textAlign: 'center', width: '100%' }}>
               <Typography variant="caption" color="text.secondary" display="block">
-                JPG, GIF or PNG. Max size of 5MB
+                {t('customers.form.imageHelp')}
               </Typography>
               {uploadError && (
                 <Typography variant="caption" color="error" display="block" sx={{ mt: 1 }}>
@@ -667,7 +669,7 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
         <Divider />
         <DialogContent sx={{ py: 3 }}>
           {/* ===== Basic Info ===== */}
-          <Section title="Basic Information">
+          <Section title={t('customers.form.basicInfo')}>
             <Grid container spacing={2}>
               <Grid size={{ xs: 12, md: 6 }}>
                 <Controller
@@ -676,7 +678,7 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
                   render={({ field }) => (
                     <TextField
                       {...field}
-                      label="First Name"
+                      label={t('common.firstName')}
                       fullWidth
                       required
                       error={!!errors.customerName}
@@ -691,7 +693,7 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
                   name="customerLastName"
                   control={control}
                   render={({ field }) => (
-                    <TextField {...field} label="Last Name" fullWidth />
+                    <TextField {...field} label={t('common.lastName')} fullWidth />
                   )}
                 />
               </Grid>
@@ -709,7 +711,7 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
                     return (
                       <TextField
                         {...field}
-                        label="Email"
+                        label={t('common.email')}
                         fullWidth
                         required
                         error={!!error || apiError?.field === 'customerEmail'}
@@ -730,14 +732,14 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
           </Section>
 
           {/* ===== Contact ===== */}
-          <Section title="Contact Details">
+          <Section title={t('customers.form.contactDetails')}>
             <Grid container spacing={2}>
               <Grid size={{ xs: 12, md: 6 }}>
                 <Controller
                   name="customerPhone1"
                   control={control}
                   render={({ field }) => (
-                    <TextField {...field} label="Phone" fullWidth />
+                    <TextField {...field} label={t('customers.form.phone')} fullWidth />
                   )}
                 />
               </Grid>
@@ -747,7 +749,7 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
                   name="customerPhone2"
                   control={control}
                   render={({ field }) => (
-                    <TextField {...field} label="Secondary Phone" fullWidth />
+                    <TextField {...field} label={t('customers.form.secondaryPhone')} fullWidth />
                   )}
                 />
               </Grid>
@@ -759,7 +761,7 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
                   render={({ field }) => (
                     <TextField
                       {...field}
-                      label="Address"
+                      label={t('customers.form.address')}
                       fullWidth
                       multiline
                       rows={2}
@@ -771,7 +773,7 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
           </Section>
 
           {/* ===== Social ===== */}
-          <Section title="Social Profiles">
+          <Section title={t('customers.form.socialProfiles')}>
             <Grid container spacing={2}>
               <Grid size={{ xs: 12, md: 6 }}>
                 <Controller
@@ -832,7 +834,7 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
           </Section>
 
           {/* ===== Status ===== */}
-          <Section title="Status">
+          <Section title={t('customers.form.status')}>
             <Controller
               name="isActive"
               control={control}
@@ -844,7 +846,7 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
                       onChange={(e) => field.onChange(e.target.checked)}
                     />
                   }
-                  label="Active customer"
+                  label={t('customers.form.activeCustomer')}
                 />
               )}
             />
@@ -854,7 +856,7 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
         {/* ===== Actions ===== */}
         <DialogActions>
           <Button onClick={handleClose} disabled={isSubmitting}>
-            Cancel
+            {t('common.cancel')}
           </Button>
           <Button
             type="submit"

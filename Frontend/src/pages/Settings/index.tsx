@@ -176,16 +176,16 @@ const SettingsPage = () => {
       </Paper>
 
       <Paper sx={{ p: { xs: 2, sm: 3 }, mb: 3 }}>
-        <Typography variant="overline" color="text.secondary">Help</Typography>
+        <Typography variant="overline" color="text.secondary">{t('settings.help')}</Typography>
         <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap' }}>
           <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start' }}>
             <SchoolRoundedIcon color="primary" />
             <Box>
               <Typography variant="h6" fontWeight={600}>
-                Product guide
+                {t('settings.productGuide')}
               </Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                Replay the introduction to navigation, notifications and appearance controls.
+                {t('settings.productGuideHelp')}
               </Typography>
             </Box>
           </Box>
@@ -193,19 +193,19 @@ const SettingsPage = () => {
             variant="outlined"
             onClick={() => window.dispatchEvent(new Event(REPLAY_TOUR_EVENT))}
           >
-            Replay guide
+            {t('settings.replayGuide')}
           </Button>
         </Box>
       </Paper>
 
       {/* Liquid Glass UI Toggle */}
       <Paper sx={{ p: 3, mb: 3 }}>
-        <Typography variant="overline" color="text.secondary">Appearance</Typography>
+        <Typography variant="overline" color="text.secondary">{t('settings.appearance')}</Typography>
         <Typography variant="h6" fontWeight={600} sx={{ mb: 2 }}>
-          Depth & transparency effects
+          {t('settings.depthTitle')}
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-          Add subtle depth to navigation and feature surfaces. Reading areas stay clear and high contrast.
+          {t('settings.depthHelp')}
         </Typography>
         
         <FormControlLabel
@@ -219,10 +219,10 @@ const SettingsPage = () => {
           label={
             <Box>
               <Typography variant="body1" fontWeight={500}>
-                Enable depth effects
+                {t('settings.enableDepth')}
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                {isLiquidGlassEnabled ? 'Enhanced theme is active' : 'Using regular theme'}
+                {isLiquidGlassEnabled ? t('settings.depthActive') : t('settings.regularTheme')}
               </Typography>
             </Box>
           }
@@ -232,7 +232,7 @@ const SettingsPage = () => {
         {isLiquidGlassEnabled && (
           <Alert severity="info" sx={{ mb: 2 }}>
             <Typography variant="body2">
-              <strong>Depth effects are active.</strong> Advanced appearance controls are available below.
+              {t('settings.depthNotice')}
             </Typography>
           </Alert>
         )}
@@ -243,9 +243,9 @@ const SettingsPage = () => {
         <Accordion disableGutters elevation={0} sx={{ mb: 3, border: '1px solid', borderColor: 'divider', '&::before': { display: 'none' } }}>
           <AccordionSummary expandIcon={<ExpandMoreRoundedIcon />}>
             <Box>
-              <Typography variant="h6" fontWeight={600}>Advanced appearance</Typography>
+              <Typography variant="h6" fontWeight={600}>{t('settings.advanced')}</Typography>
               <Typography variant="body2" color="text.secondary">
-                Fine-tune visual effects and accessibility. Most users can keep the defaults.
+                {t('settings.advancedHelp')}
               </Typography>
             </Box>
           </AccordionSummary>
@@ -257,13 +257,13 @@ const SettingsPage = () => {
               <InputLabel id="gradient-preset-label">
                 <Box display="flex" alignItems="center" gap={1}>
                   <PaletteIcon fontSize="small" />
-                  Gradient Preset
+                  {t('settings.gradientPreset')}
                 </Box>
               </InputLabel>
               <Select
                 labelId="gradient-preset-label"
                 value={liquidGlassSettings.gradientPreset || defaultLiquidGlassSettings.gradientPreset}
-                label="Gradient Preset"
+                label={t('settings.gradientPreset')}
                 onChange={(e) => handleGradientPresetChange(e.target.value as GradientPresetKey)}
                 sx={{
                   '& .MuiOutlinedInput-notchedOutline': {
@@ -292,7 +292,7 @@ const SettingsPage = () => {
               label={
                 <Box display="flex" alignItems="center" gap={1}>
                   <BlurIcon fontSize="small" />
-                  Reduce Transparency
+                  {t('settings.reduceTransparency')}
                 </Box>
               }
               sx={{ mb: 2 }}
@@ -311,7 +311,7 @@ const SettingsPage = () => {
               label={
                 <Box display="flex" alignItems="center" gap={1}>
                   <ContrastIcon fontSize="small" />
-                  Increase Contrast
+                  {t('settings.increaseContrast')}
                 </Box>
               }
               sx={{ mb: 2 }}
@@ -330,7 +330,7 @@ const SettingsPage = () => {
               label={
                 <Box display="flex" alignItems="center" gap={1}>
                   <BorderAllIcon fontSize="small" />
-                  Add Borders
+                  {t('settings.addBorders')}
                 </Box>
               }
             />
@@ -342,15 +342,15 @@ const SettingsPage = () => {
 
       {/* Notification Settings */}
       <Paper sx={{ p: 3, mb: 3 }}>
-        <Typography variant="overline" color="text.secondary">Notifications</Typography>
+        <Typography variant="overline" color="text.secondary">{t('settings.notifications')}</Typography>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
           <NotificationsIcon sx={{ fontSize: 24, color: 'primary.main' }} />
           <Typography variant="h6" fontWeight={600}>
-            Notification preferences
+            {t('settings.notificationPreferences')}
           </Typography>
         </Box>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-          Choose which notifications you want to receive and how they're delivered.
+          {t('settings.notificationHelp')}
         </Typography>
 
         {settingsLoading ? (
@@ -362,7 +362,7 @@ const SettingsPage = () => {
             {/* Task Notifications */}
             <Divider sx={{ my: 1 }} />
             <Typography variant="subtitle2" fontWeight={600} color="text.primary">
-              Task Notifications
+              {t('settings.taskNotifications')}
             </Typography>
             <FormControlLabel
               control={
@@ -372,7 +372,7 @@ const SettingsPage = () => {
                   color="primary"
                 />
               }
-              label="Task assigned to me"
+              label={t('settings.taskAssigned')}
             />
             <FormControlLabel
               control={
@@ -382,7 +382,7 @@ const SettingsPage = () => {
                   color="primary"
                 />
               }
-              label="Comments on my tasks"
+              label={t('settings.taskComments')}
             />
             <FormControlLabel
               control={
@@ -392,13 +392,13 @@ const SettingsPage = () => {
                   color="primary"
                 />
               }
-              label="Likes on my tasks"
+              label={t('settings.taskLikes')}
             />
 
             {/* Social Notifications */}
             <Divider sx={{ my: 1 }} />
             <Typography variant="subtitle2" fontWeight={600} color="text.primary">
-              Social Notifications
+              {t('settings.socialNotifications')}
             </Typography>
             <FormControlLabel
               control={
@@ -408,7 +408,7 @@ const SettingsPage = () => {
                   color="primary"
                 />
               }
-              label="Replies to my comments"
+              label={t('settings.commentReplies')}
             />
             <FormControlLabel
               control={
@@ -418,13 +418,13 @@ const SettingsPage = () => {
                   color="primary"
                 />
               }
-              label="Reactions to my comments"
+              label={t('settings.commentReactions')}
             />
 
             {/* System Notifications */}
             <Divider sx={{ my: 1 }} />
             <Typography variant="subtitle2" fontWeight={600} color="text.primary">
-              System Notifications
+              {t('settings.systemNotifications')}
             </Typography>
             <FormControlLabel
               control={
@@ -434,7 +434,7 @@ const SettingsPage = () => {
                   color="primary"
                 />
               }
-              label="System alerts and announcements"
+              label={t('settings.systemAlerts')}
             />
             <FormControlLabel
               control={
@@ -444,13 +444,13 @@ const SettingsPage = () => {
                   color="primary"
                 />
               }
-              label="Role changes"
+              label={t('settings.roleChanges')}
             />
 
             {/* Delivery Methods */}
             <Divider sx={{ my: 1 }} />
             <Typography variant="subtitle2" fontWeight={600} color="text.primary">
-              Delivery Methods
+              {t('settings.deliveryMethods')}
             </Typography>
             <FormControlLabel
               control={
@@ -460,7 +460,7 @@ const SettingsPage = () => {
                   color="primary"
                 />
               }
-              label="Push notifications (in-app)"
+              label={t('settings.pushNotifications')}
             />
             <FormControlLabel
               control={
@@ -470,23 +470,23 @@ const SettingsPage = () => {
                   color="primary"
                 />
               }
-              label="Email notifications"
+              label={t('settings.emailNotifications')}
             />
           </Box>
         ) : (
           <Typography variant="body2" color="text.secondary">
-            Unable to load notification settings.
+            {t('settings.notificationLoadError')}
           </Typography>
         )}
       </Paper>
 
       <Paper sx={{ p: 3 }}>
-        <Typography variant="overline" color="text.secondary">Account</Typography>
+        <Typography variant="overline" color="text.secondary">{t('settings.account')}</Typography>
         <Typography variant="h6" fontWeight={600} sx={{ mb: 2 }}>
-          Account & security
+          {t('settings.accountSecurity')}
         </Typography>
         <Typography variant="body2" color="text.secondary">
-          Profile details and role access are managed from the account menu. Contact a Super Admin to change permissions.
+          {t('settings.accountHelp')}
         </Typography>
       </Paper>
     </Box>

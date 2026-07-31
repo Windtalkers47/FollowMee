@@ -25,6 +25,7 @@ import {
   Visibility as ReviewIcon,
   Assignment as AssignIcon
 } from '@mui/icons-material';
+import { useUserPreferences } from '../../contexts/UserPreferencesContext';
 
 interface SelectionModeToolbarProps {
   selectedCount: number;
@@ -45,6 +46,7 @@ export const SelectionModeToolbar: React.FC<SelectionModeToolbarProps> = ({
   onClose,
   onBulkAction
 }) => {
+  const { t } = useUserPreferences();
   const theme = useTheme();
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
 
@@ -124,7 +126,7 @@ export const SelectionModeToolbar: React.FC<SelectionModeToolbarProps> = ({
                 color: theme.palette.mode === 'dark' ? '#fff' : '#000',
               }}
             >
-              selected
+              {t('selection.selectedCount', { count: selectedCount })}
             </Typography>
 
             {/* Select All / Deselect All - Text Button */}
@@ -145,13 +147,13 @@ export const SelectionModeToolbar: React.FC<SelectionModeToolbarProps> = ({
                 }
               }}
             >
-              {areAllSelected ? 'Deselect All' : 'Select All'}
+              {areAllSelected ? t('selection.unselectAll') : t('selection.selectAll')}
             </Button>
           </Box>
 
           {/* Quick Actions Row */}
           <Box display="flex" alignItems="center" gap={1} mt={1}>
-            <Tooltip title="Mark as Done">
+            <Tooltip title={t('selection.doneHint')}>
               <IconButton
                 onClick={() => onBulkAction('done')}
                 sx={{
@@ -171,7 +173,7 @@ export const SelectionModeToolbar: React.FC<SelectionModeToolbarProps> = ({
               </IconButton>
             </Tooltip>
 
-            <Tooltip title="Start Progress">
+            <Tooltip title={t('selection.startHint')}>
               <IconButton
                 onClick={() => onBulkAction('start')}
                 sx={{
@@ -192,7 +194,7 @@ export const SelectionModeToolbar: React.FC<SelectionModeToolbarProps> = ({
             </Tooltip>
 
             {/* More Actions Menu */}
-            <Tooltip title="More Actions">
+            <Tooltip title={t('selection.moreHint')}>
               <IconButton
                 onClick={handleMenuOpen}
                 sx={{
@@ -249,10 +251,10 @@ export const SelectionModeToolbar: React.FC<SelectionModeToolbarProps> = ({
                 </Box>
                 <Box>
                   <Typography sx={{ fontWeight: 600, color: theme.palette.mode === 'dark' ? '#fff' : '#000', fontSize: '0.9375rem' }}>
-                    Move to Review
+                    {t('selection.review')}
                   </Typography>
                   <Typography variant="caption" sx={{ color: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)' }}>
-                    Submit for review
+                    {t('selection.reviewHint')}
                   </Typography>
                 </Box>
               </Box>
@@ -276,10 +278,10 @@ export const SelectionModeToolbar: React.FC<SelectionModeToolbarProps> = ({
                 </Box>
                 <Box>
                   <Typography sx={{ fontWeight: 600, color: theme.palette.mode === 'dark' ? '#fff' : '#000', fontSize: '0.9375rem' }}>
-                    Move to To Do
+                    {t('selection.todo')}
                   </Typography>
                   <Typography variant="caption" sx={{ color: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)' }}>
-                    Ready to start
+                    {t('selection.todoHint')}
                   </Typography>
                 </Box>
               </Box>
@@ -303,10 +305,10 @@ export const SelectionModeToolbar: React.FC<SelectionModeToolbarProps> = ({
                 </Box>
                 <Box>
                   <Typography sx={{ fontWeight: 600, color: theme.palette.mode === 'dark' ? '#fff' : '#000', fontSize: '0.9375rem' }}>
-                    Cancel Tasks
+                    {t('selection.cancelTasks')}
                   </Typography>
                   <Typography variant="caption" sx={{ color: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)' }}>
-                    Move to cancelled
+                    {t('selection.cancelHint')}
                   </Typography>
                 </Box>
               </Box>
@@ -330,10 +332,10 @@ export const SelectionModeToolbar: React.FC<SelectionModeToolbarProps> = ({
                 </Box>
                 <Box>
                   <Typography sx={{ fontWeight: 600, color: theme.palette.mode === 'dark' ? '#fff' : '#000', fontSize: '0.9375rem' }}>
-                    Assign To...
+                    {t('selection.assign')}
                   </Typography>
                   <Typography variant="caption" sx={{ color: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)' }}>
-                    Change assignee
+                    {t('selection.assignHint')}
                   </Typography>
                 </Box>
               </Box>
@@ -367,10 +369,10 @@ export const SelectionModeToolbar: React.FC<SelectionModeToolbarProps> = ({
                 </Box>
                 <Box>
                   <Typography sx={{ fontWeight: 600, color: '#FF3B30', fontSize: '0.9375rem' }}>
-                    Delete Tasks
+                    {t('selection.deleteTasks')}
                   </Typography>
                   <Typography variant="caption" sx={{ color: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)' }}>
-                    Permanently remove
+                    {t('selection.deleteHint')}
                   </Typography>
                 </Box>
               </Box>

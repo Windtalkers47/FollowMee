@@ -2,6 +2,7 @@ import React from 'react';
 import { Box, Button, Chip, IconButton, Menu, MenuItem, Stack } from '@mui/material';
 import { AddReactionOutlined, ChatBubbleOutline } from '@mui/icons-material';
 import { TaskLikeSummary } from '../../api/task.api';
+import { useUserPreferences } from '../../contexts/UserPreferencesContext';
 
 interface TaskReactionsProps {
   taskId: string;
@@ -29,6 +30,7 @@ const TaskReactions: React.FC<TaskReactionsProps> = ({
   onCommentToggle,
   showComments,
 }) => {
+  const { t } = useUserPreferences();
   const [anchor, setAnchor] = React.useState<HTMLElement | null>(null);
   const userLike = likeSummary?.userLike;
   const activeReactions = REACTIONS.filter(reaction => (likeSummary?.[reaction.type] || 0) > 0);
@@ -61,7 +63,7 @@ const TaskReactions: React.FC<TaskReactionsProps> = ({
       ))}
       <IconButton
         size="small"
-        aria-label="Add reaction"
+        aria-label={t('task.addReaction')}
         onClick={(event) => setAnchor(event.currentTarget)}
         sx={{ width: 34, height: 34 }}
       >
@@ -73,14 +75,14 @@ const TaskReactions: React.FC<TaskReactionsProps> = ({
         startIcon={<ChatBubbleOutline />}
         onClick={onCommentToggle}
       >
-        Comment
+        {t('task.comment')}
       </Button>
 
       <Menu anchorEl={anchor} open={Boolean(anchor)} onClose={() => setAnchor(null)}>
         {REACTIONS.map(reaction => (
           <MenuItem key={reaction.type} onClick={() => selectReaction(reaction.type)}>
             <Box component="span" sx={{ width: 32, fontSize: 18 }}>{reaction.emoji}</Box>
-            {reaction.label}
+            {t(`reaction.${reaction.type}`)}
           </MenuItem>
         ))}
       </Menu>

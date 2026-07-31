@@ -56,6 +56,7 @@ import ActionMenu from '@/components/ActionMenu';
 import { FilterBar } from '@/components/FilterBar';
 import { customerApi } from '../../api/customer.api';
 import { useUserPreferences } from '../../contexts/UserPreferencesContext';
+import { formatLocalizedDate } from '../../utils/localeFormat';
 import { normalizeSocialUrl } from '../../utils/socialUrl';
 
 interface Customer extends CustomerType {}
@@ -155,7 +156,7 @@ const getEngagementScore = (customer: Customer): number => {
 // Main Component
 // ============================================
 const CustomerPage = () => {
-  const { t } = useUserPreferences();
+  const { t, locale } = useUserPreferences();
   const theme = useTheme();
   const isDarkMode = theme.palette.mode === 'dark';
 
@@ -368,7 +369,7 @@ const CustomerPage = () => {
         <Box textAlign="center">
           <CircularProgress size={60} thickness={4} color="primary" />
           <Typography variant="body1" color="text.secondary" mt={2} fontWeight={500}>
-            Loading customers...
+            {t('customers.loading')}
           </Typography>
         </Box>
       </Box>
@@ -666,7 +667,7 @@ const CustomerPage = () => {
             }}
           >
             <Typography variant="body1" sx={{ fontWeight: 600 }}>
-              {selected.length} {selected.length === 1 ? 'customer' : 'customers'} selected
+              {t('customers.selectedCount', { count: selected.length })}
             </Typography>
             <Box display="flex" gap={1} flexWrap="wrap">
               <Button 
@@ -712,7 +713,7 @@ const CustomerPage = () => {
                   }
                 }}
               >
-                Mark Active
+                {t('customers.markActive')}
               </Button>
               <Button 
                 size="small" 
@@ -756,7 +757,7 @@ const CustomerPage = () => {
                   }
                 }}
               >
-                Mark Inactive
+                {t('customers.markInactive')}
               </Button>
               <Button
                 size="small"
@@ -801,7 +802,7 @@ const CustomerPage = () => {
                   }
                 }}
               >
-                Delete
+                {t('common.delete')}
               </Button>
               <Button
                 size="small"
@@ -817,7 +818,7 @@ const CustomerPage = () => {
                 }}
                 onClick={() => setSelected([])}
               >
-                Clear
+                {t('customers.clearSelection')}
               </Button>
             </Box>
           </Paper>
@@ -829,7 +830,7 @@ const CustomerPage = () => {
             <Box textAlign="center" py={8}>
               <CircularProgress size={40} color="primary" />
               <Typography variant="body2" color="text.secondary" mt={2}>
-                Loading customers...
+                {t('customers.loading')}
               </Typography>
             </Box>
           ) : displayCustomers.length === 0 ? (
@@ -843,7 +844,7 @@ const CustomerPage = () => {
             >
               <GroupIcon sx={{ fontSize: 80, color: 'text.disabled', mb: 3, opacity: 0.3 }} />
               <Typography variant="h5" fontWeight={600} gutterBottom>
-                No customers found
+                {t('customers.empty')}
               </Typography>
               <Typography variant="body1" color="text.secondary" mb={3}>
                 {searchInput ? 'Try adjusting your search criteria' : 'Get started by adding your first customer'}
@@ -860,7 +861,7 @@ const CustomerPage = () => {
                   fontWeight: 600,
                 }}
               >
-                Add Your First Customer
+                {t('customers.addFirst')}
               </Button>
             </Card>
           ) : (
@@ -1001,7 +1002,7 @@ const CustomerPage = () => {
                         <Box sx={{ minWidth: 100, flex: { xs: 1, sm: 0 } }}>
                           <Box display="flex" alignItems="center" justifyContent="space-between" mb={0.5}>
                             <Typography variant="caption" color="text.secondary" fontWeight={500}>
-                              Engagement
+                              {t('customers.engagement')}
                             </Typography>
                             <Typography 
                               variant="body2" 
@@ -1032,11 +1033,7 @@ const CustomerPage = () => {
                         <Box display="flex" alignItems="center" gap={1}>
                           <CalendarIcon fontSize="small" sx={{ color: 'text.secondary', opacity: 0.7, flexShrink: 0 }} />
                           <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.8rem', sm: '0.875rem' } }}>
-                            {new Date(customer.createdAt).toLocaleDateString('en-US', {
-                              month: 'short',
-                              day: 'numeric',
-                              year: 'numeric'
-                            })}
+                            {formatLocalizedDate(customer.createdAt, locale)}
                           </Typography>
                         </Box>
                       </Box>

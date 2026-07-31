@@ -40,6 +40,15 @@ export class NotificationQueue {
   @Column({ name: 'baseMessage', type: 'text', nullable: false })
   baseMessage!: string;
 
+  @Column({ name: 'titleKey', type: 'varchar', length: 120, nullable: true })
+  titleKey?: string;
+
+  @Column({ name: 'messageKey', type: 'varchar', length: 120, nullable: true })
+  messageKey?: string;
+
+  @Column({ name: 'translationParams', type: 'json', nullable: true })
+  translationParams?: Record<string, string | number>;
+
   @Column({ name: 'actionUrl', type: 'varchar', length: 500, nullable: true })
   actionUrl?: string;
 

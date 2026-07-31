@@ -27,6 +27,7 @@ import {
   CheckBox as UnselectAllIcon,
 } from '@mui/icons-material';
 import { taskStatusTokens } from '../../styles/designTokens';
+import { useUserPreferences } from '../../contexts/UserPreferencesContext';
 
 interface SelectionModeTopBarProps {
   selectedCount: number;
@@ -52,6 +53,7 @@ export const SelectionModeTopBar: React.FC<SelectionModeTopBarProps> = ({
   allowedActions,
 }) => {
   const theme = useTheme();
+  const { t } = useUserPreferences();
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
   const [moveDialogOpen, setMoveDialogOpen] = React.useState(false);
   const [selectedStatus, setSelectedStatus] = React.useState<'todo' | 'in_progress' | 'review' | 'done' | 'cancelled' | null>(null);
@@ -59,11 +61,11 @@ export const SelectionModeTopBar: React.FC<SelectionModeTopBarProps> = ({
   const isAllowed = (action: 'delete' | 'done' | 'start' | 'todo' | 'in_progress' | 'review' | 'cancelled') =>
     !allowedActions || allowedActions.includes(action);
   const statusOptions = [
-    { value: 'todo' as const, label: taskStatusTokens.todo.label, description: 'Ready to be picked up', color: taskStatusTokens.todo.color },
-    { value: 'in_progress' as const, label: taskStatusTokens.in_progress.label, description: 'Work is currently underway', color: taskStatusTokens.in_progress.color },
-    { value: 'review' as const, label: taskStatusTokens.review.label, description: 'Waiting for feedback or approval', color: taskStatusTokens.review.color },
-    { value: 'done' as const, label: taskStatusTokens.done.label, description: 'Work has been completed', color: taskStatusTokens.done.color },
-    { value: 'cancelled' as const, label: taskStatusTokens.cancelled.label, description: 'Work will not continue', color: taskStatusTokens.cancelled.color },
+    { value: 'todo' as const, label: t('taskStatus.todo'), description: t('selection.status.todoDescription'), color: taskStatusTokens.todo.color },
+    { value: 'in_progress' as const, label: t('taskStatus.inProgress'), description: t('selection.status.inProgressDescription'), color: taskStatusTokens.in_progress.color },
+    { value: 'review' as const, label: t('taskStatus.review'), description: t('selection.status.reviewDescription'), color: taskStatusTokens.review.color },
+    { value: 'done' as const, label: t('taskStatus.done'), description: t('selection.status.doneDescription'), color: taskStatusTokens.done.color },
+    { value: 'cancelled' as const, label: t('taskStatus.cancelled'), description: t('selection.status.cancelledDescription'), color: taskStatusTokens.cancelled.color },
   ].filter((option) => isAllowed(option.value));
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
@@ -93,7 +95,7 @@ export const SelectionModeTopBar: React.FC<SelectionModeTopBarProps> = ({
     <Slide direction="up" in={isVisible} mountOnEnter unmountOnExit timeout={300}>
       <Box
         role="toolbar"
-        aria-label="Selection mode toolbar"
+        aria-label={t('selection.toolbar')}
         aria-live="polite"
         sx={{
           position: 'fixed',
@@ -127,7 +129,7 @@ export const SelectionModeTopBar: React.FC<SelectionModeTopBarProps> = ({
           <Chip
             label={selectedCount}
             size="medium"
-            aria-label={`${selectedCount} task${selectedCount !== 1 ? 's' : ''} selected`}
+            aria-label={t('selection.selectedCount', { count: selectedCount })}
             sx={{
               height: 32,
               fontWeight: 700,
@@ -147,7 +149,7 @@ export const SelectionModeTopBar: React.FC<SelectionModeTopBarProps> = ({
               display: { xs: 'none', sm: 'block' },
             }}
           >
-            {selectedCount > 0 ? 'Selected' : 'Select tasks'}
+            {selectedCount > 0 ? t('scheduleCard.selected') : t('selection.selectTasks')}
           </Typography>
 
           {/* Select All / Unselect All Toggle Button */}
@@ -178,7 +180,7 @@ export const SelectionModeTopBar: React.FC<SelectionModeTopBarProps> = ({
               transition: 'background-color 0.2s ease, border-color 0.2s ease',
             }}
           >
-            {areAllSelected ? 'Unselect All' : 'Select All'}
+            {areAllSelected ? t('selection.unselectAll') : t('selection.selectAll')}
           </Button>
         </Box>
 
@@ -204,10 +206,10 @@ export const SelectionModeTopBar: React.FC<SelectionModeTopBarProps> = ({
           }}
         >
           {/* Start Button */}
-          {isAllowed('start') && <Tooltip title="Start Progress">
+          {isAllowed('start') && <Tooltip title={t('selection.startHint')}>
             <IconButton
               onClick={() => onBulkAction('start')}
-              aria-label="Start progress on selected tasks"
+              aria-label={t('selection.startHint')}
               sx={{
                 width: { xs: 'auto', sm: 40 },
                 height: { xs: 48, sm: 40 },
@@ -224,15 +226,15 @@ export const SelectionModeTopBar: React.FC<SelectionModeTopBarProps> = ({
               }}
             >
               <StartIcon fontSize="small" />
-              <Typography component="span" sx={{ display: { xs: 'inline', sm: 'none' }, ml: 0.5, fontSize: '0.75rem', fontWeight: 700 }}>Start</Typography>
+              <Typography component="span" sx={{ display: { xs: 'inline', sm: 'none' }, ml: 0.5, fontSize: '0.75rem', fontWeight: 700 }}>{t('selection.start')}</Typography>
             </IconButton>
           </Tooltip>}
 
           {/* Done Button */}
-          {isAllowed('done') && <Tooltip title="Mark as Done">
+          {isAllowed('done') && <Tooltip title={t('selection.doneHint')}>
             <IconButton
               onClick={() => onBulkAction('done')}
-              aria-label="Mark selected tasks as done"
+              aria-label={t('selection.doneHint')}
               sx={{
                 width: { xs: 'auto', sm: 40 },
                 height: { xs: 48, sm: 40 },
@@ -249,15 +251,15 @@ export const SelectionModeTopBar: React.FC<SelectionModeTopBarProps> = ({
               }}
             >
               <DoneIcon fontSize="small" />
-              <Typography component="span" sx={{ display: { xs: 'inline', sm: 'none' }, ml: 0.5, fontSize: '0.75rem', fontWeight: 700 }}>Done</Typography>
+              <Typography component="span" sx={{ display: { xs: 'inline', sm: 'none' }, ml: 0.5, fontSize: '0.75rem', fontWeight: 700 }}>{t('selection.done')}</Typography>
             </IconButton>
           </Tooltip>}
 
           {/* More Button */}
-          {(isAllowed('delete') || statusOptions.length > 0) && <Tooltip title="More Actions">
+          {(isAllowed('delete') || statusOptions.length > 0) && <Tooltip title={t('selection.moreHint')}>
             <IconButton
               onClick={handleMenuOpen}
-              aria-label="More bulk actions"
+              aria-label={t('selection.moreHint')}
               aria-haspopup="true"
               sx={{
                 width: { xs: 'auto', sm: 40 },
@@ -273,15 +275,15 @@ export const SelectionModeTopBar: React.FC<SelectionModeTopBarProps> = ({
               }}
             >
               <MoreIcon fontSize="small" />
-              <Typography component="span" sx={{ display: { xs: 'inline', sm: 'none' }, ml: 0.5, fontSize: '0.75rem', fontWeight: 700 }}>More</Typography>
+              <Typography component="span" sx={{ display: { xs: 'inline', sm: 'none' }, ml: 0.5, fontSize: '0.75rem', fontWeight: 700 }}>{t('selection.more')}</Typography>
             </IconButton>
           </Tooltip>}
 
           {/* Close Button (Rightmost) */}
-          <Tooltip title="Exit selection mode">
+          <Tooltip title={t('selection.exit')}>
             <IconButton
               onClick={onClose}
-              aria-label="Exit selection mode"
+              aria-label={t('selection.exit')}
               sx={{
                 width: { xs: 'auto', sm: 40 },
                 height: { xs: 48, sm: 40 },
@@ -296,7 +298,7 @@ export const SelectionModeTopBar: React.FC<SelectionModeTopBarProps> = ({
               }}
             >
               <CloseIcon fontSize="small" />
-              <Typography component="span" sx={{ display: { xs: 'inline', sm: 'none' }, ml: 0.5, fontSize: '0.75rem', fontWeight: 700 }}>Cancel</Typography>
+              <Typography component="span" sx={{ display: { xs: 'inline', sm: 'none' }, ml: 0.5, fontSize: '0.75rem', fontWeight: 700 }}>{t('selection.cancel')}</Typography>
             </IconButton>
           </Tooltip>
         </Box>
@@ -349,10 +351,10 @@ export const SelectionModeTopBar: React.FC<SelectionModeTopBarProps> = ({
             </Box>
             <Box>
               <Typography sx={{ fontWeight: 600, color: '#FF3B30', fontSize: '0.9375rem' }}>
-                Delete Tasks
+                {t('selection.deleteTasks')}
               </Typography>
               <Typography variant="caption" sx={{ color: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)' }}>
-                Permanently remove
+                {t('selection.deleteHint')}
               </Typography>
             </Box>
           </MenuItem>}
@@ -387,10 +389,10 @@ export const SelectionModeTopBar: React.FC<SelectionModeTopBarProps> = ({
             </Box>
             <Box>
               <Typography sx={{ fontWeight: 600, color: theme.palette.mode === 'dark' ? '#fff' : '#000', fontSize: '0.9375rem' }}>
-                Move to...
+                {t('selection.moveTo')}
               </Typography>
               <Typography variant="caption" sx={{ color: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)' }}>
-                Change status
+                {t('selection.changeStatus')}
               </Typography>
             </Box>
           </MenuItem>}
@@ -405,9 +407,9 @@ export const SelectionModeTopBar: React.FC<SelectionModeTopBarProps> = ({
           PaperProps={{ sx: { borderRadius: { xs: 3, sm: 4 }, m: { xs: 1.5, sm: 3 } } }}
         >
           <DialogTitle id="move-tasks-title" sx={{ pb: 1 }}>
-            <Typography variant="h5" fontWeight={800}>Move selected tasks</Typography>
+            <Typography variant="h5" fontWeight={800}>{t('selection.moveTitle')}</Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-              Choose a new status for {selectedCount} selected {selectedCount === 1 ? 'task' : 'tasks'}.
+              {t('selection.moveDescription', { count: selectedCount, item: t(selectedCount === 1 ? 'selection.taskSingular' : 'selection.taskPlural') })}
             </Typography>
           </DialogTitle>
           <DialogContent sx={{ pt: '12px !important' }}>
@@ -444,7 +446,7 @@ export const SelectionModeTopBar: React.FC<SelectionModeTopBarProps> = ({
             </Box>
           </DialogContent>
           <DialogActions sx={{ px: 3, pb: 3, pt: 1.5 }}>
-            <Button onClick={() => setMoveDialogOpen(false)} color="inherit">Cancel</Button>
+            <Button onClick={() => setMoveDialogOpen(false)} color="inherit">{t('selection.cancel')}</Button>
             <Button
               variant="contained"
               disabled={!selectedStatus}
@@ -454,7 +456,7 @@ export const SelectionModeTopBar: React.FC<SelectionModeTopBarProps> = ({
                 setMoveDialogOpen(false);
               }}
             >
-              Move {selectedCount === 1 ? 'task' : `${selectedCount} tasks`}
+              {t('selection.applyCount', { count: selectedCount })}
             </Button>
           </DialogActions>
         </Dialog>

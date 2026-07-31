@@ -10,6 +10,7 @@ import {
   GroupAdd as GroupAddIcon,
   FileUpload as FileUploadIcon,
 } from '@mui/icons-material';
+import { useUserPreferences } from '../../contexts/UserPreferencesContext';
 
 interface AddCustomerMenuProps {
   anchorEl: HTMLElement | null;
@@ -36,6 +37,7 @@ const AddCustomerMenu: React.FC<AddCustomerMenuProps> = ({
   transformOrigin = { horizontal: 'right', vertical: 'top' },
   anchorOrigin = { horizontal: 'right', vertical: 'bottom' },
 }) => {
+  const { t } = useUserPreferences();
   return (
     <Menu
       anchorEl={anchorEl}
@@ -53,7 +55,7 @@ const AddCustomerMenu: React.FC<AddCustomerMenuProps> = ({
         <ListItemIcon>
           <PersonAddIcon fontSize="small" />
         </ListItemIcon>
-        <ListItemText>Add Single Customer</ListItemText>
+        <ListItemText>{t('customers.addSingle')}</ListItemText>
       </MenuItem>
       <MenuItem 
         onClick={() => {
@@ -64,7 +66,7 @@ const AddCustomerMenu: React.FC<AddCustomerMenuProps> = ({
         <ListItemIcon>
           <GroupAddIcon fontSize="small" />
         </ListItemIcon>
-        <ListItemText>Add Multiple Customers</ListItemText>
+        <ListItemText>{t('customers.addMultiple')}</ListItemText>
       </MenuItem>
       <MenuItem 
         onClick={() => {
@@ -75,7 +77,7 @@ const AddCustomerMenu: React.FC<AddCustomerMenuProps> = ({
         <ListItemIcon>
           <FileUploadIcon fontSize="small" />
         </ListItemIcon>
-        <ListItemText>Import from CSV</ListItemText>
+        <ListItemText>{t('customers.importCsv')}</ListItemText>
       </MenuItem>
     </Menu>
   );

@@ -16,7 +16,9 @@ import {
   CalendarToday,
   Close
 } from '@mui/icons-material';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, getYear, setYear } from 'date-fns';
+import { startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, getYear, setYear } from 'date-fns';
+import { useUserPreferences } from '../../contexts/UserPreferencesContext';
+import { formatLocalizedDate, formatLocalizedNumber } from '../../utils/localeFormat';
 
 
 interface RangeCalendarProps {
@@ -32,12 +34,14 @@ interface RangeCalendarProps {
 export const RangeCalendar: React.FC<RangeCalendarProps> = ({
   value,
   onChange,
-  label = 'Select Date Range',
+  label,
   disabled = false,
   error = false,
   helperText,
   bookedDates = []
 }) => {
+  const { t, locale } = useUserPreferences();
+  const resolvedLabel = label || t('calendar.selectRange');
   const theme = useTheme();
   const [open, setOpen] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -180,7 +184,7 @@ export const RangeCalendar: React.FC<RangeCalendarProps> = ({
                 }}
               >
                 <Typography variant="body2">
-                  {format(day, 'd')}
+                  {formatLocalizedNumber(day.getDate(), locale)}
                 </Typography>
                 {/* Add indicator for booked dates that are not selected */}
                 {isBooked && !isInCurrentSelection && (
@@ -258,15 +262,15 @@ export const RangeCalendar: React.FC<RangeCalendarProps> = ({
 
   const formatDisplayValue = () => {
     const [start, end] = value;
-    if (!start && !end) return label;
-    if (start && !end) return format(start, 'MMM d, yyyy') + ' - ...';
+    if (!start && !end) return resolvedLabel;
+    if (start && !end) return `${formatLocalizedDate(start, locale)} - …`;
     if (start && end) {
       if (isSameDay(start, end)) {
-        return format(start, 'MMM d, yyyy');
+        return formatLocalizedDate(start, locale);
       }
-      return format(start, 'MMM d, yyyy') + ' - ' + format(end, 'MMM d, yyyy');
+      return `${formatLocalizedDate(start, locale)} - ${formatLocalizedDate(end, locale)}`;
     }
-    return label;
+    return resolvedLabel;
   };
 
   return (
@@ -379,7 +383,7 @@ export const RangeCalendar: React.FC<RangeCalendarProps> = ({
             {/* Header */}
             <Stack direction="row" alignItems="center" justifyContent="space-between">
               <Typography variant="h6" sx={{ color: 'text.primary' }}>
-                {format(currentMonth, 'MMMM yyyy')}
+                {formatLocalizedDate(currentMonth, locale, { month: 'long', year: 'numeric' })}
               </Typography>
               
               <Stack direction="row" spacing={1}>
@@ -489,7 +493,7 @@ export const RangeCalendar: React.FC<RangeCalendarProps> = ({
                   }
                 }}
               >
-                Cancel
+                {t('common.cancel')}
               </Button>
               
               <Button
@@ -512,7 +516,7 @@ export const RangeCalendar: React.FC<RangeCalendarProps> = ({
                   }
                 }}
               >
-                Done
+                {t('common.done')}
               </Button>
             </Stack>
           </Stack>

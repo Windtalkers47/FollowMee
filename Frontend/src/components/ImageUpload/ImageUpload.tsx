@@ -23,6 +23,7 @@ import {
 import { TaskImage } from '../../api/task.api';
 import { taskApi } from '../../api/task.api';
 import ErrorDialog from './ErrorDialog';
+import { useUserPreferences } from '../../contexts/UserPreferencesContext';
 
 interface ImageUploadProps {
   images: TaskImage[];
@@ -37,6 +38,7 @@ export const ImageUpload: React.FC<ImageUploadProps> = ({
   maxImages = 10,
   disabled = false
 }) => {
+  const { t } = useUserPreferences();
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -370,7 +372,7 @@ export const ImageUpload: React.FC<ImageUploadProps> = ({
   return (
     <Box>
       <Typography variant="subtitle2" gutterBottom>
-        Task Images ({images.length}/{maxImages})
+        {t('image.taskImages', { count: images.length, max: maxImages })}
       </Typography>
 
       {error && (
@@ -413,7 +415,7 @@ export const ImageUpload: React.FC<ImageUploadProps> = ({
         </Typography>
         
         <Typography variant="body2" color="text.secondary" gutterBottom>
-          or click to browse files
+          {t('image.dropHint')}
         </Typography>
 
         <Stack direction="row" spacing={2} justifyContent="center" sx={{ mt: 2 }}>
@@ -426,7 +428,7 @@ export const ImageUpload: React.FC<ImageUploadProps> = ({
             }}
             disabled={disabled || images.length >= maxImages}
           >
-            Choose Files
+            {t('image.chooseFiles')}
           </Button>
 
           <Button
@@ -438,12 +440,12 @@ export const ImageUpload: React.FC<ImageUploadProps> = ({
             }}
             disabled={disabled || images.length >= maxImages}
           >
-            Add URL
+            {t('image.addUrl')}
           </Button>
         </Stack>
 
         <Typography variant="caption" color="text.secondary" sx={{ mt: 2 }}>
-          Supported formats: JPG, PNG, GIF, WebP. Maximum file size: 5MB per image.
+          {t('image.formatHelp')}
         </Typography>
       </Paper>
 
@@ -452,7 +454,7 @@ export const ImageUpload: React.FC<ImageUploadProps> = ({
         <Box sx={{ mb: 2 }}>
           <LinearProgress variant="determinate" value={uploadProgress} />
           <Typography variant="caption" sx={{ mt: 0.5 }}>
-            Uploading... {Math.round(uploadProgress)}%
+            {t('image.uploading', { percent: Math.round(uploadProgress) })}
           </Typography>
         </Box>
       )}
@@ -461,7 +463,7 @@ export const ImageUpload: React.FC<ImageUploadProps> = ({
       {images.length > 0 && (
         <Box sx={{ mb: 3 }}>
           <Typography variant="subtitle2" gutterBottom>
-            Uploaded Images
+            {t('image.uploaded')}
           </Typography>
           <Box
             sx={{
@@ -519,7 +521,7 @@ export const ImageUpload: React.FC<ImageUploadProps> = ({
       <Dialog open={urlDialogOpen} onClose={() => setUrlDialogOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Typography variant="h6">Add Image URL</Typography>
+            <Typography variant="h6">{t('image.addUrlTitle')}</Typography>
             <IconButton onClick={() => setUrlDialogOpen(false)}>
               <CloseIcon />
             </IconButton>
@@ -529,7 +531,7 @@ export const ImageUpload: React.FC<ImageUploadProps> = ({
         <DialogContent>
           <TextField
             fullWidth
-            label="Image URL"
+            label={t('image.urlLabel')}
             value={imageUrl}
             onChange={(e) => setImageUrl(e.target.value)}
             placeholder="https://example.com/image.jpg"
@@ -539,14 +541,14 @@ export const ImageUpload: React.FC<ImageUploadProps> = ({
         
         <DialogActions>
           <Button onClick={() => setUrlDialogOpen(false)}>
-            Cancel
+            {t('common.cancel')}
           </Button>
           <Button
             onClick={handleUrlAdd}
             variant="contained"
             disabled={!imageUrl.trim()}
           >
-            Add Image
+            {t('image.addImage')}
           </Button>
         </DialogActions>
       </Dialog>

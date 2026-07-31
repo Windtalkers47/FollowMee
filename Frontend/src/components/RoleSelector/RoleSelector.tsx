@@ -20,6 +20,7 @@ import {
   WorkspacePremiumOutlined,
 } from '@mui/icons-material';
 import { brandColors } from '../../styles/designTokens';
+import { useUserPreferences } from '../../contexts/UserPreferencesContext';
 
 interface RoleOption {
   value: string;
@@ -90,7 +91,17 @@ const RoleSelector: React.FC<RoleSelectorProps> = ({
   currentUserRole = ''
 }) => {
   const theme = useTheme();
+  const { t } = useUserPreferences();
   const [superadminTaken, setSuperadminTaken] = useState(false);
+  const roleCopy = (role: RoleOption) => {
+    const key = role.value.toLowerCase() === 'superadmin'
+      ? 'superAdmin'
+      : role.value.toLowerCase();
+    return {
+      label: t(`role.${key}` as Parameters<typeof t>[0]),
+      description: t(`role.${key}Description` as Parameters<typeof t>[0]),
+    };
+  };
 
   // Check if SuperAdmin is already taken
   useEffect(() => {
@@ -112,30 +123,29 @@ const RoleSelector: React.FC<RoleSelectorProps> = ({
       {superadminTaken && (
         <Alert severity="warning" sx={{ mb: 2 }}>
           <Typography variant="body2">
-            Super Administrator role is already assigned to {roleCounts.Superadmin} user(s). 
-            Only one Super Admin is allowed in the system. You're may choose Admin instead.
-            {currentUserRole === 'Superadmin' && ' You can keep your current role or choose a different one.'}
+            {t('role.superAdminTaken', { count: roleCounts.Superadmin })}
           </Typography>
         </Alert>
       )}
       
       <FormControl fullWidth error={!!error} disabled={disabled}>
         <InputLabel id="role-selector-label">
-          Choose Your Role
+          {t('role.choose')}
         </InputLabel>
         <Select
           labelId="role-selector-label"
           id="role-selector"
           value={value || ''}
-          label="Choose Your Role"
+          label={t('role.choose')}
           onChange={handleChange}
           renderValue={(selected) => {
             const role = roleOptions.find(r => r.value === selected);
-            return role ? (
+            const copy = role ? roleCopy(role) : undefined;
+            return role && copy ? (
               <Box display="flex" alignItems="center" gap={1}>
                 <Typography mr={1}>{role.icon}</Typography>
                 <Chip 
-                  label={role.label} 
+                  label={copy.label}
                   size="small" 
                   style={{ backgroundColor: role.color, color: 'white' }}
                 />
@@ -144,6 +154,7 @@ const RoleSelector: React.FC<RoleSelectorProps> = ({
           }}
         >
           {availableRoles.map((role) => {
+            const copy = roleCopy(role);
             const count = roleCounts[role.value as keyof typeof roleCounts] || 0;
             const isSuperAdmin = role.value === 'Superadmin';
             const isDisabled = isSuperAdmin && superadminTaken && currentUserRole !== 'Superadmin';
@@ -162,15 +173,15 @@ const RoleSelector: React.FC<RoleSelectorProps> = ({
                         color: role.color,
                         textShadow: theme.palette.mode === 'dark' ? '0 1px 2px rgba(0,0,0,0.3)' : 'none'
                       }}>
-                        {role.label}
+                        {copy.label}
                         {isDisabled && (
                           <Typography component="span" variant="caption" color="error.main" sx={{ ml: 1, fontWeight: 600 }}>
-                            (Already assigned)
+                            ({t('role.assigned')})
                           </Typography>
                         )}
                       </Typography>
                       <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, fontWeight: 400 }}>
-                        {role.description}
+                        {copy.description}
                       </Typography>
                     </Box>
                   </Box>
@@ -194,7 +205,7 @@ const RoleSelector: React.FC<RoleSelectorProps> = ({
         <FormHelperText>
           <Typography variant="caption" color="text.secondary" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
             <InfoOutlined sx={{ fontSize: 16 }} aria-hidden="true" />
-            Choose the role that best fits the user's responsibilities.
+            {t('role.chooseHelp')}
           </Typography>
         </FormHelperText>
       </FormControl>

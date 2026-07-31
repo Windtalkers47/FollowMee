@@ -100,6 +100,9 @@ export class NotificationService {
     notification.notificationType = dto.notificationType;
     notification.title = dto.title;
     notification.message = dto.message;
+    notification.titleKey = dto.titleKey;
+    notification.messageKey = dto.messageKey;
+    notification.translationParams = dto.translationParams;
     notification.entityType = dto.entityType;
     notification.entityId = dto.entityId;
     notification.actorUserId = dto.actorUserId;
@@ -557,6 +560,9 @@ export class NotificationService {
       notificationType: notification.notificationType,
       title: notification.title,
       message: notification.message,
+      titleKey: notification.titleKey,
+      messageKey: notification.messageKey,
+      translationParams: notification.translationParams,
       entityType: notification.entityType,
       entityId: notification.entityId,
       actorUserId: notification.actorUserId,

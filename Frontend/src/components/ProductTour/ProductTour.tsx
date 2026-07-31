@@ -20,6 +20,7 @@ import {
   SearchRounded,
   TuneRounded,
 } from '@mui/icons-material';
+import { useUserPreferences } from '../../contexts/UserPreferencesContext';
 
 export const REPLAY_TOUR_EVENT = 'followmee:replay-onboarding';
 
@@ -27,35 +28,15 @@ interface ProductTourProps {
   userKey?: string | number;
 }
 
-const steps = [
-  {
-    title: 'Welcome to FollowMee',
-    description: 'Your customers, work and conversations now live in one calm workspace.',
-    icon: <AutoAwesomeRounded />,
-    hint: 'Start with Dashboard for a quick view of what needs attention.',
-  },
-  {
-    title: 'Find anything faster',
-    description: 'Use the navigation to move between posts, schedules, customers and public profiles.',
-    icon: <SearchRounded />,
-    hint: 'On a phone, tap the menu button. The navigation stays out of your way until you need it.',
-  },
-  {
-    title: 'Stay focused',
-    description: 'Dashboard highlights pending work while notifications bring important changes to you.',
-    icon: <DashboardRounded />,
-    hint: 'Dark mode is always available from the top bar.',
-  },
-  {
-    title: 'Make it yours',
-    description: 'Tune appearance and notifications in Settings, or replay this guide whenever you want.',
-    icon: <TuneRounded />,
-    hint: 'You are ready to explore FollowMee.',
-  },
-];
-
 const ProductTour = ({ userKey = 'guest' }: ProductTourProps) => {
   const theme = useTheme();
+  const { t } = useUserPreferences();
+  const steps = useMemo(() => [
+    { title: t('tour.welcome.title'), description: t('tour.welcome.description'), icon: <AutoAwesomeRounded />, hint: t('tour.welcome.hint') },
+    { title: t('tour.find.title'), description: t('tour.find.description'), icon: <SearchRounded />, hint: t('tour.find.hint') },
+    { title: t('tour.focus.title'), description: t('tour.focus.description'), icon: <DashboardRounded />, hint: t('tour.focus.hint') },
+    { title: t('tour.personalize.title'), description: t('tour.personalize.description'), icon: <TuneRounded />, hint: t('tour.personalize.hint') },
+  ], [t]);
   const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
   const storageKey = useMemo(() => `followmee:onboarding:v1:${userKey}`, [userKey]);
   const [open, setOpen] = useState(() => !localStorage.getItem(storageKey));
@@ -112,7 +93,7 @@ const ProductTour = ({ userKey = 'guest' }: ProductTourProps) => {
         sx={{ height: 4 }}
       />
       <IconButton
-        aria-label="Close guide"
+        aria-label={t('tour.close')}
         onClick={finish}
         sx={{ position: 'absolute', top: 14, right: 14, zIndex: 1 }}
       >
@@ -183,9 +164,9 @@ const ProductTour = ({ userKey = 'guest' }: ProductTourProps) => {
             onClick={() => setStep((value) => Math.max(0, value - 1))}
             disabled={step === 0}
           >
-            Back
+            {t('tour.back')}
           </Button>
-          <Stack direction="row" spacing={0.75} aria-label={`Step ${step + 1} of ${steps.length}`}>
+          <Stack direction="row" spacing={0.75} aria-label={t('tour.step', { current: step + 1, total: steps.length })}>
             {steps.map((_, index) => (
               <Box
                 key={index}
@@ -204,7 +185,7 @@ const ProductTour = ({ userKey = 'guest' }: ProductTourProps) => {
             endIcon={!isLast ? <ArrowForwardRounded /> : undefined}
             onClick={() => (isLast ? finish() : setStep((value) => value + 1))}
           >
-            {isLast ? 'Get started' : 'Next'}
+            {isLast ? t('tour.start') : t('tour.next')}
           </Button>
         </Stack>
       </DialogContent>

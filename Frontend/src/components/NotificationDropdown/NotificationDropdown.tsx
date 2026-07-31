@@ -28,8 +28,10 @@ import {
   setDropdownOpen,
 } from '../../store/slices/notificationSlice';
 import NotificationItem from '../NotificationItem/NotificationItem';
+import { useUserPreferences } from '../../contexts/UserPreferencesContext';
 
 const NotificationDropdown = () => {
+  const { t } = useUserPreferences();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const dispatch = useAppDispatch();
@@ -97,7 +99,7 @@ const NotificationDropdown = () => {
     <Box
       ref={ref}
       role="dialog"
-      aria-label="Notifications"
+      aria-label={t('notification.title')}
       sx={{
         position: isMobile ? 'fixed' : 'absolute',
         top: isMobile ? 64 : '100%',
@@ -120,14 +122,14 @@ const NotificationDropdown = () => {
     >
       <Box sx={{ px: 2, py: 1.5, display: 'flex', alignItems: 'center', gap: 1, borderBottom: '1px solid', borderColor: 'divider' }}>
         <Box sx={{ flex: 1 }}>
-          <Typography variant="h6" fontWeight={750}>Notifications</Typography>
+          <Typography variant="h6" fontWeight={750}>{t('notification.title')}</Typography>
           <Typography variant="caption" color="text.secondary">
-            {unreadCount > 0 ? `${unreadCount} unread` : 'You are all caught up'}
+            {unreadCount > 0 ? t('notification.unreadCount', { count: unreadCount }) : t('notification.caughtUp')}
           </Typography>
         </Box>
         {unreadCount > 0 && (
           <Button size="small" startIcon={<DoneAll />} onClick={() => void dispatch(markAllAsRead())}>
-            Mark all read
+            {t('notification.markAllRead')}
           </Button>
         )}
       </Box>
@@ -135,18 +137,18 @@ const NotificationDropdown = () => {
         {loading && notifications.length === 0 ? (
           <Box sx={{ p: 5, display: 'grid', placeItems: 'center' }}><CircularProgress size={28} /></Box>
         ) : error ? (
-          <Alert severity="error" action={<Button size="small" onClick={() => void dispatch(fetchNotifications({ limit: 8 }))}>Retry</Button>}>
-            Unable to load notifications.
+          <Alert severity="error" action={<Button size="small" onClick={() => void dispatch(fetchNotifications({ limit: 8 }))}>{t('feedback.retry')}</Button>}>
+            {t('notification.loadError')}
           </Alert>
         ) : notifications.length === 0 ? (
           <Box sx={{ p: 5, textAlign: 'center' }}>
-            <Typography fontWeight={700}>No notifications yet</Typography>
-            <Typography variant="body2" color="text.secondary">Assignments and team conversations will appear here.</Typography>
+            <Typography fontWeight={700}>{t('notification.empty')}</Typography>
+            <Typography variant="body2" color="text.secondary">{t('notification.emptyHint')}</Typography>
           </Box>
         ) : (
           <>
-            {renderGroup('Today', groups.today)}
-            {renderGroup('Earlier', groups.earlier)}
+            {renderGroup(t('notification.today'), groups.today)}
+            {renderGroup(t('notification.earlier'), groups.earlier)}
           </>
         )}
       </Box>
@@ -158,7 +160,7 @@ const NotificationDropdown = () => {
         }}
         sx={{ m: 1, minHeight: 44 }}
       >
-        View all notifications
+        {t('notification.viewAll')}
       </Button>
     </Box>
   );

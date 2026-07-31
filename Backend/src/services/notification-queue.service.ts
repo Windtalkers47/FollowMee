@@ -97,6 +97,9 @@ export class NotificationQueueService {
     queueItem.setActorUserIds(dto.actorUserId ? [dto.actorUserId] : []);
     queueItem.title = dto.title;
     queueItem.baseMessage = dto.message;
+    queueItem.titleKey = dto.titleKey;
+    queueItem.messageKey = dto.messageKey;
+    queueItem.translationParams = dto.translationParams;
     queueItem.actionUrl = dto.actionUrl;
     queueItem.imageUrl = dto.imageUrl;
     queueItem.isSystem = dto.isSystem || false;
@@ -315,6 +318,12 @@ export class NotificationQueueService {
       entityId: queueItem.entityId,
       title: this.aggregateTitle(queueItem.title, actorCount),
       message: this.aggregateMessage(queueItem.baseMessage, actorUserIds),
+      titleKey: queueItem.titleKey,
+      messageKey: queueItem.messageKey,
+      translationParams: {
+        ...(queueItem.translationParams || {}),
+        actorCount,
+      },
       actionUrl: queueItem.actionUrl,
       imageUrl: queueItem.imageUrl,
       isSystem: queueItem.isSystem,

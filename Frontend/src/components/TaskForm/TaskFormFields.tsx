@@ -15,7 +15,7 @@ import {
 import { TaskImage, User } from '../../api/task.api';
 import { ImageUpload } from '../ImageUpload/ImageUpload';
 import { RangeCalendar } from '../RangeCalendar/RangeCalendar';
-import { formatRelativeTime } from '../../utils/dateUtils';
+import { formatLocalizedRelativeTime } from '../../utils/localeFormat';
 import { AccessTime, Update } from '@mui/icons-material';
 import { useUserPreferences } from '../../contexts/UserPreferencesContext';
 
@@ -40,7 +40,7 @@ export const TaskFormFields: React.FC<TaskFormFieldsProps> = ({
   onImagesChange,
   bookedDates = []
 }) => {
-  const { t } = useUserPreferences();
+  const { t, locale } = useUserPreferences();
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
         {/* Basic Information */}
@@ -123,7 +123,7 @@ export const TaskFormFields: React.FC<TaskFormFieldsProps> = ({
                     bgcolor: 'action.hover',
                   }}>
                     <AccessTime sx={{ fontSize: 15 }} aria-hidden="true" />
-                    {t('task.form.created')}: {formatRelativeTime(formData.createdAt)}
+                    {t('task.form.created')}: {formatLocalizedRelativeTime(formData.createdAt, locale)}
                   </Typography>
                 )}
                 {formData.updatedAt && formData.updatedAt !== formData.createdAt && (
@@ -136,7 +136,7 @@ export const TaskFormFields: React.FC<TaskFormFieldsProps> = ({
                     bgcolor: 'action.hover',
                   }}>
                     <Update sx={{ fontSize: 15 }} aria-hidden="true" />
-                    {t('task.form.updated')}: {formatRelativeTime(formData.updatedAt)}
+                    {t('task.form.updated')}: {formatLocalizedRelativeTime(formData.updatedAt, locale)}
                   </Typography>
                 )}
               </Box>

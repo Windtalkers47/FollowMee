@@ -4,6 +4,7 @@ import { Task } from '../../api/task.api';
 import { TaskPermissions } from '../../permissions/taskPermissions';
 import { useLiquidGlass } from '../../contexts/LiquidGlassContext';
 import { gradientPresets } from '../../styles/liquidGlassStyles';
+import { useUserPreferences } from '../../contexts/UserPreferencesContext';
 
 interface TaskActionsProps {
   task: Task;
@@ -20,6 +21,7 @@ const TaskActions: React.FC<TaskActionsProps> = ({
   onMarkUndone,
   onApproveTask,
 }) => {
+  const { t } = useUserPreferences();
   const { liquidGlassSettings } = useLiquidGlass();
   const preset = gradientPresets[liquidGlassSettings.gradientPreset];
 
@@ -72,7 +74,7 @@ const TaskActions: React.FC<TaskActionsProps> = ({
           sx={getButtonVariant('#3b82f6', '#2563eb', '✓')}
         >
           <span style={{ marginRight: 4 }}>✓</span>
-          Submit for Review
+          {t('task.submitReview')}
         </Button>
       )}
 
@@ -85,7 +87,7 @@ const TaskActions: React.FC<TaskActionsProps> = ({
           sx={getButtonVariant('#10b981', '#059669', '✓')}
         >
           <span style={{ marginRight: 4 }}>✓</span>
-          Approve
+          {t('task.approve')}
         </Button>
       )}
 
@@ -98,7 +100,7 @@ const TaskActions: React.FC<TaskActionsProps> = ({
           sx={getButtonVariant('#f59e0b', '#d97706', '×')}
         >
           <span style={{ marginRight: 4 }}>×</span>
-          Reject
+          {t('task.reject')}
         </Button>
       )}
 
@@ -111,7 +113,7 @@ const TaskActions: React.FC<TaskActionsProps> = ({
           sx={getButtonVariant('#f59e0b', '#d97706', '↩')}
         >
           <span style={{ marginRight: 4 }}>↩</span>
-          Undo
+          {t('task.undo')}
         </Button>
       )}
     </Box>

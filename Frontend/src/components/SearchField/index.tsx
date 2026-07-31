@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, KeyboardEvent } from 'react';
 import { InputAdornment, TextField, IconButton, TextFieldProps, Box, Button, Fade } from '@mui/material';
 import { Search as SearchIcon, Clear as ClearIcon } from '@mui/icons-material';
+import { useUserPreferences } from '../../contexts/UserPreferencesContext';
 
 interface SearchFieldProps extends Omit<TextFieldProps, 'onChange'> {
   value: string;
@@ -24,6 +25,7 @@ export const SearchField = ({
   loading = false,
   ...props
 }: SearchFieldProps) => {
+  const { t } = useUserPreferences();
   const [inputValue, setInputValue] = useState(value || '');
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -101,7 +103,7 @@ export const SearchField = ({
             <Fade in={!!inputValue} unmountOnExit>
               <InputAdornment position="end">
                 <IconButton
-                  aria-label="Clear search"
+                  aria-label={t('search.clear')}
                   onClick={handleClear}
                   edge="end"
                   size="small"
@@ -125,7 +127,7 @@ export const SearchField = ({
           },
         }}
         inputProps={{
-          'aria-label': 'search',
+          'aria-label': t('common.search'),
           style: { fontSize: 16, padding: '10px 0' },
         }}
         {...props}
@@ -151,10 +153,10 @@ export const SearchField = ({
             bgcolor: 'primary.dark',
           },
         }}
-        aria-label="Search"
+        aria-label={t('common.search')}
         tabIndex={0}
       >
-        Search
+        {t('common.search')}
       </Button>
     </Box>
   );

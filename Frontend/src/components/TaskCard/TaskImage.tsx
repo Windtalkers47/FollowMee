@@ -2,6 +2,7 @@ import React from 'react';
 import { Box, Typography } from '@mui/material';
 import { Task } from '../../api/task.api';
 import { getResponsiveImageProps } from '../../utils/imageUtils';
+import { useUserPreferences } from '../../contexts/UserPreferencesContext';
 
 interface TaskImageProps {
   task: Task;
@@ -9,6 +10,7 @@ interface TaskImageProps {
 }
 
 const TaskImage: React.FC<TaskImageProps> = ({ task, onImageClick }) => {
+  const { t } = useUserPreferences();
 
   if (!task.imageUrl) return null;
 
@@ -65,7 +67,7 @@ const TaskImage: React.FC<TaskImageProps> = ({ task, onImageClick }) => {
             WebkitBackdropFilter: 'blur(8px)',
           }}
         >
-          View
+          {t('task.view')}
         </Typography>
       </Box>
     </Box>

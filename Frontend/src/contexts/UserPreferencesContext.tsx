@@ -30,9 +30,9 @@ const browserLocale = (): Locale =>
     ? 'th'
     : 'en';
 
-const loadLocal = (): StoredPreferences => {
+const normalizeStored = (raw: string | null): StoredPreferences => {
   try {
-    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+    const saved = JSON.parse(raw || '{}');
     return {
       locale: saved.locale === 'th' ? 'th' : saved.locale === 'en' ? 'en' : browserLocale(),
       brandTheme: saved.brandTheme === 'green' ? 'green' : 'purple',
@@ -44,6 +44,9 @@ const loadLocal = (): StoredPreferences => {
     return { locale: browserLocale(), brandTheme: 'purple', colorMode: 'system' };
   }
 };
+
+const loadLocal = (): StoredPreferences =>
+  normalizeStored(localStorage.getItem(STORAGE_KEY));
 
 interface UserPreferencesContextValue extends StoredPreferences {
   resolvedMode: 'light' | 'dark';
@@ -134,6 +137,15 @@ export const UserPreferencesProvider = ({ children }: { children: ReactNode }) =
     document.documentElement.lang = preferences.locale;
     axios.defaults.headers.common['x-user-locale'] = preferences.locale;
   }, [preferences.locale]);
+
+  useEffect(() => {
+    const syncFromAnotherTab = (event: StorageEvent) => {
+      if (event.key !== STORAGE_KEY || !event.newValue) return;
+      setPreferences(normalizeStored(event.newValue));
+    };
+    window.addEventListener('storage', syncFromAnotherTab);
+    return () => window.removeEventListener('storage', syncFromAnotherTab);
+  }, []);
 
   return (
     <UserPreferencesContext.Provider value={value}>

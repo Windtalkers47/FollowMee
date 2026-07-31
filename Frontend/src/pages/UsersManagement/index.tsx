@@ -44,6 +44,7 @@ import { useUsersManagement, User, Role } from '../../hooks/useUsersManagement';
 import { ROLE_NAMES, normalizeRoleName } from '../../constants/roles';
 import feedback from '../../services/feedback.service';
 import { useUserPreferences } from '../../contexts/UserPreferencesContext';
+import { formatLocalizedDate } from '../../utils/localeFormat';
 
 // Styled components
 const StyledCard = styled(Card)(({ theme }) => ({
@@ -84,7 +85,7 @@ const getRoleColor = (role: string) => {
 const UsersPage = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
-  const { t } = useUserPreferences();
+  const { t, locale } = useUserPreferences();
   const {
     users,
     roles,
@@ -350,7 +351,7 @@ const UsersPage = () => {
           }}
           sx={{ mb: 3 }}
         >
-          Add user
+            {t('users.addMember')}
         </Button>
       )}
 
@@ -449,7 +450,7 @@ const UsersPage = () => {
                       />
                     </TableCell>
                     <TableCell>
-                      {new Date(user.createdAt).toLocaleDateString()}
+                      {formatLocalizedDate(user.createdAt, locale)}
                     </TableCell>
                     <TableCell align="center">
                       <Tooltip title={t('users.manageRoles')}>
@@ -523,7 +524,7 @@ const UsersPage = () => {
         fullWidth
       >
         <DialogTitle>
-          Manage Roles - {assignRoleDialog.user?.userName} {assignRoleDialog.user?.userLastName}
+          {t('users.manageRolesFor', { name: `${assignRoleDialog.user?.userName || ''} ${assignRoleDialog.user?.userLastName || ''}`.trim() })}
         </DialogTitle>
         <DialogContent>
           <Box mt={2}>
@@ -551,15 +552,15 @@ const UsersPage = () => {
                           fontWeight: 'bold',
                           textShadow: theme.palette.mode === 'dark' ? '0 1px 2px rgba(0,0,0,0.3)' : 'none'
                         }}>
-                          Super Admin
+                          {t('role.superAdmin')}
                           {isSuperAdminTaken && (
                             <Typography component="span" variant="caption" color="error.main" sx={{ ml: 1, fontWeight: 600 }}>
-                              (Already assigned)
+                              ({t('users.alreadyAssigned')})
                             </Typography>
                           )}
                         </Typography>
                         <Typography variant="caption" color="text.secondary" display="block">
-                          Complete system control. Only one allowed.
+                          {t('role.superAdminDescription')}
                         </Typography>
                       </Box>
                     </Box>
@@ -580,9 +581,9 @@ const UsersPage = () => {
                           color: 'text.primary',
                           fontWeight: 'bold',
                           textShadow: theme.palette.mode === 'dark' ? '0 1px 2px rgba(0,0,0,0.3)' : 'none'
-                        }}>Admin</Typography>
+                        }}>{t('role.admin')}</Typography>
                         <Typography variant="caption" color="text.secondary" display="block">
-                          Can manage users, customers, tasks, and system settings.
+                          {t('role.adminDescription')}
                         </Typography>
                       </Box>
                     </Box>
@@ -603,9 +604,9 @@ const UsersPage = () => {
                           color: 'text.primary',
                           fontWeight: 'bold',
                           textShadow: theme.palette.mode === 'dark' ? '0 1px 2px rgba(0,0,0,0.3)' : 'none'
-                        }}>Moderator</Typography>
+                        }}>{t('role.moderator')}</Typography>
                         <Typography variant="caption" color="text.secondary" display="block">
-                          Can view and moderate users, customers, and tasks.
+                          {t('role.moderatorDescription')}
                         </Typography>
                       </Box>
                     </Box>
@@ -626,9 +627,9 @@ const UsersPage = () => {
                           color: 'text.primary',
                           fontWeight: 'bold',
                           textShadow: theme.palette.mode === 'dark' ? '0 1px 2px rgba(0,0,0,0.3)' : 'none'
-                        }}>Customer</Typography>
+                        }}>{t('role.customer')}</Typography>
                         <Typography variant="caption" color="text.secondary" display="block">
-                          Regular user access with basic features.
+                          {t('role.customerDescription')}
                         </Typography>
                       </Box>
                     </Box>

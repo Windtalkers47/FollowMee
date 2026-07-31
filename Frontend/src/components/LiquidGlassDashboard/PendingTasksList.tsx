@@ -5,6 +5,8 @@ import { PendingTask } from '../../services/api/dashboardApi';
 import { GradientPresetKey } from '../../styles/liquidGlassStyles';
 import { AccessTime, CheckCircle, ArrowForward, Flag } from '@mui/icons-material';
 import { brandColors } from '../../styles/designTokens';
+import { useUserPreferences } from '../../contexts/UserPreferencesContext';
+import type { MessageKey } from '../../i18n/messages';
 
 interface PendingTasksListProps {
   tasks: PendingTask[];
@@ -22,14 +24,6 @@ const statusColors: Record<string, string> = {
   cancelled: brandColors.red,
 };
 
-const statusLabels: Record<string, string> = {
-  todo: 'To Do',
-  in_progress: 'In Progress',
-  review: 'Review',
-  done: 'Done',
-  cancelled: 'Cancelled',
-};
-
 export const PendingTasksList: React.FC<PendingTasksListProps> = ({
   tasks,
   gradientPreset = 'freshGreen',
@@ -37,6 +31,7 @@ export const PendingTasksList: React.FC<PendingTasksListProps> = ({
   sx = {},
   onTaskClick,
 }) => {
+  const { t } = useUserPreferences();
   const getPriorityColor = (priority: string) => {
     switch (priority) {
       case 'high':
@@ -53,11 +48,11 @@ export const PendingTasksList: React.FC<PendingTasksListProps> = ({
   const getPriorityLabel = (priority: string) => {
     switch (priority) {
       case 'high':
-        return 'High';
+        return t('priority.high');
       case 'medium':
-        return 'Medium';
+        return t('priority.medium');
       case 'low':
-        return 'Low';
+        return t('priority.low');
       default:
         return priority;
     }
@@ -71,13 +66,13 @@ export const PendingTasksList: React.FC<PendingTasksListProps> = ({
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
     if (diffDays < 0) {
-      return { text: `${Math.abs(diffDays)}d overdue`, color: brandColors.red };
+      return { text: t('dashboard.overdueDaysShort', { count: Math.abs(diffDays) }), color: brandColors.red };
     } else if (diffDays === 0) {
-      return { text: 'Today', color: brandColors.amber };
+      return { text: t('dashboard.today'), color: brandColors.amber };
     } else if (diffDays === 1) {
-      return { text: 'Tomorrow', color: brandColors.blue };
+      return { text: t('dashboard.tomorrow'), color: brandColors.blue };
     } else {
-      return { text: `In ${diffDays}d`, color: isDarkMode ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)' };
+      return { text: t('dashboard.inDaysShort', { count: diffDays }), color: isDarkMode ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)' };
     }
   };
 
@@ -94,7 +89,7 @@ export const PendingTasksList: React.FC<PendingTasksListProps> = ({
         <Box display="flex" alignItems="center" gap={1}>
           <AccessTime sx={{ color: 'primary.main', fontSize: 20 }} />
           <Typography variant="h6" sx={{ fontWeight: 700, color: isDarkMode ? '#fff' : '#1a1a1a' }}>
-            Pending Tasks
+            {t('dashboard.pendingTasks')}
           </Typography>
         </Box>
         <Typography
@@ -108,7 +103,7 @@ export const PendingTasksList: React.FC<PendingTasksListProps> = ({
             fontWeight: 600,
           }}
         >
-          {tasks.length} tasks
+          {t('dashboard.pendingCount', { count: tasks.length })}
         </Typography>
       </Box>
 
@@ -120,9 +115,9 @@ export const PendingTasksList: React.FC<PendingTasksListProps> = ({
         >
           <CheckCircle sx={{ fontSize: 48, mb: 2, opacity: 0.5, color: 'primary.main' }} />
           <Typography variant="body1" sx={{ fontWeight: 600, color: isDarkMode ? '#fff' : '#1a1a1a' }}>
-            All caught up!
+            {t('dashboard.allCaughtUp')}
           </Typography>
-          <Typography variant="caption">No pending tasks</Typography>
+          <Typography variant="caption">{t('dashboard.noPending')}</Typography>
         </Box>
       ) : (
         <Box>
@@ -193,7 +188,7 @@ export const PendingTasksList: React.FC<PendingTasksListProps> = ({
                         fontWeight: 600,
                       }}
                     >
-                      {statusLabels[task.status] || task.status}
+                      {t(`taskStatus.${task.status === 'in_progress' ? 'inProgress' : task.status}` as MessageKey)}
                     </Box>
 
                     {/* Priority Badge */}

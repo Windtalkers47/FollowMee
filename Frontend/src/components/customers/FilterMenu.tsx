@@ -10,6 +10,7 @@ import {
   Label as LabelIcon,
   AccessTime as AccessTimeIcon,
 } from '@mui/icons-material';
+import { useUserPreferences } from '../../contexts/UserPreferencesContext';
 
 interface FilterMenuProps {
   anchorEl: HTMLElement | null;
@@ -26,6 +27,7 @@ const FilterMenu: React.FC<FilterMenuProps> = ({
   onFilterByTags = onClose,
   onFilterByLastActive = onClose,
 }) => {
+  const { t } = useUserPreferences();
   return (
     <Menu
       anchorEl={anchorEl}
@@ -41,7 +43,7 @@ const FilterMenu: React.FC<FilterMenuProps> = ({
         <ListItemIcon>
           <FilterAltIcon fontSize="small" />
         </ListItemIcon>
-        <ListItemText>Filter by Status</ListItemText>
+        <ListItemText>{t('customers.filterStatus')}</ListItemText>
       </MenuItem>
       <MenuItem 
         onClick={() => {
@@ -52,7 +54,7 @@ const FilterMenu: React.FC<FilterMenuProps> = ({
         <ListItemIcon>
           <LabelIcon fontSize="small" />
         </ListItemIcon>
-        <ListItemText>Filter by Tags</ListItemText>
+        <ListItemText>{t('customers.filterTags')}</ListItemText>
       </MenuItem>
       <MenuItem 
         onClick={() => {
@@ -63,7 +65,7 @@ const FilterMenu: React.FC<FilterMenuProps> = ({
         <ListItemIcon>
           <AccessTimeIcon fontSize="small" />
         </ListItemIcon>
-        <ListItemText>Filter by Last Active</ListItemText>
+        <ListItemText>{t('customers.filterLastActive')}</ListItemText>
       </MenuItem>
     </Menu>
   );

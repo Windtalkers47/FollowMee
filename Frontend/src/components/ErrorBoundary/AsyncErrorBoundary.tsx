@@ -1,6 +1,7 @@
 import React, { useState, useEffect, ReactNode, ErrorInfo } from 'react';
 import { Box, Typography, Button, Paper, CircularProgress } from '@mui/material';
 import { Error as ErrorIcon, Refresh as RefreshIcon } from '@mui/icons-material';
+import { useUserPreferences } from '../../contexts/UserPreferencesContext';
 
 interface AsyncErrorBoundaryProps {
   children: ReactNode;
@@ -35,6 +36,7 @@ export const AsyncErrorBoundary: React.FC<AsyncErrorBoundaryProps> = ({
   maxRetries = 3,
   onRetry,
 }) => {
+  const { t } = useUserPreferences();
   const [state, setState] = useState<ErrorState>({
     hasError: false,
     error: null,
@@ -148,10 +150,10 @@ export const AsyncErrorBoundary: React.FC<AsyncErrorBoundaryProps> = ({
           >
             <ErrorIcon sx={{ fontSize: 48, color: 'error.main', mb: 2 }} />
             <Typography variant="h6" fontWeight="bold" gutterBottom>
-              Unable to Load Content
+              {t('error.loadTitle')}
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              We've tried {maxRetries} times but encountered an error.
+              {t('error.retriesExhausted', { count: maxRetries })}
             </Typography>
             <Button
               variant="contained"
@@ -161,7 +163,7 @@ export const AsyncErrorBoundary: React.FC<AsyncErrorBoundaryProps> = ({
                 bgcolor: 'primary.main',
               }}
             >
-              Reset and Try Again
+              {t('error.resetRetry')}
             </Button>
           </Paper>
         </Box>
@@ -192,10 +194,10 @@ export const AsyncErrorBoundary: React.FC<AsyncErrorBoundaryProps> = ({
         >
           <ErrorIcon sx={{ fontSize: 48, color: 'warning.main', mb: 2 }} />
           <Typography variant="h6" fontWeight="bold" gutterBottom>
-            Something Went Wrong
+            {t('error.title')}
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Attempt {state.retryCount + 1} of {maxRetries}
+            {t('error.attempt', { current: state.retryCount + 1, total: maxRetries })}
           </Typography>
           
           {state.error && process.env.NODE_ENV === 'development' && (

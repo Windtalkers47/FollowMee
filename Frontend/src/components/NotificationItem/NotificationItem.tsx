@@ -23,13 +23,16 @@ import {
   ScheduleOutlined,
   Undo,
 } from '@mui/icons-material';
-import { formatDistanceToNow } from 'date-fns';
-import { enUS, th } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
 import SmartAvatar from '../SmartAvatar/SmartAvatar';
 import { NotificationRecipient } from '../../types/notification.types';
 import { trackClick, trackOpen } from '../../api/notification.api';
 import { useUserPreferences } from '../../contexts/UserPreferencesContext';
+import { formatLocalizedRelativeTime } from '../../utils/localeFormat';
+import {
+  getNotificationPresentation,
+  getNotificationTypeLabel,
+} from '../../utils/notificationPresentation';
 
 interface NotificationItemProps {
   recipient: NotificationRecipient;
@@ -41,20 +44,6 @@ interface NotificationItemProps {
   onNavigate?: () => void;
   archived?: boolean;
 }
-
-const getLabel = (type: string, locale: 'en' | 'th') => {
-  if (locale === 'th') {
-    if (type.includes('ASSIGNED')) return 'มอบหมายงาน';
-    if (type.includes('COMMENT')) return 'ความคิดเห็น';
-    if (type.includes('REPLY')) return 'การตอบกลับ';
-    if (type.includes('REACTION') || type.includes('LIKE')) return 'ความรู้สึก';
-    if (type.includes('DEADLINE')) return 'กำหนดส่ง';
-    if (type.includes('ROLE')) return 'สิทธิ์ผู้ใช้';
-    if (type.includes('TASK')) return 'งาน';
-    return 'ระบบ';
-  }
-  return type.toLowerCase().replaceAll('_', ' ').replace(/\b\w/g, letter => letter.toUpperCase());
-};
 
 const NotificationItem = ({
   recipient,
@@ -71,6 +60,7 @@ const NotificationItem = ({
   const navigate = useNavigate();
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   const { notification } = recipient;
+  const presentation = getNotificationPresentation(notification, t);
 
   const color = notification.notificationType.includes('COMMENT')
     || notification.notificationType === 'MENTION'
@@ -125,7 +115,7 @@ const NotificationItem = ({
       <Box
         role="button"
         tabIndex={0}
-        aria-label={`${notification.title}. ${notification.message}`}
+        aria-label={`${presentation.title}. ${presentation.message}`}
         onClick={handleClick}
         onKeyDown={event => {
           if (event.key === 'Enter' || event.key === ' ') {
@@ -146,19 +136,16 @@ const NotificationItem = ({
       >
         <Box sx={{ display: 'flex', gap: 1, alignItems: 'baseline' }}>
           <Typography variant="body2" fontWeight={recipient.isRead ? 600 : 750} sx={{ flex: 1 }}>
-            {notification.title}
+            {presentation.title}
           </Typography>
           <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0 }}>
-            {formatDistanceToNow(new Date(notification.createdAt), {
-              addSuffix: true,
-              locale: locale === 'th' ? th : enUS,
-            })}
+            {formatLocalizedRelativeTime(notification.createdAt, locale)}
           </Typography>
         </Box>
         <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-          {notification.message}
+          {presentation.message}
         </Typography>
-        <Chip label={getLabel(notification.notificationType, locale)} size="small" sx={{ mt: 0.75, height: 22, bgcolor: alpha(color, 0.11), color, fontWeight: 650 }} />
+        <Chip label={getNotificationTypeLabel(notification.notificationType, t)} size="small" sx={{ mt: 0.75, height: 22, bgcolor: alpha(color, 0.11), color, fontWeight: 650 }} />
       </Box>
       <IconButton
         aria-label={t('notification.actions')}

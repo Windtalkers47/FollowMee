@@ -9,6 +9,7 @@ import { selectCurrentUser } from '../../store/slices/authSlice';
 import YouTubeThreadedRow from './YouTubeThreadedRow';
 import SmartAvatar from '../SmartAvatar';
 import { useSearchParams } from 'react-router-dom';
+import { useUserPreferences } from '../../contexts/UserPreferencesContext';
 
 interface CommentTreeProps {
   taskId: string;
@@ -19,6 +20,7 @@ const CommentTreeComponent: React.FC<CommentTreeProps> = ({ taskId, maxDepth = 2
   const commentData = useComments({ taskId, maxDepth });
   const currentUser = useAppSelector(selectCurrentUser);
   const [searchParams] = useSearchParams();
+  const { t } = useUserPreferences();
   const {
     visibleTree,
     isLoading,
@@ -90,7 +92,7 @@ const CommentTreeComponent: React.FC<CommentTreeProps> = ({ taskId, maxDepth = 2
                   submit();
                 }
               }}
-              placeholder="Write a comment or mention @username…"
+              placeholder={t('comments.placeholder')}
               size="small"
               multiline
               maxRows={5}
@@ -98,7 +100,7 @@ const CommentTreeComponent: React.FC<CommentTreeProps> = ({ taskId, maxDepth = 2
             />
             <IconButton
               color="primary"
-              aria-label="Send comment"
+              aria-label={t('comments.send')}
               disabled={!newCommentText.trim()}
               onClick={submit}
             >
@@ -108,23 +110,23 @@ const CommentTreeComponent: React.FC<CommentTreeProps> = ({ taskId, maxDepth = 2
 
           <Box sx={{ mt: 2.5, pb: 1, borderBottom: '1px solid', borderColor: 'divider' }}>
             <Typography variant="subtitle1" fontWeight={750}>
-              {visibleTree?.totalComments || 0} {(visibleTree?.totalComments || 0) === 1 ? 'comment' : 'comments'}
+              {t('comments.count', { count: visibleTree?.totalComments || 0 })}
             </Typography>
           </Box>
 
           {isLoading && (
             <Typography color="text.secondary" sx={{ py: 3, textAlign: 'center' }}>
-              Loading comments…
+              {t('comments.loading')}
             </Typography>
           )}
           {error && (
             <Alert severity="error" sx={{ mt: 2 }}>
-              Unable to load comments. Please try again.
+              {t('comments.loadError')}
             </Alert>
           )}
           {!isLoading && !error && flatRows.length === 0 && (
             <Typography color="text.secondary" sx={{ py: 3, textAlign: 'center' }}>
-              No comments yet. Start the conversation.
+              {t('comments.empty')}
             </Typography>
           )}
           {!isLoading && !error && flatRows.map(row => (

@@ -218,8 +218,8 @@ const MainLayout = ({ children }: MainLayoutProps) => {
   
   const handleRemoveProfileImage = useCallback(async () => {
     const result = await feedback.fire({
-      title: 'Remove Image?',
-      text: 'Are you sure you want to remove your profile image? It will be deleted from Cloudinary and database.',
+      title: t('account.removeImageTitle'),
+      text: t('account.removeImageText'),
       icon: 'warning',
       showCancelButton: true,
       confirmButtonText: 'Yes, remove it!',
@@ -599,7 +599,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
                 <Logout />
               </ListItemIcon>
               <ListItemText
-                primary={showDrawerLabels ? t('nav.logout') : 'Logout'}
+                primary={t('nav.logout')}
                 sx={{ m: 0 }}
                 primaryTypographyProps={{ fontSize: showDrawerLabels ? 'inherit' : '0.68rem', lineHeight: 1.05, textAlign: 'center' }}
               />
@@ -637,7 +637,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
       >
         <Toolbar>
           <IconButton
-            aria-label="Open navigation"
+            aria-label={t('account.openNavigation')}
             data-tour="mobile-navigation"
             sx={{ display: { md: 'none' } }}
             onClick={handleDrawerToggle}
@@ -843,17 +843,17 @@ const MainLayout = ({ children }: MainLayoutProps) => {
       <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleMenuClose}>
         <MenuItem onClick={handleProfileModalOpen}>
           <EditIcon fontSize="small" sx={{ mr: 1 }} />
-          Edit Profile
+          {t('account.editProfile')}
         </MenuItem>
         <Divider />
         <MenuItem onClick={handleDeleteModalOpen}>
           <DeleteIcon fontSize="small" sx={{ mr: 1 }} />
-          Delete Account
+          {t('account.deleteAccount')}
         </MenuItem>
         <Divider />
         <MenuItem onClick={handleLogout}>
           <Logout fontSize="small" sx={{ mr: 1 }} />
-          Logout
+          {t('nav.logout')}
         </MenuItem>
       </Menu>
 
@@ -879,9 +879,9 @@ const MainLayout = ({ children }: MainLayoutProps) => {
         <DialogTitle>
           <Box display="flex" alignItems="center" justifyContent="space-between">
             <Typography variant="h6" sx={{ color: theme.palette.mode === 'dark' ? '#ffffff' : '#1a1a1a', fontWeight: 600 }}>
-              Edit Profile
+              {t('account.editProfile')}
             </Typography>
-            <IconButton onClick={handleProfileModalClose} aria-label="Close profile editor">
+            <IconButton onClick={handleProfileModalClose} aria-label={t('account.closeEditor')}>
               <CloseIcon />
             </IconButton>
           </Box>
@@ -983,7 +983,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
                   onClick={handleRemoveProfileImage}
                   disabled={isUploadingImage}
                 >
-                  Remove Image
+                  {t('account.removeImage')}
                 </Button>
               </Box>
             </Box>
@@ -991,7 +991,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
             {/* Basic Info */}
             <TextField
               fullWidth
-              label="First Name"
+              label={t('common.firstName')}
               value={profileData.userName}
               onChange={(e) => handleProfileChange('userName', e.target.value)}
               sx={{
@@ -1013,7 +1013,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
             />
             <TextField
               fullWidth
-              label="Last Name"
+              label={t('common.lastName')}
               value={profileData.userLastName}
               onChange={(e) => handleProfileChange('userLastName', e.target.value)}
               sx={{
@@ -1035,7 +1035,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
             />
             <TextField
               fullWidth
-              label="Email"
+                  label={t('common.email')}
               type="email"
               value={profileData.userEmail}
               onChange={(e) => handleProfileChange('userEmail', e.target.value)}
@@ -1060,7 +1060,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
             {/* Phone Numbers */}
             <TextField
               fullWidth
-              label="Phone 1"
+              label={t('account.phone1')}
               value={profileData.userPhone1}
               onChange={(e) => handleProfileChange('userPhone1', e.target.value)}
               sx={{
@@ -1082,7 +1082,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
             />
             <TextField
               fullWidth
-              label="Phone 2"
+              label={t('account.phone2')}
               value={profileData.userPhone2}
               onChange={(e) => handleProfileChange('userPhone2', e.target.value)}
               sx={{
@@ -1106,7 +1106,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
             {/* Password Fields */}
             <TextField
               fullWidth
-              label="New Password (leave blank to keep current)"
+              label={t('account.newPassword')}
               type="password"
               value={profileData.userPassword}
               onChange={(e) => handleProfileChange('userPassword', e.target.value)}
@@ -1129,7 +1129,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
             />
             <TextField
               fullWidth
-              label="Confirm New Password"
+              label={t('account.confirmPassword')}
               type="password"
               value={profileData.confirmPassword}
               onChange={(e) => handleProfileChange('confirmPassword', e.target.value)}
@@ -1153,7 +1153,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleProfileModalClose}>Cancel</Button>
+          <Button onClick={handleProfileModalClose}>{t('common.cancel')}</Button>
           <Button 
             onClick={handleProfileUpdate}
             variant="contained"
@@ -1189,16 +1189,16 @@ const MainLayout = ({ children }: MainLayoutProps) => {
       >
         <DialogTitle>
           <Typography variant="h6" sx={{ color: theme.palette.mode === 'dark' ? '#ffffff' : '#d32f2f', fontWeight: 600 }}>
-            Delete Account
+            {t('account.deleteAccount')}
           </Typography>
         </DialogTitle>
         <DialogContent>
           <Typography sx={{ color: theme.palette.mode === 'dark' ? '#ffffff' : '#1a1a1a' }}>
-            Are you sure you want to delete your account? This action cannot be undone and all your data will be permanently removed.
+            {t('account.deleteWarning')}
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleDeleteModalClose}>Cancel</Button>
+          <Button onClick={handleDeleteModalClose}>{t('common.cancel')}</Button>
           <Button 
             onClick={handleAccountDelete}
             variant="contained"
@@ -1207,7 +1207,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
               bgcolor: 'error.main',
             }}
           >
-            Delete Account
+            {t('account.deleteAccount')}
           </Button>
         </DialogActions>
       </Dialog>

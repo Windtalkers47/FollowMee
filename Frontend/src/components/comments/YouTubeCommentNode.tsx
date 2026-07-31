@@ -18,12 +18,13 @@ import {
   MoreHoriz,
   Send,
 } from '@mui/icons-material';
-import { formatDistanceToNow } from 'date-fns';
 import { FlatCommentRow } from '../../utils/flattenCommentTreeForVirtualization';
 import { useCommentActionContext } from '../../contexts';
 import { useAppSelector } from '../../store/store';
 import { selectCurrentUser } from '../../store/slices/authSlice';
 import ConfirmDialog from '../ConfirmDialog/ConfirmDialog';
+import { useUserPreferences } from '../../contexts/UserPreferencesContext';
+import { formatLocalizedRelativeTime } from '../../utils/localeFormat';
 
 const REACTIONS = [
   { type: 'like', emoji: '👍', label: 'Like' },
@@ -42,6 +43,7 @@ interface Props {
 }
 
 const YouTubeCommentNode: React.FC<Props> = ({ row }) => {
+  const { locale, t } = useUserPreferences();
   const actions = useCommentActionContext();
   const currentUser = useAppSelector(selectCurrentUser);
   const { comment, depth, hasChildren, replyCount } = row;
@@ -86,12 +88,12 @@ const YouTubeCommentNode: React.FC<Props> = ({ row }) => {
               {cleanName(displayUser)}
             </Typography>
             <Typography variant="caption" color="text.secondary">
-              {formatDistanceToNow(new Date(data.createdAt), { addSuffix: true })}
+              {formatLocalizedRelativeTime(data.createdAt, locale)}
             </Typography>
             {isOwner && (
               <IconButton
                 size="small"
-                aria-label="Comment actions"
+                aria-label={t('comments.actions')}
                 onClick={(event) => setMoreAnchor(event.currentTarget)}
                 sx={{ ml: 'auto' }}
               >
@@ -112,10 +114,10 @@ const YouTubeCommentNode: React.FC<Props> = ({ row }) => {
               />
               <Stack direction="row" spacing={1}>
                 <Button size="small" variant="contained" onClick={() => actions.handleEditSubmit(data.commentId)}>
-                  Save
+                  {t('comments.save')}
                 </Button>
                 <Button size="small" color="inherit" onClick={actions.handleEditCancel}>
-                  Cancel
+                  {t('common.cancel')}
                 </Button>
               </Stack>
             </Stack>
@@ -136,7 +138,7 @@ const YouTubeCommentNode: React.FC<Props> = ({ row }) => {
                 <Box
                   component="img"
                   src={data.commentImageUrl}
-                  alt="Comment attachment"
+                  alt={t('comments.attachment')}
                   loading="lazy"
                   sx={{
                     display: 'block',
@@ -168,14 +170,14 @@ const YouTubeCommentNode: React.FC<Props> = ({ row }) => {
             })}
             <IconButton
               size="small"
-              aria-label="Add reaction"
+              aria-label={t('comments.addReaction')}
               onClick={(event) => setReactionAnchor(event.currentTarget)}
               sx={{ width: 30, height: 30 }}
             >
               <AddReactionOutlined fontSize="small" />
             </IconButton>
             <Button size="small" color="inherit" onClick={() => actions.handleReply(data.commentId)}>
-              Reply
+              {t('comments.reply')}
             </Button>
             {hasChildren && (
               <Button
@@ -184,8 +186,8 @@ const YouTubeCommentNode: React.FC<Props> = ({ row }) => {
                 onClick={() => actions.toggleCollapse(data.commentId)}
               >
                 {isCollapsed
-                  ? `View ${replyCount} ${replyCount === 1 ? 'reply' : 'replies'}`
-                  : 'Hide replies'}
+                  ? t('comments.viewReplies', { count: replyCount })
+                  : t('comments.hideReplies')}
               </Button>
             )}
           </Box>
@@ -193,7 +195,7 @@ const YouTubeCommentNode: React.FC<Props> = ({ row }) => {
           {isReplying && (
             <Stack spacing={0.75} sx={{ mt: 1 }}>
               <Typography variant="caption" color="text.secondary">
-                Replying to {cleanName(displayUser)}
+                {t('comments.replyingTo', { name: cleanName(displayUser) })}
               </Typography>
               <Box sx={{ display: 'flex', gap: 0.75, alignItems: 'flex-start' }}>
               <TextField
@@ -202,7 +204,7 @@ const YouTubeCommentNode: React.FC<Props> = ({ row }) => {
                 autoFocus
                 multiline
                 maxRows={4}
-                placeholder={`Reply to ${cleanName(displayUser)}…`}
+                placeholder={t('comments.replyPlaceholder', { name: cleanName(displayUser) })}
                 value={actions.getReplyText(data.commentId)}
                 onChange={(event) => actions.handleReplyTextChange(data.commentId, event.target.value)}
                 onKeyDown={(event) => {
@@ -214,14 +216,14 @@ const YouTubeCommentNode: React.FC<Props> = ({ row }) => {
               />
               <IconButton
                 color="primary"
-                aria-label="Send reply"
+                aria-label={t('comments.sendReply')}
                 disabled={!actions.getReplyText(data.commentId).trim()}
                 onClick={submitReply}
               >
                 <Send />
               </IconButton>
               <Button size="small" color="inherit" onClick={actions.handleReplyCancel}>
-                Cancel
+                {t('common.cancel')}
               </Button>
               </Box>
             </Stack>
@@ -243,7 +245,7 @@ const YouTubeCommentNode: React.FC<Props> = ({ row }) => {
             }}
           >
             <Box component="span" sx={{ width: 30, fontSize: 18 }}>{reaction.emoji}</Box>
-            {reaction.label}
+            {t(`reaction.${reaction.type}`)}
           </MenuItem>
         ))}
       </Menu>
@@ -255,7 +257,7 @@ const YouTubeCommentNode: React.FC<Props> = ({ row }) => {
             setMoreAnchor(null);
           }}
         >
-          Edit
+          {t('comments.edit')}
         </MenuItem>
         <MenuItem
           sx={{ color: 'error.main' }}
@@ -264,14 +266,14 @@ const YouTubeCommentNode: React.FC<Props> = ({ row }) => {
             setDeleteOpen(true);
           }}
         >
-          Delete
+          {t('comments.delete')}
         </MenuItem>
       </Menu>
       <ConfirmDialog
         open={deleteOpen}
-        title="Delete comment?"
-        message="This comment and its replies will be removed. This action cannot be undone."
-        confirmLabel="Delete comment"
+        title={t('comments.deleteTitle')}
+        message={t('comments.deleteText')}
+        confirmLabel={t('comments.delete')}
         danger
         onClose={() => setDeleteOpen(false)}
         onConfirm={() => {

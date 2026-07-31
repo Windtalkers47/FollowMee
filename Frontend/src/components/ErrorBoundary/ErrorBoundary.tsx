@@ -1,6 +1,7 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { Box, Typography, Button, Container, Paper } from '@mui/material';
 import { Error as ErrorIcon, Refresh as RefreshIcon, Home as HomeIcon } from '@mui/icons-material';
+import { translateCurrent } from '../../i18n/messages';
 
 interface Props {
   children: ReactNode;
@@ -93,11 +94,11 @@ export class ErrorBoundary extends Component<Props, State> {
               />
               
               <Typography variant="h4" fontWeight="bold" gutterBottom>
-                Oops! Something went wrong
+                {translateCurrent('error.title')}
               </Typography>
               
               <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-                We're sorry for the inconvenience. Please try refreshing the page.
+                {translateCurrent('error.message')}
               </Typography>
 
               {process.env.NODE_ENV === 'development' && this.state.error && (
@@ -112,7 +113,7 @@ export class ErrorBoundary extends Component<Props, State> {
                   }}
                 >
                   <Typography variant="caption" fontWeight="bold" color="error.dark">
-                    Error Details (Development Only)
+                    {translateCurrent('error.details')}
                   </Typography>
                   <Typography variant="body2" sx={{ mt: 1, fontFamily: 'monospace', fontSize: '0.75rem' }}>
                     {this.state.error.toString()}
@@ -134,7 +135,7 @@ export class ErrorBoundary extends Component<Props, State> {
                     bgcolor: 'primary.main',
                   }}
                 >
-                  Try Again
+                  {translateCurrent('error.tryAgain')}
                 </Button>
                 
                 <Button
@@ -142,7 +143,7 @@ export class ErrorBoundary extends Component<Props, State> {
                   startIcon={<HomeIcon />}
                   onClick={this.handleGoHome}
                 >
-                  Go Home
+                  {translateCurrent('error.goHome')}
                 </Button>
               </Box>
             </Paper>

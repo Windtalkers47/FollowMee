@@ -13,6 +13,7 @@ import TaskActions from './TaskActions';
 import TaskSwipeAction from './TaskSwipeAction';
 import TaskMenu from './TaskMenu';
 import CommentSection from './CommentSection';
+import { useUserPreferences } from '../../contexts/UserPreferencesContext';
 
 interface TaskCardLiquidProps {
   task: Task;
@@ -55,6 +56,7 @@ const TaskCardLiquid: React.FC<TaskCardLiquidProps> = ({
   compact = false,
   showWorkflowActions = true,
 }) => {
+  const { t } = useUserPreferences();
   const theme = useTheme();
   const location = useLocation();
   const { isLiquidGlassEnabled, liquidGlassSettings } = useLiquidGlass();
@@ -312,7 +314,7 @@ const TaskCardLiquid: React.FC<TaskCardLiquidProps> = ({
             },
           }
         }}>
-          <Button onClick={() => setShowImagePreview(false)}>Close</Button>
+          <Button onClick={() => setShowImagePreview(false)}>{t('common.close')}</Button>
         </DialogActions>
       </Dialog>
     </>

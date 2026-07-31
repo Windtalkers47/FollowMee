@@ -894,7 +894,7 @@ const SchedulePage = () => {
       {/* Error Display */}
       {error && (
         <Alert severity="error" sx={{ mb: 2, mx: { xs: 2, sm: 3, md: 4 } }}>
-          Failed to load tasks. Please try again.
+          {t('schedule.loadError')}
         </Alert>
       )}
 
@@ -909,12 +909,12 @@ const SchedulePage = () => {
             <Box>
               {groupedTasks[tab.key].length === 0 ? (
                 <Box textAlign="center" py={8}>
-                  <Typography variant="h6">No {tab.label.toLowerCase()} tasks yet</Typography>
+                  <Typography variant="h6">{t('schedule.emptyTitle', { status: tab.label.toLowerCase() })}</Typography>
                   <Typography color="text.secondary" sx={{ mt: 1, mb: 2 }}>
-                    Create a task to start planning work for your team.
+                    {t('schedule.emptyText')}
                   </Typography>
                   <Button variant="contained" startIcon={<AddIcon />} onClick={() => setTaskDialogOpen(true)}>
-                    Create task
+                    {t('schedule.createTask')}
                   </Button>
                 </Box>
               ) : (

@@ -36,6 +36,8 @@ import {
 } from '@mui/icons-material';
 import { getDashboardMetrics } from '../../api/notification.api';
 import { useUserPreferences } from '../../contexts/UserPreferencesContext';
+import { formatLocalizedNumber } from '../../utils/localeFormat';
+import { getDeviceLabel, getNotificationTypeLabel } from '../../utils/notificationPresentation';
 
 interface DashboardMetrics {
   totalSent: number;
@@ -82,7 +84,7 @@ interface TrendDataPoint {
 
 const NotificationAnalytics = () => {
   const theme = useTheme();
-  const { t } = useUserPreferences();
+  const { locale, t } = useUserPreferences();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
@@ -111,7 +113,7 @@ const NotificationAnalytics = () => {
       setPreviousMetrics(previous.data || null);
       setError(null);
     } catch (err) {
-      setError('Failed to load analytics data');
+      setError(t('analytics.loadError'));
       console.error('Failed to load metrics:', err);
     } finally {
       setLoading(false);
@@ -119,12 +121,12 @@ const NotificationAnalytics = () => {
   };
 
   const formatTime = (ms: number | null): string => {
-    if (ms === null || ms === undefined) return 'N/A';
+    if (ms === null || ms === undefined) return t('analytics.notApplicable');
     const seconds = Math.floor(ms / 1000);
-    if (seconds < 60) return `${seconds}s`;
+    if (seconds < 60) return t('analytics.seconds', { count: seconds });
     const minutes = Math.floor(seconds / 60);
     const remainingSeconds = seconds % 60;
-    return `${minutes}m ${remainingSeconds}s`;
+    return t('analytics.minutesSeconds', { minutes, seconds: remainingSeconds });
   };
 
   const rateChange = (current: number, previous?: number) => {
@@ -174,7 +176,7 @@ const NotificationAnalytics = () => {
   if (!metrics) {
     return (
       <Alert severity="info" sx={{ mt: 2 }}>
-        No analytics data available
+        {t('analytics.notAvailable')}
       </Alert>
     );
   }
@@ -202,8 +204,8 @@ const NotificationAnalytics = () => {
 
       <Alert severity={metrics.totalSent === 0 ? 'info' : 'success'} sx={{ mb: 3 }}>
         {metrics.totalSent === 0
-          ? 'No engagement data yet. Send a notification from a task or customer workflow to start measuring results.'
-          : `Your current open rate is ${metrics.openRate.toFixed(1)}%. Use the breakdown below to identify the strongest channel.`}
+          ? t('analytics.noEngagement')
+          : t('analytics.currentOpenRate', { rate: metrics.openRate.toFixed(1) })}
       </Alert>
 
       {/* Summary Cards */}
@@ -214,11 +216,11 @@ const NotificationAnalytics = () => {
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
                 <TrendingUp sx={{ mr: 1, color: 'primary.main' }} />
                 <Typography variant="body2" color="text.secondary">
-                  Total Sent
+                  {t('analytics.totalSent')}
                 </Typography>
               </Box>
               <Typography variant="h3" fontWeight={600}>
-                {metrics.totalSent.toLocaleString()}
+                {formatLocalizedNumber(metrics.totalSent, locale)}
               </Typography>
             </CardContent>
           </Card>
@@ -230,18 +232,18 @@ const NotificationAnalytics = () => {
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
                 <Visibility sx={{ mr: 1, color: 'success.main' }} />
                 <Typography variant="body2" color="text.secondary">
-                  Open Rate
+                  {t('analytics.openRateTitle')}
                 </Typography>
               </Box>
               <Typography variant="h3" fontWeight={600} color="success.main">
                 {metrics.openRate.toFixed(1)}%
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                {metrics.totalOpened.toLocaleString()} opens
+                {t('analytics.opens', { count: formatLocalizedNumber(metrics.totalOpened, locale) })}
               </Typography>
               {previousMetrics && (
                 <Typography variant="caption" display="block" color="text.secondary">
-                  {rateChange(metrics.openRate, previousMetrics.openRate)! >= 0 ? '+' : ''}{rateChange(metrics.openRate, previousMetrics.openRate)?.toFixed(1)} pts vs previous
+                  {t('analytics.pointsVsPrevious', { value: `${rateChange(metrics.openRate, previousMetrics.openRate)! >= 0 ? '+' : ''}${rateChange(metrics.openRate, previousMetrics.openRate)?.toFixed(1)}` })}
                 </Typography>
               )}
             </CardContent>
@@ -254,18 +256,18 @@ const NotificationAnalytics = () => {
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
                 <TouchApp sx={{ mr: 1, color: 'warning.main' }} />
                 <Typography variant="body2" color="text.secondary">
-                  Click-Through Rate
+                  {t('analytics.clickThroughRate')}
                 </Typography>
               </Box>
               <Typography variant="h3" fontWeight={600} color="warning.main">
                 {metrics.clickThroughRate.toFixed(1)}%
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                {metrics.totalClicked.toLocaleString()} clicks
+                {t('analytics.clicks', { count: formatLocalizedNumber(metrics.totalClicked, locale) })}
               </Typography>
               {previousMetrics && (
                 <Typography variant="caption" display="block" color="text.secondary">
-                  {rateChange(metrics.clickThroughRate, previousMetrics.clickThroughRate)! >= 0 ? '+' : ''}{rateChange(metrics.clickThroughRate, previousMetrics.clickThroughRate)?.toFixed(1)} pts vs previous
+                  {t('analytics.pointsVsPrevious', { value: `${rateChange(metrics.clickThroughRate, previousMetrics.clickThroughRate)! >= 0 ? '+' : ''}${rateChange(metrics.clickThroughRate, previousMetrics.clickThroughRate)?.toFixed(1)}` })}
                 </Typography>
               )}
             </CardContent>
@@ -278,7 +280,7 @@ const NotificationAnalytics = () => {
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
                 <AccessTime sx={{ mr: 1, color: 'info.main' }} />
                 <Typography variant="body2" color="text.secondary">
-                  Avg Time to Click
+                  {t('analytics.avgTimeToClick')}
                 </Typography>
               </Box>
               <Typography variant="h3" fontWeight={600} color="info.main">
@@ -315,12 +317,12 @@ const NotificationAnalytics = () => {
                     }}
                   >
                     <Typography sx={{ minWidth: 100 }}>
-                      {device.deviceType}
+                      {getDeviceLabel(device.deviceType, t)}
                     </Typography>
                     <Box sx={{ flex: 1, mx: 2 }}>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
                         <Typography variant="body2" color="text.secondary">
-                          {device.count.toLocaleString()} events
+                          {t('analytics.events', { count: formatLocalizedNumber(device.count, locale) })}
                         </Typography>
                       </Box>
                     </Box>
@@ -366,12 +368,12 @@ const NotificationAnalytics = () => {
                     }}
                   >
                     <Typography sx={{ minWidth: 120 }}>
-                      {type.notificationType}
+                      {getNotificationTypeLabel(type.notificationType, t)}
                     </Typography>
                     <Box sx={{ flex: 1, mx: 2 }}>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
                         <Typography variant="body2" color="text.secondary">
-                          {type.count.toLocaleString()} sent
+                          {t('analytics.sentCount', { count: formatLocalizedNumber(type.count, locale) })}
                         </Typography>
                       </Box>
                     </Box>
@@ -416,7 +418,7 @@ const NotificationAnalytics = () => {
                 {metrics.topNotifications.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={5} align="center" sx={{ py: 5, color: 'text.secondary' }}>
-                      Performance rankings will appear once notifications receive engagement.
+                      {t('analytics.topEmpty')}
                     </TableCell>
                   </TableRow>
                 )}
@@ -436,12 +438,12 @@ const NotificationAnalytics = () => {
                     </TableCell>
                     <TableCell>
                       <Chip
-                        label={notification.notificationType}
+                        label={getNotificationTypeLabel(notification.notificationType, t)}
                         size="small"
                         sx={{ fontSize: '0.75rem' }}
                       />
                     </TableCell>
-                    <TableCell align="right">{notification.sentCount.toLocaleString()}</TableCell>
+                    <TableCell align="right">{formatLocalizedNumber(notification.sentCount, locale)}</TableCell>
                     <TableCell align="right">
                       <Chip
                         label={`${notification.openRate.toFixed(1)}%`}

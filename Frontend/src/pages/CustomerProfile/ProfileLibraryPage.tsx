@@ -41,9 +41,12 @@ import type { CustomerData } from '../../types/customer.types';
 import type { PublicProfileRecord } from '../../types/publicProfile.types';
 import { getProfileTemplate } from '../../styles/publicProfileTemplates';
 import ConfirmDialog from '../../components/ConfirmDialog/ConfirmDialog';
+import { useUserPreferences } from '../../contexts/UserPreferencesContext';
+import { formatLocalizedNumber } from '../../utils/localeFormat';
 
 const ProfileLibraryPage = () => {
   const navigate = useNavigate();
+  const { locale, t } = useUserPreferences();
   const [profiles, setProfiles] = useState<PublicProfileRecord[]>([]);
   const [customers, setCustomers] = useState<CustomerData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -68,7 +71,7 @@ const ProfileLibraryPage = () => {
         setCustomers(customerPayload.data || []);
       })
       .catch((loadError: unknown) => {
-        setError(loadError instanceof Error ? loadError.message : 'Unable to load profile cards');
+        setError(loadError instanceof Error ? loadError.message : t('profile.loadError'));
       })
       .finally(() => setLoading(false));
   }, []);
@@ -99,7 +102,7 @@ const ProfileLibraryPage = () => {
       setDialogOpen(false);
       navigate(`/customer-profile/${profile.profileId}/edit`);
     } catch (createError) {
-      setError(createError instanceof Error ? createError.message : 'Unable to create profile');
+      setError(createError instanceof Error ? createError.message : t('profile.createError'));
     } finally {
       setCreating(false);
     }
@@ -111,7 +114,7 @@ const ProfileLibraryPage = () => {
       await publicProfileApi.remove(deleteProfile.profileId);
       setProfiles((current) => current.filter((item) => item.profileId !== deleteProfile.profileId));
     } catch (removeError) {
-      setError(removeError instanceof Error ? removeError.message : 'Unable to delete profile');
+      setError(removeError instanceof Error ? removeError.message : t('profile.deleteError'));
     } finally {
       setMenuAnchor(null);
       setMenuProfile(null);
@@ -137,13 +140,13 @@ const ProfileLibraryPage = () => {
       >
         <Box>
           <Typography variant="overline" color="primary.main" fontWeight={800}>
-            PUBLIC PRESENCE
+            {t('profile.eyebrow')}
           </Typography>
           <Typography variant="h3" fontWeight={850} letterSpacing="-.045em">
-            Profile Cards
+            {t('profile.library.title')}
           </Typography>
           <Typography color="text.secondary" sx={{ mt: 0.75 }}>
-            Build, publish and measure landing pages without exposing private customer data.
+            {t('profile.library.subtitle')}
           </Typography>
         </Box>
         <Button
@@ -152,7 +155,7 @@ const ProfileLibraryPage = () => {
           onClick={() => setDialogOpen(true)}
           sx={{ minHeight: 46, borderRadius: 3 }}
         >
-          Create profile
+          {t('profile.create')}
         </Button>
       </Stack>
 
@@ -161,7 +164,7 @@ const ProfileLibraryPage = () => {
       <TextField
         value={search}
         onChange={(event) => setSearch(event.target.value)}
-        placeholder="Search profile, headline or URL"
+        placeholder={t('profile.searchPlaceholder')}
         fullWidth
         sx={{ mt: 3, maxWidth: 620 }}
         InputProps={{
@@ -237,7 +240,7 @@ const ProfileLibraryPage = () => {
                   whiteSpace: 'nowrap',
                 }}
               >
-                {profile.headline || 'Add a short headline'}
+                {profile.headline || t('profile.addHeadline')}
               </Typography>
               <Box
                 sx={{
@@ -252,7 +255,7 @@ const ProfileLibraryPage = () => {
                   fontWeight: 800,
                 }}
               >
-                {profile.primaryCtaLabel || 'Connect'}
+                {profile.primaryCtaLabel || t('profile.connect')}
               </Box>
             </Box>
             <CardContent sx={{ p: 2.5 }}>
@@ -266,7 +269,7 @@ const ProfileLibraryPage = () => {
                   </Typography>
                 </Box>
                 <IconButton
-                  aria-label="Profile actions"
+                  aria-label={t('profile.actions')}
                   onClick={(event) => {
                     setMenuAnchor(event.currentTarget);
                     setMenuProfile(profile);
@@ -279,20 +282,20 @@ const ProfileLibraryPage = () => {
                 <Chip
                   size="small"
                   icon={profile.status === 'published' ? <PublicRounded /> : <EditRounded />}
-                  label={profile.status === 'published' ? 'Published' : 'Draft'}
+                  label={t(profile.status === 'published' ? 'profile.status.published' : 'profile.status.draft')}
                   color={profile.status === 'published' ? 'success' : 'default'}
                 />
                 <Chip
                   size="small"
                   icon={profile.visibility === 'private' ? <VisibilityOffRounded /> : <LinkRounded />}
-                  label={profile.visibility}
+                  label={t(`profile.visibility.${profile.visibility}`)}
                   variant="outlined"
                 />
               </Stack>
               <Stack direction="row" spacing={0.75} alignItems="center" sx={{ mt: 2.5 }}>
                 <AnalyticsRounded color="action" fontSize="small" />
                 <Typography variant="body2" color="text.secondary">
-                  {Number(profile.viewCount || 0).toLocaleString()} views
+                  {t('profile.views', { count: formatLocalizedNumber(Number(profile.viewCount || 0), locale) })}
                 </Typography>
               </Stack>
             </CardContent>
@@ -303,14 +306,14 @@ const ProfileLibraryPage = () => {
                 startIcon={<EditRounded />}
                 onClick={() => navigate(`/customer-profile/${profile.profileId}/edit`)}
               >
-                Edit & preview
+                {t('profile.editPreview')}
               </Button>
               {profile.status === 'published' && profile.visibility !== 'private' && (
                 <Button
-                  aria-label="Open public profile"
+                  aria-label={t('profile.view')}
                   onClick={() => window.open(`/p/${profile.slug}`, '_blank', 'noopener,noreferrer')}
                 >
-                  View
+                  {t('profile.view')}
                 </Button>
               )}
             </CardActions>
@@ -321,8 +324,8 @@ const ProfileLibraryPage = () => {
 
       {!filtered.length && (
         <Box textAlign="center" sx={{ py: 10 }}>
-          <Typography variant="h6">No profile cards found</Typography>
-          <Typography color="text.secondary">Create one from a customer or start with a blank profile.</Typography>
+          <Typography variant="h6">{t('profile.emptyTitle')}</Typography>
+          <Typography color="text.secondary">{t('profile.emptyText')}</Typography>
         </Box>
       )}
 
@@ -332,23 +335,23 @@ const ProfileLibraryPage = () => {
         onClose={() => setMenuAnchor(null)}
       >
         <MenuItem onClick={() => menuProfile && navigate(`/customer-profile/${menuProfile.profileId}/edit`)}>
-          Edit profile
+          {t('profile.edit')}
         </MenuItem>
-        <MenuItem onClick={() => { setDeleteProfile(menuProfile); setMenuAnchor(null); }} sx={{ color: 'error.main' }}>Delete profile</MenuItem>
+        <MenuItem onClick={() => { setDeleteProfile(menuProfile); setMenuAnchor(null); }} sx={{ color: 'error.main' }}>{t('profile.delete')}</MenuItem>
       </Menu>
 
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} fullWidth maxWidth="sm">
-        <DialogTitle>Create profile card</DialogTitle>
+        <DialogTitle>{t('profile.createTitle')}</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ pt: 1 }}>
             <FormControl fullWidth>
-              <InputLabel>Connect a customer (optional)</InputLabel>
+              <InputLabel>{t('profile.connectCustomer')}</InputLabel>
               <Select
                 value={customerId}
-                label="Connect a customer (optional)"
+                label={t('profile.connectCustomer')}
                 onChange={(event) => setCustomerId(event.target.value)}
               >
-                <MenuItem value="">Create a standalone profile</MenuItem>
+                <MenuItem value="">{t('profile.standalone')}</MenuItem>
                 {availableCustomers.map((customer) => (
                   <MenuItem key={customer.customerId} value={customer.customerId}>
                     {customer.customerName} {customer.customerLastName}
@@ -359,30 +362,30 @@ const ProfileLibraryPage = () => {
             {!customerId && (
               <TextField
                 autoFocus
-                label="Display name"
+                label={t('profile.displayName')}
                 value={displayName}
                 onChange={(event) => setDisplayName(event.target.value)}
-                helperText="You can connect or edit details later."
+                helperText={t('profile.createHelp')}
               />
             )}
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
+          <Button onClick={() => setDialogOpen(false)}>{t('selection.cancel')}</Button>
           <Button
             variant="contained"
             onClick={create}
             disabled={creating || (!customerId && !displayName.trim())}
           >
-            {creating ? 'Creating…' : 'Continue to editor'}
+            {creating ? t('profile.creating') : t('profile.continueEditor')}
           </Button>
         </DialogActions>
       </Dialog>
       <ConfirmDialog
         open={deleteProfile !== null}
-        title="Delete profile card?"
-        message={deleteProfile ? `“${deleteProfile.displayName}” and its public page will be removed. This action cannot be undone.` : ''}
-        confirmLabel="Delete profile"
+        title={t('profile.deleteTitle')}
+        message={t('profile.deleteText')}
+        confirmLabel={t('profile.delete')}
         danger
         onClose={() => setDeleteProfile(null)}
         onConfirm={() => void remove()}

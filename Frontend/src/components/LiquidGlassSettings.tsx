@@ -13,6 +13,7 @@ import {
   Divider,
 } from '@mui/material';
 import { Settings as SettingsIcon } from '@mui/icons-material';
+import { useUserPreferences } from '../contexts/UserPreferencesContext';
 
 interface LiquidGlassSettingsProps {
   glassOpacity: number;
@@ -39,6 +40,7 @@ const LiquidGlassSettings: React.FC<LiquidGlassSettingsProps> = ({
   contrastLevel,
   setContrastLevel,
 }) => {
+  const { t } = useUserPreferences();
   return (
     <Paper
       sx={{
@@ -54,7 +56,7 @@ const LiquidGlassSettings: React.FC<LiquidGlassSettingsProps> = ({
       <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
         <SettingsIcon sx={{ color: 'primary.main', fontSize: 20 }} />
         <Typography variant="h6" fontWeight={600} color="text.primary">
-          Liquid Glass Controls
+          {t('glass.title')}
         </Typography>
       </Stack>
 
@@ -62,7 +64,7 @@ const LiquidGlassSettings: React.FC<LiquidGlassSettingsProps> = ({
         {/* Glass Style Preset */}
         <Box>
           <Typography variant="body2" fontWeight={500} sx={{ mb: 1 }}>
-            Style Preset
+            {t('glass.style')}
           </Typography>
           <FormControl size="small" fullWidth>
             <Select
@@ -75,9 +77,9 @@ const LiquidGlassSettings: React.FC<LiquidGlassSettingsProps> = ({
                 border: '1px solid rgba(255, 255, 255, 0.2)',
               }}
             >
-              <MenuItem value="subtle">Subtle - Light & Ethereal</MenuItem>
-              <MenuItem value="medium">Medium - Balanced</MenuItem>
-              <MenuItem value="bold">Bold - Strong Glass</MenuItem>
+              <MenuItem value="subtle">{t('glass.subtle')}</MenuItem>
+              <MenuItem value="medium">{t('glass.medium')}</MenuItem>
+              <MenuItem value="bold">{t('glass.bold')}</MenuItem>
             </Select>
           </FormControl>
         </Box>
@@ -87,7 +89,7 @@ const LiquidGlassSettings: React.FC<LiquidGlassSettingsProps> = ({
         {/* Transparency Control */}
         <Box>
           <Typography variant="body2" fontWeight={500} sx={{ mb: 1 }}>
-            Transparency: {Math.round((1 - glassOpacity) * 100)}%
+            {t('glass.transparency', { value: Math.round((1 - glassOpacity) * 100) })}
           </Typography>
           <Slider
             value={glassOpacity}
@@ -121,7 +123,7 @@ const LiquidGlassSettings: React.FC<LiquidGlassSettingsProps> = ({
         {/* Blur Intensity */}
         <Box>
           <Typography variant="body2" fontWeight={500} sx={{ mb: 1 }}>
-            Blur Intensity: {blurIntensity}px
+            {t('glass.blur', { value: blurIntensity })}
           </Typography>
           <Slider
             value={blurIntensity}
@@ -130,11 +132,11 @@ const LiquidGlassSettings: React.FC<LiquidGlassSettingsProps> = ({
             max={40}
             step={2}
             marks={[
-              { value: 0, label: 'None' },
-              { value: 10, label: 'Light' },
-              { value: 20, label: 'Medium' },
-              { value: 30, label: 'Strong' },
-              { value: 40, label: 'Max' },
+              { value: 0, label: t('glass.none') },
+              { value: 10, label: t('glass.light') },
+              { value: 20, label: t('glass.medium') },
+              { value: 30, label: t('glass.strong') },
+              { value: 40, label: t('glass.maximum') },
             ]}
             sx={{
               '& .MuiSlider-thumb': {
@@ -155,7 +157,7 @@ const LiquidGlassSettings: React.FC<LiquidGlassSettingsProps> = ({
         {/* Contrast Level */}
         <Box>
           <Typography variant="body2" fontWeight={500} sx={{ mb: 1 }}>
-            Text Contrast: {Math.round(contrastLevel * 100)}%
+            {t('glass.contrast', { value: Math.round(contrastLevel * 100) })}
           </Typography>
           <Slider
             value={contrastLevel}
@@ -164,10 +166,10 @@ const LiquidGlassSettings: React.FC<LiquidGlassSettingsProps> = ({
             max={1.0}
             step={0.05}
             marks={[
-              { value: 0.3, label: 'Low' },
-              { value: 0.5, label: 'Medium' },
-              { value: 0.7, label: 'High' },
-              { value: 1.0, label: 'Max' },
+              { value: 0.3, label: t('glass.light') },
+              { value: 0.5, label: t('glass.medium') },
+              { value: 0.7, label: t('glass.strong') },
+              { value: 1.0, label: t('glass.maximum') },
             ]}
             sx={{
               '& .MuiSlider-thumb': {
@@ -209,7 +211,7 @@ const LiquidGlassSettings: React.FC<LiquidGlassSettingsProps> = ({
           }
           label={
             <Typography variant="body2" fontWeight={500}>
-              Show Element Borders
+              {t('glass.showBorders')}
             </Typography>
           }
         />

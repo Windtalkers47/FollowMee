@@ -6,6 +6,8 @@ import { GradientPresetKey } from '../../styles/liquidGlassStyles';
 import { EmojiEvents } from '@mui/icons-material';
 import SmartAvatar from '../../components/SmartAvatar';
 import { brandColors } from '../../styles/designTokens';
+import { useUserPreferences } from '../../contexts/UserPreferencesContext';
+import { formatLocalizedNumber } from '../../utils/localeFormat';
 
 interface LeaderboardCardProps {
   topPerformers: LeaderboardItem[];
@@ -27,6 +29,7 @@ export const LeaderboardCard: React.FC<LeaderboardCardProps> = ({
   isDarkMode = false,
   sx = {},
 }) => {
+  const { t, locale } = useUserPreferences();
   const getRankBadge = (rank: number) => {
     return `#${rank}`;
   };
@@ -61,7 +64,7 @@ export const LeaderboardCard: React.FC<LeaderboardCardProps> = ({
       <Box display="flex" alignItems="center" gap={1} mb={3}>
         <EmojiEvents sx={{ color: 'primary.main', fontSize: 24 }} />
         <Typography variant="h6" sx={{ fontWeight: 700, color: isDarkMode ? '#fff' : '#1a1a1a' }}>
-          Leaderboard
+          {t('leaderboard.title')}
         </Typography>
       </Box>
 
@@ -136,7 +139,7 @@ export const LeaderboardCard: React.FC<LeaderboardCardProps> = ({
                   fontSize: '0.75rem',
                 }}
               >
-                {performer.completedTasks} tasks completed
+                {t('leaderboard.tasksCompleted', { count: formatLocalizedNumber(performer.completedTasks, locale) })}
               </Typography>
             </Box>
 
@@ -150,16 +153,7 @@ export const LeaderboardCard: React.FC<LeaderboardCardProps> = ({
                   fontSize: '1rem',
                 }}
               >
-                {performer.score}
-              </Typography>
-              <Typography
-                variant="caption"
-                sx={{ 
-                  color: isDarkMode ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)',
-                  fontSize: '0.7rem',
-                }}
-              >
-                pts
+                {t('leaderboard.points', { count: formatLocalizedNumber(performer.score, locale) })}
               </Typography>
             </Box>
           </Box>
@@ -178,12 +172,12 @@ export const LeaderboardCard: React.FC<LeaderboardCardProps> = ({
         <Box display="flex" justifyContent="space-between" alignItems="center" mb={1.5}>
           <Box display="flex" alignItems="center" gap={1}>
             <Typography variant="subtitle2" sx={{ fontWeight: 700, color: isDarkMode ? '#fff' : '#1a1a1a' }}>
-              Your Rank: #{myRank.rank}
+              {t('leaderboard.yourRank', { rank: formatLocalizedNumber(myRank.rank, locale) })}
             </Typography>
             {myRank.rank <= 3 && <span>{getRankBadge(myRank.rank)}</span>}
           </Box>
           <Typography variant="body2" sx={{ fontWeight: 700, color: 'primary.main', fontSize: '1.1rem' }}>
-            {myRank.score} pts
+            {t('leaderboard.points', { count: formatLocalizedNumber(myRank.score, locale) })}
           </Typography>
         </Box>
         
@@ -232,7 +226,7 @@ export const LeaderboardCard: React.FC<LeaderboardCardProps> = ({
             display: 'block',
           }}
         >
-          {myRank.completedTasks} tasks completed
+          {t('leaderboard.tasksCompleted', { count: formatLocalizedNumber(myRank.completedTasks, locale) })}
         </Typography>
       </Box>
     </LiquidGlassCard>

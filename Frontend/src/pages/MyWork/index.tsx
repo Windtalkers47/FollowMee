@@ -18,6 +18,7 @@ import { ArrowForward, FactCheck, PlayArrow, RateReview, Schedule as ScheduleIco
 import { taskApi, Task } from '../../api/task.api';
 import { useAppSelector } from '../../store/store';
 import { useUserPreferences } from '../../contexts/UserPreferencesContext';
+import { formatLocalizedDate } from '../../utils/localeFormat';
 import feedback from '../../services/feedback.service';
 import { getOptimizedImageUrl } from '../../utils/imageUtils';
 import TaskFocusCard from '../../components/SmartSuggestions/TaskFocusCard';
@@ -25,7 +26,7 @@ import TaskFocusCard from '../../components/SmartSuggestions/TaskFocusCard';
 type WorkFilter = 'all' | 'todo' | 'in_progress' | 'review' | 'approval' | 'overdue' | 'due_today' | 'due_soon';
 
 const MyWorkPage = () => {
-  const { t } = useUserPreferences();
+  const { t, locale } = useUserPreferences();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [filter, setFilter] = useState<WorkFilter>('all');
@@ -214,11 +215,15 @@ const MyWorkPage = () => {
                     <Box flex={1} minWidth={0}>
                       <Stack direction="row" gap={1} alignItems="center" flexWrap="wrap">
                         <Typography fontWeight={700}>{task.title}</Typography>
-                        <Chip size="small" label={task.status.replace('_', ' ')} color={overdue ? 'error' : section.color} />
+                        <Chip
+                          size="small"
+                          label={t(`taskStatus.${task.status === 'in_progress' ? 'inProgress' : task.status}` as Parameters<typeof t>[0])}
+                          color={overdue ? 'error' : section.color}
+                        />
                       </Stack>
                       <Typography variant="body2" color="text.primary">{getContext(task)}</Typography>
                       <Typography variant="caption" color={overdue ? 'error.main' : 'text.secondary'}>
-                        {end ? `${overdue ? t('myWork.overdue') : t('myWork.due')} ${end.toLocaleDateString()}` : t('myWork.noDueDate')}
+                        {end ? `${overdue ? t('myWork.overdue') : t('myWork.due')} ${formatLocalizedDate(end, locale)}` : t('myWork.noDueDate')}
                       </Typography>
                     </Box>
                     <Button

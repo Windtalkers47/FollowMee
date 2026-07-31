@@ -369,6 +369,9 @@ export default function LoginPage() {
                   textDecoration: 'none',
                   color: accessibleAccent,
                   fontWeight: 600,
+                  minHeight: 44,
+                  display: 'inline-flex',
+                  alignItems: 'center',
                   '&:hover': {
                     textDecoration: 'underline',
                   },
@@ -431,6 +434,9 @@ export default function LoginPage() {
                   textDecoration: 'none',
                   color: accessibleAccent,
                   ml: 0.5,
+                  minHeight: 44,
+                  display: 'inline-flex',
+                  alignItems: 'center',
                   '&:hover': {
                     textDecoration: 'underline',
                   },

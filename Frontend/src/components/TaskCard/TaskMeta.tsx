@@ -1,9 +1,10 @@
 import React from 'react';
 import { Box, Stack, Typography } from '@mui/material';
 import { CalendarMonthOutlined, ScheduleOutlined } from '@mui/icons-material';
-import { format, formatDistanceToNow } from 'date-fns';
 import { Task } from '../../api/task.api';
 import SmartAvatar from '../SmartAvatar';
+import { useUserPreferences } from '../../contexts/UserPreferencesContext';
+import { formatLocalizedDate, formatLocalizedRelativeTime } from '../../utils/localeFormat';
 
 interface TaskMetaProps {
   task: Task;
@@ -21,17 +22,20 @@ const badgeStyle = {
   bgcolor: 'action.hover',
 };
 
-const TaskMeta: React.FC<TaskMetaProps> = ({ task }) => (
+const TaskMeta: React.FC<TaskMetaProps> = ({ task }) => {
+  const { locale, t } = useUserPreferences();
+  const shortDate = (value: string) => formatLocalizedDate(value, locale, { month: 'short', day: '2-digit' });
+  return (
   <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap" alignItems="center" sx={{ mb: 1 }}>
     {task.startDate && task.endDate ? (
       <Typography variant="caption" color="text.secondary" fontWeight={600} sx={badgeStyle}>
         <CalendarMonthOutlined sx={{ fontSize: 16 }} aria-hidden="true" />
-        {format(new Date(task.startDate), 'MMM dd')} – {format(new Date(task.endDate), 'MMM dd')}
+        {shortDate(task.startDate)} – {shortDate(task.endDate)}
       </Typography>
     ) : task.dueDate ? (
       <Typography variant="caption" color="text.secondary" fontWeight={600} sx={badgeStyle}>
         <ScheduleOutlined sx={{ fontSize: 16 }} aria-hidden="true" />
-        Due {format(new Date(task.dueDate), 'MMM dd')}
+        {t('task.due')} {shortDate(task.dueDate)}
       </Typography>
     ) : null}
 
@@ -46,9 +50,10 @@ const TaskMeta: React.FC<TaskMetaProps> = ({ task }) => (
 
     <Box flex={1} />
     <Typography variant="caption" color="text.secondary" sx={badgeStyle}>
-      {formatDistanceToNow(new Date(task.createdAt), { addSuffix: true })}
+      {formatLocalizedRelativeTime(task.createdAt, locale)}
     </Typography>
   </Stack>
-);
+  );
+};
 
 export default React.memo(TaskMeta);

@@ -1,12 +1,14 @@
 import { Router } from 'express';
 import { isAuthenticated } from '../middleware/auth.middleware';
-import { checkPermission, checkAnyPermission } from '../middleware/permission.middleware';
+import { checkPermission, checkAnyPermission, checkRole } from '../middleware/permission.middleware';
 import { UserManagementController } from '../controllers/user-management.controller';
 import { UserService } from '../services/user.service';
+import { OwnerController } from '../controllers/owner.controller';
 
 // Manual dependency injection
 const userService = new UserService();
 const userManagementController = new UserManagementController(userService);
+const ownerController = new OwnerController();
 
 const router = Router();
 
@@ -16,6 +18,8 @@ router.use(isAuthenticated);
 // User management routes - require VIEW_USERS permission
 router.get('/users', checkPermission('VIEW_USERS'), (req, res) => userManagementController.getAllUsers(req, res));
 router.get('/users/:id', checkPermission('VIEW_USERS'), (req, res) => userManagementController.getUserById(req, res));
+router.get('/system-owner', checkPermission('VIEW_USERS'), ownerController.getCurrent);
+router.put('/system-owner', checkRole('Owner'), ownerController.transfer);
 
 // User role assignment - require MANAGE_ROLES or UPDATE_USERS permission
 router.post('/users/assign-role', checkAnyPermission(['MANAGE_ROLES', 'UPDATE_USERS']), (req, res) => userManagementController.assignRoleToUser(req, res));

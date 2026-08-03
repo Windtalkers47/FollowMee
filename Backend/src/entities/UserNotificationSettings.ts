@@ -43,6 +43,9 @@ export class UserNotificationSettings {
   @Column({ name: 'notifyRoleChanged', type: 'boolean', default: true })
   notifyRoleChanged: boolean = true;
 
+  @Column({ name: 'notifyProfileChanged', type: 'boolean', default: true })
+  notifyProfileChanged: boolean = true;
+
   // Delivery methods
   @Column({ name: 'emailEnabled', type: 'boolean', default: false })
   emailEnabled: boolean = false;

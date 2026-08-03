@@ -6,6 +6,7 @@ import { logout, updateUser } from '../store/slices/authSlice';
 import { userApi } from '../api/user.api';
 import feedback from '../services/feedback.service';
 import SmartAvatar from '../components/SmartAvatar';
+import type { UserProfileUpdatedEvent } from '../types/profile-event.types';
 import NotificationBell from '../components/NotificationBell/NotificationBell';
 import NotificationDropdown from '../components/NotificationDropdown/NotificationDropdown';
 import { clearCache } from '../services/api/dashboardApi';
@@ -25,7 +26,6 @@ import {
   ListItemIcon,
   ListItemText,
   useTheme,
-  Avatar,
   Menu,
   MenuItem,
   Dialog,
@@ -60,6 +60,7 @@ import {
   Analytics,
   MoreHoriz,
   WorkOutline,
+  Redeem,
 } from '@mui/icons-material';
 import ProductTour from '../components/ProductTour/ProductTour';
 import { useUserPreferences } from '../contexts/UserPreferencesContext';
@@ -81,6 +82,7 @@ const menuItems = [
   { text: 'Profile Cards', icon: <AccountCircle />, path: '/customer-profile', exact: false, group: 'Workspace' },
   { text: 'Analytics', icon: <Analytics />, path: '/notification-analytics', exact: true, group: 'Insights' },
   { text: 'Completed Work', icon: <PostAdd />, path: '/posts', exact: true, group: 'Insights' },
+  { text: 'Rewards', icon: <Redeem />, path: '/rewards', exact: true, group: 'Insights' },
   { text: 'User Management', icon: <PeopleAlt />, path: '/users', exact: true, group: 'Administration' },
 ];
 
@@ -92,6 +94,7 @@ const compactMenuLabels: Record<string, string> = {
   '/customer-profile': 'Profiles',
   '/notification-analytics': 'Analytics',
   '/posts': 'Completed',
+  '/rewards': 'Rewards',
   '/users': 'Users',
 };
 
@@ -110,12 +113,12 @@ const MainLayout = ({ children }: MainLayoutProps) => {
 
   // Get current user to check role
   const currentUser = useAppSelector((state) => state.auth.user);
-  const isSuperAdmin = currentUser?.roles?.includes('Superadmin') || false;
-  const canManageUsers = isSuperAdmin || currentUser?.roles?.includes('Admin') || false;
+  const isOwner = currentUser?.roles?.some((role) => role === 'Owner' || role === 'Superadmin') || false;
+  const canManageUsers = isOwner || currentUser?.roles?.includes('Admin') || false;
 
   // Filter menu items based on user role
   const filteredMenuItems = useMemo(() => menuItems.filter((item) => {
-    // Admins can manage users; only Superadmin can manage privileged roles.
+    // Admins can manage users; only the Owner can transfer ownership.
     if (item.path === '/users' && !canManageUsers) {
       return false;
     }
@@ -129,6 +132,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
     '/customer-profile': t('nav.profiles'),
     '/notification-analytics': t('nav.analytics'),
     '/posts': t('nav.activity'),
+    '/rewards': t('nav.rewards'),
     '/users': t('nav.users'),
   }), [t]);
   const groupLabels = useMemo<Record<string, string>>(() => ({
@@ -222,8 +226,8 @@ const MainLayout = ({ children }: MainLayoutProps) => {
       text: t('account.removeImageText'),
       icon: 'warning',
       showCancelButton: true,
-      confirmButtonText: 'Yes, remove it!',
-      cancelButtonText: 'Cancel',
+      confirmButtonText: t('account.removeImageConfirm'),
+      cancelButtonText: t('common.cancel'),
     });
 
     if (result.isConfirmed) {
@@ -232,13 +236,13 @@ const MainLayout = ({ children }: MainLayoutProps) => {
       // Show success toast
       feedback.fire({
         icon: 'success',
-        title: 'Image Removed',
-        text: 'Your profile image has been removed successfully! Click "Save Changes" to update your profile.',
+        title: t('account.imageRemovedTitle'),
+        text: t('account.imageRemovedText'),
         timer: 2000,
         showConfirmButton: false,
       });
     }
-  }, []);
+  }, [t]);
   
   const handleLogout = useCallback(() => {
     dispatch(logout());
@@ -251,8 +255,8 @@ const MainLayout = ({ children }: MainLayoutProps) => {
       if (!currentUser?.userId) {
         await feedback.fire({
           icon: 'error',
-          title: 'User not found',
-          text: 'Please try again or contact support.',
+          title: t('account.userNotFoundTitle'),
+          text: t('account.tryAgainText'),
         });
         return;
       }
@@ -262,14 +266,14 @@ const MainLayout = ({ children }: MainLayoutProps) => {
         if (profileData.userPassword !== profileData.confirmPassword) {
           await feedback.fire({
             icon: 'error',
-            title: 'Password Mismatch',
-            text: 'The passwords you entered do not match. Please try again.',
+            title: t('account.passwordMismatchTitle'),
+            text: t('account.passwordMismatchText'),
           });
           return;
         }
       }
 
-      const updateData: any = {};
+      const updateData: Record<string, string | null | undefined> = {};
 
       // Only include fields that have been changed (non-empty)
       if (profileData.userName && profileData.userName !== currentUser.userName) {
@@ -302,8 +306,8 @@ const MainLayout = ({ children }: MainLayoutProps) => {
       if (Object.keys(updateData).length === 0) {
         await feedback.fire({
         icon: 'warning',
-        title: 'No Changes',
-        text: 'No changes were made to your profile.',
+        title: t('account.noChangesTitle'),
+        text: t('account.noChangesText'),
       });
         return;
       }
@@ -311,8 +315,8 @@ const MainLayout = ({ children }: MainLayoutProps) => {
       // Show loading state for profile update
       setIsUpdatingProfile(true);
       feedback.fire({
-        title: 'Updating Profile...',
-        text: 'Please wait while we update your profile',
+        title: t('account.updatingTitle'),
+        text: t('account.updatingText'),
         icon: 'info',
         allowOutsideClick: false,
         allowEscapeKey: false,
@@ -337,8 +341,8 @@ const MainLayout = ({ children }: MainLayoutProps) => {
       feedback.fire({
         icon: 'success',
         importance: profileData.userPassword ? 'milestone' : 'routine',
-        title: 'Profile Updated!',
-        text: 'Your profile has been successfully updated.',
+        title: t('account.updatedTitle'),
+        text: t('account.updatedText'),
         timer: profileData.userPassword ? 5000 : 4000,
         timerProgressBar: true,
         showConfirmButton: false,
@@ -348,28 +352,24 @@ const MainLayout = ({ children }: MainLayoutProps) => {
       feedback.close();
       await feedback.fire({
         icon: 'error',
-        title: 'Update Failed',
-        text: 'Failed to update your profile. Please try again.',
+        title: t('account.updateFailedTitle'),
+        text: t('account.updateFailedText'),
       });
     } finally {
       setIsUpdatingProfile(false);
     }
-  }, [currentUser, profileData, dispatch]);
+  }, [currentUser, profileData, dispatch, handleProfileModalClose, t]);
   
   // Listen for global profile update events (broadcast from App.tsx)
   useEffect(() => {
-    const handleProfileUpdate = (event: CustomEvent<{ userId: number; userImageUrl?: string | null }>) => {
+    const handleProfileUpdate = (event: CustomEvent<UserProfileUpdatedEvent>) => {
+      if (!currentUser || event.detail.userId !== currentUser.userId) return;
       setProfileData(prev => ({
         ...prev,
-        userImageUrl: event.detail.userImageUrl || null
+        userName: event.detail.userName,
+        userLastName: event.detail.userLastName,
+        userImageUrl: event.detail.userImageUrl,
       }));
-      
-      if (currentUser) {
-        dispatch(updateUser({
-          ...currentUser,
-          userImageUrl: event.detail.userImageUrl || undefined
-        }));
-      }
       
       clearCache('leaderboard');
     };
@@ -379,15 +379,15 @@ const MainLayout = ({ children }: MainLayoutProps) => {
     return () => {
       window.removeEventListener('followmee:profile-updated', handleProfileUpdate as EventListener);
     };
-  }, [currentUser, dispatch]);
+  }, [currentUser]);
 
   const handleAccountDelete = useCallback(async () => {
     try {
       if (!currentUser?.userId) {
         await feedback.fire({
           icon: 'error',
-          title: 'User not found',
-          text: 'Please try again or contact support.',
+          title: t('account.userNotFoundTitle'),
+          text: t('account.tryAgainText'),
         });
         return;
       }
@@ -397,19 +397,19 @@ const MainLayout = ({ children }: MainLayoutProps) => {
       handleDeleteModalClose();
       await feedback.success({
         importance: 'milestone',
-        title: 'Account Deleted!',
-        message: 'Your account has been successfully deleted.',
+        title: t('account.deletedTitle'),
+        message: t('account.deletedText'),
         duration: 5000,
         onDismiss: handleLogout,
       });
     } catch (error) {
       await feedback.fire({
         icon: 'error',
-        title: 'Deletion Failed',
-        text: 'Failed to delete your account. Please try again.',
+        title: t('account.deleteFailedTitle'),
+        text: t('account.deleteFailedText'),
       });
     }
-  }, [currentUser, handleLogout]);
+  }, [currentUser, handleLogout, t]);
 
   /* ================= Drawer ================= */
 
@@ -818,6 +818,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
       >
         {[
           { label: t('nav.activity'), path: '/posts', icon: <PostAdd fontSize="small" /> },
+          { label: t('nav.rewards'), path: '/rewards', icon: <Redeem fontSize="small" /> },
           { label: t('nav.profiles'), path: '/customer-profile', icon: <AccountCircle fontSize="small" /> },
           { label: t('nav.analytics'), path: '/notification-analytics', icon: <Analytics fontSize="small" /> },
           ...(canManageUsers ? [{ label: t('nav.users'), path: '/users', icon: <PeopleAlt fontSize="small" /> }] : []),
@@ -890,19 +891,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
           <Box display="flex" flexDirection="column" gap={2} pt={1}>
             {/* Profile Picture */}
             <Box display="flex" alignItems="center" gap={2} mb={2}>
-              <Avatar
-                src={profileData.userImageUrl || undefined}
-                imgProps={{ crossOrigin: 'anonymous' }}
-                onError={(e) => {
-                  const target = e.target as HTMLImageElement;
-                  if (target) target.src = '';
-                }}
-                sx={{ width: 80, height: 80 }}
-              >
-                {(!profileData.userImageUrl || profileData.userImageUrl === '') && (
-                  profileData.userName?.charAt(0).toUpperCase() + (profileData.userLastName?.charAt(0).toUpperCase() || '') || 'U'
-                )}
-              </Avatar>
+              <SmartAvatar user={profileData} size={80} avatarVariant="main" />
               <Box display="flex" flexDirection="column" gap={1}>
                 <Button
                   component="label"
@@ -912,7 +901,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
                   startIcon={isUploadingImage ? <CircularProgress size={16} /> : <CloudUpload />}
                   disabled={isUploadingImage}
                 >
-                  {isUploadingImage ? 'Processing...' : 'Upload Image'}
+                  {isUploadingImage ? t('account.processingImage') : t('account.uploadImage')}
                   <input
                     type="file"
                     hidden
@@ -925,8 +914,8 @@ const MainLayout = ({ children }: MainLayoutProps) => {
                           
                           // Show loading toast
                           feedback.fire({
-                            title: 'Processing Image...',
-                            text: 'Please wait while we process your image',
+                            title: t('account.processingImageTitle'),
+                            text: t('account.processingImageText'),
                             icon: 'info',
                             allowOutsideClick: false,
                             allowEscapeKey: false,
@@ -944,8 +933,8 @@ const MainLayout = ({ children }: MainLayoutProps) => {
                             feedback.close();
                             feedback.fire({
                               icon: 'success',
-                              title: 'Image Processed',
-                              text: 'Your image has been processed successfully!',
+                              title: t('account.imageProcessedTitle'),
+                              text: t('account.imageProcessedText'),
                               timer: 1500,
                               showConfirmButton: false,
                             });
@@ -955,8 +944,8 @@ const MainLayout = ({ children }: MainLayoutProps) => {
                             feedback.close();
                             feedback.fire({
                               icon: 'error',
-                              title: 'Processing Failed',
-                              text: 'Failed to process image. Please try another one.',
+                              title: t('account.imageProcessingFailedTitle'),
+                              text: t('account.imageProcessingFailedText'),
                             });
                           };
                           reader.readAsDataURL(file);
@@ -965,8 +954,8 @@ const MainLayout = ({ children }: MainLayoutProps) => {
                           feedback.close();
                           feedback.fire({
                             icon: 'error',
-                            title: 'Processing Failed',
-                            text: 'Failed to process image. Please try another one.',
+                            title: t('account.imageProcessingFailedTitle'),
+                            text: t('account.imageProcessingFailedText'),
                           });
                         } finally {
                           setIsUploadingImage(false);

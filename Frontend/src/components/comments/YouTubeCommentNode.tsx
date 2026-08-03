@@ -1,6 +1,5 @@
 import React from 'react';
 import {
-  Avatar,
   Box,
   Button,
   Chip,
@@ -25,6 +24,7 @@ import { selectCurrentUser } from '../../store/slices/authSlice';
 import ConfirmDialog from '../ConfirmDialog/ConfirmDialog';
 import { useUserPreferences } from '../../contexts/UserPreferencesContext';
 import { formatLocalizedRelativeTime } from '../../utils/localeFormat';
+import SmartAvatar from '../SmartAvatar';
 
 const REACTIONS = [
   { type: 'like', emoji: '👍', label: 'Like' },
@@ -35,8 +35,10 @@ const REACTIONS = [
   { type: 'angry', emoji: '😠', label: 'Angry' },
 ] as const;
 
-const cleanName = (user?: { userName?: string; userLastName?: string }) =>
-  [user?.userName, user?.userLastName].filter(Boolean).join(' ') || 'Unknown user';
+const cleanName = (
+  user: { userName?: string; userLastName?: string } | undefined,
+  fallback: string,
+) => [user?.userName, user?.userLastName].filter(Boolean).join(' ') || fallback;
 
 interface Props {
   row: FlatCommentRow;
@@ -50,7 +52,7 @@ const YouTubeCommentNode: React.FC<Props> = ({ row }) => {
   const data = comment.comment;
   const displayUser = data.user || {
     userId: data.userId,
-    userName: 'Unknown',
+    userName: '',
     userLastName: '',
   };
   const isOwner = currentUser?.userId === data.userId;
@@ -72,20 +74,14 @@ const YouTubeCommentNode: React.FC<Props> = ({ row }) => {
   const submitReply = () => actions.handleReplySubmit(data.commentId);
 
   return (
-    <Box sx={{ py: 1.25 }}>
-      <Box sx={{ display: 'flex', gap: 1.25, alignItems: 'flex-start' }}>
-        <Avatar
-          src={displayUser.userImageUrl}
-          alt={cleanName(displayUser)}
-          sx={{ width: 34, height: 34, bgcolor: 'primary.main', fontSize: 14 }}
-        >
-          {displayUser.userName?.charAt(0)?.toUpperCase() || '?'}
-        </Avatar>
+    <Box sx={{ py: 0.75 }}>
+      <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+        <SmartAvatar user={displayUser} avatarVariant="glass" size={34} />
 
         <Box sx={{ minWidth: 0, flex: 1 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minHeight: 24 }}>
             <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-              {cleanName(displayUser)}
+              {cleanName(displayUser, t('comments.unknownUser'))}
             </Typography>
             <Typography variant="caption" color="text.secondary">
               {formatLocalizedRelativeTime(data.createdAt, locale)}
@@ -125,7 +121,8 @@ const YouTubeCommentNode: React.FC<Props> = ({ row }) => {
             <Box
               sx={{
                 mt: 0.35,
-                p: 1.25,
+                px: 1.25,
+                py: 0.9,
                 borderRadius: 2,
                 bgcolor: 'action.hover',
                 overflowWrap: 'anywhere',
@@ -172,7 +169,7 @@ const YouTubeCommentNode: React.FC<Props> = ({ row }) => {
               size="small"
               aria-label={t('comments.addReaction')}
               onClick={(event) => setReactionAnchor(event.currentTarget)}
-              sx={{ width: 30, height: 30 }}
+              sx={{ width: 40, height: 40 }}
             >
               <AddReactionOutlined fontSize="small" />
             </IconButton>
@@ -195,7 +192,7 @@ const YouTubeCommentNode: React.FC<Props> = ({ row }) => {
           {isReplying && (
             <Stack spacing={0.75} sx={{ mt: 1 }}>
               <Typography variant="caption" color="text.secondary">
-                {t('comments.replyingTo', { name: cleanName(displayUser) })}
+                {t('comments.replyingTo', { name: cleanName(displayUser, t('comments.unknownUser')) })}
               </Typography>
               <Box sx={{ display: 'flex', gap: 0.75, alignItems: 'flex-start' }}>
               <TextField
@@ -204,7 +201,7 @@ const YouTubeCommentNode: React.FC<Props> = ({ row }) => {
                 autoFocus
                 multiline
                 maxRows={4}
-                placeholder={t('comments.replyPlaceholder', { name: cleanName(displayUser) })}
+                placeholder={t('comments.replyPlaceholder', { name: cleanName(displayUser, t('comments.unknownUser')) })}
                 value={actions.getReplyText(data.commentId)}
                 onChange={(event) => actions.handleReplyTextChange(data.commentId, event.target.value)}
                 onKeyDown={(event) => {

@@ -125,6 +125,8 @@ export class CustomerService {
     const customer = this.customerRepository.create({
       ...data,
       userId: userId ?? null,
+      createdBy: userId ?? null,
+      updatedBy: userId ?? null,
     });
     const created = await this.customerRepository.save(customer);
     return new CustomerResponseDto({
@@ -133,13 +135,14 @@ export class CustomerService {
     });
   }
 
-  async update(id: string, data: UpdateCustomerDto): Promise<CustomerResponseDto> {
+  async update(id: string, data: UpdateCustomerDto, actorUserId?: number): Promise<CustomerResponseDto> {
     const customer = await this.customerRepository.findById(id);
     if (!customer) {
       throw new Error(`Customer with ID ${id} not found`);
     }
 
     Object.assign(customer, data);
+    if (actorUserId) customer.updatedBy = actorUserId;
     const updated = await this.customerRepository.save(customer);
     
     return new CustomerResponseDto({
@@ -148,13 +151,14 @@ export class CustomerService {
     });
   }
 
-  async delete(id: string): Promise<void> {
+  async delete(id: string, actorUserId?: number): Promise<void> {
     const customer = await this.customerRepository.findById(id);
     if (!customer) {
       throw new Error(`Customer with ID ${id} not found`);
     }
     // Soft delete by marking as inactive
     customer.isActive = false;
+    if (actorUserId) customer.updatedBy = actorUserId;
     await this.customerRepository.save(customer);
   }
 

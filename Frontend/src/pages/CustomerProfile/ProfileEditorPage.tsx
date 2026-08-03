@@ -254,9 +254,9 @@ const ProfileEditorPage = () => {
           <Button variant="outlined" startIcon={<SaveRounded />} onClick={() => void save()} disabled={saving}>
             {t('profile.editor.saveDraft')}
           </Button>
-          <Button variant="contained" onClick={togglePublish} disabled={saving}>
+          {(profile.status === 'published' ? profile.capabilities?.canUnpublish : profile.capabilities?.canPublish) !== false && <Button variant="contained" onClick={togglePublish} disabled={saving}>
             {profile.status === 'published' ? t('profile.editor.unpublish') : t('profile.editor.publish')}
-          </Button>
+          </Button>}
         </Stack>
       </Stack>
 

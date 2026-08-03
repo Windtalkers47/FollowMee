@@ -15,6 +15,7 @@ export enum NotificationType {
 
   // Admin/System
   ROLE_CHANGED = 'ROLE_CHANGED',
+  PROFILE_UPDATED_BY_ADMIN = 'PROFILE_UPDATED_BY_ADMIN',
   ACCOUNT_ACTIVATED = 'ACCOUNT_ACTIVATED',
   SYSTEM_ANNOUNCEMENT = 'SYSTEM_ANNOUNCEMENT',
 
@@ -82,6 +83,7 @@ export interface UserNotificationSettings {
   notifyCommentReaction: boolean;
   notifySystemAlert: boolean;
   notifyRoleChanged: boolean;
+  notifyProfileChanged: boolean;
   emailEnabled: boolean;
   pushEnabled: boolean;
   createdAt: string;
@@ -96,6 +98,7 @@ export interface UpdateUserNotificationSettingsDto {
   notifyCommentReaction?: boolean;
   notifySystemAlert?: boolean;
   notifyRoleChanged?: boolean;
+  notifyProfileChanged?: boolean;
   emailEnabled?: boolean;
   pushEnabled?: boolean;
 }

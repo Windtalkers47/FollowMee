@@ -220,16 +220,22 @@ export class DashboardService {
     const userStats = await this.userRepository
       .createQueryBuilder('user')
       .leftJoin('tasks', 't', 't.assignedTo = user.userId AND t.status = :status AND t.isActive = :isActive', { status: 'done', isActive: true })
-      .leftJoin('tasks', 't_active', 't_active.assignedTo = user.userId AND t_active.isActive = :isActive', { isActive: true })
       .select('user.userId', 'userId')
       .addSelect('user.userName', 'userName')
       .addSelect('user.userLastName', 'userLastName')
       .addSelect('user.userImageUrl', 'userImageUrl')
       .addSelect('COUNT(DISTINCT t.taskId)', 'completedTasks')
-      .addSelect('COUNT(DISTINCT t_active.taskId)', 'totalTasks')
+      .addSelect('COALESCE(SUM(t.completionScore), 0)', 'score')
+      .addSelect('SUM(CASE WHEN t.dueDate IS NOT NULL AND t.completedAt <= t.dueDate THEN 1 ELSE 0 END)', 'onTimeTasks')
+      .addSelect('SUM(CASE WHEN t.reopenedCount = 0 THEN 1 ELSE 0 END)', 'firstPassTasks')
+      .addSelect('MAX(t.completedAt)', 'lastScoredAt')
+      .addSelect('(SELECT COUNT(*) FROM tasks t_active WHERE t_active.assignedTo = user.userId AND t_active.isActive = 1)', 'totalTasks')
       .where('user.isActive = :isActive', { isActive: true })
       .groupBy('user.userId')
-      .orderBy('completedTasks', 'DESC')
+      .orderBy('score', 'DESC')
+      .addOrderBy('onTimeTasks', 'DESC')
+      .addOrderBy('firstPassTasks', 'DESC')
+      .addOrderBy('lastScoredAt', 'ASC')
       .getRawMany();
 
     const totalUsers = userStats.length;
@@ -252,18 +258,18 @@ export class DashboardService {
 
     const rank = userIndex + 1;
     const completedTasks = parseInt(userStats[userIndex].completedTasks) || 0;
-    const score = completedTasks; // Score based on completed tasks
+    const score = parseInt(userStats[userIndex].score) || 0;
 
     // Get next and previous rank scores
-    const nextRankScore = userIndex > 0 ? parseInt(userStats[userIndex - 1].completedTasks) : null;
-    const prevRankScore = userIndex < userStats.length - 1 ? parseInt(userStats[userIndex + 1].completedTasks) : null;
+    const nextRankScore = userIndex > 0 ? parseInt(userStats[userIndex - 1].score) : null;
+    const prevRankScore = userIndex < userStats.length - 1 ? parseInt(userStats[userIndex + 1].score) : null;
 
     // Calculate progress to next rank
     let progressToNext = 0;
-    if (nextRankScore !== null && nextRankScore > completedTasks) {
+    if (nextRankScore !== null && nextRankScore > score) {
       const prevScore = prevRankScore || 0;
       const range = nextRankScore - prevScore;
-      const current = completedTasks - prevScore;
+      const current = score - prevScore;
       progressToNext = range > 0 ? Math.round((current / range) * 100) : 100;
     } else if (nextRankScore === null) {
       progressToNext = 100; // Top rank
@@ -297,9 +303,16 @@ export class DashboardService {
       .addSelect('user.userLastName', 'userLastName')
       .addSelect('user.userImageUrl', 'userImageUrl')
       .addSelect('COUNT(DISTINCT t.taskId)', 'completedTasks')
+      .addSelect('COALESCE(SUM(t.completionScore), 0)', 'score')
+      .addSelect('SUM(CASE WHEN t.dueDate IS NOT NULL AND t.completedAt <= t.dueDate THEN 1 ELSE 0 END)', 'onTimeTasks')
+      .addSelect('SUM(CASE WHEN t.reopenedCount = 0 THEN 1 ELSE 0 END)', 'firstPassTasks')
+      .addSelect('MAX(t.completedAt)', 'lastScoredAt')
       .where('user.isActive = :isActive', { isActive: true })
       .groupBy('user.userId')
-      .orderBy('completedTasks', 'DESC')
+      .orderBy('score', 'DESC')
+      .addOrderBy('onTimeTasks', 'DESC')
+      .addOrderBy('firstPassTasks', 'DESC')
+      .addOrderBy('lastScoredAt', 'ASC')
       .limit(limit)
       .getRawMany();
 
@@ -310,7 +323,7 @@ export class DashboardService {
       userLastName: stat.userLastName || 'User',
       userImageUrl: stat.userImageUrl || undefined,
       completedTasks: parseInt(stat.completedTasks) || 0,
-      score: parseInt(stat.completedTasks) || 0
+      score: parseInt(stat.score) || 0
     }));
 
     return {

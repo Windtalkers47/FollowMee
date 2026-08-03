@@ -81,7 +81,7 @@ const CommentTreeComponent: React.FC<CommentTreeProps> = ({ taskId, maxDepth = 2
             outlineColor: 'primary.main',
           },
         }}>
-          <Stack direction="row" spacing={1.25} alignItems="flex-start">
+          <Stack direction="row" spacing={1} alignItems="flex-start">
             <SmartAvatar user={currentUser} avatarVariant="glass" size={34} />
             <TextField
               value={newCommentText}
@@ -108,7 +108,7 @@ const CommentTreeComponent: React.FC<CommentTreeProps> = ({ taskId, maxDepth = 2
             </IconButton>
           </Stack>
 
-          <Box sx={{ mt: 2.5, pb: 1, borderBottom: '1px solid', borderColor: 'divider' }}>
+          <Box sx={{ mt: 1.75, pb: 0.75, borderBottom: '1px solid', borderColor: 'divider' }}>
             <Typography variant="subtitle1" fontWeight={750}>
               {t('comments.count', { count: visibleTree?.totalComments || 0 })}
             </Typography>

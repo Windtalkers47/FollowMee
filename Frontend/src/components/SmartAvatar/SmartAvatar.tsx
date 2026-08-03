@@ -2,8 +2,15 @@ import React from 'react';
 import { Avatar, AvatarProps, useTheme } from '@mui/material';
 import { getOptimizedImageUrl } from '../../utils/imageUtils';
 
-interface SmartAvatarProps extends Omit<AvatarProps, 'children'> {
-  user?: any;
+export interface AvatarUser {
+  userId?: number;
+  userName?: string | null;
+  userLastName?: string | null;
+  userImageUrl?: string | null;
+}
+
+interface SmartAvatarProps extends Omit<AvatarProps, 'children' | 'src'> {
+  user?: AvatarUser | null;
   avatarVariant?: 'main' | 'glass';
   size?: number;
 }
@@ -18,23 +25,23 @@ const SmartAvatar: React.FC<SmartAvatarProps> = ({
   const theme = useTheme();
 
   const getInitials = () => {
-    if (!user) return 'U';
+    if (!user) return '';
     
     const firstName = user.userName || '';
     const lastName = user.userLastName || '';
     
     // Prioritize userName first
     if (firstName) {
-      return firstName[0]?.toUpperCase() || 'U';
+      return Array.from(firstName.trim())[0]?.toLocaleUpperCase() || '';
     }
     
     // If no userName, use userLastName
     if (lastName) {
-      return lastName[0]?.toUpperCase() || 'U';
+      return Array.from(lastName.trim())[0]?.toLocaleUpperCase() || '';
     }
     
     // Fallback to 'U' if neither is available
-    return 'U';
+    return '';
   };
 
   const getAvatarStyles = () => {

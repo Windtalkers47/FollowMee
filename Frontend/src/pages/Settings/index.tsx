@@ -446,6 +446,16 @@ const SettingsPage = () => {
               }
               label={t('settings.roleChanges')}
             />
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={notificationSettings.notifyProfileChanged ?? true}
+                  onChange={(e) => handleNotificationSettingChange('notifyProfileChanged', e.target.checked)}
+                  color="primary"
+                />
+              }
+              label={t('settings.profileChanges')}
+            />
 
             {/* Delivery Methods */}
             <Divider sx={{ my: 1 }} />

@@ -26,6 +26,7 @@ import { webSocketService } from './websocket.service';
 import { assertTaskTransition, getTaskWorkflowCapabilities, TaskStatus } from '../utils/task-workflow.util';
 import { TaskActionError } from '../errors/task-transition.error';
 import { createTaskFocusSummary } from '../utils/task-focus.util';
+import { rewardService } from './reward.service';
 
 export interface TaskLeaderboardEntry {
   userId: number;
@@ -59,6 +60,25 @@ export class TaskService {
           firstError: firstError instanceof Error ? firstError.message : String(firstError),
         });
       }
+    }
+  }
+
+  private async safelyAwardTask(task: Task): Promise<void> {
+    if (task.status !== 'done' || !task.assignedTo || !task.completedAt || task.completionScore <= 0) return;
+    try {
+      await rewardService.awardTaskCompletion({
+        taskId: task.taskId,
+        userId: task.assignedTo,
+        score: task.completionScore,
+        completedAt: new Date(task.completedAt),
+        dueDate: task.dueDate,
+        reopenedCount: task.reopenedCount || 0,
+      });
+    } catch (error) {
+      console.error('Reward credit failed; idempotent reconciliation can retry it', {
+        taskId: task.taskId,
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 
@@ -612,6 +632,7 @@ export class TaskService {
     task.completedAt = completedAt;
     task.completionScore = Math.max(4, 10 + onTimeBonus - reopenPenalty);
     await this.taskRepository.save(task);
+    await this.safelyAwardTask(task);
     await this.safelyNotify(() => NotificationHelper.notifyTaskStatus(
       NotificationType.TASK_COMPLETED,
       'Task approved',
@@ -742,6 +763,7 @@ export class TaskService {
           task.completedAt = completedAt;
           task.completionScore = Math.max(4, 10 + onTimeBonus - reopenPenalty);
           await this.taskRepository.save(task);
+          await this.safelyAwardTask(task);
         } else {
           if (task.status === 'review' && status === 'todo') {
             failed.push({

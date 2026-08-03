@@ -95,27 +95,27 @@ async function setupBasicPermissions() {
       }
     }
 
-    // Create Superadmin role
-    let superadminRole = await roleRepo.findOne({ where: { roleName: 'Superadmin' } });
-    if (!superadminRole) {
-      superadminRole = roleRepo.create({
-        roleName: 'Superadmin',
-        description: 'System administrator with full access',
+    // Create the Owner role. Assignments are handled only by the owner transfer service/CLI.
+    let ownerRole = await roleRepo.findOne({ where: { roleName: 'Owner' } });
+    if (!ownerRole) {
+      ownerRole = roleRepo.create({
+        roleName: 'Owner',
+        description: 'Organization owner with full access',
         roleLevel: 999,
         isActive: true
       });
-      superadminRole = await roleRepo.save(superadminRole);
+      ownerRole = await roleRepo.save(ownerRole);
     }
 
-    // Assign all permissions to Superadmin role
+    // Assign all permissions to Owner role
     const allPermissions = await permissionRepo.find();
     for (const permission of allPermissions) {
       const existing = await rolePermissionRepo.findOne({
-        where: { roleId: superadminRole.roleId, permissionId: permission.permissionId }
+        where: { roleId: ownerRole.roleId, permissionId: permission.permissionId }
       });
       if (!existing) {
         await rolePermissionRepo.save({
-          roleId: superadminRole.roleId,
+          roleId: ownerRole.roleId,
           permissionId: permission.permissionId
         });
       }
@@ -130,43 +130,10 @@ async function setupBasicPermissions() {
 }
 
 /**
- * Grant Superadmin role to a user by email
+ * Direct owner grants are intentionally disabled because they bypass the singleton and audit trail.
  */
-async function grantSuperadmin(email: string) {
-  try {
-    await AppDataSource.initialize();
-
-    const userRepo = AppDataSource.getRepository(User);
-    const roleRepo = AppDataSource.getRepository(Role);
-    const userRoleRepo = AppDataSource.getRepository(UserRole);
-
-    const user = await userRepo.findOne({ where: { userEmail: email } });
-    if (!user) {
-      throw new Error(`User with email ${email} not found`);
-    }
-
-    const superadminRole = await roleRepo.findOne({ where: { roleName: 'Superadmin' } });
-    if (!superadminRole) {
-      throw new Error('Superadmin role not found. Please run setup first.');
-    }
-
-    const existingAssignment = await userRoleRepo.findOne({
-      where: { userId: user.userId, roleId: superadminRole.roleId }
-    });
-
-    if (!existingAssignment) {
-      await userRoleRepo.save({
-        userId: user.userId,
-        roleId: superadminRole.roleId
-      });
-    }
-
-    await AppDataSource.destroy();
-    return { success: true, message: `Superadmin role granted to ${email}` };
-  } catch (error) {
-    console.error('Error granting Superadmin:', error);
-    throw error;
-  }
+async function grantOwner(_email: string) {
+  throw new Error('Direct Owner grants are disabled. Use npm --prefix Backend run owner:transfer -- --email <email>.');
 }
 
-export { checkPermissions, setupBasicPermissions, grantSuperadmin };
+export { checkPermissions, setupBasicPermissions, grantOwner };

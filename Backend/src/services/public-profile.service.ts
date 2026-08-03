@@ -133,7 +133,7 @@ export class PublicProfileService {
 
   async listOwned(userId: number) {
     return this.profileRepository.find({
-      where: { userId, deletedAt: IsNull() },
+      where: { deletedAt: IsNull() },
       relations: ['links', 'customer'],
       order: { updatedAt: 'DESC', links: { sortOrder: 'ASC' } },
     });
@@ -141,7 +141,7 @@ export class PublicProfileService {
 
   async getOwned(profileId: string, userId: number) {
     const profile = await this.profileRepository.findOne({
-      where: { profileId, userId, deletedAt: IsNull() },
+      where: { profileId, deletedAt: IsNull() },
       relations: ['links', 'customer'],
       order: { links: { sortOrder: 'ASC' } },
     });
@@ -156,9 +156,6 @@ export class PublicProfileService {
         where: { customerId: input.customerId, deletedAt: IsNull() },
       });
       if (!customer) throw new Error('Customer not found');
-      if (customer.userId && customer.userId !== userId) {
-        throw new Error('You do not have access to this customer');
-      }
       const existing = await this.profileRepository.findOne({
         where: { customerId: input.customerId, deletedAt: IsNull() },
       });
@@ -183,6 +180,8 @@ export class PublicProfileService {
     const profileId = await dataSource.transaction(async (manager) => {
       const profile = manager.getRepository(PublicProfile).create({
         userId,
+        createdBy: userId,
+        updatedBy: userId,
         customerId: customer?.customerId || null,
         slug,
         displayName: displayName.slice(0, 100),
@@ -221,6 +220,7 @@ export class PublicProfileService {
 
   async update(profileId: string, userId: number, input: PublicProfileInput) {
     const profile = await this.getOwned(profileId, userId);
+    profile.updatedBy = userId;
 
     for (const field of editableFields) {
       if (!(field in input)) continue;
@@ -262,6 +262,7 @@ export class PublicProfileService {
     status: PublicProfileStatus
   ) {
     const profile = await this.getOwned(profileId, userId);
+    profile.updatedBy = userId;
     if (status === 'published') {
       if (!profile.displayName || !profile.slug) {
         throw new Error('Complete the profile name and URL before publishing');
@@ -276,6 +277,7 @@ export class PublicProfileService {
 
   async remove(profileId: string, userId: number) {
     const profile = await this.getOwned(profileId, userId);
+    profile.updatedBy = userId;
     profile.deletedAt = new Date();
     profile.status = 'draft';
     profile.visibility = 'private';

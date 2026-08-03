@@ -25,8 +25,8 @@ const YouTubeThreadedRow: React.FC<YouTubeThreadedRowProps> = ({ row }) => {
         flex: 1, 
         minWidth: 0,
         maxWidth: { xs: '100%', md: 820 },
-        pl: depth > 0 ? { xs: 1.5, sm: 3 } : 0,
-        ml: depth > 0 ? { xs: 1, sm: 2 } : 0,
+        pl: depth > 0 ? { xs: 1, sm: 2 } : 0,
+        ml: depth > 0 ? { xs: 0.5, sm: 1.5 } : 0,
         borderLeft: depth > 0 ? '2px solid' : 'none',
         borderColor: depth > 0 ? 'divider' : 'transparent',
         position: 'relative'

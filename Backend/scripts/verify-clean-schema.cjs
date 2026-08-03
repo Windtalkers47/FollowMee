@@ -116,7 +116,7 @@ async function verify() {
       missingTables.length ||
       unexpectedTables.length ||
       result.tablesMissingPrimaryKey.length ||
-      result.migrations !== 13 ||
+      result.migrations !== 16 ||
       !result.userIdAutoIncrement
     ) {
       throw new Error(`Clean schema verification failed: ${JSON.stringify(result)}`);
@@ -124,8 +124,18 @@ async function verify() {
 
     console.log(JSON.stringify(result, null, 2));
   } finally {
-    await connection.query(`DROP DATABASE IF EXISTS \`${VERIFY_DATABASE}\``);
-    await connection.end();
+    // Do not mask the original schema error if MySQL has already closed the
+    // connection (for example after a server restart or packet limit failure).
+    try {
+      await connection.query(`DROP DATABASE IF EXISTS \`${VERIFY_DATABASE}\``);
+    } catch (cleanupError) {
+      console.warn(`Schema verification cleanup skipped: ${cleanupError.message}`);
+    }
+    try {
+      await connection.end();
+    } catch {
+      // Connection is already closed.
+    }
   }
 }
 

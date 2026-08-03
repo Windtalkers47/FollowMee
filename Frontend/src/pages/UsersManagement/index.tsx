@@ -9,7 +9,6 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  Avatar,
   Chip,
   Typography,
   CircularProgress,
@@ -45,6 +44,8 @@ import { ROLE_NAMES, normalizeRoleName } from '../../constants/roles';
 import feedback from '../../services/feedback.service';
 import { useUserPreferences } from '../../contexts/UserPreferencesContext';
 import { formatLocalizedDate } from '../../utils/localeFormat';
+import SmartAvatar from '../../components/SmartAvatar';
+import { useAppSelector } from '../../store/store';
 
 // Styled components
 const StyledCard = styled(Card)(({ theme }) => ({
@@ -58,7 +59,7 @@ const StyledCard = styled(Card)(({ theme }) => ({
 
 const getRoleIcon = (role: string) => {
   switch (role) {
-    case 'Superadmin':
+    case 'Owner':
       return <AdminIcon fontSize="small" />;
     case 'Admin':
       return <SupervisorIcon fontSize="small" />;
@@ -71,7 +72,7 @@ const getRoleIcon = (role: string) => {
 
 const getRoleColor = (role: string) => {
   switch (role) {
-    case 'Superadmin':
+    case 'Owner':
       return 'error';
     case 'Admin':
       return 'primary';
@@ -96,8 +97,11 @@ const UsersPage = () => {
     assignRoleToUser,
     removeRoleFromUser,
     createUser,
-    deleteUser
+    deleteUser,
+    transferOwnership,
   } = useUsersManagement();
+  const currentUser = useAppSelector((state) => state.auth.user);
+  const currentUserIsOwner = Boolean(currentUser?.roles?.some((role) => normalizeRoleName(role) === ROLE_NAMES.OWNER));
 
   const emptyNewUser = {
     userName: '',
@@ -116,7 +120,7 @@ const UsersPage = () => {
   // Calculate role counts
   const getRoleCounts = () => {
     const counts = {
-      'Superadmin': 0,
+      'Owner': 0,
       'Admin': 0,
       'Moderator': 0,
       'Customer': 0
@@ -135,8 +139,7 @@ const UsersPage = () => {
 
   const roleCounts = getRoleCounts();
 
-  // Check if Super Admin is already taken
-  const isSuperAdminTaken = roleCounts.Superadmin >= 1;
+  const isOwnerTaken = roleCounts.Owner >= 1;
 
   const [assignRoleDialog, setAssignRoleDialog] = useState<{
     open: boolean;
@@ -149,14 +152,15 @@ const UsersPage = () => {
     selectedRole: '',
     availableRoles: []
   });
-  const selectedUserIsSuperAdmin = Boolean(
-    assignRoleDialog.user?.roles?.some((role) => normalizeRoleName(role) === ROLE_NAMES.SUPERADMIN),
+  const selectedUserIsOwner = Boolean(
+    assignRoleDialog.user?.roles?.some((role) => normalizeRoleName(role) === ROLE_NAMES.OWNER),
   );
+  const [ownerTransferDialog, setOwnerTransferDialog] = useState<{ open: boolean; user: User | null; password: string; error: string }>({ open: false, user: null, password: '', error: '' });
 
   const handleAssignRoleOpen = useCallback((user: User) => {
     const normalizedRole = user.roles[0] ? normalizeRoleName(user.roles[0]) : undefined;
-    const selectedRole = normalizedRole === ROLE_NAMES.SUPERADMIN
-      ? 'SUPER_ADMIN'
+    const selectedRole = normalizedRole === ROLE_NAMES.OWNER
+      ? 'OWNER'
       : normalizedRole?.toUpperCase() || '';
     setAssignRoleDialog({
       open: true,
@@ -213,12 +217,12 @@ const UsersPage = () => {
 
     try {
       const normalizedSelectedRole = normalizeRoleName(assignRoleDialog.selectedRole);
-      if (normalizedSelectedRole === ROLE_NAMES.SUPERADMIN && isSuperAdminTaken && !selectedUserIsSuperAdmin) {
-        setAssignRoleError(t('users.superAdminTaken'));
+      if (normalizedSelectedRole === ROLE_NAMES.OWNER) {
+        setAssignRoleError(t('users.ownerTransferRequired'));
         await feedback.warning({
-          title: t('users.superAdminTakenTitle'),
-          message: t('users.superAdminTaken'),
-          dedupeKey: 'superadmin-already-assigned',
+          title: t('users.ownerTransferTitle'),
+          message: t('users.ownerTransferRequired'),
+          dedupeKey: 'owner-transfer-required',
         });
         return;
       }
@@ -279,7 +283,25 @@ const UsersPage = () => {
         persistent: true,
       });
     }
-  }, [assignRoleDialog, roles, assignRoleToUser, handleAssignRoleClose, isSuperAdminTaken, selectedUserIsSuperAdmin, t]);
+  }, [assignRoleDialog, roles, assignRoleToUser, handleAssignRoleClose, t]);
+
+  const handleTransferOwner = useCallback(async () => {
+    const target = ownerTransferDialog.user;
+    if (!target || !ownerTransferDialog.password) return;
+    const ok = await transferOwnership(target.userId, ownerTransferDialog.password);
+    if (!ok) {
+      setOwnerTransferDialog((value) => ({ ...value, error: t('users.ownerTransferFailed') }));
+      return;
+    }
+    setOwnerTransferDialog({ open: false, user: null, password: '', error: '' });
+    handleAssignRoleClose();
+    await feedback.success({
+      title: t('users.ownerTransferred'),
+      message: t('users.ownerTransferredText', { name: `${target.userName} ${target.userLastName || ''}`.trim() }),
+      importance: 'milestone',
+      dedupeKey: `owner-transfer-${target.userId}`,
+    });
+  }, [handleAssignRoleClose, ownerTransferDialog, t, transferOwnership]);
 
   const handleRoleChange = useCallback((role: string) => {
     setAssignRoleDialog(prev => ({
@@ -359,7 +381,7 @@ const UsersPage = () => {
         {users?.map((user) => (
           <Paper key={user.userId} variant="outlined" sx={{ p: 2, borderRadius: 3 }}>
             <Box display="flex" alignItems="flex-start" gap={1.5}>
-              <Avatar src={user.userImageUrl || undefined}>{user.userName.charAt(0)}</Avatar>
+              <SmartAvatar user={user} size={40} />
               <Box flex={1} minWidth={0}>
                 <Typography fontWeight={700}>{user.userName} {user.userLastName}</Typography>
                 <Typography variant="body2" color="text.secondary" noWrap>{user.userEmail}</Typography>
@@ -397,21 +419,14 @@ const UsersPage = () => {
                   <TableRow key={user.userId} hover data-user-id={user.userId}>
                     <TableCell>
                       <Box display="flex" alignItems="center" gap={2}>
-                        <Avatar
-                          src={user.userImageUrl || undefined}
-                          imgProps={{ crossOrigin: 'anonymous' }}
-                          onError={(e: any) => {
-                            const target = e.target as HTMLImageElement;
-                            if (target) target.src = '';
-                          }}
+                        <SmartAvatar
+                          user={user}
                           sx={{
                             bgcolor: user.userImageUrl ? 'transparent' : (user.isActive
                               ? theme.palette.primary.main
-                              : theme.palette.grey[500])
+                              : theme.palette.grey[500]),
                           }}
-                        >
-                          {(!user.userImageUrl || user.userImageUrl === '') && user.userName.charAt(0)}
-                        </Avatar>
+                        />
                         <Box>
                           <Typography variant="body2" fontWeight={500}>
                             {user.userName} {user.userLastName}
@@ -501,7 +516,7 @@ const UsersPage = () => {
             <FormControl required sx={{ gridColumn: { sm: '1 / -1' } }}>
               <InputLabel>{t('common.role')}</InputLabel>
               <Select label={t('common.role')} value={newUser.roleId || ''} onChange={(e) => setNewUser((value) => ({ ...value, roleId: Number(e.target.value) }))}>
-                {roles.filter((role) => role.roleName !== 'Superadmin').map((role) => (
+                {roles.filter((role) => normalizeRoleName(role.roleName) !== ROLE_NAMES.OWNER).map((role) => (
                   <MenuItem key={role.roleId} value={role.roleId}>{role.roleName}</MenuItem>
                 ))}
               </Select>
@@ -540,8 +555,8 @@ const UsersPage = () => {
                 disabled={assigningRole}
               >
                 <MenuItem 
-                  value="SUPER_ADMIN"
-                  disabled={isSuperAdminTaken && !selectedUserIsSuperAdmin}
+                  value="OWNER"
+                  disabled
                 >
                   <Box display="flex" alignItems="center" gap={1} justifyContent="space-between" width="100%">
                     <Box display="flex" alignItems="center" gap={1}>
@@ -552,22 +567,22 @@ const UsersPage = () => {
                           fontWeight: 'bold',
                           textShadow: theme.palette.mode === 'dark' ? '0 1px 2px rgba(0,0,0,0.3)' : 'none'
                         }}>
-                          {t('role.superAdmin')}
-                          {isSuperAdminTaken && (
+                          {t('role.owner')}
+                          {isOwnerTaken && (
                             <Typography component="span" variant="caption" color="error.main" sx={{ ml: 1, fontWeight: 600 }}>
-                              ({t('users.alreadyAssigned')})
+                              ({t('users.ownerTransferOnly')})
                             </Typography>
                           )}
                         </Typography>
                         <Typography variant="caption" color="text.secondary" display="block">
-                          {t('role.superAdminDescription')}
+                          {t('role.ownerDescription')}
                         </Typography>
                       </Box>
                     </Box>
                     <Chip 
-                      label={`${roleCounts.Superadmin}/1`} 
+                      label={`${roleCounts.Owner}/1`}
                       size="small" 
-                      color={isSuperAdminTaken ? "error" : "success"}
+                      color={isOwnerTaken ? "error" : "success"}
                       variant="outlined"
                     />
                   </Box>
@@ -646,6 +661,15 @@ const UsersPage = () => {
           </Box>
         </DialogContent>
         <DialogActions>
+          {currentUserIsOwner && assignRoleDialog.user && !selectedUserIsOwner && (
+            <Button
+              color="warning"
+              onClick={() => setOwnerTransferDialog({ open: true, user: assignRoleDialog.user, password: '', error: '' })}
+              disabled={assigningRole}
+            >
+              {t('users.transferOwner')}
+            </Button>
+          )}
           <Button onClick={handleAssignRoleClose} disabled={assigningRole}>{t('common.cancel')}</Button>
           <Button
             id="assign-role-submit"
@@ -654,6 +678,31 @@ const UsersPage = () => {
             disabled={!assignRoleDialog.selectedRole || assigningRole}
           >
             {assigningRole ? t('users.assigningRole') : t('users.assignRole')}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={ownerTransferDialog.open} onClose={() => !assigningRole && setOwnerTransferDialog({ open: false, user: null, password: '', error: '' })} maxWidth="xs" fullWidth>
+        <DialogTitle>{t('users.ownerTransferTitle')}</DialogTitle>
+        <DialogContent>
+          <Typography color="text.secondary" sx={{ mb: 2 }}>
+            {t('users.ownerTransferConsequence', { name: `${ownerTransferDialog.user?.userName || ''} ${ownerTransferDialog.user?.userLastName || ''}`.trim() })}
+          </Typography>
+          {ownerTransferDialog.error && <Alert severity="error" sx={{ mb: 2 }}>{ownerTransferDialog.error}</Alert>}
+          <TextField
+            autoFocus
+            fullWidth
+            type="password"
+            label={t('users.currentPassword')}
+            value={ownerTransferDialog.password}
+            disabled={assigningRole}
+            onChange={(event) => setOwnerTransferDialog((value) => ({ ...value, password: event.target.value, error: '' }))}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button color="inherit" disabled={assigningRole} onClick={() => setOwnerTransferDialog({ open: false, user: null, password: '', error: '' })}>{t('common.cancel')}</Button>
+          <Button color="warning" variant="contained" disabled={assigningRole || !ownerTransferDialog.password} onClick={handleTransferOwner}>
+            {assigningRole ? t('users.transferringOwner') : t('users.confirmTransferOwner')}
           </Button>
         </DialogActions>
       </Dialog>

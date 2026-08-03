@@ -23,6 +23,7 @@ export enum NotificationType {
 
   // Admin/System
   ROLE_CHANGED = 'ROLE_CHANGED',
+  PROFILE_UPDATED_BY_ADMIN = 'PROFILE_UPDATED_BY_ADMIN',
   ACCOUNT_ACTIVATED = 'ACCOUNT_ACTIVATED',
   SYSTEM_ANNOUNCEMENT = 'SYSTEM_ANNOUNCEMENT',
 
@@ -296,6 +297,27 @@ export enum NotificationType {
     });
   }
 
+  static async notifyProfileUpdatedByAdmin(
+    displayName: string,
+    actorUserId: number,
+    recipientUserId: number,
+  ): Promise<void> {
+    await this.createNotification({
+      notificationType: NotificationType.PROFILE_UPDATED_BY_ADMIN,
+      actorUserId,
+      entityType: 'user',
+      entityId: String(recipientUserId),
+      title: 'Profile updated',
+      message: `Profile details for ${displayName} were updated by an administrator.`,
+      titleKey: 'notification.content.profileUpdatedByAdmin.title',
+      messageKey: 'notification.content.profileUpdatedByAdmin.message',
+      translationParams: { displayName },
+      actionUrl: '/settings',
+      recipientUserIds: [recipientUserId],
+      skipQueue: true,
+    });
+  }
+
   /**
    * Create a system announcement
    * System announcements are sent immediately (not aggregated)
@@ -314,6 +336,26 @@ export enum NotificationType {
       isGlobal: true,
       recipientUserIds: [],
       skipQueue: true, // Send immediately
+    });
+  }
+
+  static async notifyRewardRedemption(
+    title: string,
+    message: string,
+    actorUserId: number,
+    recipientUserIds: number[],
+    redemptionId: number,
+  ): Promise<void> {
+    await this.createNotification({
+      notificationType: NotificationType.SYSTEM_ANNOUNCEMENT,
+      actorUserId,
+      entityType: 'reward_redemption',
+      entityId: String(redemptionId),
+      title,
+      message,
+      actionUrl: '/rewards',
+      recipientUserIds,
+      skipQueue: true,
     });
   }
 

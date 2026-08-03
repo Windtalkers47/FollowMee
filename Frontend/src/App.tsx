@@ -2,7 +2,7 @@ import React, { useEffect, Suspense } from 'react';
 import { Routes, Route, Navigate, useLocation, Outlet, useParams } from 'react-router-dom';
 import { Box, CircularProgress } from '@mui/material';
 import { useAppDispatch, useAppSelector } from './store/store';
-import { restoreSession, clearAuth } from './store/slices/authSlice';
+import { restoreSession, clearAuth, updateUser } from './store/slices/authSlice';
 import { connectWebSocket, disconnectWebSocket, fetchNotifications, fetchUnreadCount } from './store/slices/notificationSlice';
 import MainLayout from './layouts/MainLayout';
 import { API_BASE_URL } from './api/config';
@@ -10,6 +10,8 @@ import { ErrorBoundary } from './components/ErrorBoundary/ErrorBoundary';
 import { AsyncErrorBoundary } from './components/ErrorBoundary/AsyncErrorBoundary';
 import { webSocketService } from './services/websocket.service';
 import { useQueryClient } from '@tanstack/react-query';
+import type { UserProfileUpdatedEvent } from './types/profile-event.types';
+import { patchUserInCache } from './utils/patchUserInCache';
 
 // Lazy load pages
 const LoginPage = React.lazy(() => import('./pages/Login'));
@@ -29,6 +31,7 @@ const UsersPage = React.lazy(() => import('./pages/UsersManagement'));
 const SettingsPage = React.lazy(() => import('./pages/Settings'));
 const NotificationAnalytics = React.lazy(() => import('./pages/NotificationAnalytics'));
 const NotificationsPage = React.lazy(() => import('./pages/Notifications'));
+const RewardsPage = React.lazy(() => import('./pages/Rewards'));
 
 const LoadingSpinner = () => (
   <Box
@@ -75,7 +78,7 @@ const App = () => {
   const isAuthenticated = useAppSelector((state) => state.auth.isAuthenticated);
 
   const currentUser = useAppSelector((state) => state.auth.user);
-  const landingPath = currentUser?.roles?.some((role) => ['Admin', 'Superadmin'].includes(role)) ? '/dashboard' : '/my-work';
+  const landingPath = currentUser?.roles?.some((role) => ['Admin', 'Owner', 'Superadmin'].includes(role)) ? '/dashboard' : '/my-work';
 
   /* Restore session once */
   useEffect(() => {
@@ -146,7 +149,21 @@ const App = () => {
     webSocketService.connect(currentUser.userId);
 
     // Register global listener
-    const handleProfileUpdate = (data: { userId: number; userImageUrl?: string | null }) => {
+    const revisions = new Map<number, string>();
+    const handleProfileUpdate = (data: UserProfileUpdatedEvent) => {
+      const latest = revisions.get(data.userId);
+      if (latest && latest >= data.updatedAt) return;
+      revisions.set(data.userId, data.updatedAt);
+
+      queryClient.setQueriesData({}, cached => patchUserInCache(cached, data));
+      if (data.userId === currentUser.userId) {
+        dispatch(updateUser({
+          ...currentUser,
+          userName: data.userName,
+          userLastName: data.userLastName,
+          userImageUrl: data.userImageUrl,
+        }));
+      }
       window.dispatchEvent(new CustomEvent('followmee:profile-updated', { detail: data }));
     };
 
@@ -156,7 +173,7 @@ const App = () => {
     return () => {
       webSocketService.offProfileUpdated(handleProfileUpdate);
     };
-  }, [isAuthenticated, currentUser?.userId]);
+  }, [dispatch, isAuthenticated, currentUser, queryClient]);
 
   /* Keep task, activity and comment data synchronized across pages and browsers. */
   useEffect(() => {
@@ -184,6 +201,20 @@ const App = () => {
       commentHandler(data);
       window.dispatchEvent(new CustomEvent('followmee:reaction-updated', { detail: data }));
     };
+    const rewardHandler = () => {
+      queryClient.invalidateQueries({ queryKey: ['rewards'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+    };
+    const ownerHandler = async () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      try {
+        const response = await fetch(`${API_BASE_URL}/auth/me`, { credentials: 'include' });
+        const payload = await response.json();
+        if (response.ok && payload?.data) dispatch(updateUser(payload.data));
+      } catch (error) {
+        console.error('Unable to refresh role after ownership transfer', error);
+      }
+    };
 
     const taskEvents = ['task:created', 'task:updated', 'task:deleted'];
     const commentEvents = ['comment:created', 'comment:updated', 'comment:deleted'];
@@ -191,14 +222,20 @@ const App = () => {
     webSocketService.onDomainEvent('activity:created', taskHandler);
     commentEvents.forEach(event => webSocketService.onDomainEvent(event, commentHandler));
     webSocketService.onDomainEvent('reaction:updated', reactionHandler);
+    ['reward:points-updated', 'reward:mission-progress', 'reward:redemption-updated', 'reward:season-updated']
+      .forEach(event => webSocketService.onDomainEvent(event, rewardHandler));
+    webSocketService.onDomainEvent('owner:transferred', ownerHandler);
 
     return () => {
       taskEvents.forEach(event => webSocketService.offDomainEvent(event, taskHandler));
       webSocketService.offDomainEvent('activity:created', taskHandler);
       commentEvents.forEach(event => webSocketService.offDomainEvent(event, commentHandler));
       webSocketService.offDomainEvent('reaction:updated', reactionHandler);
+      ['reward:points-updated', 'reward:mission-progress', 'reward:redemption-updated', 'reward:season-updated']
+        .forEach(event => webSocketService.offDomainEvent(event, rewardHandler));
+      webSocketService.offDomainEvent('owner:transferred', ownerHandler);
     };
-  }, [isAuthenticated, currentUser?.userId, queryClient]);
+  }, [dispatch, isAuthenticated, currentUser?.userId, queryClient]);
 
   if (checkingSession) {
     return <LoadingSpinner />;
@@ -314,6 +351,7 @@ const App = () => {
                   <Route path="/customer/:customerId/profile" element={<Navigate to="/customer-profile" replace />} />
                   <Route path="/notification-analytics" element={<NotificationAnalytics />} />
                   <Route path="/notifications" element={<NotificationsPage />} />
+                  <Route path="/rewards" element={<RewardsPage />} />
                 </Route>
 
                 {/* Legacy customer links never expose CRM data. */}

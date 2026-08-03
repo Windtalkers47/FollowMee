@@ -1,6 +1,6 @@
 // Standardized role names used throughout the application
 export const ROLE_NAMES = {
-  SUPERADMIN: 'Superadmin',
+  OWNER: 'Owner',
   ADMIN: 'Admin', 
   MODERATOR: 'Moderator',
   CUSTOMER: 'Customer'
@@ -16,7 +16,8 @@ export const normalizeRoleName = (role: string): RoleName => {
     case 'superadmin':
     case 'super_admin':
     case 'super-admin':
-      return ROLE_NAMES.SUPERADMIN;
+    case 'owner':
+      return ROLE_NAMES.OWNER;
     case 'admin':
       return ROLE_NAMES.ADMIN;
     case 'moderator':

@@ -3,7 +3,6 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Alert,
-  Avatar,
   Box,
   Button,
   Card,
@@ -28,6 +27,7 @@ import { commentApi, taskApi, Task } from '../../api/task.api';
 import { useUserPreferences } from '../../contexts/UserPreferencesContext';
 import feedback from '../../services/feedback.service';
 import { getOptimizedImageUrl } from '../../utils/imageUtils';
+import SmartAvatar from '../../components/SmartAvatar';
 
 const workflowSteps: Task['status'][] = ['draft', 'todo', 'in_progress', 'review', 'done'];
 const statusKeys = {
@@ -199,7 +199,7 @@ const TaskDetailPage = () => {
                 <Stack spacing={2}>
                   {commentsQuery.data?.map((comment) => (
                     <Stack key={comment.commentId} direction="row" gap={1.5}>
-                      <Avatar src={comment.user?.userImageUrl}>{comment.user?.userName?.charAt(0)}</Avatar>
+                      <SmartAvatar user={comment.user} size={40} />
                       <Box>
                         <Typography fontWeight={700}>{comment.user?.userName} {comment.user?.userLastName}</Typography>
                         <Typography>{comment.comment}</Typography>

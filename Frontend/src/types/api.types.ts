@@ -13,8 +13,11 @@ export interface LoginResponse {
   user: {
     userId: number;
     userName: string;
+    userLastName?: string;
     userEmail: string;
-    userImageUrl?: string;
+    userPhone1?: string;
+    userPhone2?: string;
+    userImageUrl?: string | null;
     roles: string[];
     fullName?: string;
   };

@@ -1,9 +1,16 @@
-import { test, expect, createLoggedInContext, hasTwoQaUsers } from './fixtures';
+import {
+  test,
+  expect,
+  createLoggedInContext,
+  hasTwoQaUsers,
+  hasProfileQaUsers,
+} from './fixtures';
 
 const apiBase = process.env.E2E_API_URL || 'http://localhost:5110/api';
 const seededTaskId = 'e2e00000-0000-4000-8000-000000000002';
 
 test.describe('authenticated production workflows', () => {
+  test.describe.configure({ mode: 'serial' });
   test.skip(!hasTwoQaUsers, 'Workflow checks require the isolated seeded QA database.');
 
   test('task CRUD notifies the assignee in realtime without notifying the actor', async ({ browser }) => {
@@ -49,7 +56,7 @@ test.describe('authenticated production workflows', () => {
     await assignee.close();
   });
 
-  test('task lifecycle supports start, review, reject, approve, reopen and cancel', async ({ browser }) => {
+  test('task lifecycle supports start, review, request changes, approve and cancel', async ({ browser }) => {
     const creator = await createLoggedInContext(browser, 'creator');
     const assignee = await createLoggedInContext(browser, 'assignee');
     const title = `E2E lifecycle task ${Date.now()}`;
@@ -73,6 +80,11 @@ test.describe('authenticated production workflows', () => {
     const rejectResponse = await creator.request.put(`${apiBase}/tasks/${taskId}/mark-undone`);
     expect(rejectResponse.ok(), await rejectResponse.text()).toBe(true);
 
+    const restartResponse = await assignee.request.put(`${apiBase}/tasks/${taskId}`, {
+      data: { status: 'in_progress' },
+    });
+    expect(restartResponse.ok(), await restartResponse.text()).toBe(true);
+
     const secondReviewResponse = await assignee.request.put(`${apiBase}/tasks/${taskId}/mark-done`, {
       data: { completionNote: 'Review feedback addressed.' },
     });
@@ -81,16 +93,25 @@ test.describe('authenticated production workflows', () => {
     const approveResponse = await creator.request.put(`${apiBase}/tasks/${taskId}/approve`);
     expect(approveResponse.ok(), await approveResponse.text()).toBe(true);
 
-    const reopenResponse = await creator.request.put(`${apiBase}/tasks/${taskId}/mark-undone`);
-    expect(reopenResponse.ok(), await reopenResponse.text()).toBe(true);
-
-    const cancelResponse = await creator.request.put(`${apiBase}/tasks/${taskId}`, {
-      data: { status: 'cancelled' },
+    const invalidReverseResponse = await creator.request.put(`${apiBase}/tasks/${taskId}`, {
+      data: { status: 'todo' },
     });
-    expect(cancelResponse.ok(), await cancelResponse.text()).toBe(true);
+    expect(invalidReverseResponse.status()).toBe(409);
 
     const deleteResponse = await creator.request.delete(`${apiBase}/tasks/${taskId}`);
     expect(deleteResponse.ok(), await deleteResponse.text()).toBe(true);
+
+    const cancellableResponse = await creator.request.post(`${apiBase}/tasks`, {
+      data: { title: `${title} cancel`, assignedTo: 2, status: 'todo' },
+    });
+    expect(cancellableResponse.ok(), await cancellableResponse.text()).toBe(true);
+    const cancellableTaskId = (await cancellableResponse.json()).data.taskId as string;
+    const cancelResponse = await creator.request.put(`${apiBase}/tasks/${cancellableTaskId}`, {
+      data: { status: 'cancelled' },
+    });
+    expect(cancelResponse.ok(), await cancelResponse.text()).toBe(true);
+    const deleteCancelledResponse = await creator.request.delete(`${apiBase}/tasks/${cancellableTaskId}`);
+    expect(deleteCancelledResponse.ok(), await deleteCancelledResponse.text()).toBe(true);
 
     await creator.close();
     await assignee.close();
@@ -162,5 +183,56 @@ test.describe('authenticated production workflows', () => {
       .toContain(recipientId);
 
     await assignee.close();
+  });
+
+  test('profile changes synchronize across browser contexts and notify only for admin edits', async ({ browser }) => {
+    test.skip(!hasProfileQaUsers, 'Profile realtime checks require the isolated seeded QA database.');
+
+    const creator = await createLoggedInContext(browser, 'creator');
+    const reviewerFirstBrowser = await createLoggedInContext(browser, 'reviewer');
+    const reviewerSecondBrowser = await createLoggedInContext(browser, 'reviewer');
+    const firstPage = await reviewerFirstBrowser.newPage();
+    const secondPage = await reviewerSecondBrowser.newPage();
+
+    await Promise.all([firstPage.goto('/dashboard'), secondPage.goto('/dashboard')]);
+
+    const profileNotifications = async () => {
+      const response = await reviewerFirstBrowser.request.get(
+        `${apiBase}/notifications?limit=50&offset=0&view=active&read=all`,
+      );
+      expect(response.ok(), await response.text()).toBe(true);
+      const payload = await response.json();
+      return payload.data.notifications.filter(
+        (item: { notification: { notificationType: string } }) =>
+          item.notification.notificationType === 'PROFILE_UPDATED_BY_ADMIN',
+      );
+    };
+
+    expect(await profileNotifications()).toHaveLength(0);
+
+    const selfName = `ReviewerSelf${Date.now()}`;
+    const selfUpdate = await reviewerFirstBrowser.request.put(`${apiBase}/users/me`, {
+      data: { userName: selfName },
+    });
+    expect(selfUpdate.ok(), await selfUpdate.text()).toBe(true);
+
+    await expect(firstPage.locator('body')).toContainText(selfName, { timeout: 12_000 });
+    await expect(secondPage.locator('body')).toContainText(selfName, { timeout: 12_000 });
+    await firstPage.waitForTimeout(750);
+    expect(await profileNotifications()).toHaveLength(0);
+
+    const adminName = `ReviewerAdmin${Date.now()}`;
+    const adminUpdate = await creator.request.put(`${apiBase}/users/3`, {
+      data: { userName: adminName },
+    });
+    expect(adminUpdate.ok(), await adminUpdate.text()).toBe(true);
+
+    await expect(firstPage.locator('body')).toContainText(adminName, { timeout: 12_000 });
+    await expect(secondPage.locator('body')).toContainText(adminName, { timeout: 12_000 });
+    await expect.poll(async () => (await profileNotifications()).length, { timeout: 12_000 }).toBe(1);
+
+    await creator.close();
+    await reviewerFirstBrowser.close();
+    await reviewerSecondBrowser.close();
   });
 });

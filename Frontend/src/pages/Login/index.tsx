@@ -63,7 +63,7 @@ export default function LoginPage() {
   useEffect(() => {
     if (isAuthenticated) {
       setAttempts(0);
-      navigate(currentUser?.roles?.some((role) => ['Admin', 'Superadmin'].includes(role)) ? '/dashboard' : '/my-work');
+      navigate(currentUser?.roles?.some((role) => ['Admin', 'Owner', 'Superadmin'].includes(role)) ? '/dashboard' : '/my-work');
     }
   }, [isAuthenticated, navigate, currentUser]);
 

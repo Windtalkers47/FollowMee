@@ -1,7 +1,6 @@
 import React from 'react';
 import {
   Box,
-  Avatar,
   Chip,
   IconButton,
   Stack,
@@ -12,6 +11,7 @@ import { MoreVert as MoreVertIcon } from '@mui/icons-material';
 import { Task } from '../../api/task.api';
 import { useLiquidGlass } from '../../contexts/LiquidGlassContext';
 import { gradientPresets } from '../../styles/liquidGlassStyles';
+import SmartAvatar from '../SmartAvatar';
 
 const statusColors: Record<Task['status'], 'default' | 'primary' | 'warning' | 'success'> = {
   draft: 'default',
@@ -56,16 +56,11 @@ const TaskHeader: React.FC<TaskHeaderProps> = ({
     }}>
       <Stack direction="row" spacing={1.5} alignItems="flex-start">
         {/* Glass Avatar */}
-        <Avatar
-          src={task.createdByUser?.userImageUrl}
-          imgProps={{ crossOrigin: 'anonymous' }}
-          onError={(e) => {
-            const target = e.target as HTMLImageElement;
-            if (target) target.src = '';
-          }}
+        <SmartAvatar
+          user={task.createdByUser}
+          size={32}
+          avatarVariant="glass"
           sx={{
-            width: 32,
-            height: 32,
             border: `2px solid ${theme.palette.mode === 'dark' 
               ? 'rgba(255, 255, 255, 0.3)' 
               : 'rgba(255, 255, 255, 0.8)'}`,
@@ -75,9 +70,7 @@ const TaskHeader: React.FC<TaskHeaderProps> = ({
             backdropFilter: 'blur(8px)',
             WebkitBackdropFilter: 'blur(8px)',
           }}
-        >
-          {(!task.createdByUser?.userImageUrl || task.createdByUser.userImageUrl === '') && task.createdByUser?.userName?.[0]}
-        </Avatar>
+        />
         
         {/* Glass Content */}
         <Box flex={1} minWidth={0}>

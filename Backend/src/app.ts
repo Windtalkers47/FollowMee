@@ -18,6 +18,9 @@ import { notificationCleanupService } from './services/notification-cleanup.serv
 import { taskDeadlineNotificationService } from './services/task-deadline-notification.service';
 import { createServer } from 'http';
 import { Server as SocketIOServer } from 'socket.io';
+import rateLimit from 'express-rate-limit';
+import { getAllowedOrigins, isAllowedOrigin, verifyMutationOrigin } from './config/security.config';
+import { formatDatabaseConnectionError } from './utils/database-error.util';
 
 // Import routes
 import authRoutes from './routes/auth.routes';
@@ -34,6 +37,9 @@ import notificationRoutes from './routes/notification.routes';
 import dashboardRoutes from './routes/dashboard.routes';
 import publicProfileRoutes from './routes/public-profile.routes';
 import userPreferenceRoutes from './routes/user-preference.routes';
+import rewardRoutes from './routes/reward.routes';
+import adminRewardRoutes from './routes/admin-reward.routes';
+import { rewardService } from './services/reward.service';
 
 // Load environment variables
 dotenv.config();
@@ -46,6 +52,9 @@ class App {
 
   constructor() {
     this.app = express();
+    if (process.env.NODE_ENV === 'production') {
+      this.app.set('trust proxy', 1);
+    }
     this.port = parseInt(process.env.PORT || '5000');
     this.database = dataSource;
   }
@@ -61,7 +70,9 @@ class App {
       NotificationHelper.initialize(notificationService);
 
       // Initialize notification services
-      this.initializeNotificationServices(notificationService);
+      await this.initializeNotificationServices(notificationService);
+      await rewardService.ensureDevelopmentSeed();
+      rewardService.startExpiryWorker();
 
       // Then set up other middleware and routes
       this.initializeMiddlewares();
@@ -101,6 +112,7 @@ class App {
       await notificationQueueService.flushAll();
       notificationQueueService.clearAll();
       taskDeadlineNotificationService.stop();
+      rewardService.stopExpiryWorker();
 
       // Stop cleanup service
       notificationCleanupService.stop();
@@ -114,40 +126,51 @@ class App {
 
   // Initialize database connection
   private async initializeDatabase(): Promise<void> {
-    try {
-      if (!this.database.isInitialized) {
+    if (this.database.isInitialized) return;
+
+    const isProduction = process.env.NODE_ENV === 'production';
+    const maxAttempts = Math.max(1, Number(
+      process.env.DB_CONNECT_RETRIES || (isProduction ? 5 : 1),
+    ));
+    const baseDelayMs = Math.max(100, Number(process.env.DB_RETRY_DELAY_MS || 1_000));
+    const host = process.env.DB_HOST || 'localhost';
+    const port = Number(process.env.DB_PORT || 3306);
+    let finalMessage = 'Database connection failed.';
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      try {
         await this.database.initialize();
         logger.info('Database connection has been established successfully.');
+        return;
+      } catch (error) {
+        finalMessage = formatDatabaseConnectionError(error, {
+          host,
+          port,
+          exposeDetails: !isProduction,
+        });
+
+        if (attempt < maxAttempts) {
+          const delayMs = Math.min(baseDelayMs * (2 ** (attempt - 1)), 10_000);
+          logger.warn(`Database unavailable (attempt ${attempt}/${maxAttempts}). Retrying in ${delayMs}ms.`);
+          await new Promise(resolve => setTimeout(resolve, delayMs));
+        }
       }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error : new Error('Unknown database error');
-      logger.error(`Unable to connect to the database: ${errorMessage.message}`);
-      throw errorMessage;
     }
+
+    logger.error(`Unable to connect to the database: ${finalMessage}`);
+    throw new Error(finalMessage);
   }
 
   private initializeMiddlewares(): void {
+    this.app.disable('x-powered-by');
+    this.app.use(helmet({
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
+    }));
+
     // Enable CORS with credentials
     this.app.use(cors({
       origin: function(origin, callback) {
-        // Allow requests with no origin (like mobile apps or curl requests)
-        if (!origin) return callback(null, true);
-        
-        // Build list of allowed origins
-        const allowedOrigins = [
-          'http://localhost:3000',
-          'http://localhost:5173',
-          process.env.FRONTEND_URL || '',
-          process.env.CORS_ORIGIN || ''
-        ].filter(Boolean) as string[];
-
-        // Origins include scheme and port; only exact configured origins are trusted.
-        const isAllowed = allowedOrigins.includes(origin);
-        if (isAllowed) {
-          callback(null, true);
-        } else {
-          callback(null, false);
-        }
+        callback(null, isAllowedOrigin(origin));
       },
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
@@ -156,13 +179,22 @@ class App {
     }));
 
     // Parse JSON request body
-    this.app.use(express.json({ limit: '10mb' })); //  JSON parsing limit to 10MB
+    this.app.use(express.json({ limit: process.env.JSON_BODY_LIMIT || '6mb' }));
 
     // Parse urlencoded request body
-    this.app.use(express.urlencoded({ extended: true, limit: '10mb' })); // URL encoded parsing limit to 10MB
+    this.app.use(express.urlencoded({ extended: true, limit: process.env.JSON_BODY_LIMIT || '6mb' }));
 
     // Parse cookies
     this.app.use(cookieParser());
+    this.app.use(verifyMutationOrigin);
+
+    this.app.use('/api', rateLimit({
+      windowMs: 60_000,
+      limit: Number(process.env.API_RATE_LIMIT_PER_MINUTE || 300),
+      standardHeaders: true,
+      legacyHeaders: false,
+      skip: req => req.path === '/health',
+    }));
 
     // Logger middleware
     if (process.env.NODE_ENV === 'development') {
@@ -190,16 +222,24 @@ class App {
 
   private initializeRoutes(): void {
     // Health check endpoint
-    this.app.get('/health', (req: Request, res: Response) => {
-      res.status(200).json({ status: 'UP' });
+    this.app.get('/health', async (req: Request, res: Response) => {
+      try {
+        if (!this.database.isInitialized) throw new Error('Database is not initialized');
+        await this.database.query('SELECT 1');
+        res.status(200).json({ status: 'UP', database: 'UP' });
+      } catch {
+        res.status(503).json({ status: 'DEGRADED', database: 'DOWN' });
+      }
     });
 
     // Swagger API Documentation
-    this.app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
-      explorer: true,
-      customCss: '.swagger-ui .topbar { display: none }',
-      customSiteTitle: 'FollowMee API Docs',
-    }));
+    if (process.env.NODE_ENV !== 'production' || process.env.ENABLE_API_DOCS === 'true') {
+      this.app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+        explorer: true,
+        customCss: '.swagger-ui .topbar { display: none }',
+        customSiteTitle: 'FollowMee API Docs',
+      }));
+    }
 
     // API routes
     this.app.use('/api/auth', authRoutes);
@@ -219,6 +259,8 @@ class App {
     // User routes
     this.app.use('/api/users', userRoutes);
     this.app.use('/api/user-preferences', userPreferenceRoutes);
+    this.app.use('/api/rewards', rewardRoutes);
+    this.app.use('/api/admin/rewards', adminRewardRoutes);
 
     // Task routes
     this.app.use('/api/tasks', taskRoutes);
@@ -252,6 +294,8 @@ class App {
       if (statusCode >= 500) console.error(err.stack);
       res.status(statusCode).json({
         message: err?.message || 'Internal Server Error',
+        ...(err?.code ? { code: err.code } : {}),
+        ...(err?.details ? { details: err.details } : {}),
         ...(err?.code === 'INVALID_TASK_PAYLOAD' ? { code: err.code, fields: err.fields } : {}),
         ...(isTaskTransition ? {
           code: err.code,
@@ -290,12 +334,7 @@ class App {
       const httpServer = createServer(this.app);
 
       // Initialize Socket.io with CORS for production
-      const allowedOrigins = [
-        'http://localhost:5173',
-        'http://localhost:3000',
-        process.env.FRONTEND_URL || '',
-        process.env.CORS_ORIGIN || ''
-      ].filter(Boolean);
+      const allowedOrigins = getAllowedOrigins();
 
       const io = new SocketIOServer(httpServer, {
         cors: {
@@ -304,7 +343,7 @@ class App {
             if (!origin) return callback(null, true);
             
             // Check if origin is in allowed list
-            if (allowedOrigins.includes(origin) || allowedOrigins.some(allowed => origin?.startsWith(allowed))) {
+            if (allowedOrigins.includes(origin.replace(/\/$/, ''))) {
               callback(null, true);
             } else {
               callback(new Error('Not allowed by CORS'));

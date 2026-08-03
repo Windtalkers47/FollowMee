@@ -43,8 +43,16 @@
 3. รัน migration:
    ```bash
    cd backend
-   npx typeorm-ts-node-commonjs migration:run -d src/data-source.ts
+   npm run migration:show
+   npm run migration:run
    ```
+
+4. ตรวจความพร้อมจากโฟลเดอร์โปรเจกต์ก่อนเปิดระบบ:
+   ```bash
+   npm run doctor:db
+   npm start
+   ```
+   หาก Doctor แจ้ง `ECONNREFUSED` ให้เปิด XAMPP Control Panel และกด Start ที่ MySQL ก่อน ไม่ต้องเปิด Apache สำหรับ FollowMee
 
 ### 🚦 เริ่มต้นการทำงาน
 
@@ -167,8 +175,16 @@ A full-stack social media management platform built with React, TypeScript, Node
 3. Run database migrations:
    ```bash
    cd backend
-   npx typeorm-ts-node-commonjs migration:run -d src/data-source.ts
+   npm run migration:show
+   npm run migration:run
    ```
+
+4. Verify local readiness from the project root before starting the app:
+   ```bash
+   npm run doctor:db
+   npm start
+   ```
+   If Doctor reports `ECONNREFUSED`, open XAMPP Control Panel and start MySQL. FollowMee does not require Apache.
 
 ### 🚦 Running the Application
 
@@ -236,3 +252,49 @@ REACT_APP_API_URL=http://localhost:5000/api
 ## 📄 License / สัญญาอนุญาต
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Owner and Rewards operations
+
+- `Owner` replaces the legacy `Superadmin` role. The database enforces one current Owner through `system_owner`.
+- Use the authenticated User Management transfer dialog for normal ownership changes. The current Owner must confirm their password; the previous Owner becomes Admin.
+- Recovery CLI (audited and transactional):
+
+```powershell
+npm --prefix Backend run owner:transfer -- --email user@example.com
+```
+
+- Do not assign Owner by inserting directly into `user_roles`. That bypasses the singleton and can leave authorization inconsistent.
+- Local development enables the sample rewards catalog/missions unless `REWARD_DEV_SEED=false`. UAT and production must set `REWARD_DEV_SEED=false`; redemption remains disabled until the Owner enables it.
+- Reward Points have separate available and reserved balances. A redemption request atomically reserves both points and stock. Approval settles the reservation; rejection, cancellation, or expiry creates immutable release ledger entries.
+
+Emergency SQL is a last-resort recovery path only. Take a backup first, stop application writes, replace the target email, and run the whole transaction together:
+
+```sql
+START TRANSACTION;
+
+SELECT userId INTO @previous_owner_id
+FROM system_owner WHERE singletonId = 1 FOR UPDATE;
+
+SELECT userId INTO @target_owner_id
+FROM users
+WHERE LOWER(userEmail) = LOWER('user@example.com') AND isActive = 1
+FOR UPDATE;
+
+SELECT roleId INTO @owner_role_id FROM roles WHERE roleName = 'Owner' AND isActive = 1;
+SELECT roleId INTO @admin_role_id FROM roles WHERE roleName = 'Admin' AND isActive = 1;
+
+DELETE FROM user_roles WHERE userId IN (@previous_owner_id, @target_owner_id);
+INSERT INTO user_roles (userId, roleId)
+SELECT @previous_owner_id, @admin_role_id WHERE @previous_owner_id <> @target_owner_id
+UNION ALL
+SELECT @target_owner_id, @owner_role_id;
+
+UPDATE system_owner SET userId = @target_owner_id WHERE singletonId = 1;
+INSERT INTO user_audit_logs
+  (userId, entityType, entityId, action, status, details, oldValue, newValue)
+VALUES
+  (@target_owner_id, 'system_owner', '1', 'EMERGENCY_TRANSFER_OWNER', 'SUCCESS',
+   JSON_OBJECT('recovery', TRUE), CAST(@previous_owner_id AS CHAR), CAST(@target_owner_id AS CHAR));
+
+COMMIT;
+```

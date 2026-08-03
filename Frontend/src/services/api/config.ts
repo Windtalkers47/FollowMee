@@ -1,5 +1,4 @@
-// Base API configuration
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+import { API_URL } from '../../utils/runtimeEnv';
 
 export const apiConfig = {
   baseURL: API_URL,

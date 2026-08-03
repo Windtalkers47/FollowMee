@@ -11,10 +11,18 @@ const credentials = {
     email: process.env.E2E_ASSIGNEE_EMAIL || (process.env.E2E_SEEDED === '1' ? 'qa-assignee@example.test' : ''),
     password: process.env.E2E_ASSIGNEE_PASSWORD || (process.env.E2E_SEEDED === '1' ? 'FollowMee-QA-2026!' : ''),
   },
+  reviewer: {
+    email: process.env.E2E_REVIEWER_EMAIL || (process.env.E2E_SEEDED === '1' ? 'qa-reviewer@example.test' : ''),
+    password: process.env.E2E_REVIEWER_PASSWORD || (process.env.E2E_SEEDED === '1' ? 'FollowMee-QA-2026!' : ''),
+  },
 } satisfies Record<string, Credentials>;
 
 export const hasTwoQaUsers = Boolean(
   credentials.creator.email && credentials.creator.password && credentials.assignee.email && credentials.assignee.password
+);
+
+export const hasProfileQaUsers = Boolean(
+  hasTwoQaUsers && credentials.reviewer.email && credentials.reviewer.password
 );
 
 export async function login(page: Page, user: Credentials) {
@@ -29,11 +37,14 @@ export async function login(page: Page, user: Credentials) {
   }
 }
 
-export async function loginAs(page: Page, role: 'creator' | 'assignee') {
+export async function loginAs(page: Page, role: 'creator' | 'assignee' | 'reviewer') {
   await login(page, credentials[role]);
 }
 
-export async function createLoggedInContext(browser: Browser, role: 'creator' | 'assignee'): Promise<BrowserContext> {
+export async function createLoggedInContext(
+  browser: Browser,
+  role: 'creator' | 'assignee' | 'reviewer',
+): Promise<BrowserContext> {
   const context = await browser.newContext();
   const page = await context.newPage();
   await loginAs(page, role);

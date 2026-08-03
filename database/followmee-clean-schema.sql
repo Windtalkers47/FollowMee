@@ -14,6 +14,19 @@ USE `followmee`;
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 
+DROP TABLE IF EXISTS `reward_redemptions`;
+DROP TABLE IF EXISTS `reward_catalog_items`;
+DROP TABLE IF EXISTS `mission_progress_events`;
+DROP TABLE IF EXISTS `user_mission_progress`;
+DROP TABLE IF EXISTS `mission_instances`;
+DROP TABLE IF EXISTS `mission_templates`;
+DROP TABLE IF EXISTS `user_badges`;
+DROP TABLE IF EXISTS `reward_badges`;
+DROP TABLE IF EXISTS `reward_point_ledger`;
+DROP TABLE IF EXISTS `reward_wallets`;
+DROP TABLE IF EXISTS `reward_seasons`;
+DROP TABLE IF EXISTS `reward_settings`;
+DROP TABLE IF EXISTS `system_owner`;
 DROP TABLE IF EXISTS `notification_metrics`;
 DROP TABLE IF EXISTS `notification_group_actors`;
 DROP TABLE IF EXISTS `notification_recipients`;
@@ -72,6 +85,8 @@ CREATE TABLE `users` (
 CREATE TABLE `customers` (
   `customerId` VARCHAR(36) NOT NULL,
   `userId` INT NULL,
+  `createdBy` INT NULL,
+  `updatedBy` INT NULL,
   `customerName` VARCHAR(50) NOT NULL,
   `customerLastName` VARCHAR(50) NULL,
   `customerEmail` VARCHAR(191) NOT NULL,
@@ -105,6 +120,8 @@ CREATE TABLE `customers` (
 CREATE TABLE `public_profiles` (
   `profileId` VARCHAR(36) NOT NULL,
   `userId` INT NOT NULL,
+  `createdBy` INT NULL,
+  `updatedBy` INT NULL,
   `customerId` VARCHAR(36) NULL,
   `slug` VARCHAR(64) NOT NULL,
   `displayName` VARCHAR(100) NOT NULL,
@@ -464,6 +481,7 @@ CREATE TABLE `user_notification_settings` (
   `notifyCommentReaction` TINYINT(1) NOT NULL DEFAULT 1,
   `notifySystemAlert` TINYINT(1) NOT NULL DEFAULT 1,
   `notifyRoleChanged` TINYINT(1) NOT NULL DEFAULT 1,
+  `notifyProfileChanged` TINYINT(1) NOT NULL DEFAULT 1,
   `emailEnabled` TINYINT(1) NOT NULL DEFAULT 0,
   `pushEnabled` TINYINT(1) NOT NULL DEFAULT 1,
   `doNotDisturbEnabled` TINYINT(1) NOT NULL DEFAULT 0,
@@ -578,6 +596,145 @@ CREATE TABLE `push_subscriptions` (
     ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE `system_owner` (
+  `singletonId` TINYINT NOT NULL DEFAULT 1,
+  `userId` INT NOT NULL,
+  `createdAt` TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updatedAt` TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (`singletonId`), UNIQUE KEY `uq_system_owner_user` (`userId`),
+  CONSTRAINT `fk_system_owner_user` FOREIGN KEY (`userId`) REFERENCES `users` (`userId`) ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT `chk_system_owner_singleton` CHECK (`singletonId` = 1)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `reward_settings` (
+  `singletonId` TINYINT NOT NULL DEFAULT 1, `redemptionEnabled` TINYINT(1) NOT NULL DEFAULT 0,
+  `requestExpiryHours` INT NOT NULL DEFAULT 72, `updatedBy` INT NULL,
+  `createdAt` TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updatedAt` TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (`singletonId`),
+  CONSTRAINT `fk_reward_settings_user` FOREIGN KEY (`updatedBy`) REFERENCES `users` (`userId`) ON DELETE SET NULL ON UPDATE CASCADE,
+  CONSTRAINT `chk_reward_settings_singleton` CHECK (`singletonId` = 1),
+  CONSTRAINT `chk_reward_expiry_hours` CHECK (`requestExpiryHours` BETWEEN 1 AND 720)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `reward_seasons` (
+  `seasonId` INT NOT NULL AUTO_INCREMENT, `seasonKey` VARCHAR(7) NOT NULL, `name` VARCHAR(100) NOT NULL,
+  `startsAt` DATETIME NOT NULL, `endsAt` DATETIME NOT NULL,
+  `status` ENUM('upcoming','active','closed') NOT NULL DEFAULT 'active',
+  `createdAt` TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (`seasonId`), UNIQUE KEY `uq_reward_season_key` (`seasonKey`),
+  KEY `idx_reward_season_dates` (`startsAt`, `endsAt`, `status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `reward_wallets` (
+  `userId` INT NOT NULL, `availablePoints` INT NOT NULL DEFAULT 0, `reservedPoints` INT NOT NULL DEFAULT 0,
+  `lifetimeEarned` INT NOT NULL DEFAULT 0,
+  `updatedAt` TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (`userId`),
+  CONSTRAINT `fk_reward_wallet_user` FOREIGN KEY (`userId`) REFERENCES `users` (`userId`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `chk_reward_wallet_available` CHECK (`availablePoints` >= 0),
+  CONSTRAINT `chk_reward_wallet_reserved` CHECK (`reservedPoints` >= 0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `reward_point_ledger` (
+  `ledgerId` BIGINT NOT NULL AUTO_INCREMENT, `userId` INT NOT NULL, `seasonId` INT NULL,
+  `entryType` ENUM('credit','reserve','release','redeem','adjustment') NOT NULL, `amount` INT NOT NULL,
+  `sourceType` VARCHAR(40) NOT NULL, `sourceId` VARCHAR(100) NOT NULL, `idempotencyKey` VARCHAR(180) NOT NULL,
+  `metadata` JSON NULL, `createdAt` TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (`ledgerId`), UNIQUE KEY `uq_reward_ledger_idempotency` (`idempotencyKey`),
+  KEY `idx_reward_ledger_user_created` (`userId`, `createdAt`), KEY `idx_reward_ledger_season_user` (`seasonId`, `userId`),
+  CONSTRAINT `fk_reward_ledger_user` FOREIGN KEY (`userId`) REFERENCES `users` (`userId`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_reward_ledger_season` FOREIGN KEY (`seasonId`) REFERENCES `reward_seasons` (`seasonId`) ON DELETE SET NULL ON UPDATE CASCADE,
+  CONSTRAINT `chk_reward_ledger_amount` CHECK (`amount` > 0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `reward_badges` (
+  `badgeId` INT NOT NULL AUTO_INCREMENT, `badgeKey` VARCHAR(60) NOT NULL, `nameKey` VARCHAR(120) NOT NULL,
+  `descriptionKey` VARCHAR(120) NOT NULL, `icon` VARCHAR(40) NOT NULL, `isActive` TINYINT(1) NOT NULL DEFAULT 1,
+  PRIMARY KEY (`badgeId`), UNIQUE KEY `uq_reward_badge_key` (`badgeKey`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `user_badges` (
+  `userBadgeId` BIGINT NOT NULL AUTO_INCREMENT, `userId` INT NOT NULL, `badgeId` INT NOT NULL, `seasonId` INT NULL,
+  `sourceId` VARCHAR(100) NOT NULL, `awardedAt` TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (`userBadgeId`), UNIQUE KEY `uq_user_badge_source` (`userId`, `badgeId`, `sourceId`),
+  CONSTRAINT `fk_user_badge_user` FOREIGN KEY (`userId`) REFERENCES `users` (`userId`) ON DELETE CASCADE,
+  CONSTRAINT `fk_user_badge_badge` FOREIGN KEY (`badgeId`) REFERENCES `reward_badges` (`badgeId`) ON DELETE CASCADE,
+  CONSTRAINT `fk_user_badge_season` FOREIGN KEY (`seasonId`) REFERENCES `reward_seasons` (`seasonId`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `mission_templates` (
+  `templateId` INT NOT NULL AUTO_INCREMENT, `templateKey` VARCHAR(80) NOT NULL,
+  `category` ENUM('quality','on_time','recovery','consistency') NOT NULL,
+  `cadence` ENUM('weekly','monthly') NOT NULL, `scope` ENUM('shared','personal') NOT NULL,
+  `titleKey` VARCHAR(120) NOT NULL, `descriptionKey` VARCHAR(120) NOT NULL,
+  `defaultTarget` INT NOT NULL, `defaultRewardPoints` INT NOT NULL, `isActive` TINYINT(1) NOT NULL DEFAULT 1,
+  `updatedBy` INT NULL, `createdAt` TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updatedAt` TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (`templateId`), UNIQUE KEY `uq_mission_template_key` (`templateKey`),
+  CONSTRAINT `fk_mission_template_user` FOREIGN KEY (`updatedBy`) REFERENCES `users` (`userId`) ON DELETE SET NULL,
+  CONSTRAINT `chk_mission_target` CHECK (`defaultTarget` > 1), CONSTRAINT `chk_mission_reward` CHECK (`defaultRewardPoints` > 0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `mission_instances` (
+  `missionId` BIGINT NOT NULL AUTO_INCREMENT, `templateId` INT NOT NULL, `periodKey` VARCHAR(20) NOT NULL,
+  `startsAt` DATETIME NOT NULL, `endsAt` DATETIME NOT NULL, `target` INT NOT NULL, `rewardPoints` INT NOT NULL,
+  `generatedBy` ENUM('owner','automatic') NOT NULL DEFAULT 'automatic', `isActive` TINYINT(1) NOT NULL DEFAULT 1,
+  `createdAt` TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (`missionId`), UNIQUE KEY `uq_mission_instance_period` (`templateId`, `periodKey`),
+  KEY `idx_mission_instance_active_dates` (`isActive`, `startsAt`, `endsAt`),
+  CONSTRAINT `fk_mission_instance_template` FOREIGN KEY (`templateId`) REFERENCES `mission_templates` (`templateId`) ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `user_mission_progress` (
+  `progressId` BIGINT NOT NULL AUTO_INCREMENT, `missionId` BIGINT NOT NULL, `userId` INT NOT NULL,
+  `progress` INT NOT NULL DEFAULT 0, `target` INT NOT NULL, `completedAt` DATETIME NULL, `rewardClaimedAt` DATETIME NULL,
+  `lastSourceId` VARCHAR(100) NULL, `updatedAt` TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (`progressId`), UNIQUE KEY `uq_user_mission_progress` (`missionId`, `userId`),
+  CONSTRAINT `fk_user_mission_mission` FOREIGN KEY (`missionId`) REFERENCES `mission_instances` (`missionId`) ON DELETE CASCADE,
+  CONSTRAINT `fk_user_mission_user` FOREIGN KEY (`userId`) REFERENCES `users` (`userId`) ON DELETE CASCADE,
+  CONSTRAINT `chk_user_mission_progress` CHECK (`progress` >= 0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `mission_progress_events` (
+  `eventId` BIGINT NOT NULL AUTO_INCREMENT, `missionId` BIGINT NOT NULL, `userId` INT NOT NULL,
+  `cadence` ENUM('weekly','monthly') NOT NULL, `periodKey` VARCHAR(20) NOT NULL, `sourceId` VARCHAR(100) NOT NULL,
+  `createdAt` TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6), PRIMARY KEY (`eventId`),
+  UNIQUE KEY `uq_mission_event_cadence_source` (`userId`, `cadence`, `periodKey`, `sourceId`),
+  CONSTRAINT `fk_mission_event_mission` FOREIGN KEY (`missionId`) REFERENCES `mission_instances` (`missionId`) ON DELETE CASCADE,
+  CONSTRAINT `fk_mission_event_user` FOREIGN KEY (`userId`) REFERENCES `users` (`userId`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `reward_catalog_items` (
+  `itemId` INT NOT NULL AUTO_INCREMENT, `catalogKey` VARCHAR(80) NULL, `name` VARCHAR(120) NOT NULL,
+  `description` VARCHAR(500) NULL, `imageUrl` VARCHAR(512) NULL, `pointsCost` INT NOT NULL,
+  `availableStock` INT NOT NULL DEFAULT 0, `reservedStock` INT NOT NULL DEFAULT 0, `redeemedStock` INT NOT NULL DEFAULT 0,
+  `perUserLimit` INT NULL, `startsAt` DATETIME NULL, `endsAt` DATETIME NULL, `isActive` TINYINT(1) NOT NULL DEFAULT 1,
+  `createdBy` INT NULL, `updatedBy` INT NULL, `createdAt` TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updatedAt` TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (`itemId`), UNIQUE KEY `uq_reward_catalog_key` (`catalogKey`), KEY `idx_reward_catalog_active` (`isActive`, `startsAt`, `endsAt`),
+  CONSTRAINT `fk_reward_catalog_created` FOREIGN KEY (`createdBy`) REFERENCES `users` (`userId`) ON DELETE SET NULL,
+  CONSTRAINT `fk_reward_catalog_updated` FOREIGN KEY (`updatedBy`) REFERENCES `users` (`userId`) ON DELETE SET NULL,
+  CONSTRAINT `chk_reward_catalog_cost` CHECK (`pointsCost` > 0),
+  CONSTRAINT `chk_reward_catalog_stock` CHECK (`availableStock` >= 0 AND `reservedStock` >= 0 AND `redeemedStock` >= 0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `reward_redemptions` (
+  `redemptionId` BIGINT NOT NULL AUTO_INCREMENT, `userId` INT NOT NULL, `itemId` INT NOT NULL,
+  `pointsCost` INT NOT NULL, `quantity` INT NOT NULL DEFAULT 1,
+  `status` ENUM('pending','approved','rejected','cancelled','expired','fulfilled') NOT NULL DEFAULT 'pending',
+  `expiresAt` DATETIME NOT NULL, `decidedBy` INT NULL, `decisionReason` VARCHAR(500) NULL,
+  `decidedAt` DATETIME NULL, `fulfilledAt` DATETIME NULL, `idempotencyKey` VARCHAR(180) NOT NULL,
+  `createdAt` TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updatedAt` TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (`redemptionId`), UNIQUE KEY `uq_reward_redemption_idempotency` (`idempotencyKey`),
+  KEY `idx_reward_redemption_user_status` (`userId`, `status`, `createdAt`), KEY `idx_reward_redemption_status_expiry` (`status`, `expiresAt`),
+  CONSTRAINT `fk_reward_redemption_user` FOREIGN KEY (`userId`) REFERENCES `users` (`userId`) ON DELETE RESTRICT,
+  CONSTRAINT `fk_reward_redemption_item` FOREIGN KEY (`itemId`) REFERENCES `reward_catalog_items` (`itemId`) ON DELETE RESTRICT,
+  CONSTRAINT `fk_reward_redemption_decider` FOREIGN KEY (`decidedBy`) REFERENCES `users` (`userId`) ON DELETE SET NULL,
+  CONSTRAINT `chk_reward_redemption_cost` CHECK (`pointsCost` > 0), CONSTRAINT `chk_reward_redemption_quantity` CHECK (`quantity` > 0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE `migrations` (
   `id` INT NOT NULL AUTO_INCREMENT,
   `timestamp` BIGINT NOT NULL,
@@ -587,6 +744,9 @@ CREATE TABLE `migrations` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 START TRANSACTION;
+
+INSERT INTO `reward_settings` (`singletonId`, `redemptionEnabled`, `requestExpiryHours`)
+VALUES (1, 0, 72);
 
 -- This clean schema already contains the final state of every migration below.
 -- Recording the ledger prevents TypeORM from trying to recreate these tables
@@ -604,10 +764,13 @@ INSERT INTO `migrations` (`timestamp`, `name`) VALUES
   (1792000000000, 'RepairUserIdentity1792000000000'),
   (1793000000000, 'AddVerifiedTaskScoring1793000000000'),
   (1794000000000, 'OptimizeNotificationInbox1794000000000'),
-  (1795000000000, 'AddUserPreferences1795000000000');
+  (1795000000000, 'AddUserPreferences1795000000000'),
+  (1796000000000, 'AddNotificationTranslations1796000000000'),
+  (1797000000000, 'AddProfileChangedNotificationPreference1797000000000'),
+  (1798000000000, 'OwnerOrganizationRewards1798000000000');
 
 INSERT INTO `roles` (`roleName`, `description`, `roleLevel`) VALUES
-  ('Superadmin', 'Full system access', 999),
+  ('Owner', 'System owner with full access and ownership transfer authority', 999),
   ('Admin', 'Manage users and content', 100),
   ('Moderator', 'Moderate content and users', 50),
   ('Customer', 'Regular user', 1);
@@ -622,29 +785,26 @@ INSERT INTO `permissions` (`permissionName`, `description`) VALUES
   ('VIEW_CUSTOMERS', 'View customers'),
   ('MANAGE_CUSTOMERS', 'Manage customers'),
   ('VIEW_TASKS', 'View tasks'),
-  ('MANAGE_TASKS', 'Manage tasks');
+  ('MANAGE_TASKS', 'Manage tasks'),
+  ('PUBLISH_PROFILES', 'Publish, unpublish and delete organization profiles'),
+  ('MANAGE_REWARDS', 'Manage reward settings, catalog, missions and redemptions');
 
 INSERT INTO `role_permissions` (`roleId`, `permissionId`)
 SELECT r.`roleId`, p.`permissionId`
 FROM `roles` r
 CROSS JOIN `permissions` p
-WHERE r.`roleName` = 'Superadmin'
+WHERE r.`roleName` = 'Owner'
    OR (r.`roleName` = 'Admin' AND p.`permissionName` IN (
      'VIEW_USERS', 'CREATE_USERS', 'UPDATE_USERS',
-     'VIEW_CUSTOMERS', 'MANAGE_CUSTOMERS', 'VIEW_TASKS', 'MANAGE_TASKS'
+     'VIEW_CUSTOMERS', 'MANAGE_CUSTOMERS', 'VIEW_TASKS', 'MANAGE_TASKS', 'PUBLISH_PROFILES'
    ))
    OR (r.`roleName` = 'Moderator' AND p.`permissionName` IN (
-     'VIEW_USERS', 'VIEW_CUSTOMERS', 'VIEW_TASKS'
+     'VIEW_USERS', 'VIEW_CUSTOMERS', 'MANAGE_CUSTOMERS', 'VIEW_TASKS'
    ))
    OR (r.`roleName` = 'Customer' AND p.`permissionName` = 'VIEW_TASKS');
 
 COMMIT;
 
 -- Intentionally no default user/password is inserted.
--- Register the first account through the app, then grant Superadmin:
---
--- INSERT INTO user_roles (userId, roleId)
--- SELECT u.userId, r.roleId
--- FROM users u
--- JOIN roles r ON r.roleName = 'Superadmin'
--- WHERE u.userEmail = 'replace-with-your-email@example.com';
+-- Intentionally no Owner is seeded. Bootstrap/transfer ownership with the audited CLI:
+-- npm --prefix Backend run owner:transfer -- --email user@example.com

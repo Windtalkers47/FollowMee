@@ -122,6 +122,10 @@ export class UpdateUserNotificationSettingsDto {
 
   @IsOptional()
   @IsBoolean()
+  notifyProfileChanged?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
   emailEnabled?: boolean;
 
   @IsOptional()

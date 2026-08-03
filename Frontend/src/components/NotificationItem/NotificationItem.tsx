@@ -24,6 +24,7 @@ import {
   Undo,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
+import { getSafeInternalPath } from '../../utils/safeNavigation';
 import SmartAvatar from '../SmartAvatar/SmartAvatar';
 import { NotificationRecipient } from '../../types/notification.types';
 import { trackClick, trackOpen } from '../../api/notification.api';
@@ -82,7 +83,7 @@ const NotificationItem = ({
   const handleClick = () => {
     if (!recipient.isRead) onMarkAsRead(recipient.recipientId);
     onNavigate?.();
-    if (notification.actionUrl) navigate(notification.actionUrl);
+    if (notification.actionUrl) navigate(getSafeInternalPath(notification.actionUrl));
     void trackOpen(recipient.recipientId, notification.notificationId);
     if (notification.actionUrl) void trackClick(recipient.recipientId, notification.notificationId);
   };

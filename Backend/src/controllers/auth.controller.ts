@@ -109,7 +109,7 @@ class AuthController {
         if (!role) {
           // Create role if it doesn't exist
           const roleConfigs = {
-            'Superadmin': { 
+            'Owner': {
               description: '🔥 Super Administrator - Complete system control. Can manage everything including users, roles, permissions, and all system settings. Only one allowed.', 
               roleLevel: 999 
             },

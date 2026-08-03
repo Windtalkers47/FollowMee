@@ -54,6 +54,7 @@ export interface UserNotificationSettingsResponseDto {
   notifyCommentReaction: boolean;
   notifySystemAlert: boolean;
   notifyRoleChanged: boolean;
+  notifyProfileChanged: boolean;
   emailEnabled: boolean;
   pushEnabled: boolean;
   createdAt: Date;

@@ -6,6 +6,8 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { v4 as uuidv4 } from 'uuid';
 import auditService from './audit.service';
+import { authCookieOptions } from '../config/security.config';
+import { normalizeRoles } from '../utils/role.util';
 
 // Configuration
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
@@ -127,20 +129,16 @@ export class AuthService {
     
     // Access token (short-lived)
     res.cookie('access_token', accessToken, {
-      httpOnly: true,
-      secure: NODE_ENV === 'production',
-      sameSite: 'strict',
+      ...authCookieOptions('/'),
       maxAge: accessTokenExpiresInMs,
-      path: '/',
     });
     
     // Refresh token (long-lived)
     res.cookie('refresh_token', refreshToken, {
-      httpOnly: true,
-      secure: NODE_ENV === 'production',
-      sameSite: 'strict',
+      // Authentication middleware can refresh an expired access token on any
+      // protected API request, so the refresh cookie must be available to /api.
+      ...authCookieOptions('/api'),
       maxAge: refreshTokenExpiresInMs,
-      path: '/api/auth/refresh-token',
     });
   }
 
@@ -148,9 +146,8 @@ export class AuthService {
    * Clear the auth cookie
    */
   clearAuthCookie(res: Response): void {
-    res.clearCookie('token', {
-      path: '/',
-    });
+    res.clearCookie('access_token', authCookieOptions('/'));
+    res.clearCookie('refresh_token', authCookieOptions('/api'));
   }
 
   /**
@@ -188,7 +185,7 @@ export class AuthService {
       throw new Error('Invalid email or password');
     }
 
-    const roles = user.userRoles.map(ur => ur.role.roleName);
+    const roles = normalizeRoles(user.userRoles.map(ur => ur.role.roleName));
 
     const token = this.generateAccessToken({
       userId: user.userId,
@@ -241,7 +238,8 @@ export class AuthService {
    */
   verifyToken(token: string): { userId: number; email: string; roles: string[] } {
     try {
-      return jwt.verify(token, JWT_SECRET) as { userId: number; email: string; roles: string[] };
+      const decoded = jwt.verify(token, JWT_SECRET) as { userId: number; email: string; roles: string[] };
+      return { ...decoded, roles: normalizeRoles(decoded.roles || []) };
     } catch (error) {
       throw new Error('Invalid or expired token');
     }

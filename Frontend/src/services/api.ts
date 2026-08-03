@@ -1,7 +1,6 @@
 import axios, { AxiosError } from 'axios';
 import type { AxiosResponse, InternalAxiosRequestConfig } from 'axios';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+import { API_URL } from '../utils/runtimeEnv';
 
 const api = axios.create({
   baseURL: API_URL,

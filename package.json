@@ -3,6 +3,8 @@
   "version": "1.0.0",
   "description": "FollowMee Application",
   "scripts": {
+    "prestart": "npm run doctor:db",
+    "doctor:db": "npm --prefix Backend run doctor:db",
     "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install",
     "start": "concurrently -n \"BACKEND,FRONTEND\" -c \"bgBlue.bold,bgGreen.bold\" \"npm run start:backend\" \"npm run start:frontend\"",
     "start:backend": "cd backend && npm run dev",

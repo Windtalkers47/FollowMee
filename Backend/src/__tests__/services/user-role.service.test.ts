@@ -24,6 +24,7 @@ describe('UserService role replacement', () => {
     (AppDataSource as any).transaction = jest.fn(async (callback: any) => callback({
       getRepository: () => transactionRepository,
     }));
+    (AppDataSource as any).query = jest.fn().mockResolvedValue([]);
 
     const canonicalUser = {
       userId: 4,
@@ -56,6 +57,7 @@ describe('UserService role replacement', () => {
     (AppDataSource as any).transaction = jest.fn(async (callback: any) => callback({
       getRepository: () => transactionRepository,
     }));
+    (AppDataSource as any).query = jest.fn().mockResolvedValue([]);
     const canonicalUser = {
       userId: 4,
       userName: 'Coca',
@@ -73,5 +75,22 @@ describe('UserService role replacement', () => {
     expect(notification).toHaveBeenCalledTimes(2);
     expect(notification).toHaveBeenCalledWith('Admin', 1, [4], 4);
     expect(console.error).toHaveBeenCalledWith(expect.stringContaining('role_change_notification_failed'));
+  });
+
+  it('requires the dedicated transfer flow when assigning Owner', async () => {
+    const service = new UserService();
+    (service as any).userRepository = { findOne: jest.fn().mockResolvedValue({ userId: 4 }) };
+    (service as any).roleRepository = { findOne: jest.fn().mockResolvedValue({ roleId: 1, roleName: 'Owner' }) };
+
+    await expect(service.assignRoleToUser(4, 1, 4)).rejects.toMatchObject({ code: 'OWNER_TRANSFER_REQUIRED', statusCode: 409 });
+  });
+
+  it('does not let generic role replacement demote the singleton Owner', async () => {
+    const service = new UserService();
+    (service as any).userRepository = { findOne: jest.fn().mockResolvedValue({ userId: 1 }) };
+    (service as any).roleRepository = { findOne: jest.fn().mockResolvedValue({ roleId: 2, roleName: 'Admin' }) };
+    (AppDataSource as any).query = jest.fn().mockResolvedValue([{ userId: 1 }]);
+
+    await expect(service.assignRoleToUser(1, 2, 1)).rejects.toMatchObject({ code: 'OWNER_TRANSFER_REQUIRED', statusCode: 409 });
   });
 });

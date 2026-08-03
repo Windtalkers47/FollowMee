@@ -46,6 +46,6 @@ export class UpdateUserDto {
   userImageUrl?: string | null;
 
   @IsOptional()
-  @IsIn(['Superadmin', 'Admin', 'Moderator', 'Customer'])
+  @IsIn(['Owner', 'Admin', 'Moderator', 'Customer'])
   selectedRole?: string;
 }

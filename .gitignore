@@ -53,6 +53,9 @@ yarn-error.log*
 # Coverage directory used by testing tools
 /coverage
 
+# Local database backups may contain customer or authentication data
+/Backups/
+
 # Misc
 .cache/
 .parcel-cache/

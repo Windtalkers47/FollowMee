@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { userApi, CreateUserPayload } from '../api/user.api';
+import { API_URL } from '../utils/runtimeEnv';
 
 export interface User {
   userId: number;
@@ -46,7 +47,7 @@ const normalizeManagedUser = (user: ManagedUserPayload): User => ({
   roles: (user.roles || []).map((role) => typeof role === 'string' ? role : role.roleName),
 });
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_BASE_URL = API_URL;
 
 export const useUsersManagement = () => {
   const [users, setUsers] = useState<User[]>([]);
@@ -174,6 +175,29 @@ export const useUsersManagement = () => {
     }
   };
 
+  const transferOwnership = async (targetUserId: number, currentPassword: string): Promise<boolean> => {
+    setAssigningRole(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/user-management/system-owner`, {
+        method: 'PUT',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ targetUserId, currentPassword }),
+      });
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result.message || 'Ownership transfer failed');
+      }
+      await fetchUsers();
+      return true;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Ownership transfer failed');
+      return false;
+    } finally {
+      setAssigningRole(false);
+    }
+  };
+
   const removeRoleFromUser = async (userId: number, roleId: number): Promise<boolean> => {
     try {
       const response = await fetch(`${API_BASE_URL}/user-management/users/remove-role`, {
@@ -250,6 +274,7 @@ export const useUsersManagement = () => {
     fetchUserWithRoles,
     fetchRoles,
     assignRoleToUser,
+    transferOwnership,
     removeRoleFromUser,
     createUser,
     deleteUser,

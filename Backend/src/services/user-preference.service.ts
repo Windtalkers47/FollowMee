@@ -24,12 +24,14 @@ export class UserPreferenceService {
     if (existing) return existing;
 
     const locale: UserLocale = requestedLocale === 'th' ? 'th' : 'en';
-    return this.repository.save(this.repository.create({
-      userId,
-      locale,
-      brandTheme: 'purple',
-      colorMode: 'system',
-    }));
+    await this.repository.query(
+      `INSERT IGNORE INTO user_preferences
+        (userId, locale, brandTheme, colorMode)
+       VALUES (?, ?, 'purple', 'system')`,
+      [userId, locale],
+    );
+
+    return this.repository.findOneOrFail({ where: { userId } });
   }
 
   async update(

@@ -7,6 +7,7 @@ import {
   PublicProfileService,
 } from '../services/public-profile.service';
 import { uploadBase64Image } from '../config/cloudinary.config';
+import auditService from '../services/audit.service';
 
 export class PublicProfileController {
   constructor(private readonly service = new PublicProfileService()) {}
@@ -14,6 +15,19 @@ export class PublicProfileController {
   private userId(req: Request) {
     if (!req.user?.userId) throw new Error('Authentication required');
     return req.user.userId;
+  }
+
+  private presentForUser<T>(data: T, req: Request): T & { capabilities: Record<string, boolean> } {
+    const permissions = new Set(req.userPermissions || []);
+    return {
+      ...(data as T),
+      capabilities: {
+        canEdit: permissions.has('MANAGE_CUSTOMERS'),
+        canPublish: permissions.has('PUBLISH_PROFILES'),
+        canUnpublish: permissions.has('PUBLISH_PROFILES'),
+        canDelete: permissions.has('PUBLISH_PROFILES'),
+      },
+    };
   }
 
   private errorStatus(error: unknown) {
@@ -43,7 +57,7 @@ export class PublicProfileController {
   list = async (req: Request, res: Response) => {
     try {
       const data = await this.service.listOwned(this.userId(req));
-      return res.json({ success: true, data });
+      return res.json({ success: true, data: data.map(item => this.presentForUser(item, req)) });
     } catch (error) {
       return this.sendError(res, error);
     }
@@ -52,7 +66,7 @@ export class PublicProfileController {
   get = async (req: Request, res: Response) => {
     try {
       const data = await this.service.getOwned(req.params.profileId, this.userId(req));
-      return res.json({ success: true, data });
+      return res.json({ success: true, data: this.presentForUser(data, req) });
     } catch (error) {
       return this.sendError(res, error);
     }
@@ -64,7 +78,8 @@ export class PublicProfileController {
         this.userId(req),
         req.body as PublicProfileInput
       );
-      return res.status(201).json({ success: true, data });
+      await auditService.logEvent({ userId: this.userId(req), action: 'PUBLIC_PROFILE_CREATED', status: 'SUCCESS', details: { profileId: data.profileId } });
+      return res.status(201).json({ success: true, data: this.presentForUser(data, req) });
     } catch (error) {
       return this.sendError(res, error);
     }
@@ -77,7 +92,8 @@ export class PublicProfileController {
         this.userId(req),
         req.body as PublicProfileInput
       );
-      return res.json({ success: true, data });
+      await auditService.logEvent({ userId: this.userId(req), action: 'PUBLIC_PROFILE_UPDATED', status: 'SUCCESS', details: { profileId: data.profileId } });
+      return res.json({ success: true, data: this.presentForUser(data, req) });
     } catch (error) {
       return this.sendError(res, error);
     }
@@ -95,7 +111,7 @@ export class PublicProfileController {
       await this.service.getOwned(req.params.profileId, this.userId(req));
       const avatarUrl = await uploadBase64Image(image, 'followmee/public-profiles');
       const data = await this.service.update(req.params.profileId, this.userId(req), { avatarUrl });
-      return res.json({ success: true, data });
+      return res.json({ success: true, data: this.presentForUser(data, req) });
     } catch (error) {
       return this.sendError(res, error);
     }
@@ -108,7 +124,8 @@ export class PublicProfileController {
         this.userId(req),
         'published'
       );
-      return res.json({ success: true, data });
+      await auditService.logEvent({ userId: this.userId(req), action: 'PUBLIC_PROFILE_PUBLISHED', status: 'SUCCESS', details: { profileId: data.profileId } });
+      return res.json({ success: true, data: this.presentForUser(data, req) });
     } catch (error) {
       return this.sendError(res, error);
     }
@@ -121,7 +138,8 @@ export class PublicProfileController {
         this.userId(req),
         'draft'
       );
-      return res.json({ success: true, data });
+      await auditService.logEvent({ userId: this.userId(req), action: 'PUBLIC_PROFILE_UNPUBLISHED', status: 'SUCCESS', details: { profileId: data.profileId } });
+      return res.json({ success: true, data: this.presentForUser(data, req) });
     } catch (error) {
       return this.sendError(res, error);
     }
@@ -130,6 +148,7 @@ export class PublicProfileController {
   remove = async (req: Request, res: Response) => {
     try {
       await this.service.remove(req.params.profileId, this.userId(req));
+      await auditService.logEvent({ userId: this.userId(req), action: 'PUBLIC_PROFILE_DELETED', status: 'SUCCESS', details: { profileId: req.params.profileId } });
       return res.json({ success: true });
     } catch (error) {
       return this.sendError(res, error);

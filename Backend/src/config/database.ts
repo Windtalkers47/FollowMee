@@ -29,6 +29,9 @@ import { UserPreference } from '../entities/UserPreference';
 dotenv.config();
 
 const isProduction = process.env.NODE_ENV === 'production';
+const sslCa = process.env.DB_SSL_CA_BASE64
+  ? Buffer.from(process.env.DB_SSL_CA_BASE64, 'base64').toString('utf8')
+  : undefined;
 
 const dataSourceOptions: DataSourceOptions = {
   type: 'mysql',
@@ -38,6 +41,15 @@ const dataSourceOptions: DataSourceOptions = {
   password: process.env.DB_PASSWORD || '',
   database: process.env.DB_NAME || 'followmee',
   synchronize: false, // Always use migrations instead of auto-sync
+  ssl: process.env.DB_SSL === 'true'
+    ? { rejectUnauthorized: true, ...(sslCa ? { ca: sslCa } : {}) }
+    : undefined,
+  connectTimeout: Number(process.env.DB_CONNECT_TIMEOUT_MS || 10_000),
+  extra: {
+    connectionLimit: Number(process.env.DB_POOL_SIZE || (isProduction ? 10 : 5)),
+    enableKeepAlive: true,
+    keepAliveInitialDelay: 10_000,
+  },
 
   // วิธีเปิดปิด logging ใน Terminal
   // logging: !isProduction,

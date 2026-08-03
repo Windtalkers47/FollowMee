@@ -18,26 +18,19 @@ export class UserNotificationSettingsRepository extends BaseRepository<UserNotif
     let settings = await this.findByUserId(userId);
     
     if (!settings) {
-      settings = this.create({
-        userId,
-        notifyTaskAssigned: true,
-        notifyTaskComment: true,
-        notifyTaskLike: true,
-        notifyCommentReply: true,
-        notifyCommentReaction: true,
-        notifySystemAlert: true,
-        emailEnabled: false,
-        pushEnabled: true,
-      });
-      await this.save(settings);
+      await this.repository.query(
+        'INSERT IGNORE INTO user_notification_settings (userId) VALUES (?)',
+        [userId],
+      );
+      settings = await this.findByUserId(userId);
     }
-    
+
+    if (!settings) throw new Error(`Unable to initialize notification settings for user ${userId}`);
     return settings;
   }
 
   async updateSettings(userId: number, updates: Partial<UserNotificationSettings>): Promise<UserNotificationSettings | null> {
-    const settings = await this.findByUserId(userId);
-    if (!settings) return null;
+    const settings = await this.getOrCreateForUser(userId);
 
     Object.assign(settings, updates);
     return this.save(settings);
@@ -64,6 +57,8 @@ export class UserNotificationSettingsRepository extends BaseRepository<UserNotif
         return settings.notifySystemAlert;
       case 'ROLE_CHANGED':
         return settings.notifyRoleChanged;
+      case 'PROFILE_UPDATED_BY_ADMIN':
+        return settings.notifyProfileChanged;
       default:
         return true;
     }

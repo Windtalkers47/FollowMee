@@ -7,11 +7,25 @@ import { uploadBase64Image, deleteFromCloudinary } from '../config/cloudinary.co
 import AppDataSource from '../config/database';
 import { User } from '../entities/User';
 import { webSocketService } from '../services/websocket.service';
+import { randomUUID } from 'crypto';
+import { NotificationHelper } from '../utils/notification.util';
 
 export class UserController {
   constructor(private readonly userService: UserService) {}
 
   private userRepository = AppDataSource.getRepository(User);
+
+  private emitProfileUpdated(user: UserResponseDto | User, actorUserId: number): void {
+    webSocketService.broadcastProfileUpdate({
+      eventId: randomUUID(),
+      userId: user.userId,
+      actorUserId,
+      userName: user.userName,
+      userLastName: user.userLastName || '',
+      userImageUrl: user.userImageUrl || null,
+      updatedAt: new Date(user.updatedAt || Date.now()).toISOString(),
+    });
+  }
 
   /**
    * Check if user is active
@@ -182,13 +196,7 @@ export class UserController {
       
       const user = await this.userService.updateUser(userId, updateUserDto);
       
-      // Broadcast profile update event if image was changed
-      if (updateUserDto.userImageUrl !== undefined) {
-        webSocketService.broadcastProfileUpdate({ 
-          userId, 
-          userImageUrl: updateUserDto.userImageUrl 
-        });
-      }
+      this.emitProfileUpdated(user, userId);
       
       res.status(200).json({ 
         success: true, 
@@ -242,14 +250,27 @@ export class UserController {
         }
       }
       
-      const user = await this.userService.updateUser(Number(userId), updateUserDto);
+      const targetUserId = Number(userId);
+      const actorUserId = req.user?.userId;
+      const user = await this.userService.updateUser(targetUserId, updateUserDto);
       
-      // Broadcast profile update event if image was changed
-      if (updateUserDto.userImageUrl !== undefined) {
-        webSocketService.broadcastProfileUpdate({ 
-          userId: Number(userId), 
-          userImageUrl: updateUserDto.userImageUrl 
-        });
+      if (actorUserId) {
+        this.emitProfileUpdated(user, actorUserId);
+        const publicProfileChanged = ['userName', 'userLastName', 'userImageUrl']
+          .some(field => Object.prototype.hasOwnProperty.call(updateUserDto, field));
+        if (actorUserId !== targetUserId && publicProfileChanged) {
+          void NotificationHelper.notifyProfileUpdatedByAdmin(
+            `${user.userName} ${user.userLastName || ''}`.trim(),
+            actorUserId,
+            targetUserId,
+          ).catch(error => {
+            console.error('[ProfileNotification] Delivery failed', {
+              actorUserId,
+              targetUserId,
+              error: error instanceof Error ? error.message : String(error),
+            });
+          });
+        }
       }
       
       res.status(200).json({ 
@@ -348,9 +369,10 @@ export class UserController {
         const imageUrl = await uploadBase64Image(userImageUrl, 'followmee/users');
         
         // Update user with new image URL
-        const updatedUser = await this.userService.updateUser(userId, { 
+        const updatedUser = await this.userService.updateUser(userId, {
           userImageUrl: imageUrl 
         });
+        this.emitProfileUpdated(updatedUser, userId);
         
         res.json({
           success: true,
@@ -404,9 +426,10 @@ export class UserController {
         await deleteFromCloudinary(currentUser.userImageUrl);
         
         // Update user to remove image URL
-        await this.userService.updateUser(userId, { 
+        const updatedUser = await this.userService.updateUser(userId, {
           userImageUrl: null 
         });
+        this.emitProfileUpdated(updatedUser, userId);
         
         res.json({
           success: true,

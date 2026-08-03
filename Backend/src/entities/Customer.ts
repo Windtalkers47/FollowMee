@@ -14,6 +14,12 @@ export class Customer {
   @JoinColumn({ name: 'userId' })
   user!: User | null;
 
+  @Column({ name: 'createdBy', type: 'int', nullable: true })
+  createdBy!: number | null;
+
+  @Column({ name: 'updatedBy', type: 'int', nullable: true })
+  updatedBy!: number | null;
+
   @Column({ name: 'customerName', type: 'varchar', length: 50, nullable: false })
   customerName!: string;
 

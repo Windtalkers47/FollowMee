@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import React from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import {
   Box,
   Typography,
@@ -27,6 +27,7 @@ import {
   MenuItem,
   FormControl,
   InputLabel,
+  Stack,
 } from '@mui/material';
 import {
   Settings as SettingsIcon,
@@ -47,6 +48,7 @@ import { TransitionProps } from '@mui/material/transitions';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAppSelector } from '../../store/store';
 import { taskApi, likeApi, commentApi, Task, TaskLikeSummary, UserRank, UpdateTaskData } from '../../api/task.api';
+import { rewardApi } from '../../api/reward.api';
 import { userApi } from '../../api/user.api';
 import TaskCard from '../../components/TaskCard';
 import TaskCardLiquid from '../../components/TaskCard/TaskCardLiquid';
@@ -172,6 +174,7 @@ const TaskFeedCard: React.FC<TaskFeedCardProps> = ({
 const PostsPage = () => {
   const { t } = useUserPreferences();
   const { taskId } = useParams<{ taskId: string }>();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [taskLikeSummaries, setTaskLikeSummaries] = useState<Record<string, TaskLikeSummary>>({});
@@ -206,6 +209,7 @@ const PostsPage = () => {
 
   const { user } = useAppSelector((state) => state.auth);
   const queryClient = useQueryClient();
+  const rewardSummaryQuery = useQuery({ queryKey: ['rewards', 'summary'], queryFn: rewardApi.summary, staleTime: 30_000 });
 
   // Fetch all completed tasks for the feed
   const { data: allTasksResponse, isLoading: allTasksLoading, error: allTasksError, refetch: refetchAllTasks } = useQuery({
@@ -275,9 +279,9 @@ const PostsPage = () => {
     onSuccess: (response) => {
       feedback.fire({
         icon: 'success',
-        title: 'Task Submitted for Review!',
-        text: `"${response.task.title}" has been submitted for review. The task creator will review and approve it.`,
-        confirmButtonText: 'Got it!'
+        title: t('task.submittedReviewTitle'),
+        text: t('task.submittedReviewText', { title: response.task.title }),
+        confirmButtonText: t('activity.gotIt')
       });
       queryClient.invalidateQueries({ queryKey: ['all-tasks'] });
       queryClient.invalidateQueries({ queryKey: ['assigned-tasks'] });
@@ -400,12 +404,12 @@ const PostsPage = () => {
 
   const handleMarkTaskUndone = async (taskId: string) => {
     const result = await feedback.fire({
-      title: 'Are you sure?',
-      text: 'This will move the task back to To Do. The assignee will need to work on it again.',
+      title: t('task.reopenTitle'),
+      text: t('task.reopenAssigneeText'),
       icon: 'warning',
       showCancelButton: true,
-      confirmButtonText: 'Yes, undo it',
-      cancelButtonText: 'Cancel'
+      confirmButtonText: t('task.reopenConfirm'),
+      cancelButtonText: t('common.cancel')
     });
     if (result.isConfirmed) {
       await markTaskUndoneMutation.mutateAsync(taskId);
@@ -594,6 +598,21 @@ const PostsPage = () => {
           }}
         />
       </Box>
+
+      {rewardSummaryQuery.data && (
+        <Paper variant="outlined" sx={{ mb: 3, p: { xs: 2, md: 2.5 }, borderRadius: 4, bgcolor: 'action.selected' }}>
+          <Stack direction={{ xs: 'column', sm: 'row' }} alignItems={{ sm: 'center' }} gap={2}>
+            <Box flex={1}>
+              <Typography fontWeight={800}>{t('rewards.community')}</Typography>
+              <Typography color="text.secondary">
+                {t('rewards.communitySummary', { score: rewardSummaryQuery.data.seasonScore, points: rewardSummaryQuery.data.wallet.availablePoints })}
+              </Typography>
+            </Box>
+            <Chip icon={<TrophyIcon />} label={rewardSummaryQuery.data.myRank ? `#${rewardSummaryQuery.data.myRank}` : '—'} />
+            <Button variant="contained" onClick={() => navigate('/rewards')}>{t('rewards.viewRewards')}</Button>
+          </Stack>
+        </Paper>
+      )}
 
       {/* Liquid Glass Search Section */}
       <Box sx={{ mb: 3 }}>

@@ -13,7 +13,7 @@ if (!database.endsWith('_e2e')) {
 
 const qaPassword = process.env.E2E_QA_PASSWORD || 'FollowMee-QA-2026!';
 const users = [
-  ['QA', 'Creator', 'qa-creator@example.test', 'Superadmin'],
+  ['QA', 'Creator', 'qa-creator@example.test', 'Owner'],
   ['QA', 'Assignee', 'qa-assignee@example.test', 'Admin'],
   ['QA', 'Reviewer', 'qa-reviewer@example.test', 'Admin'],
   ['QA', 'Unrelated', 'qa-unrelated@example.test', 'Customer'],
@@ -56,6 +56,11 @@ async function main() {
       );
       userIds[email] = result.insertId;
     }
+
+    await connection.execute(
+      `INSERT INTO system_owner (singletonId, userId) VALUES (1, ?)`,
+      [userIds['qa-creator@example.test']],
+    );
 
     await connection.execute(
       `INSERT INTO customers

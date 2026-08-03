@@ -14,6 +14,7 @@ import {
 import { Visibility, VisibilityOff } from '@mui/icons-material';
 import feedback from '../../services/feedback.service';
 import { useUserPreferences } from '../../contexts/UserPreferencesContext';
+import { API_URL } from '../../utils/runtimeEnv';
 
 // Hide browser's built-in password reveal button
 const styles = `
@@ -94,7 +95,7 @@ const handleSubmit = async (e: React.FormEvent) => {
     }
 
     // Make a POST request to the reset password endpoint
-    const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/auth/reset-password`, {
+    const response = await fetch(`${API_URL}/auth/reset-password`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

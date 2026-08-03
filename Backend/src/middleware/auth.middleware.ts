@@ -1,8 +1,10 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
+import { normalizeRoles } from '../utils/role.util';
 import AppDataSource from '../config/database';
 import { User } from '../entities/User';
 import { UserSession } from '../entities/UserSession';
+import { authCookieOptions } from '../config/security.config';
 
 // Fail fast: JWT_SECRET is required for production security
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -56,7 +58,7 @@ export const isAuthenticated = async (req: Request, res: Response, next: NextFun
       req.user = {
         userId: decoded.userId,
         email: decoded.email,
-        roles: decoded.roles || []
+        roles: normalizeRoles(decoded.roles || [])
       };
       return next();
     }
@@ -110,11 +112,8 @@ export const isAuthenticated = async (req: Request, res: Response, next: NextFun
 
       // Set new access token cookie
       res.cookie('access_token', newAccessToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
+        ...authCookieOptions('/'),
         maxAge: oneDayInMs,
-        path: '/',
       });
 
       // Attach user to request
@@ -132,8 +131,8 @@ export const isAuthenticated = async (req: Request, res: Response, next: NextFun
     console.error('Authentication error:', error);
     
     // Clear invalid cookies
-    res.clearCookie('access_token');
-    res.clearCookie('refresh_token');
+    res.clearCookie('access_token', authCookieOptions('/'));
+    res.clearCookie('refresh_token', authCookieOptions('/api'));
     
     return res.status(401).json({ 
       success: false,

@@ -1,5 +1,7 @@
 import { io, Socket } from 'socket.io-client';
-import { TOKEN_REFRESH_EVENT, emitTokenRefreshEvent } from '../store/slices/authSlice';
+import { TOKEN_REFRESH_EVENT } from '../store/slices/authSlice';
+import type { UserProfileUpdatedEvent } from '../types/profile-event.types';
+import { WS_URL } from '../utils/runtimeEnv';
 
 /**
  * WebSocket Service with Auto-Reconnect and Heartbeat
@@ -14,7 +16,6 @@ class WebSocketService {
   private maxReconnectAttempts = 10;
   private baseReconnectDelay = 1000;
   private maxReconnectDelay = 30000; // 30 seconds
-  private broadcastChannel: BroadcastChannel | null = null;
   private heartbeatInterval: number | null = null;
   private readonly HEARTBEAT_INTERVAL = 30000; // 30 seconds
   private userId: number | null = null;
@@ -36,23 +37,10 @@ class WebSocketService {
 
     this.userId = userId;
 
-    // Initialize Broadcast Channel for cross-tab communication
-    this.initBroadcastChannel();
-
     // Set up token refresh listener (U1-RECONNECT: Token Refresh Integration)
     this.setupTokenRefreshListener();
 
-    let wsUrl = import.meta.env.VITE_WS_URL || 'http://localhost:5000';
-    
-    // Convert HTTP to WebSocket for production
-    // Socket.IO can handle HTTP URLs, but we ensure proper protocol
-    if (wsUrl.startsWith('https://')) {
-      // Socket.IO will automatically use wss:// for secure connections
-      wsUrl = wsUrl;
-    } else if (wsUrl.startsWith('http://')) {
-      // Socket.IO will automatically use ws:// for non-secure connections
-      wsUrl = wsUrl;
-    }
+    const wsUrl = WS_URL;
 
     this.socket = io(wsUrl, {
       withCredentials: true,
@@ -113,32 +101,6 @@ class WebSocketService {
     if (this.heartbeatInterval !== null) {
       clearInterval(this.heartbeatInterval);
       this.heartbeatInterval = null;
-    }
-  }
-
-  /**
-   * Initialize Broadcast Channel for cross-tab communication
-   * This ensures all tabs receive updates even if they're not the active tab
-   */
-  private initBroadcastChannel() {
-    if (typeof BroadcastChannel === 'undefined') {
-      console.warn('[WebSocket] BroadcastChannel is not supported in this browser');
-      return;
-    }
-
-    this.broadcastChannel = new BroadcastChannel('followmee_updates');
-    this.broadcastChannel.onmessage = (event) => {
-      // Forward broadcast messages to WebSocket listeners
-      // This is handled by individual page listeners
-    };
-  }
-
-  /**
-   * Post message to all tabs via Broadcast Channel
-   */
-  private broadcastToTabs(type: string, data: any) {
-    if (this.broadcastChannel) {
-      this.broadcastChannel.postMessage({ type, data });
     }
   }
 
@@ -258,30 +220,8 @@ class WebSocketService {
    * Triggered when a user updates their profile (e.g., profile image)
    * This works across all tabs via Broadcast Channel
    */
-  onProfileUpdated(callback: (data: { userId: number; userImageUrl?: string | null }) => void) {
-    // Listen to WebSocket events
-    const wsHandler = (data: { userId: number; userImageUrl?: string | null }) => {
-      // Broadcast to all other tabs
-      this.broadcastToTabs('profile:updated', data);
-      callback(data);
-    };
-    
-    this.socket?.on('profile:updated', wsHandler);
-
-    // Also listen to Broadcast Channel (for updates from other tabs)
-    const bcHandler = (event: MessageEvent) => {
-      if (event.data.type === 'profile:updated') {
-        callback(event.data.data);
-      }
-    };
-
-    if (this.broadcastChannel) {
-      this.broadcastChannel.addEventListener('message', bcHandler);
-    }
-
-    // Store handlers for cleanup
-    (callback as any).__wsHandler = wsHandler;
-    (callback as any).__bcHandler = bcHandler;
+  onProfileUpdated(callback: (data: UserProfileUpdatedEvent) => void) {
+    this.socket?.on('profile:updated', callback);
   }
 
   offNotificationNew(callback: (data: any) => void) {
@@ -295,17 +235,8 @@ class WebSocketService {
   /**
    * Remove listener for profile update events
    */
-  offProfileUpdated(callback: (data: { userId: number; userImageUrl?: string | null }) => void) {
-    const wsHandler = (callback as any).__wsHandler;
-    const bcHandler = (callback as any).__bcHandler;
-    
-    if (wsHandler) {
-      this.socket?.off('profile:updated', wsHandler);
-    }
-    
-    if (bcHandler && this.broadcastChannel) {
-      this.broadcastChannel.removeEventListener('message', bcHandler);
-    }
+  offProfileUpdated(callback: (data: UserProfileUpdatedEvent) => void) {
+    this.socket?.off('profile:updated', callback);
   }
 
   isConnected(): boolean {
@@ -333,10 +264,8 @@ class WebSocketService {
    * Close the broadcast channel when no longer needed
    */
   closeBroadcastChannel() {
-    if (this.broadcastChannel) {
-      this.broadcastChannel.close();
-      this.broadcastChannel = null;
-    }
+    // Compatibility no-op. Each authenticated tab already owns a socket;
+    // rebroadcasting server events caused duplicate profile updates.
   }
 }
 

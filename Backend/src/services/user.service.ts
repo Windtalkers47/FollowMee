@@ -12,6 +12,8 @@ import { CloudinaryUtil } from '../utils/cloudinary.util';
 import { NotificationHelper } from '../utils/notification.util';
 import AppDataSource from '../config/database';
 import { UserRole } from '../entities/UserRole';
+import { ApplicationError } from '../errors/application.error';
+import { isOwnerRole } from '../utils/role.util';
 
 interface UserWithRolesResponse extends UserResponseDto {
   roles: string[];
@@ -37,6 +39,20 @@ export class UserService {
     this.userRoleRepository = new UserRoleRepository();
     this.permissionRepository = new PermissionRepository();
     this.rolePermissionRepository = new RolePermissionRepository();
+  }
+
+  private async assertUserIsNotSystemOwner(userId: number): Promise<void> {
+    const rows = await AppDataSource.query(
+      'SELECT userId FROM system_owner WHERE singletonId = 1 AND userId = ? LIMIT 1',
+      [userId],
+    );
+    if (rows.length > 0) {
+      throw new ApplicationError(
+        'Use the ownership transfer flow before changing or removing the Owner',
+        'OWNER_TRANSFER_REQUIRED',
+        409,
+      );
+    }
   }
 
   /**
@@ -189,6 +205,7 @@ export class UserService {
     if (!user) {
       throw new Error('User not found');
     }
+    if (userData.isActive === false) await this.assertUserIsNotSystemOwner(id);
 
     // Check if email is being updated and if it's already in use by an active user
     if (userData.userEmail && userData.userEmail !== user.userEmail) {
@@ -256,6 +273,8 @@ export class UserService {
     if (!user) {
       throw new Error('User not found');
     }
+
+    await this.assertUserIsNotSystemOwner(id);
 
     await this.userRepository.markAsInactive(id);
     
@@ -340,6 +359,14 @@ export class UserService {
     if (!role) {
       throw new Error('Role not found');
     }
+    if (isOwnerRole(role.roleName)) {
+      throw new ApplicationError(
+        'Owner can only be changed through the ownership transfer flow',
+        'OWNER_TRANSFER_REQUIRED',
+        409,
+      );
+    }
+    await this.assertUserIsNotSystemOwner(userId);
 
     await AppDataSource.transaction(async (manager) => {
       await manager.getRepository(UserRole).delete({ userId });
@@ -391,6 +418,14 @@ export class UserService {
     if (!role) {
       throw new Error('Role not found');
     }
+    if (isOwnerRole(role.roleName)) {
+      throw new ApplicationError(
+        'Owner can only be changed through the ownership transfer flow',
+        'OWNER_TRANSFER_REQUIRED',
+        409,
+      );
+    }
+    await this.assertUserIsNotSystemOwner(userId);
 
     const removed = await this.userRoleRepository.removeRole(userId, roleId);
     if (removed && actorUserId && actorUserId !== userId) {

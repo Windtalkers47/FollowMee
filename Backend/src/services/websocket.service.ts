@@ -1,5 +1,7 @@
 import { Server as SocketIOServer, Socket } from 'socket.io';
 import jwt, { JwtPayload } from 'jsonwebtoken';
+import type { UserProfileUpdatedEvent } from '../types/profile-event.types';
+import { normalizeRoles } from '../utils/role.util';
 
 interface AuthenticatedSocket extends Socket {
   data: {
@@ -49,7 +51,7 @@ export class WebSocketService {
 
         socket.data.userId = userId;
         socket.data.email = decoded.email;
-        socket.data.roles = Array.isArray(decoded.roles) ? decoded.roles : [];
+        socket.data.roles = normalizeRoles(Array.isArray(decoded.roles) ? decoded.roles : []);
         next();
       } catch {
         next(new Error('Invalid or expired authentication token'));
@@ -149,7 +151,7 @@ export class WebSocketService {
    * Emit profile update event to a specific user
    * Used when user updates their profile (e.g., profile image)
    */
-  emitProfileUpdate(userId: number, data: { userId: number; userImageUrl?: string | null }) {
+  emitProfileUpdate(userId: number, data: UserProfileUpdatedEvent) {
     if (!this.io) return;
     
     this.io.to(`user:${userId}`).emit('profile:updated', data);
@@ -159,7 +161,7 @@ export class WebSocketService {
   /**
    * Broadcast profile update to all users (for leaderboard refresh)
    */
-  broadcastProfileUpdate(data: { userId: number; userImageUrl?: string | null }) {
+  broadcastProfileUpdate(data: UserProfileUpdatedEvent) {
     if (!this.io) return;
     
     this.io.emit('profile:updated', data);

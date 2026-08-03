@@ -305,6 +305,7 @@ const ProfileLibraryPage = () => {
                 variant="contained"
                 startIcon={<EditRounded />}
                 onClick={() => navigate(`/customer-profile/${profile.profileId}/edit`)}
+                disabled={profile.capabilities?.canEdit === false}
               >
                 {t('profile.editPreview')}
               </Button>
@@ -334,10 +335,10 @@ const ProfileLibraryPage = () => {
         open={Boolean(menuAnchor)}
         onClose={() => setMenuAnchor(null)}
       >
-        <MenuItem onClick={() => menuProfile && navigate(`/customer-profile/${menuProfile.profileId}/edit`)}>
+        <MenuItem disabled={menuProfile?.capabilities?.canEdit === false} onClick={() => menuProfile && navigate(`/customer-profile/${menuProfile.profileId}/edit`)}>
           {t('profile.edit')}
         </MenuItem>
-        <MenuItem onClick={() => { setDeleteProfile(menuProfile); setMenuAnchor(null); }} sx={{ color: 'error.main' }}>{t('profile.delete')}</MenuItem>
+        {menuProfile?.capabilities?.canDelete !== false && <MenuItem onClick={() => { setDeleteProfile(menuProfile); setMenuAnchor(null); }} sx={{ color: 'error.main' }}>{t('profile.delete')}</MenuItem>}
       </Menu>
 
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} fullWidth maxWidth="sm">

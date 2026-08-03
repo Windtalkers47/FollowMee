@@ -40,7 +40,7 @@ interface RoleSelectorProps {
     Customer: number;
     Moderator: number;
     Admin: number;
-    Superadmin: number;
+    Owner: number;
   };
   showCounts?: boolean;
   currentUserRole?: string;
@@ -72,9 +72,9 @@ const roleOptions: RoleOption[] = [
     icon: <AdminPanelSettingsOutlined fontSize="small" />
   },
   {
-    value: 'Superadmin',
-    label: 'Super Administrator',
-    description: 'Complete system control. Can manage everything including users, roles, permissions, and all system settings. Only one allowed.',
+    value: 'Owner',
+    label: 'Owner',
+    description: 'The organization Owner is changed only through the secure ownership transfer flow.',
     level: 999,
     color: brandColors.red,
     icon: <WorkspacePremiumOutlined fontSize="small" />
@@ -86,44 +86,38 @@ const RoleSelector: React.FC<RoleSelectorProps> = ({
   onChange,
   error,
   disabled = false,
-  roleCounts = { Customer: 0, Moderator: 0, Admin: 0, Superadmin: 0 },
+  roleCounts = { Customer: 0, Moderator: 0, Admin: 0, Owner: 0 },
   showCounts = false,
   currentUserRole = ''
 }) => {
   const theme = useTheme();
   const { t } = useUserPreferences();
-  const [superadminTaken, setSuperadminTaken] = useState(false);
+  const [ownerTaken, setOwnerTaken] = useState(false);
   const roleCopy = (role: RoleOption) => {
-    const key = role.value.toLowerCase() === 'superadmin'
-      ? 'superAdmin'
-      : role.value.toLowerCase();
+    const key = role.value.toLowerCase();
     return {
       label: t(`role.${key}` as Parameters<typeof t>[0]),
       description: t(`role.${key}Description` as Parameters<typeof t>[0]),
     };
   };
 
-  // Check if SuperAdmin is already taken
   useEffect(() => {
-    const isTaken = roleCounts.Superadmin >= 1 && currentUserRole !== 'Superadmin';
-    setSuperadminTaken(isTaken);
-  }, [roleCounts.Superadmin, currentUserRole]);
+    setOwnerTaken(roleCounts.Owner >= 1 && currentUserRole !== 'Owner');
+  }, [roleCounts.Owner, currentUserRole]);
 
   const handleChange = (event: any) => {
     onChange(event.target.value);
   };
 
-  // Filter out SuperAdmin if it's taken
-  const availableRoles = superadminTaken 
-    ? roleOptions.filter(role => role.value !== 'Superadmin')
-    : roleOptions;
+  // Owner is deliberately never assignable from the generic role selector.
+  const availableRoles = roleOptions.filter(role => role.value !== 'Owner');
 
   return (
     <Box>
-      {superadminTaken && (
+      {ownerTaken && (
         <Alert severity="warning" sx={{ mb: 2 }}>
           <Typography variant="body2">
-            {t('role.superAdminTaken', { count: roleCounts.Superadmin })}
+            {t('users.ownerTransferRequired')}
           </Typography>
         </Alert>
       )}
@@ -156,8 +150,8 @@ const RoleSelector: React.FC<RoleSelectorProps> = ({
           {availableRoles.map((role) => {
             const copy = roleCopy(role);
             const count = roleCounts[role.value as keyof typeof roleCounts] || 0;
-            const isSuperAdmin = role.value === 'Superadmin';
-            const isDisabled = isSuperAdmin && superadminTaken && currentUserRole !== 'Superadmin';
+            const isOwner = role.value === 'Owner';
+            const isDisabled = isOwner;
             
             return (
               <MenuItem 
@@ -187,9 +181,9 @@ const RoleSelector: React.FC<RoleSelectorProps> = ({
                   </Box>
                   {showCounts && (
                     <Chip 
-                      label={isSuperAdmin ? `${count}/1` : count} 
+                      label={isOwner ? `${count}/1` : count}
                       size="small" 
-                      color={isSuperAdmin ? (superadminTaken ? "error" : "success") : "primary"}
+                      color={isOwner ? (ownerTaken ? "error" : "success") : "primary"}
                       variant="outlined"
                     />
                   )}

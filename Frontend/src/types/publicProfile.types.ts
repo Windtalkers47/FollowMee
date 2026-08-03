@@ -53,6 +53,14 @@ export interface PublicProfileRecord {
   publishedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  createdBy?: number | null;
+  updatedBy?: number | null;
+  capabilities?: {
+    canEdit: boolean;
+    canPublish: boolean;
+    canUnpublish: boolean;
+    canDelete: boolean;
+  };
   links: ProfileLink[];
   customer?: CustomerData | null;
 }
@@ -108,4 +116,3 @@ export interface ProfileAnalytics {
   dailyViews: Array<{ date: string; count: number }>;
   topTargets: Array<{ target: string; count: number }>;
 }
-

@@ -6,6 +6,7 @@ import { validate } from 'class-validator';
 import { plainToInstance } from 'class-transformer';
 import { validateImageFile } from '../services/file-upload.service';
 import { uploadToCloudinary, deleteFromCloudinary, uploadBase64Image } from '../config/cloudinary.config';
+import auditService from '../services/audit.service';
 
 export class CustomerController {
   constructor(private readonly customerService: CustomerService) {}
@@ -193,7 +194,7 @@ export class CustomerController {
           const imageUrl = await uploadBase64Image(base64Image);
           await this.customerService.update(customer.customerId, { 
             customerImageUrl: imageUrl 
-          });
+          }, req.user?.userId);
         } catch (error) {
           console.error('Error uploading customer image:', error);
           // Don't fail the entire request if image upload fails
@@ -202,6 +203,7 @@ export class CustomerController {
       }
       
       const message = 'Customer created successfully' + (base64Image ? ' with image' : '');
+      await auditService.logEvent({ userId: req.user?.userId || null, action: 'CUSTOMER_CREATED', status: 'SUCCESS', details: { customerId: customer.customerId } });
       
       return res.status(201).json({ 
         success: true, 
@@ -278,7 +280,7 @@ export class CustomerController {
         }
       }
       
-      const customer = await this.customerService.update(id, updateData);
+      const customer = await this.customerService.update(id, updateData, req.user?.userId);
       
       if (!customer) {
         return res.status(404).json({ 
@@ -287,6 +289,7 @@ export class CustomerController {
         });
       }
       
+      await auditService.logEvent({ userId: req.user?.userId || null, action: 'CUSTOMER_UPDATED', status: 'SUCCESS', details: { customerId: id } });
       return res.json({ 
         success: true, 
         data: customer,
@@ -363,7 +366,7 @@ export class CustomerController {
       // Update customer with new image URL
       const updatedCustomer = await this.customerService.update(customerId, {
         customerImageUrl: imageUrl,
-      } as UpdateCustomerDto);
+      } as UpdateCustomerDto, req.user?.userId);
 
       return res.json({
         success: true,
@@ -411,7 +414,7 @@ export class CustomerController {
       // Update customer to remove the image URL
       const updatedCustomer = await this.customerService.update(customerId, {
         customerImageUrl: undefined,
-      } as UpdateCustomerDto);
+      } as UpdateCustomerDto, req.user?.userId);
 
       return res.json({
         success: true,
@@ -456,7 +459,8 @@ export class CustomerController {
       }
 
       // Delete the customer
-      await this.customerService.delete(id);
+      await this.customerService.delete(id, req.user?.userId);
+      await auditService.logEvent({ userId: req.user?.userId || null, action: 'CUSTOMER_DELETED', status: 'SUCCESS', details: { customerId: id } });
       
       return res.json({ 
         success: true, 
@@ -481,6 +485,7 @@ export class CustomerController {
         return res.status(400).json({ success: false, message: 'Status must be active or inactive' });
       }
       const data = await this.customerService.bulkUpdateStatus(customerIds, status);
+      await auditService.logEvent({ userId: req.user?.userId || null, action: 'CUSTOMER_BULK_STATUS_UPDATED', status: 'SUCCESS', details: { customerIds, status } });
       return res.json({ success: true, data });
     } catch (error) {
       return res.status(400).json({ success: false, message: error instanceof Error ? error.message : 'Bulk update failed' });
@@ -491,6 +496,7 @@ export class CustomerController {
     try {
       const customerIds = Array.isArray(req.body?.customerIds) ? req.body.customerIds : [];
       const data = await this.customerService.bulkDelete(customerIds);
+      await auditService.logEvent({ userId: req.user?.userId || null, action: 'CUSTOMER_BULK_DELETED', status: 'SUCCESS', details: { customerIds } });
       return res.json({ success: true, data });
     } catch (error) {
       return res.status(400).json({ success: false, message: error instanceof Error ? error.message : 'Bulk delete failed' });

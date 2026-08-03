@@ -40,6 +40,12 @@ export class PublicProfile {
   @JoinColumn({ name: 'userId' })
   user!: User;
 
+  @Column({ type: 'int', nullable: true })
+  createdBy!: number | null;
+
+  @Column({ type: 'int', nullable: true })
+  updatedBy!: number | null;
+
   @Column({ type: 'varchar', length: 36, nullable: true })
   customerId!: string | null;
 

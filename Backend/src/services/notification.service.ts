@@ -205,6 +205,7 @@ export class NotificationService {
       'TASK_UPDATED',
       'SYSTEM_ANNOUNCEMENT',
       'ROLE_CHANGED',
+      'PROFILE_UPDATED_BY_ADMIN',
       'ACCOUNT_ACTIVATED',
       'CUSTOMER_ASSIGNED',
     ];
@@ -341,6 +342,7 @@ export class NotificationService {
       'TASK_UPDATED',
       'SYSTEM_ANNOUNCEMENT',
       'ROLE_CHANGED',
+      'PROFILE_UPDATED_BY_ADMIN',
       'ACCOUNT_ACTIVATED',
     ];
 
@@ -603,6 +605,7 @@ export class NotificationService {
       notifyCommentReaction: settings.notifyCommentReaction,
       notifySystemAlert: settings.notifySystemAlert,
       notifyRoleChanged: settings.notifyRoleChanged,
+      notifyProfileChanged: settings.notifyProfileChanged,
       emailEnabled: settings.emailEnabled,
       pushEnabled: settings.pushEnabled,
       createdAt: settings.createdAt,
@@ -621,6 +624,7 @@ export class NotificationService {
       'COMMENT_REPLY': 'notifyCommentReply',
       'COMMENT_REACTION': 'notifyCommentReaction',
       'ROLE_CHANGED': 'notifyRoleChanged',
+      'PROFILE_UPDATED_BY_ADMIN': 'notifyProfileChanged',
       'SYSTEM_ANNOUNCEMENT': 'notifySystemAlert',
       'CUSTOMER_CREATED': 'notifySystemAlert',
       'CUSTOMER_ASSIGNED': 'notifySystemAlert',

@@ -20,7 +20,7 @@ vi.mock('../../contexts/UserPreferencesContext', () => ({
 
 const renderProvider = (child: React.ReactNode = <div>Application</div>) =>
   render(
-    <MemoryRouter>
+    <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <ThemeProvider theme={createTheme()}>
         <FollowMeeFeedbackProvider>{child}</FollowMeeFeedbackProvider>
       </ThemeProvider>

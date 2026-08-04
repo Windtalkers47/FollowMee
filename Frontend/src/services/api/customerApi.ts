@@ -7,10 +7,13 @@ import { getAccessToken } from '../../utils/auth';
 ============================ */
 
 // Convert frontend → backend
-const toApiFormat = (data: any): any => {
-  const result: any = { ...data };
+type RequestPayload = Record<string, unknown>;
+type ApiCustomer = Partial<CustomerData>;
 
-  const optionalFields: (keyof CustomerData)[] = [
+const toApiFormat = (data: RequestPayload): RequestPayload => {
+  const result: RequestPayload = { ...data };
+
+  const optionalFields = [
     'customerLastName',
     'customerPhone1',
     'customerPhone2',
@@ -39,14 +42,20 @@ const toApiFormat = (data: any): any => {
 };
 
 // Convert backend → frontend
-const fromApiFormat = (data: any): CustomerData => {
+const fromApiFormat = (data: ApiCustomer): CustomerData => {
   const status: CustomerStatus =
     data?.status === 'active' || data?.status === 'inactive' || data?.status === 'canceled'
       ? data.status
       : 'active';
 
   return {
-    customerId: data.customerId,
+    customerId: data.customerId ?? '',
+    userId: data.assignedTo ?? data.userId ?? null,
+    assignedTo: data.assignedTo ?? data.userId ?? null,
+    createdBy: data.createdBy ?? null,
+    assignedToUser: data.assignedToUser,
+    createdByUser: data.createdByUser,
+    capabilities: data.capabilities || { canView: true, canEdit: false, canReassign: false, canDelete: false, canPublish: false },
     customerName: data.customerName ?? '',
     customerLastName: data.customerLastName ?? null,
     customerEmail: data.customerEmail ?? '',
@@ -61,8 +70,8 @@ const fromApiFormat = (data: any): CustomerData => {
     customerX: data.customerX ?? null,
     customerAddress: data.customerAddress ?? null,
     customerImageUrl: data.customerImageUrl ?? null,
-    createdAt: data.createdAt,
-    updatedAt: data.updatedAt,
+    createdAt: data.createdAt ?? '',
+    updatedAt: data.updatedAt ?? '',
     deletedAt: data.deletedAt ?? null,
   };
 };
@@ -71,7 +80,7 @@ const fromApiFormat = (data: any): CustomerData => {
 const apiRequest = async <T>(
   endpoint: string,
   method: string,
-  data?: any,
+  data?: RequestPayload | FormData,
   isFormData: boolean = false
 ): Promise<T> => {
   const headers: HeadersInit = {
@@ -93,10 +102,10 @@ const apiRequest = async <T>(
     method,
     headers,
     credentials: 'include',
-    body: isFormData ? data : (data ? JSON.stringify(toApiFormat(data)) : undefined),
+    body: isFormData ? data as FormData : (data ? JSON.stringify(toApiFormat(data as RequestPayload)) : undefined),
   });
 
-  let json: any = null;
+  let json: unknown = null;
   try {
     json = await response.json();
   } catch {
@@ -105,7 +114,8 @@ const apiRequest = async <T>(
 
   if (!response.ok) {
     // Use the specific error message if available, otherwise fall back to message or statusText
-    throw new Error(json?.error || json?.message || response.statusText);
+    const errorPayload = json && typeof json === 'object' ? json as { error?: string; message?: string } : {};
+    throw new Error(errorPayload.error || errorPayload.message || response.statusText);
   }
 
   return json as T;
@@ -155,7 +165,7 @@ export const customerApi = {
     });
 
     const result = await apiRequest<{
-      data: any[];
+      data: ApiCustomer[];
       meta: PaginatedCustomers['meta'];
     }>(`/customers?${params}`, 'GET');
 
@@ -178,7 +188,7 @@ export const customerApi = {
     });
 
     const result = await apiRequest<{
-      data: any[];
+      data: ApiCustomer[];
       meta: PaginatedCustomers['meta'];
     }>(`/customers/profile?${params}`, 'GET');
 
@@ -190,7 +200,7 @@ export const customerApi = {
 
   // Get by id (requires authentication)
   getCustomerById: async (customerId: string): Promise<CustomerData> => {
-    const response = await apiRequest<{ data: any }>(`/customers/${customerId}`, 'GET');
+    const response = await apiRequest<{ data: ApiCustomer }>(`/customers/${customerId}`, 'GET');
     return fromApiFormat(response.data);
   },
 
@@ -199,11 +209,11 @@ export const customerApi = {
     const response = await fetch(`${apiConfig.baseURL}/customers/public/${customerId}`);
     
     if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
+      const error = await response.json().catch(() => ({})) as { message?: string };
       throw new Error(error.message || 'Failed to fetch customer profile');
     }
     
-    const { data } = await response.json();
+    const { data } = await response.json() as { data: ApiCustomer };
     return fromApiFormat(data);
   },
 
@@ -219,7 +229,7 @@ export const customerApi = {
       requestData.base64Image = customerData.base64Image;
     }
     
-    const result = await apiRequest<{ data: any }>('/customers', 'POST', requestData);
+    const result = await apiRequest<{ data: ApiCustomer }>('/customers', 'POST', requestData as unknown as RequestPayload);
     return fromApiFormat(result.data);
   },
 
@@ -228,10 +238,10 @@ export const customerApi = {
     customerId: string,
     customerData: Partial<Omit<CustomerData, 'customerId'>>
   ): Promise<CustomerData> {
-    const result = await apiRequest<{ data: any }>(
+    const result = await apiRequest<{ data: ApiCustomer }>(
       `/customers/${customerId}`,
       'PUT',
-      customerData
+      customerData as unknown as RequestPayload
     );
     return fromApiFormat(result.data);
   },
@@ -239,6 +249,21 @@ export const customerApi = {
   // Delete
   async deleteCustomer(customerId: string): Promise<void> {
     return apiRequest<void>(`/customers/${customerId}`, 'DELETE');
+  },
+
+  async reassignCustomer(customerId: string, assignedTo: number): Promise<CustomerData> {
+    const result = await apiRequest<{ data: ApiCustomer }>(`/customers/${customerId}/assignee`, 'PUT', { assignedTo });
+    return fromApiFormat(result.data);
+  },
+
+  async bulkUpdateStatus(customerIds: string[], status: 'active' | 'inactive'): Promise<{ requested: number; updated: number }> {
+    const response = await apiRequest<{ data: { requested: number; updated: number } }>('/customers/bulk/status', 'PATCH', { customerIds, status });
+    return response.data;
+  },
+
+  async bulkDelete(customerIds: string[]): Promise<{ requested: number; updated: number }> {
+    const response = await apiRequest<{ data: { requested: number; updated: number } }>('/customers/bulk/delete', 'POST', { customerIds });
+    return response.data;
   },
 
   // Status stats

@@ -125,6 +125,9 @@ router.put('/:taskId/mark-undone', (req, res, next) => taskController.markTaskAs
  */
 router.put('/:taskId/submit-review', (req, res, next) => taskController.submitTaskForReview(req, res, next));
 router.put('/:taskId/request-changes', (req, res, next) => taskController.requestTaskChanges(req, res, next));
+router.put('/:taskId/reassign', (req, res, next) => taskController.managerReassign(req, res, next));
+router.put('/:taskId/cancel', (req, res, next) => taskController.managerCancel(req, res, next));
+router.get('/:taskId/activities', (req, res, next) => taskController.getTaskActivities(req, res, next));
 
 // Approve task (from review to done)
 router.put('/:taskId/approve', (req, res, next) => taskController.approveTask(req, res, next));

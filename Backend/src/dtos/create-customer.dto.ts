@@ -3,7 +3,7 @@ import { IsEmail, IsBoolean, IsNotEmpty, IsOptional, IsString, MaxLength, IsBase
 export class CreateCustomerDto {
   @IsOptional()
   @IsNumber()
-  userId?: number;
+  assignedTo?: number;
 
   @IsString()
   @IsNotEmpty({ message: 'Customer name is required' })

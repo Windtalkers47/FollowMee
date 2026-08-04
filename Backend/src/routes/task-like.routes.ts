@@ -3,6 +3,7 @@ import { TaskLikeController } from '../controllers/task-like.controller';
 import { TaskLikeService } from '../services/task-like.service';
 import { authenticateToken } from '../middleware/auth.middleware';
 import AppDataSource from '../config/database';
+import { requireTaskView } from '../middleware/task-scope.middleware';
 
 const router = Router({ mergeParams: true });
 
@@ -12,6 +13,7 @@ const taskLikeController = new TaskLikeController(taskLikeService);
 
 // All like routes require authentication
 router.use(authenticateToken);
+router.use(requireTaskView);
 
 // Create or update a like on a task
 router.post('/', (req, res, next) => taskLikeController.createOrUpdateLike(req, res, next));

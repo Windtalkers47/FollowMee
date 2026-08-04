@@ -57,4 +57,15 @@ describe('task workflow', () => {
       allowedTransitions: [],
     });
   });
+
+  it('allows Owner to approve or cancel without becoming the creator', () => {
+    const task = { status: 'review', createdBy: 10, assignedTo: 20 } as any;
+    expect(() => assertTaskTransition(task, 'done', 30, true)).not.toThrow();
+    expect(getTaskWorkflowCapabilities(task, 30, true)).toMatchObject({
+      canApprove: true,
+      canRequestChanges: true,
+      canOwnerOverride: true,
+      allowedTransitions: ['done', 'cancelled'],
+    });
+  });
 });

@@ -1,4 +1,5 @@
-import { IsNotEmpty, IsOptional, IsString, IsDateString, IsEnum, IsBoolean, Length, IsArray, IsInt } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString, IsDateString, IsEnum, IsBoolean, Length, IsArray, IsInt, Min } from 'class-validator';
+import type { TaskPriority } from '../types/organization.types';
 
 export class CreateTaskDto {
   @IsNotEmpty()
@@ -12,6 +13,9 @@ export class CreateTaskDto {
 
   @IsOptional()
   assignedTo?: number;
+
+  @IsOptional() @IsEnum(['low', 'normal', 'high', 'urgent']) priority?: TaskPriority;
+  @IsOptional() @IsArray() @IsInt({ each: true }) watcherIds?: number[];
 
   @IsOptional()
   @IsDateString()
@@ -50,6 +54,10 @@ export class UpdateTaskDto {
 
   @IsOptional()
   assignedTo?: number;
+
+  @IsOptional() @IsEnum(['low', 'normal', 'high', 'urgent']) priority?: TaskPriority;
+  @IsOptional() @IsArray() @IsInt({ each: true }) watcherIds?: number[];
+  @IsOptional() @IsInt() @Min(1) expectedVersion?: number;
 
   @IsOptional()
   @IsDateString()
@@ -111,6 +119,7 @@ export class TaskQueryDto {
 
   @IsOptional()
   createdBy?: number;
+
 
   @IsOptional()
   page?: number = 1;

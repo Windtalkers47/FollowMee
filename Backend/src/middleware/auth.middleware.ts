@@ -5,6 +5,7 @@ import AppDataSource from '../config/database';
 import { User } from '../entities/User';
 import { UserSession } from '../entities/UserSession';
 import { authCookieOptions } from '../config/security.config';
+import { createSessionToken, hashSessionToken } from '../utils/session-token.util';
 
 // Fail fast: JWT_SECRET is required for production security
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -66,8 +67,8 @@ export const isAuthenticated = async (req: Request, res: Response, next: NextFun
     // If access token is invalid/expired but we have a refresh token
     if (refreshToken) {
       const sessionRepository = AppDataSource.getRepository(UserSession);
-      const session = await sessionRepository.findOne({ 
-        where: { refreshToken, isActive: true } 
+      const session = await sessionRepository.findOne({
+        where: { refreshTokenHash: hashSessionToken(refreshToken), isActive: true }
       });
 
       // Check if session exists and is not expired
@@ -108,11 +109,17 @@ export const isAuthenticated = async (req: Request, res: Response, next: NextFun
 
       // Update session expiration
       session.expiresAt = new Date(Date.now() + oneDayInMs);
+      const rotatedRefreshToken = createSessionToken();
+      session.refreshTokenHash = hashSessionToken(rotatedRefreshToken);
       await sessionRepository.save(session);
 
       // Set new access token cookie
       res.cookie('access_token', newAccessToken, {
         ...authCookieOptions('/'),
+        maxAge: oneDayInMs,
+      });
+      res.cookie('refresh_token', rotatedRefreshToken, {
+        ...authCookieOptions('/api'),
         maxAge: oneDayInMs,
       });
 

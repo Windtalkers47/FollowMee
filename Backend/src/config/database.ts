@@ -25,6 +25,8 @@ import { PublicProfileLink } from '../entities/PublicProfileLink';
 import { PublicProfileEvent } from '../entities/PublicProfileEvent';
 import { PushSubscription } from '../entities/PushSubscription';
 import { UserPreference } from '../entities/UserPreference';
+import { TaskWatcher } from '../entities/TaskWatcher';
+import { TaskActivity } from '../entities/TaskActivity';
 
 dotenv.config();
 
@@ -80,6 +82,8 @@ const dataSourceOptions: DataSourceOptions = {
     PublicProfileEvent,
     PushSubscription,
     UserPreference,
+    TaskWatcher,
+    TaskActivity,
     // Other entities will be loaded automatically by the glob pattern
     path.join(__dirname, '../entities/**/*.entity{.ts,.js}')
   ],

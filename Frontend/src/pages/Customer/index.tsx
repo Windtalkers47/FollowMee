@@ -202,6 +202,7 @@ const CustomerPage = () => {
   // ใช้ customers โดยตรงจาก API แทนการ filter ใน frontend
   // เพราะ API ส่งข้อมูลที่มี pagination มาแล้ว
   const displayCustomers = customers;
+  const canDeleteSelected = selected.length > 0 && selected.every(id => displayCustomers.find(customer => customer.customerId === id)?.capabilities.canDelete);
 
   const totalCustomers = getStatusCount('active') + getStatusCount('inactive') + getStatusCount('canceled');
 
@@ -215,7 +216,7 @@ const CustomerPage = () => {
 
   const handleSelectAllClick = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.checked) {
-      const newSelected = displayCustomers.map((n) => n.customerId);
+      const newSelected = displayCustomers.filter(customer => customer.capabilities.canEdit).map((n) => n.customerId);
       setSelected(newSelected);
       return;
     }
@@ -226,6 +227,8 @@ const CustomerPage = () => {
     event.preventDefault();
     event.stopPropagation();
     
+    const customer = displayCustomers.find(item => item.customerId === id);
+    if (!customer?.capabilities.canEdit) return;
     const selectedIndex = selected.indexOf(id);
     let newSelected: string[] = [];
 
@@ -280,7 +283,8 @@ const CustomerPage = () => {
     setFormApiError(null);
     
     try {
-      const payload: Omit<Customer, 'customerId' | 'fullName'> & { base64Image?: string; removeImage?: boolean } = {
+      const payload: any = {
+        assignedTo: formData.assignedTo,
         customerName: formData.customerName || '',
         customerLastName: formData.customerLastName || null,
         customerEmail: formData.customerEmail || '',
@@ -304,6 +308,9 @@ const CustomerPage = () => {
       let result;
       if (editingCustomer) {
         result = await updateCustomer(editingCustomer.customerId, payload);
+        if (result.success && formData.assignedTo && formData.assignedTo !== editingCustomer.assignedTo) {
+          await customerApi.reassignCustomer(editingCustomer.customerId, formData.assignedTo);
+        }
       } else {
         result = await createCustomer(payload);
       }
@@ -389,6 +396,7 @@ const CustomerPage = () => {
         onSubmit={handleFormSubmit}
         initialData={editingCustomer ? {
           ...editingCustomer,
+          assignedTo: editingCustomer.assignedTo || undefined,
           isActive: editingCustomer.status === 'active',
           customerLastName: editingCustomer.customerLastName || undefined,
           customerPhone1: editingCustomer.customerPhone1 || undefined,
@@ -400,6 +408,7 @@ const CustomerPage = () => {
           customerX: editingCustomer.customerX || undefined,
           customerAddress: editingCustomer.customerAddress || undefined,
         } : undefined}
+        canReassign={editingCustomer?.capabilities.canReassign ?? true}
         apiError={formApiError}
         onClearApiError={() => setFormApiError(null)}
       />
@@ -763,6 +772,7 @@ const CustomerPage = () => {
                 size="small"
                 variant="outlined"
                 startIcon={<BlockIcon />}
+                disabled={!canDeleteSelected}
                 sx={{
                   color: 'error.main',
                   borderColor: 'error.main',
@@ -896,6 +906,7 @@ const CustomerPage = () => {
                           <Checkbox
                             color="primary"
                             checked={isItemSelected}
+                            disabled={!customer.capabilities.canEdit}
                             onClick={(e) => {
                               e.stopPropagation();
                               handleClick(e, customer.customerId);
@@ -1303,6 +1314,8 @@ const CustomerPage = () => {
         open={Boolean(actionMenuAnchorEl)}
         onClose={handleActionMenuClose}
         status={selectedMember?.status as 'active' | 'inactive' | 'canceled' | undefined}
+        canEdit={selectedMember?.capabilities.canEdit ?? false}
+        canDelete={selectedMember?.capabilities.canDelete ?? false}
         onAction={async (action) => {
           if (!selectedMember) return;
 

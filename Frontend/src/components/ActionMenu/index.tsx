@@ -25,6 +25,8 @@ interface ActionMenuProps {
   onAction?: (action: string) => void;
   status?: CustomerStatus;
   menuItems?: MenuItemType[];
+  canEdit?: boolean;
+  canDelete?: boolean;
 }
 
 type MenuItemType = {
@@ -113,8 +115,14 @@ const ActionMenu: React.FC<ActionMenuProps> = ({
   onAction,
   status = 'active',
   menuItems,
+  canEdit = true,
+  canDelete = true,
 }) => {
-  const menuItemsToShow = menuItems || getStatusMenuItems(status);
+  const menuItemsToShow = menuItems || getStatusMenuItems(status).filter(item => {
+    if (item.action === 'delete') return canDelete;
+    if (['update', 'setActive', 'setInactive', 'setCanceled'].includes(item.action)) return canEdit;
+    return true;
+  });
 
   const handleMenuClick = (action: string) => {
     onAction?.(action);

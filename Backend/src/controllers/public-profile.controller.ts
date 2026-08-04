@@ -18,21 +18,18 @@ export class PublicProfileController {
   }
 
   private presentForUser<T>(data: T, req: Request): T & { capabilities: Record<string, boolean> } {
-    const permissions = new Set(req.userPermissions || []);
+    const capabilities = (data as T & { capabilities?: Record<string, boolean> }).capabilities;
     return {
       ...(data as T),
-      capabilities: {
-        canEdit: permissions.has('MANAGE_CUSTOMERS'),
-        canPublish: permissions.has('PUBLISH_PROFILES'),
-        canUnpublish: permissions.has('PUBLISH_PROFILES'),
-        canDelete: permissions.has('PUBLISH_PROFILES'),
-      },
+      capabilities: capabilities || { canEdit: false, canPublish: false, canUnpublish: false, canDelete: false },
     };
   }
 
   private errorStatus(error: unknown) {
     const message = error instanceof Error ? error.message : 'Unexpected error';
     if (/not found/i.test(message)) return 404;
+    const statusCode = Number((error as { statusCode?: number })?.statusCode);
+    if (statusCode) return statusCode;
     if (/already|access|authentication|slug|link|complete|required/i.test(message)) return 400;
     return 500;
   }
@@ -108,7 +105,10 @@ export class PublicProfileController {
       if (Buffer.byteLength(image, 'utf8') > 8 * 1024 * 1024) {
         return res.status(413).json({ success: false, message: 'Image must be smaller than 6 MB' });
       }
-      await this.service.getOwned(req.params.profileId, this.userId(req));
+      const existing = await this.service.getOwned(req.params.profileId, this.userId(req)) as unknown as { capabilities?: { canEdit?: boolean } };
+      if (!existing.capabilities?.canEdit) {
+        return res.status(403).json({ success: false, code: 'PROFILE_EDIT_FORBIDDEN', message: 'Only the customer creator, assignee, or Owner can edit this profile' });
+      }
       const avatarUrl = await uploadBase64Image(image, 'followmee/public-profiles');
       const data = await this.service.update(req.params.profileId, this.userId(req), { avatarUrl });
       return res.json({ success: true, data: this.presentForUser(data, req) });

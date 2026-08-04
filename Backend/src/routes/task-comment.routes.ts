@@ -3,6 +3,7 @@ import { TaskCommentController } from '../controllers/task-comment.controller';
 import { TaskCommentService } from '../services/task-comment.service';
 import { authenticateToken } from '../middleware/auth.middleware';
 import multer from 'multer';
+import { requireTaskView } from '../middleware/task-scope.middleware';
 
 const router = Router({ mergeParams: true });
 
@@ -27,6 +28,7 @@ const taskCommentController = new TaskCommentController(taskCommentService);
 
 // All comment routes require authentication
 router.use(authenticateToken);
+router.use(requireTaskView);
 
 // Create a comment on a task
 router.post('/', (req, res, next) => taskCommentController.createComment(req, res, next));

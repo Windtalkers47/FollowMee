@@ -37,6 +37,19 @@ export class UserController {
     return !!user;
   }
 
+  async getAssignableUsers(_req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const users = await this.userRepository.find({
+        where: { isActive: true },
+        select: { userId: true, userName: true, userLastName: true, userImageUrl: true },
+        order: { userName: 'ASC', userLastName: 'ASC' },
+      });
+      res.status(200).json({ success: true, data: users });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   /**
    * Get all users
    */

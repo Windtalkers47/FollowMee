@@ -165,9 +165,9 @@ const SchedulePage = () => {
     }
     return validIds;
   };
-  const isPrivilegedRole = Boolean(user?.roles?.some((role) => ['admin', 'superadmin'].includes(role.toLowerCase())));
   const hasOwnedTaskOnPage = Boolean(tasksResponse?.tasks.some((task) => task.createdBy === user?.userId));
-  const canEnterBulkMode = isPrivilegedRole || hasOwnedTaskOnPage;
+  const hasOwnerOverrideTaskOnPage = Boolean(tasksResponse?.tasks.some((task) => task.workflow?.canOwnerOverride));
+  const canEnterBulkMode = hasOwnedTaskOnPage || hasOwnerOverrideTaskOnPage;
 
   // Fetch users
   const { data: users = [] } = useQuery({
@@ -680,7 +680,7 @@ const SchedulePage = () => {
                 variant="outlined"
                 startIcon={<CheckBoxOutlineBlankIcon />}
                 onClick={() => {
-                  setCreatorOnlySelection(true);
+                  setCreatorOnlySelection(!hasOwnerOverrideTaskOnPage);
                   setActiveTab(0);
                   setDateFilter('all');
                   setSearchInput('');
@@ -927,9 +927,9 @@ const SchedulePage = () => {
                           likeSummary={getLikeSummary(task)}
                           currentUserId={user?.userId || 0}
                           isSelected={multiSelect.isSelected(task.taskId)}
-                          onToggleSelect={task.createdBy === user?.userId ? multiSelect.toggleSelect : undefined}
+                          onToggleSelect={task.createdBy === user?.userId || task.workflow?.canOwnerOverride ? multiSelect.toggleSelect : undefined}
                           isInSelectionMode={multiSelect.isSelectionMode}
-                          onEnterSelectionMode={task.createdBy === user?.userId ? multiSelect.enterSelectionMode : undefined}
+                          onEnterSelectionMode={task.createdBy === user?.userId || task.workflow?.canOwnerOverride ? multiSelect.enterSelectionMode : undefined}
                           onEdit={(task: Task) => {
                             setEditingTask(task);
                             setTaskDialogOpen(true);

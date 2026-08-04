@@ -8,6 +8,27 @@ export class CustomerResponseDto {
   userId?: number;
 
   @Expose()
+  assignedTo?: number;
+
+  @Expose()
+  createdBy?: number;
+
+  @Expose()
+  assignedToUser?: { userId: number; userName: string; userLastName: string; userImageUrl?: string };
+
+  @Expose()
+  createdByUser?: { userId: number; userName: string; userLastName: string; userImageUrl?: string };
+
+  @Expose()
+  capabilities!: {
+    canView: boolean;
+    canEdit: boolean;
+    canReassign: boolean;
+    canDelete: boolean;
+    canPublish: boolean;
+  };
+
+  @Expose()
   customerName!: string;
 
   @Expose()

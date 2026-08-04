@@ -42,10 +42,34 @@ self.addEventListener('activate', (event) => {
 
 // Fetch event - serve from cache, fallback to network
 self.addEventListener('fetch', (event) => {
+  const request = event.request;
+  const url = new URL(request.url);
+
+  // Never cache authenticated API traffic or mutations. The service worker is
+  // intentionally only an app-shell/static-asset cache.
+  if (
+    request.method !== 'GET' ||
+    url.origin !== self.location.origin ||
+    url.pathname.startsWith('/api/') ||
+    url.pathname === '/api'
+  ) {
+    return;
+  }
+
+  const isNavigation = request.mode === 'navigate';
+  const isStaticAsset = ['style', 'script', 'image', 'font'].includes(request.destination);
+  if (!isNavigation && !isStaticAsset) return;
+
   event.respondWith(
-    caches.match(event.request).then((response) => {
-      return response || fetch(event.request);
-    })
+    fetch(request)
+      .then((response) => {
+        if (response.ok && response.type === 'basic') {
+          const copy = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+        }
+        return response;
+      })
+      .catch(() => caches.match(request).then((cached) => cached || caches.match('/index.html')))
   );
 });
 
@@ -86,7 +110,10 @@ self.addEventListener('notificationclick', (event) => {
   console.log('[ServiceWorker] Notification click:', event);
   event.notification.close();
 
-  const urlToOpen = event.notification.data?.url || '/notifications';
+  const candidate = event.notification.data?.url;
+  const urlToOpen = typeof candidate === 'string' && candidate.startsWith('/') && !candidate.startsWith('//') && !candidate.includes('\\')
+    ? candidate
+    : '/notifications';
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {

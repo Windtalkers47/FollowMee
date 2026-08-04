@@ -123,13 +123,14 @@ const UsersPage = () => {
       'Owner': 0,
       'Admin': 0,
       'Moderator': 0,
-      'Customer': 0
+      'Member': 0
     };
 
     users.forEach(user => {
       user.roles.forEach(role => {
-        if (counts.hasOwnProperty(role)) {
-          counts[role as keyof typeof counts]++;
+        const normalizedRole = role === 'Customer' ? 'Member' : role;
+        if (counts.hasOwnProperty(normalizedRole)) {
+          counts[normalizedRole as keyof typeof counts]++;
         }
       });
     });
@@ -368,7 +369,12 @@ const UsersPage = () => {
           startIcon={<PersonAddIcon />}
           onClick={() => {
             setCreateError('');
-            setNewUser({ ...emptyNewUser, roleId: roles.find((role) => role.roleName === 'Customer')?.roleId || 0 });
+            setNewUser({
+              ...emptyNewUser,
+              roleId: roles.find((role) => role.roleName === 'Member')?.roleId
+                || roles.find((role) => role.roleName === 'Customer')?.roleId
+                || 0,
+            });
             setCreateDialogOpen(true);
           }}
           sx={{ mb: 3 }}
@@ -649,7 +655,7 @@ const UsersPage = () => {
                       </Box>
                     </Box>
                     <Chip 
-                      label={roleCounts.Customer} 
+                      label={roleCounts.Member}
                       size="small" 
                       color="default"
                       variant="outlined"

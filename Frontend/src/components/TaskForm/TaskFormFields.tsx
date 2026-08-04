@@ -10,9 +10,11 @@ import {
   MenuItem,
   Typography,
   Alert,
-  FormHelperText
+  FormHelperText,
+  Checkbox,
+  ListItemText
 } from '@mui/material';
-import { TaskImage, User } from '../../api/task.api';
+import { CreateTaskData, TaskImage, User } from '../../api/task.api';
 import { ImageUpload } from '../ImageUpload/ImageUpload';
 import { RangeCalendar } from '../RangeCalendar/RangeCalendar';
 import { formatLocalizedRelativeTime } from '../../utils/localeFormat';
@@ -20,12 +22,12 @@ import { AccessTime, Update } from '@mui/icons-material';
 import { useUserPreferences } from '../../contexts/UserPreferencesContext';
 
 interface TaskFormFieldsProps {
-  formData: any;
+  formData: CreateTaskData;
   images: TaskImage[];
   users: User[];
-  formErrors: any;
+  formErrors: Record<string, string | undefined>;
   isSubmitting: boolean;
-  onInputChange: (field: string, value: any) => void;
+  onInputChange: <K extends keyof CreateTaskData>(field: K, value: CreateTaskData[K]) => void;
   onImagesChange: (images: TaskImage[]) => void;
   bookedDates?: Date[]; // New prop for booked dates
 }
@@ -95,7 +97,20 @@ export const TaskFormFields: React.FC<TaskFormFieldsProps> = ({
                   </Select>
                   {formErrors.assignedTo && <FormHelperText>{formErrors.assignedTo}</FormHelperText>}
                 </FormControl>
+                <FormControl sx={{ flex: 1, minWidth: 180 }}>
+                  <InputLabel id="priority-label">{t('task.form.priority')}</InputLabel>
+                  <Select labelId="priority-label" value={formData.priority || 'normal'} label={t('task.form.priority')} onChange={(e) => onInputChange('priority', e.target.value)} disabled={isSubmitting}>
+                    {(['low', 'normal', 'high', 'urgent'] as const).map(priority => <MenuItem key={priority} value={priority}>{t(`task.priority.${priority}`)}</MenuItem>)}
+                  </Select>
+                </FormControl>
               </Box>
+
+              <FormControl fullWidth>
+                <InputLabel id="watchers-label">{t('task.form.watchers')}</InputLabel>
+                <Select multiple labelId="watchers-label" value={formData.watcherIds || []} label={t('task.form.watchers')} onChange={(e) => onInputChange('watcherIds', typeof e.target.value === 'string' ? e.target.value.split(',').map(Number) : e.target.value)} renderValue={(selected) => users.filter(user => (selected as number[]).includes(user.userId)).map(user => `${user.userName} ${user.userLastName}`).join(', ')} disabled={isSubmitting}>
+                  {users.map(user => <MenuItem key={user.userId} value={user.userId}><Checkbox checked={(formData.watcherIds || []).includes(user.userId)} /><ListItemText primary={`${user.userName} ${user.userLastName}`} /></MenuItem>)}
+                </Select>
+              </FormControl>
 
               <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
                 <Box sx={{ flex: 1, minWidth: 250 }}>
@@ -154,7 +169,7 @@ export const TaskFormFields: React.FC<TaskFormFieldsProps> = ({
             <ImageUpload
               images={images}
               onImagesChange={onImagesChange}
-              maxImages={10}
+              maxImages={6}
               disabled={isSubmitting}
             />
 

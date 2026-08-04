@@ -4,6 +4,7 @@ import { CommentReactionService } from '../services/comment-reaction.service';
 import { TaskCommentService } from '../services/task-comment.service';
 import { authenticateToken } from '../middleware/auth.middleware';
 import multer from 'multer';
+import { requireCommentTaskView } from '../middleware/task-scope.middleware';
 
 const router = Router();
 
@@ -34,17 +35,17 @@ const commentReactionController = new CommentReactionController(
 router.use(authenticateToken);
 
 // Create or update a reaction on a comment
-router.post('/:commentId/reactions', (req, res, next) => 
+router.post('/:commentId/reactions', requireCommentTaskView, (req, res, next) =>
   commentReactionController.createOrUpdateReaction(req, res, next)
 );
 
 // Remove reaction from a comment
-router.delete('/:commentId/reactions', (req, res, next) => 
+router.delete('/:commentId/reactions', requireCommentTaskView, (req, res, next) =>
   commentReactionController.removeReaction(req, res, next)
 );
 
 // Get all reactions for a comment
-router.get('/:commentId/reactions', (req, res, next) => 
+router.get('/:commentId/reactions', requireCommentTaskView, (req, res, next) =>
   commentReactionController.getCommentReactions(req, res, next)
 );
 

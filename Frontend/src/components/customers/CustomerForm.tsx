@@ -20,6 +20,10 @@ import {
   Divider,
   Paper,
   Stack,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
   SxProps,
   Theme,
 } from '@mui/material';
@@ -29,9 +33,12 @@ import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { styled } from '@mui/material/styles';
 import { useUserPreferences } from '../../contexts/UserPreferencesContext';
+import { useQuery } from '@tanstack/react-query';
+import { userApi } from '../../api/user.api';
 
 export type CustomerFormData = {
   customerId?: string;
+  assignedTo?: number;
   customerName: string;
   customerLastName?: string;
   customerEmail: string;
@@ -58,6 +65,7 @@ export type ApiError = {
 // FormValues type should match the schema exactly
 type FormValues = {
   customerId?: string;
+  assignedTo?: number;
   customerName: string;
   customerLastName?: string;
   customerEmail: string;
@@ -78,6 +86,7 @@ type FormValues = {
 // Define the schema with proper typing
 const schema: yup.ObjectSchema<FormValues> = yup.object().shape({
   customerId: yup.string().optional(),
+  assignedTo: yup.number().positive().integer().optional(),
   customerName: yup.string().required('First name is required'),
   customerLastName: yup.string().optional(),
   customerEmail: yup.string().email('Invalid email').required('Email is required'),
@@ -116,6 +125,7 @@ interface CustomerFormProps {
   initialData?: Partial<CustomerFormData>;
   apiError?: ApiError | null;
   onClearApiError?: () => void;
+  canReassign?: boolean;
 }
 
 const ImagePreview = styled('div')(({ theme }) => ({
@@ -189,8 +199,14 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
   initialData = { isActive: true },
   apiError,
   onClearApiError,
+  canReassign = true,
 }) => {
   const { t } = useUserPreferences();
+  const { data: assignableUsers = [] } = useQuery({
+    queryKey: ['assignable-users'],
+    queryFn: userApi.getAssignableUsers,
+    enabled: open,
+  });
   const [imagePreview, setImagePreview] = useState<string | null>(
     initialData?.customerImageUrl || null
   );
@@ -488,6 +504,7 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
       customerEmail: '',
       isActive: true,
       customerId: undefined,
+      assignedTo: undefined,
       customerLastName: undefined,
       customerPhone1: undefined,
       customerPhone2: undefined,
@@ -729,6 +746,30 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
                 />
               </Grid>
             </Grid>
+          </Section>
+
+          <Section title={t('task.form.assignedTo')}>
+            <Controller
+              name="assignedTo"
+              control={control}
+              render={({ field }) => (
+                <FormControl fullWidth disabled={Boolean(initialData?.customerId) && !canReassign}>
+                  <InputLabel id="customer-assignee-label">{t('task.form.assignedTo')}</InputLabel>
+                  <Select
+                    {...field}
+                    labelId="customer-assignee-label"
+                    label={t('task.form.assignedTo')}
+                    value={field.value || ''}
+                    onChange={(event) => field.onChange(event.target.value ? Number(event.target.value) : undefined)}
+                  >
+                    <MenuItem value="">{t('task.form.unassigned')}</MenuItem>
+                    {assignableUsers.map(user => (
+                      <MenuItem key={user.userId} value={user.userId}>{user.userName} {user.userLastName}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              )}
+            />
           </Section>
 
           {/* ===== Contact ===== */}

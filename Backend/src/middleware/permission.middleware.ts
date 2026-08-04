@@ -34,8 +34,7 @@ export const checkPermission = (requiredPermission: string) => {
         return res.status(403).json({
           success: false,
           message: 'Insufficient permissions',
-          required: requiredPermission,
-          userPermissions: userWithRoles.permissions
+          code: 'INSUFFICIENT_PERMISSION'
         });
       }
 
@@ -76,8 +75,7 @@ export const checkAnyPermission = (requiredPermissions: string[]) => {
         return res.status(403).json({
           success: false,
           message: 'Insufficient permissions',
-          required: requiredPermissions,
-          userPermissions: userWithRoles.permissions
+          code: 'INSUFFICIENT_PERMISSION'
         });
       }
 
@@ -114,8 +112,7 @@ export const checkRole = (requiredRole: string) => {
         return res.status(403).json({
           success: false,
           message: 'Insufficient role',
-          required: requiredRole,
-          userRoles: userWithRoles.roles
+          code: 'INSUFFICIENT_ROLE'
         });
       }
 

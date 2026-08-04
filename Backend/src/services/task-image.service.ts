@@ -5,9 +5,10 @@ import { User } from '../entities/User';
 import { CreateTaskImageDto, UpdateTaskImageDto, TaskImageResponseDto } from '../dtos/task-image.dto';
 import { CloudinaryUtil } from '../utils/cloudinary.util';
 import AppDataSource from '../config/database';
+import { taskAccessService } from './task-access.service';
 
 export class TaskImageService {
-  private static readonly MAX_IMAGES_PER_TASK = 10;
+  private static readonly MAX_IMAGES_PER_TASK = 6;
   private taskImageRepository: Repository<TaskImage>;
   private taskRepository: Repository<Task>;
 
@@ -26,7 +27,8 @@ export class TaskImageService {
     if (!task) {
       throw new Error('Task not found');
     }
-    if (task.createdBy !== userId && task.assignedTo !== userId) {
+    const access = await taskAccessService.context(userId);
+    if (!taskAccessService.canManage(task, access) && task.assignedTo !== userId) {
       throw new Error('You can only add images to tasks you created or are assigned to');
     }
 
@@ -119,7 +121,9 @@ export class TaskImageService {
       throw new Error('Image not found');
     }
 
-    if (image.uploadedBy !== userId) {
+    const task = await this.taskRepository.findOneBy({ taskId: image.taskId });
+    const access = await taskAccessService.context(userId);
+    if (!task || (!taskAccessService.canManage(task, access) && image.uploadedBy !== userId)) {
       throw new Error('You can only update images you uploaded');
     }
 
@@ -168,7 +172,9 @@ export class TaskImageService {
       throw new Error('Image not found');
     }
 
-    if (image.uploadedBy !== userId) {
+    const task = await this.taskRepository.findOneBy({ taskId: image.taskId });
+    const access = await taskAccessService.context(userId);
+    if (!task || (!taskAccessService.canManage(task, access) && image.uploadedBy !== userId)) {
       throw new Error('You can only delete images you uploaded');
     }
 

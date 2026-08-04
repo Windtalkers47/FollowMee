@@ -14,6 +14,7 @@ import { TaskResponseDto, TaskListResponseDto } from '../dtos/task-response.dto'
 import { CloudinaryUtil } from '../utils/cloudinary.util';
 import AppDataSource from '../config/database';
 import { User } from '../entities/User';
+import { assertSafeRemoteHttpUrl } from '../utils/remote-url.util';
 
 export class TaskController {
   constructor(private readonly taskService: TaskService) {}
@@ -44,7 +45,7 @@ export class TaskController {
   async createTask(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const createTaskDto: CreateTaskDto = req.body;
-      this.assertTaskPayload(req.body, ['title', 'description', 'assignedTo', 'dueDate', 'startDate', 'endDate', 'imageUrl', 'images', 'status']);
+      this.assertTaskPayload(req.body, ['title', 'description', 'assignedTo', 'priority', 'watcherIds', 'dueDate', 'startDate', 'endDate', 'imageUrl', 'images', 'status']);
       const userId = req.user?.userId;
       if (!userId) {
         res.status(401).json({ message: 'User not authenticated' });
@@ -154,11 +155,34 @@ export class TaskController {
     }
   }
 
+  async getTaskActivities(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const data = await this.taskService.getTaskActivities(req.params.taskId, req.user!.userId, Number(req.query.limit) || 50);
+      res.json({ success: true, data });
+    } catch (error) { next(error); }
+  }
+
+  async managerReassign(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const assignedTo = req.body.assignedTo === null ? undefined : Number(req.body.assignedTo);
+      if (assignedTo !== undefined && (!Number.isInteger(assignedTo) || assignedTo <= 0)) throw Object.assign(new Error('Invalid assignee'), { statusCode: 400 });
+      const data = await this.taskService.managerReassign(req.params.taskId, assignedTo, req.user!.userId, req.body.expectedVersion);
+      res.json({ success: true, data });
+    } catch (error) { next(error); }
+  }
+
+  async managerCancel(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const data = await this.taskService.managerCancel(req.params.taskId, req.user!.userId, req.body.expectedVersion);
+      res.json({ success: true, data });
+    } catch (error) { next(error); }
+  }
+
   async updateTask(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { taskId } = req.params;
       const updateTaskDto: UpdateTaskDto = req.body;
-      this.assertTaskPayload(req.body, ['title', 'description', 'assignedTo', 'dueDate', 'startDate', 'endDate', 'imageUrl', 'images', 'status', 'isActive']);
+      this.assertTaskPayload(req.body, ['title', 'description', 'assignedTo', 'priority', 'watcherIds', 'expectedVersion', 'dueDate', 'startDate', 'endDate', 'imageUrl', 'images', 'status', 'isActive']);
       const userId = req.user?.userId;
       if (!userId) {
         res.status(401).json({ message: 'User not authenticated' });
@@ -203,9 +227,10 @@ export class TaskController {
   }
 
   async createTaskWithFiles(req: Request, res: Response, next: NextFunction): Promise<void> {
+    let uploadedUrls: string[] = [];
     try {
       const createTaskDto: CreateTaskDto = JSON.parse(req.body.taskData);
-      this.assertTaskPayload(createTaskDto as unknown as Record<string, unknown>, ['title', 'description', 'assignedTo', 'dueDate', 'startDate', 'endDate', 'imageUrl', 'images', 'status']);
+      this.assertTaskPayload(createTaskDto as unknown as Record<string, unknown>, ['title', 'description', 'assignedTo', 'priority', 'watcherIds', 'dueDate', 'startDate', 'endDate', 'imageUrl', 'images', 'status']);
       const userId = req.user?.userId;
       
       if (!userId) {
@@ -222,13 +247,11 @@ export class TaskController {
 
       // Handle uploaded files
       const files = req.files as Express.Multer.File[];
-      let imageUrls: string[] = [];
-
       if (files && files.length > 0) {
-        imageUrls = await CloudinaryUtil.uploadMultipleImages(files);
+        uploadedUrls = await CloudinaryUtil.uploadMultipleImages(files);
         
         // Add uploaded images to the DTO
-        createTaskDto.images = imageUrls.map((url, index) => ({
+        createTaskDto.images = uploadedUrls.map((url, index) => ({
           imageUrl: url,
           imageOrder: index
         }));
@@ -237,15 +260,17 @@ export class TaskController {
       const result = await this.taskService.createTask(createTaskDto, userId);
       res.status(201).json({ success: true, data: result });
     } catch (error) {
+      await Promise.allSettled(uploadedUrls.map(url => CloudinaryUtil.deleteImage(url)));
       next(error);
     }
   }
 
   async updateTaskWithFiles(req: Request, res: Response, next: NextFunction): Promise<void> {
+    let uploadedUrls: string[] = [];
     try {
       const { taskId } = req.params;
       const updateTaskDto: UpdateTaskDto = JSON.parse(req.body.taskData);
-      this.assertTaskPayload(updateTaskDto as unknown as Record<string, unknown>, ['title', 'description', 'assignedTo', 'dueDate', 'startDate', 'endDate', 'imageUrl', 'images', 'status', 'isActive']);
+      this.assertTaskPayload(updateTaskDto as unknown as Record<string, unknown>, ['title', 'description', 'assignedTo', 'priority', 'watcherIds', 'expectedVersion', 'dueDate', 'startDate', 'endDate', 'imageUrl', 'images', 'status', 'isActive']);
       const userId = req.user?.userId;
       
       if (!userId) {
@@ -263,10 +288,10 @@ export class TaskController {
       // Handle uploaded files
       const files = req.files as Express.Multer.File[];
       if (files && files.length > 0) {
-        const imageUrls = await CloudinaryUtil.uploadMultipleImages(files);
+        uploadedUrls = await CloudinaryUtil.uploadMultipleImages(files);
         
         // Add uploaded images to the DTO
-        updateTaskDto.images = imageUrls.map((url, index) => ({
+        updateTaskDto.images = uploadedUrls.map((url, index) => ({
           imageUrl: url,
           imageOrder: index
         }));
@@ -275,6 +300,7 @@ export class TaskController {
       const result = await this.taskService.updateTask(taskId, updateTaskDto, userId);
       res.status(200).json({ success: true, data: result });
     } catch (error) {
+      await Promise.allSettled(uploadedUrls.map(url => CloudinaryUtil.deleteImage(url)));
       next(error);
     }
   }
@@ -309,7 +335,8 @@ export class TaskController {
       }
 
       // Validate the URL by fetching image headers
-      const response = await fetch(url, { method: 'HEAD' });
+      const safeUrl = await assertSafeRemoteHttpUrl(url);
+      const response = await fetch(safeUrl, { method: 'HEAD', redirect: 'error', signal: AbortSignal.timeout(5000) });
       
       if (!response.ok) {
         res.status(400).json({ 
@@ -341,7 +368,7 @@ export class TaskController {
         fileSize = parseInt(contentLength);
       } else {
         // If content-length is not available (due to compression), make a GET request to get actual file size
-        const getResponse = await fetch(url);
+        const getResponse = await fetch(safeUrl, { redirect: 'error', signal: AbortSignal.timeout(5000) });
         const buffer = await getResponse.arrayBuffer();
         fileSize = buffer.byteLength;
       }

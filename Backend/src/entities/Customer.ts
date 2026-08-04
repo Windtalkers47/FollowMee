@@ -14,8 +14,19 @@ export class Customer {
   @JoinColumn({ name: 'userId' })
   user!: User | null;
 
+  @Column({ name: 'assignedTo', type: 'int', nullable: true })
+  assignedTo!: number | null;
+
+  @ManyToOne(() => User, { onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'assignedTo' })
+  assignedToUser!: User | null;
+
   @Column({ name: 'createdBy', type: 'int', nullable: true })
   createdBy!: number | null;
+
+  @ManyToOne(() => User, { onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'createdBy' })
+  createdByUser!: User | null;
 
   @Column({ name: 'updatedBy', type: 'int', nullable: true })
   updatedBy!: number | null;

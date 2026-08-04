@@ -4,10 +4,10 @@ import { User } from '../entities/User';
 import { UserSession } from '../entities/UserSession';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { v4 as uuidv4 } from 'uuid';
 import auditService from './audit.service';
 import { authCookieOptions } from '../config/security.config';
 import { normalizeRoles } from '../utils/role.util';
+import { createSessionToken, hashSessionToken } from '../utils/session-token.util';
 
 // Configuration
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
@@ -103,13 +103,14 @@ export class AuthService {
    * Generate a refresh token and save to database
    */
   private async generateRefreshToken(userId: number, req: Request): Promise<string> {
-    const refreshToken = uuidv4();
+    const refreshToken = createSessionToken();
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + REFRESH_TOKEN_EXPIRES_IN_DAYS);
     
     const session = this.sessionRepository.create({
       userId,
-      refreshToken,
+      refreshToken: null,
+      refreshTokenHash: hashSessionToken(refreshToken),
       userAgent: req.headers['user-agent'] || '',
       ipAddress: req.ip,
       expiresAt,

@@ -37,7 +37,7 @@ interface RoleSelectorProps {
   error?: string;
   disabled?: boolean;
   roleCounts?: {
-    Customer: number;
+    Member: number;
     Moderator: number;
     Admin: number;
     Owner: number;
@@ -48,8 +48,8 @@ interface RoleSelectorProps {
 
 const roleOptions: RoleOption[] = [
   {
-    value: 'Customer',
-    label: 'Customer',
+    value: 'Member',
+    label: 'Member',
     description: 'Regular user access. Can view and manage their own profile and basic features.',
     level: 1,
     color: brandColors.iosGreen,
@@ -58,7 +58,7 @@ const roleOptions: RoleOption[] = [
   {
     value: 'Moderator',
     label: 'Moderator',
-    description: 'Can view and moderate users, customers, and tasks. Perfect for content moderation and basic user management.',
+    description: 'Can moderate users and content, but cannot override Customer or Task ownership.',
     level: 50,
     color: brandColors.amber,
     icon: <ShieldOutlined fontSize="small" />
@@ -66,7 +66,7 @@ const roleOptions: RoleOption[] = [
   {
     value: 'Admin',
     label: 'Administrator',
-    description: 'Can manage users, customers, tasks, and system settings. Cannot manage roles or permissions.',
+    description: 'Can manage users and system settings, but cannot override Customer or Task ownership.',
     level: 100,
     color: brandColors.blue,
     icon: <AdminPanelSettingsOutlined fontSize="small" />
@@ -86,7 +86,7 @@ const RoleSelector: React.FC<RoleSelectorProps> = ({
   onChange,
   error,
   disabled = false,
-  roleCounts = { Customer: 0, Moderator: 0, Admin: 0, Owner: 0 },
+  roleCounts = { Member: 0, Moderator: 0, Admin: 0, Owner: 0 },
   showCounts = false,
   currentUserRole = ''
 }) => {

@@ -3,6 +3,7 @@ import { validationResult } from 'express-validator';
 import { AuthService, TokenPayload } from '../services/auth.service';
 import { emailService } from '../services/email.service';
 import auditService from '../services/audit.service';
+import { hashSessionToken } from '../utils/session-token.util';
 import AppDataSource from '../config/database';
 import { User } from '../entities/User';
 import { UserSession } from '../entities/UserSession';
@@ -100,10 +101,10 @@ class AuthController {
       // Public registration must never be allowed to elevate its own privileges.
       // Higher roles are assigned only through authenticated user management.
       try {
-        const targetRole = 'Customer';
+        const targetRole = 'Member';
 
         let role = await this.roleRepository.findOne({ 
-          where: { roleName: targetRole } 
+          where: [{ roleName: targetRole }, { roleName: 'Customer' }]
         });
 
         if (!role) {
@@ -121,8 +122,8 @@ class AuthController {
               description: '🛡️ Moderator - Can view and moderate users, customers, and tasks. Perfect for content moderation and basic user management.', 
               roleLevel: 50 
             },
-            'Customer': { 
-              description: '👤 Customer - Regular user access. Can view and manage their own profile and basic features.', 
+            'Member': {
+              description: 'Organization member with standard day-to-day access.',
               roleLevel: 1 
             }
           };
@@ -275,7 +276,7 @@ class AuthController {
       if (refreshToken) {
         // Revoke the refresh token
         await this.sessionRepository.update(
-          { refreshToken, isActive: true },
+          { refreshTokenHash: hashSessionToken(refreshToken), isActive: true },
           { isActive: false, revokedAt: new Date() }
         );
         

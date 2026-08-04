@@ -5,6 +5,7 @@ import { TaskComment } from '../entities/TaskComment';
 import { BaseRepository } from './base.repository';
 import { TaskQueryDto } from '../dtos/task.dto';
 import { createTaskFocusSummary, getBangkokDateBoundaries, TaskFocusSummary } from '../utils/task-focus.util';
+import type { TaskAccessContext } from '../services/task-access.service';
 
 export class TaskRepository extends BaseRepository<Task> {
   constructor() {
@@ -15,17 +16,18 @@ export class TaskRepository extends BaseRepository<Task> {
     return this.repository.findOne({ where: { taskId: id, isActive: true } });
   }
 
-  async findTasksWithRelations(query: TaskQueryDto, viewerUserId?: number): Promise<[Task[], number]> {
+  async findTasksWithRelations(query: TaskQueryDto, access?: TaskAccessContext): Promise<[Task[], number]> {
     const qb = this.repository
       .createQueryBuilder('task')
       .leftJoinAndSelect('task.assignedToUser', 'assignedUser')
       .leftJoinAndSelect('task.createdByUser', 'createdUser')
       .where('task.isActive = :isActive', { isActive: true });
 
-    if (viewerUserId) {
-      qb.andWhere('(task.status != :draftStatus OR task.createdBy = :draftViewer)', {
+    if (access) {
+      qb.andWhere('(task.status != :draftStatus OR task.createdBy = :draftViewer OR :isOwner = 1)', {
         draftStatus: 'draft',
-        draftViewer: viewerUserId,
+        draftViewer: access.userId,
+        isOwner: access.isOwner ? 1 : 0,
       });
     } else {
       qb.andWhere('task.status != :draftStatus', { draftStatus: 'draft' });
@@ -90,8 +92,17 @@ export class TaskRepository extends BaseRepository<Task> {
       const taskIds = tasks.map((task) => task.taskId);
       const likes = await this.repository.manager.getRepository(TaskLike)
         .createQueryBuilder('like')
-        .select(['like.taskId AS taskId', 'like.likeType AS likeType', 'like.userId AS userId'])
+        .select('like.taskId', 'taskId')
+        .addSelect("SUM(CASE WHEN like.likeType='like' THEN 1 ELSE 0 END)", 'like')
+        .addSelect("SUM(CASE WHEN like.likeType='love' THEN 1 ELSE 0 END)", 'love')
+        .addSelect("SUM(CASE WHEN like.likeType='laugh' THEN 1 ELSE 0 END)", 'laugh')
+        .addSelect("SUM(CASE WHEN like.likeType='angry' THEN 1 ELSE 0 END)", 'angry')
+        .addSelect("SUM(CASE WHEN like.likeType='wow' THEN 1 ELSE 0 END)", 'wow')
+        .addSelect("SUM(CASE WHEN like.likeType='sad' THEN 1 ELSE 0 END)", 'sad')
+        .addSelect('MAX(CASE WHEN like.userId=:viewerId THEN like.likeType ELSE NULL END)', 'userLike')
         .where('like.taskId IN (:...taskIds)', { taskIds })
+        .setParameter('viewerId', access?.userId || 0)
+        .groupBy('like.taskId')
         .getRawMany();
       const comments = await this.repository.manager.getRepository(TaskComment)
         .createQueryBuilder('comment')
@@ -103,11 +114,12 @@ export class TaskRepository extends BaseRepository<Task> {
         .getRawMany();
       const commentCounts = new Map(comments.map((row: { taskId: string; count: string }) => [row.taskId, Number(row.count)]));
       const counts = new Map<string, Record<string, number>>();
-      likes.forEach((row: { taskId: string; likeType: string; userId: number }) => {
-        const current = counts.get(row.taskId) || {};
-        current[row.likeType] = (current[row.likeType] || 0) + 1;
-        if (viewerUserId && Number(row.userId) === viewerUserId) current.userLike = row.likeType as any;
-        counts.set(row.taskId, current);
+      likes.forEach((row: Record<string, string>) => {
+        counts.set(row.taskId, {
+          like: Number(row.like) || 0, love: Number(row.love) || 0, laugh: Number(row.laugh) || 0,
+          angry: Number(row.angry) || 0, wow: Number(row.wow) || 0, sad: Number(row.sad) || 0,
+          ...(row.userLike ? { userLike: row.userLike as any } : {}),
+        });
       });
       tasks.forEach((task) => {
         (task as any)._reactionCounts = counts.get(task.taskId) || {};
@@ -118,10 +130,20 @@ export class TaskRepository extends BaseRepository<Task> {
   }
 
   async findWithStats(taskId: string): Promise<Task | null> {
-    return this.repository.findOne({
+    const task = await this.repository.findOne({
       where: { taskId, isActive: true },
-      relations: ['assignedToUser', 'createdByUser', 'likes', 'comments']
+      relations: ['assignedToUser', 'createdByUser']
     });
+    if (!task) return null;
+    const [reactions, comments] = await Promise.all([
+      this.repository.manager.getRepository(TaskLike).createQueryBuilder('like')
+        .select('like.likeType', 'type').addSelect('COUNT(*)', 'count')
+        .where('like.taskId=:taskId', { taskId }).groupBy('like.likeType').getRawMany(),
+      this.repository.manager.getRepository(TaskComment).count({ where: { taskId, isActive: true } }),
+    ]);
+    (task as any)._reactionCounts = Object.fromEntries(reactions.map((row: { type: string; count: string }) => [row.type, Number(row.count)]));
+    (task as any)._commentCount = comments;
+    return task;
   }
 
   async updateTaskStatus(taskId: string, status: string): Promise<boolean> {
@@ -222,7 +244,7 @@ export class TaskRepository extends BaseRepository<Task> {
     return { tasks, counts };
   }
 
-  async getScheduleMeta(viewerUserId?: number): Promise<{
+  async getScheduleMeta(access?: TaskAccessContext): Promise<{
     statusCounts: Record<string, number>;
     focus: TaskFocusSummary;
   }> {
@@ -230,10 +252,11 @@ export class TaskRepository extends BaseRepository<Task> {
     const dueExpression = 'COALESCE(task.endDate, task.dueDate)';
     const qb = this.repository.createQueryBuilder('task')
       .where('task.isActive = :active', { active: true });
-    if (viewerUserId) {
-      qb.andWhere('(task.status != :draftStatus OR task.createdBy = :draftViewer)', {
+    if (access) {
+      qb.andWhere('(task.status != :draftStatus OR task.createdBy = :draftViewer OR :isOwner = 1)', {
         draftStatus: 'draft',
-        draftViewer: viewerUserId,
+        draftViewer: access.userId,
+        isOwner: access.isOwner ? 1 : 0,
       });
     } else {
       qb.andWhere('task.status != :draftStatus', { draftStatus: 'draft' });

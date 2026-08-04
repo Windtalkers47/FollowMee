@@ -2,6 +2,9 @@ import multer from 'multer';
 import path from 'path';
 import { Request } from 'express';
 
+const MAX_FILE_SIZE = 5 * 1024 * 1024;
+const MAX_FILE_COUNT = 6;
+
 // Configure multer for file uploads
 const storage = multer.memoryStorage();
 
@@ -18,8 +21,10 @@ export const upload = multer({
   storage: storage,
   fileFilter: fileFilter,
   limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB limit
-    files: 10 // Maximum 10 files
+    fileSize: MAX_FILE_SIZE,
+    files: MAX_FILE_COUNT,
+    fields: 30,
+    parts: MAX_FILE_COUNT + 30,
   }
 });
 
@@ -27,4 +32,4 @@ export const upload = multer({
 export const uploadSingle = upload.single('image');
 
 // For multiple files upload
-export const uploadMultiple = upload.array('images', 10);
+export const uploadMultiple = upload.array('images', MAX_FILE_COUNT);

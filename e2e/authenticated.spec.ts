@@ -34,7 +34,7 @@ test.describe('authenticated navigation and notification smoke', () => {
   });
 
   test('schedule card exposes task context and an explicit selection mode', async ({ page }) => {
-    await loginAs(page, 'assignee');
+    await loginAs(page, 'creator');
     await page.goto('/schedule');
     await expect(page.getByText('E2E seeded task')).toBeVisible();
     await expect(page.getByText(/Assigned to QA/i)).toBeVisible();

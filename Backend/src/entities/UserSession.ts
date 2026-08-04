@@ -13,8 +13,11 @@ export class UserSession {
   @Column('int')
   userId!: number;
 
-  @Column('varchar', { length: 255, unique: true })
-  refreshToken!: string;
+  @Column('varchar', { length: 255, nullable: true, select: false })
+  refreshToken!: string | null;
+
+  @Column('char', { length: 64, nullable: true, unique: true })
+  refreshTokenHash!: string | null;
 
   @Column('varchar', { length: 45, nullable: true })
   ipAddress!: string | null;
@@ -52,4 +55,3 @@ export class UserSession {
     this.revokedAt = new Date();
   }
 }
-

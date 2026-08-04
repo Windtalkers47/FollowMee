@@ -1,4 +1,5 @@
 import { API_URL } from '../utils/runtimeEnv';
+import axios from 'axios';
 
 // API Configuration
 export const API_BASE_URL = API_URL;
@@ -21,6 +22,19 @@ export const apiConfig: ApiConfig = {
   timeout: 10000, // 10 seconds
 };
 
+export class ApiError extends Error {
+  constructor(message: string, readonly status: number, readonly code?: string, readonly requestId?: string) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
+
+export const apiClient = typeof axios.create === 'function' ? axios.create(apiConfig) : axios;
+apiClient.interceptors?.response?.use(response => response, error => {
+  if (error?.response?.status === 401 && window.location.pathname !== '/login') window.location.assign('/login');
+  return Promise.reject(error);
+});
+
 /**
  * Generic API response handler
  * ✔ Supports TypeScript generics
@@ -30,11 +44,7 @@ export async function handleResponse<T>(response: Response): Promise<T> {
   const data = await response.json();
 
   if (!response.ok) {
-    const error = {
-      message: data?.message || response.statusText,
-      status: response.status,
-    };
-    return Promise.reject(error);
+    return Promise.reject(new ApiError(data?.message || response.statusText, response.status, data?.code, data?.requestId));
   }
 
   return data as T;

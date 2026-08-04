@@ -36,7 +36,6 @@ export const TaskForm: React.FC<TaskFormProps> = ({
 }) => {
   const { t } = useUserPreferences();
   const taskForm = useTaskForm({ task, users, onSave });
-
   const handleSubmit = async (intent: TaskSaveIntent) => {
     const saved = await taskForm.handleSubmit(intent);
     if (saved) onClose();

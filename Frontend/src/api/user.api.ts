@@ -24,6 +24,10 @@ export interface CreateUserPayload {
 }
 
 export const userApi = {
+  getAssignableUsers: async (): Promise<Array<Pick<User, 'userId' | 'userName' | 'userLastName'>>> => {
+    const response = await axios.get(`${API_BASE_URL}/users/assignable`, { withCredentials: true });
+    return response.data.data;
+  },
   // Get all users
   getUsers: async (): Promise<User[]> => {
     const response = await axios.get(`${API_BASE_URL}/users`, {

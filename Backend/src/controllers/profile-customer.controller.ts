@@ -15,7 +15,8 @@ export class ProfileCustomerController {
       // Get active customers with pagination
       const [customers, total] = await this.profileCustomerService.findWithPagination(
         page,
-        limit
+        limit,
+        req.user!.userId,
       );
 
       return res.json({
@@ -52,7 +53,7 @@ export class ProfileCustomerController {
         });
       }
 
-      const results = await this.profileCustomerService.search(search as string);
+      const results = await this.profileCustomerService.search(search as string, req.user!.userId);
 
       return res.json({
         success: true,

@@ -239,3 +239,157 @@ git diff --check
 - Add season closing/Top-3 badge automation and an Owner season history view. Current monthly season creation/ranking works, while historical presentation is minimal.
 - Resolve the existing repository-wide legacy lint baseline and planned React/React Router platform security upgrade before a production launch.
 - Configure and validate real SendGrid/VAPID credentials in staging, and test Safari on physical iPhone/iPad hardware.
+
+## 2026-08-04 Team scope and production-hardening implementation
+
+### Implemented
+
+- Added `teams`, `team_members`, `task_watchers`, and `task_activities`. Existing active users and tasks were backfilled into the `General` team without resetting the primary database.
+- Split organization roles (`Owner`, `Admin`, `Member`) from team roles (`manager`, `member`). The legacy `Customer` role was migrated to `Member`; frontend normalization keeps temporary compatibility.
+- Task list/detail, Schedule, Completed Work, comments, reactions, likes, and images now enforce backend team scope. Owner is organization-wide; Team Manager manages team tasks; Members see published team work; creators retain management rights.
+- Added task `teamId`, `priority`, watchers, activity history, backend action capabilities, manager actions, and optimistic concurrency through `version`/`expectedVersion` with `409 TASK_VERSION_CONFLICT`.
+- Task metadata, watcher/image records, and activity audit writes use database transactions. Task detail no longer eagerly loads the full comment/reaction graph; counts are aggregated in SQL.
+- Protected notification analytics, queue/email monitoring, system notification creation, and cleanup with permission middleware.
+- Refresh tokens are stored only as SHA-256 hashes, rotate on refresh, and revoke by hash on logout. Existing plaintext session values were backfilled and cleared.
+- Service worker caching excludes `/api`, non-GET, and cross-origin requests. Uploads are limited to six files and 5 MB each, validate magic bytes, and remote URL validation blocks private/local destinations.
+- Added response/error request IDs, a canonical frontend API client with compatibility re-export, Team administration UI, CI gates, and bundle splitting.
+
+### Database safety and verification
+
+- Backup: `Backups/followmee-before-teams-task-hardening-20260804.sql` (164,220 bytes; SHA-256 `062CB3ACB77CD6025AFA5CAF67B6DD686BAB2725402617B423D014D334753783`).
+- Applied `TeamsAndTaskHardening1799000000000`; Database Doctor reports 17/17 migrations ready on MariaDB 10.4.32.
+- Clean schema passed: 42 tables, 60 foreign keys, 94 secondary indexes, 17 migration rows, no missing primary keys.
+- Backend and frontend production builds passed.
+- Backend tests: 29/29. Frontend tests: 194/194. Seeded integration: 12/12. Chromium critical E2E: 9/9.
+- Bundle budget passed; initial entry reduced from 514 KB to 420 KB. Critical changed-file lint passed.
+
+### Still required before production
+
+- Add a durable transactional outbox for every Cloudinary/notification/reward external side effect. Task database writes are transactional and notifications retry, but all side effects are not yet guaranteed by one outbox.
+- Complete direct HTTP security tests for all analytics endpoints, malicious action URLs, version conflicts, and the full two-team IDOR matrix.
+- Continue splitting the large legacy Schedule, Posts, Customer, MainLayout, and task-service modules and reduce the repository-wide lint baseline.
+- Complete Rewards Catalog/redemption/mission browser E2E and localized reward notification keys.
+- Run manual theme/locale/device UAT including physical Safari; validate real staging SendGrid/VAPID and alert thresholds.
+- Perform and document a restore drill from the new backup before approving production.
+- No commit, push, deployment, or production credential change was performed.
+
+## 2026-08-04 session handoff
+
+### จุดประสงค์ของงานรอบที่ผ่านมา
+
+FollowMee ถูกวางให้เป็น Web App สำหรับองค์กรเดียว: พนักงานรับข้อมูลจากลูกค้าแล้วสร้าง Customer และ Profile Card, เจ้าของงานจัดการ Task/Schedule, Dashboard ใช้วิเคราะห์งาน, และ Completed Work เป็น Community ที่เชื่อมกับคะแนน ภารกิจ Badge และ Rewards เพื่อสร้างแรงจูงใจในการทำงาน
+
+### สิ่งที่ทำเสร็จแล้ว
+
+- แก้ Task workflow ให้เป็น Draft → To do → In progress → Review → Done โดย creator เป็นผู้ตรวจและอนุมัติ
+- เพิ่ม My Work, Task Detail, Review/Approve/Request changes และ realtime task updates
+- แยก Completed Work ออกจาก My Work และลดความสับสนระหว่าง Team Activity/My Activity
+- เพิ่ม FollowMee Feedback System แบบ branded แทนการติดตั้ง SweetAlert ใหม่
+- ปรับ Pastel Purple/Green, collapsed navigation rail, Smart Focus และ localization ไทย/อังกฤษในส่วนที่ผ่าน audit แล้ว
+- เพิ่ม SmartAvatar ให้รองรับ Unicode/ภาษาไทยและ sync ชื่อ/รูปข้าม browser
+- เปลี่ยน Superadmin เป็น Owner, จำกัด Owner หนึ่งคน และเพิ่มระบบโอน Owner แบบมี password confirmation
+- เปลี่ยน Customer/Profile เป็นข้อมูลร่วมองค์กร พร้อม capability จาก backend และ audit
+- เพิ่ม Rewards Economy ครบแกนหลัก: Season Score, Reward Points available/reserved, missions, badges, catalog, redemption, approval, reject, cancel, expiry และ fulfill
+- เพิ่ม Catalog CRUD สำหรับ Owner: สร้าง/แก้ไข/เปิดกลับรายการ inactive/ปิดรายการแบบ soft deactivate, รูปภาพ, per-user limit และ active period
+- ป้องกัน Catalog date range ผิด และป้องกันปิดรายการที่มี redemption pending/approved
+
+### ฐานข้อมูลและการรันระบบ
+
+- ใช้ XAMPP MariaDB ที่ `localhost:3306`
+- Database หลักคือ `followmee`; ไม่ได้ reset หรือ drop
+- Migration ล่าสุด `OwnerOrganizationRewards1798000000000` ถูก apply แล้ว
+- Migration ทั้งหมด 16 รายการอยู่สถานะ applied
+- Backup ล่าสุด: `backups/followmee-before-owner-rewards-20260803.sql`
+- `followmee_e2e` ใช้เฉพาะ destructive/integration tests
+- เปิดระบบ:
+  1. เปิด XAMPP และ Start MySQL
+  2. `cd C:\PAom\FollowMee`
+  3. `npm run doctor:db`
+  4. `npm start`
+- Frontend-only: `npm run start:frontend`
+- ห้ามใช้ `INSERT user_roles` ตรง ๆ เพื่อแต่งตั้ง Owner ให้ใช้ transfer endpoint หรือ CLI ที่มี audit
+
+### Endpoint สำคัญ
+
+- `PUT /api/user-management/system-owner`
+- `GET /api/rewards/summary`
+- `GET /api/rewards/catalog`
+- `POST /api/rewards/redemptions`
+- `GET /api/admin/rewards/catalog` สำหรับ Owner ดูรายการ active/inactive ทั้งหมด
+- `POST/PUT/DELETE /api/admin/rewards/catalog...`
+- `GET/PUT /api/admin/rewards/missions...`
+- `POST /api/admin/rewards/redemptions/:id/approve|reject|fulfill`
+
+### ผลตรวจล่าสุด
+
+- Database Doctor: ผ่าน, MariaDB 10.4.32, ไม่มี migration ค้าง
+- Health: `UP`, Database: `UP`
+- Backend build: ผ่าน
+- Frontend build: ผ่าน
+- Backend unit: 23/23
+- Frontend tests: 189/189
+- Backend integration: 12/12
+- Authenticated Chromium E2E เดิม: 5/5
+- `git diff --check`: ผ่าน โดยข้อความ LF/CRLF เป็นเพียง warning ของ Windows
+- ไม่มีการ deploy, commit หรือ push
+
+### งานที่ควรทำต่อใน session ใหม่
+
+1. Manual UAT หน้า Owner, Rewards, Catalog และ Redemption ในไทย/อังกฤษ, Purple/Green, Light/Dark และ 1440×900, 1280×800, iPad 768×1024, Mobile 390×844
+2. เพิ่ม browser E2E สำหรับ Catalog CRUD, redemption ทุกสถานะ, mission editing และ permission ของ Moderator/Admin/Owner
+3. แปลข้อความ notification ของ Rewards ด้วย `titleKey/messageKey` แทน English fallback
+4. เพิ่มการปิด Season, แจก Top 3 badge และหน้า Season history
+5. ตรวจ lint legacy 215 errors/20 warnings และวางแผนอัปเกรด React Router/Node ก่อน production
+6. ทดสอบ Safari บนอุปกรณ์จริง และเตรียม SendGrid/VAPID ใน staging เท่านั้น
+
+### คะแนนประเมินล่าสุด
+
+Overall local/UAT readiness: **8.6/10**. ระบบพร้อมสำหรับ local/UAT แบบควบคุม แต่ยังไม่ควรเปิด production จนกว่าจะผ่าน manual UAT, browser E2E ของ Rewards, lint/security upgrade และ staging notification test.
+
+## 2026-08-04 single-organization correction (supersedes Team scope)
+
+The earlier “Team scope” product decision is superseded. FollowMee has one organization and no Team domain. Resource authorization is now based on creator, assignee, and Owner.
+
+### Final authorization model
+
+- Every authenticated user can list, view, and create Customers. New Customers default `assignedTo` to the creator.
+- Customer creator, assignee, and Owner can edit Customer data/images/status and linked Profile drafts.
+- Only Customer creator and Owner can reassign, delete, publish/unpublish, or delete the linked Profile. Admin and Moderator have no data override merely because of their role.
+- Every authenticated user can see published Tasks. Drafts are private to creator and Owner.
+- Task creator controls metadata, assignment, approval, request changes, cancellation, and deletion. Assignee performs the assigned workflow. Owner can override all Tasks. Watchers receive notifications but gain no edit permission.
+- Backend Customer/Profile/Task responses expose resource capabilities; the UI hides or disables unavailable actions.
+
+### Schema and implementation
+
+- Added and applied forward migration `SingleOrganizationOwnership1800000000000`; migration `179900...` was not edited or rewritten.
+- Added/backfilled `customers.assignedTo`, retained `customers.userId` as a compatibility alias, removed `tasks.teamId`, `teams`, `team_members`, and `MANAGE_TEAMS`.
+- Removed `/api/teams`, Team entities/services/routes/page/navigation and Task Team fields. Added `GET /api/users/assignable` and `PUT /api/customers/:id/assignee`.
+- Bulk Customer status/delete checks every row before one transaction; unauthorized mixed batches make no changes.
+- Published Task realtime invalidation is organization-wide; content notifications remain limited to creator, assignee, and watchers.
+- The Customer frontend uses one canonical typed API client with a compatibility re-export.
+- CI now runs builds, unit/integration tests, clean critical lint, bundle budget, and isolated critical Chromium E2E with one worker.
+
+### Database safety and verification
+
+- Primary backup before correction: `Backups/followmee-before-single-organization-20260804.sql`, 128,627 bytes, SHA-256 `F2864677C66BC766CAB83256ACFA9824101FDB4AD542C43C5FE04873F99FEC3D`.
+- Primary `followmee` now has 18/18 migrations. It was not reset or dropped.
+- Post-migration primary check: 2 Customers, 0 unassigned Customers, 11 Tasks, Task version sum 11, and zero Team tables/columns/permissions.
+- Restore drill used only temporary `followmee_migration_verify`: before/after counts remained 2 Customers and 11 Tasks with unchanged watcher/activity/version totals; assignment backfill completed and Team schema reached zero. The temporary database was removed.
+- Clean schema verification passed: 40 tables, 58 foreign keys, 91 secondary indexes, 18 migration rows, and no missing primary keys.
+
+### Verification completed
+
+- Backend and Frontend production builds passed; bundle budget passed at 419 KB initial entry.
+- Backend unit: 32/32. Frontend Vitest: 192/192 including service-worker cache policy. Seeded Backend integration: 12/12.
+- Direct Customer authorization E2E: passed for creator/Admin, assignee, unrelated Member, unrelated Admin, Owner, and atomic rejected bulk update.
+- Isolated Chromium critical UI/workflows: 9/9 passed (navigation, Schedule, Task CRUD/lifecycle/realtime, comments/reactions, notifications, and profile synchronization).
+- The legacy all-project 100-test command is not a valid shared-fixture gate at eight workers: concurrent projects mutate the same E2E database and hit login rate limits; it reported cascading failures and stale visual baselines. CI therefore runs stateful critical flows with one worker. Cross-device visual tests still require isolated databases or serial project runs.
+
+### Remaining production gates
+
+- Durable transactional outbox/reconciliation is still required for guaranteed Cloudinary/notification/reward side effects; current database writes are transactional and notification delivery has retry handling, but this is not a full persistent outbox.
+- Complete Rewards catalog/redemption/mission browser coverage and localized reward decision notifications.
+- Run manual Thai/English, Purple/Green, Light/Dark, device matrix and physical Safari UAT.
+- Validate real staging SendGrid/VAPID, alerts, retention policy, and a production-like restore runbook.
+- Continue the module-by-module legacy lint reduction and platform dependency security upgrade.
+- No commit, push, deployment, or production credential change was performed.

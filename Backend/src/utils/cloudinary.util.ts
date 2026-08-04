@@ -10,12 +10,18 @@ cloudinary.config({
 
 export class CloudinaryUtil {
   static async uploadImage(buffer: Buffer, filename: string): Promise<string> {
+    const isJpeg = buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
+    const isPng = buffer.length >= 8 && buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
+    const isGif = buffer.length >= 6 && ['GIF87a', 'GIF89a'].includes(buffer.subarray(0, 6).toString('ascii'));
+    const isWebp = buffer.length >= 12 && buffer.subarray(0, 4).toString('ascii') === 'RIFF' && buffer.subarray(8, 12).toString('ascii') === 'WEBP';
+    if (!isJpeg && !isPng && !isGif && !isWebp) throw Object.assign(new Error('File content is not a supported image'), { statusCode: 400, code: 'UNSUPPORTED_IMAGE_CONTENT' });
+    const safeFilename = filename.replace(/[^a-zA-Z0-9._-]/g, '-').slice(-100);
     return new Promise((resolve, reject) => {
       const uploadStream = cloudinary.uploader.upload_stream(
         {
           resource_type: 'image',
           folder: 'followmee/tasks',
-          public_id: `${Date.now()}-${filename}`,
+          public_id: `${Date.now()}-${safeFilename}`,
           format: 'jpg',
           quality: 'auto:good',
           fetch_format: 'auto'

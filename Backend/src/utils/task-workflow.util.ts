@@ -19,6 +19,7 @@ export const assertTaskTransition = (
   task: Pick<Task, 'status' | 'createdBy' | 'assignedTo'>,
   nextStatus: TaskStatus,
   userId: number,
+  canManage = false,
 ): void => {
   if (task.status === nextStatus) return;
   if (!canTransitionTask(task, nextStatus)) {
@@ -28,10 +29,10 @@ export const assertTaskTransition = (
       getAllowedTaskTransitions(task.status as TaskStatus),
     );
   }
-  if (nextStatus === 'done' && task.createdBy !== userId) {
+  if (nextStatus === 'done' && task.createdBy !== userId && !canManage) {
     throw new TaskApprovalError();
   }
-  if ((nextStatus === 'todo' || nextStatus === 'cancelled') && task.createdBy !== userId) {
+  if ((nextStatus === 'todo' || nextStatus === 'cancelled') && task.createdBy !== userId && !canManage) {
     throw new TaskActionError('Only the task creator can publish, return, or cancel this task', 'manage_task', 403, task.status as TaskStatus);
   }
   if ((nextStatus === 'in_progress' || nextStatus === 'review') && task.assignedTo !== userId) {
@@ -53,6 +54,7 @@ export interface TaskWorkflowCapabilities {
   canSubmitReview: boolean;
   canRequestChanges: boolean;
   canCancel: boolean;
+  canOwnerOverride: boolean;
   primaryAction: 'start' | 'submit_review' | 'review' | 'view';
   nextActor?: {
     userId: number;
@@ -67,19 +69,20 @@ export const getTaskWorkflowCapabilities = (
     assignedToUser?: { userName: string; userLastName?: string } | null;
   },
   viewerUserId?: number,
+  canOwnerOverride = false,
 ): TaskWorkflowCapabilities => {
   const status = task.status as TaskStatus;
   const isCreator = viewerUserId === task.createdBy;
   const isAssignee = viewerUserId === task.assignedTo;
   const allowedTransitions = getAllowedTaskTransitions(status).filter((nextStatus) => {
     if (status === 'review' && nextStatus === 'todo') return false;
-    if (nextStatus === 'cancelled' || status === 'draft') return isCreator;
-    if (status === 'review' && nextStatus === 'done') return isCreator;
+    if (nextStatus === 'cancelled' || status === 'draft') return isCreator || canOwnerOverride;
+    if (status === 'review' && nextStatus === 'done') return isCreator || canOwnerOverride;
     if (nextStatus === 'in_progress' || nextStatus === 'review') return isAssignee;
     return false;
   });
   const canSubmitReview = status === 'in_progress' && isAssignee;
-  const canApprove = status === 'review' && isCreator;
+  const canApprove = status === 'review' && (isCreator || canOwnerOverride);
   const createdByName = task.createdByUser
     ? `${task.createdByUser.userName} ${task.createdByUser.userLastName || ''}`.trim()
     : 'Task creator';
@@ -90,15 +93,16 @@ export const getTaskWorkflowCapabilities = (
   return {
     currentStatus: status,
     allowedTransitions,
-    canEdit: isCreator && status !== 'done' && status !== 'cancelled',
-    canEditMetadata: isCreator && status !== 'done' && status !== 'cancelled',
-    canReassign: isCreator && status !== 'done' && status !== 'cancelled',
-    canPublish: isCreator && status === 'draft' && Boolean(task.assignedTo),
+    canEdit: (isCreator || canOwnerOverride) && status !== 'done' && status !== 'cancelled',
+    canEditMetadata: (isCreator || canOwnerOverride) && status !== 'done' && status !== 'cancelled',
+    canReassign: (isCreator || canOwnerOverride) && status !== 'done' && status !== 'cancelled',
+    canPublish: (isCreator || canOwnerOverride) && status === 'draft' && Boolean(task.assignedTo),
     canStart: isAssignee && status === 'todo',
     canApprove,
     canSubmitReview,
     canRequestChanges: canApprove,
-    canCancel: isCreator && status !== 'done' && status !== 'cancelled',
+    canCancel: (isCreator || canOwnerOverride) && status !== 'done' && status !== 'cancelled',
+    canOwnerOverride,
     primaryAction: status === 'todo' && isAssignee
       ? 'start'
       : canSubmitReview

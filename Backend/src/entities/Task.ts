@@ -7,11 +7,13 @@ import {
   ManyToOne,
   OneToMany,
   JoinColumn,
+  VersionColumn,
 } from 'typeorm';
 import { User } from './User';
 import { TaskLike } from './TaskLike';
 import { TaskComment } from './TaskComment';
 import { TaskImage } from './TaskImage';
+import type { TaskPriority } from '../types/organization.types';
 
 @Entity('tasks')
 export class Task {
@@ -29,6 +31,12 @@ export class Task {
 
   @Column({ name: 'createdBy', type: 'int', nullable: false })
   createdBy!: number;
+
+  @Column({ type: 'enum', enum: ['low', 'normal', 'high', 'urgent'], default: 'normal' })
+  priority: TaskPriority = 'normal';
+
+  @VersionColumn({ default: 1 })
+  version!: number;
 
   @Column({ name: 'dueDate', type: 'datetime', nullable: true })
   dueDate?: Date;

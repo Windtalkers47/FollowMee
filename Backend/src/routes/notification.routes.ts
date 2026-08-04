@@ -7,6 +7,7 @@ import { notificationCleanupService } from '../services/notification-cleanup.ser
 import { emailService } from '../services/email.service';
 import { pushNotificationService } from '../services/push-notification.service';
 import { authenticateToken } from '../middleware/auth.middleware';
+import { checkPermission } from '../middleware/permission.middleware';
 import AppDataSource from '../config/database';
 
 const router = Router();
@@ -20,7 +21,7 @@ const metricController = new NotificationMetricController(AppDataSource);
 router.use(authenticateToken);
 
 // Create a new notification
-router.post('/', (req, res, next) => notificationController.createNotification(req, res, next));
+router.post('/', checkPermission('MANAGE_NOTIFICATION_SYSTEM'), (req, res, next) => notificationController.createNotification(req, res, next));
 
 // Get notifications for current user
 router.get('/', (req, res, next) => notificationController.getNotifications(req, res, next));
@@ -48,7 +49,7 @@ router.put('/:recipientId/restore', (req, res, next) => notificationController.r
 router.delete('/:recipientId', (req, res, next) => notificationController.deleteNotification(req, res, next));
 
 // Monitoring endpoint for queue stats (W2-RATE-LIMIT: Monitoring)
-router.get('/queue/stats', async (req, res, next) => {
+router.get('/queue/stats', checkPermission('MANAGE_NOTIFICATION_SYSTEM'), async (req, res, next) => {
   try {
     const [queueSize, timerCount, cleanupStats] = await Promise.all([
       notificationQueueService.getQueueSize(),
@@ -70,7 +71,7 @@ router.get('/queue/stats', async (req, res, next) => {
 });
 
 // Email usage endpoint (NEW-EMAIL-QUEUE: Cost monitoring)
-router.get('/email/usage', async (req, res, next) => {
+router.get('/email/usage', checkPermission('MANAGE_NOTIFICATION_SYSTEM'), async (req, res, next) => {
   try {
     const emailUsage = emailService.getEmailUsage();
     res.json({
@@ -217,27 +218,27 @@ router.get('/analytics/summary', authenticateToken, (req, res, next) =>
 );
 
 // Get dashboard metrics (admin only - TODO: add admin middleware)
-router.get('/analytics/dashboard', authenticateToken, (req, res, next) => 
+router.get('/analytics/dashboard', checkPermission('VIEW_NOTIFICATION_ANALYTICS'), (req, res, next) =>
   metricController.getDashboard(req, res, next)
 );
 
 // Get engagement stats for specific user (admin only)
-router.get('/analytics/engagement/:userId', authenticateToken, (req, res, next) => 
+router.get('/analytics/engagement/:userId', checkPermission('VIEW_NOTIFICATION_ANALYTICS'), (req, res, next) =>
   metricController.getUserEngagement(req, res, next)
 );
 
 // Get metrics for specific notification
-router.get('/analytics/notification/:notificationId', authenticateToken, (req, res, next) => 
+router.get('/analytics/notification/:notificationId', checkPermission('VIEW_NOTIFICATION_ANALYTICS'), (req, res, next) =>
   metricController.getNotificationMetrics(req, res, next)
 );
 
 // Get quick summary stats (lightweight, cacheable)
-router.get('/analytics/quick-summary', authenticateToken, (req, res, next) => 
+router.get('/analytics/quick-summary', checkPermission('VIEW_NOTIFICATION_ANALYTICS'), (req, res, next) =>
   metricController.getQuickSummary(req, res, next)
 );
 
 // Cleanup old metrics (admin only)
-router.post('/analytics/cleanup', authenticateToken, (req, res, next) => 
+router.post('/analytics/cleanup', checkPermission('MANAGE_NOTIFICATION_SYSTEM'), (req, res, next) =>
   metricController.cleanupOldMetrics(req, res, next)
 );
 

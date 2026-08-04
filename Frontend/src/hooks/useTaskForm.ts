@@ -20,6 +20,8 @@ export const useTaskForm = ({ task, users, onSave }: UseTaskFormProps) => {
     title: '',
     description: '',
     assignedTo: undefined,
+    priority: 'normal',
+    watcherIds: [],
     dueDate: undefined,
     startDate: undefined,
     endDate: undefined,
@@ -39,6 +41,9 @@ export const useTaskForm = ({ task, users, onSave }: UseTaskFormProps) => {
         title: task.title,
         description: task.description || '',
         assignedTo: task.assignedTo,
+        priority: task.priority,
+        watcherIds: task.watcherIds,
+        expectedVersion: task.version,
         dueDate: task.dueDate ? new Date(task.dueDate) : undefined,
         startDate: task.startDate ? new Date(task.startDate) : undefined,
         endDate: task.endDate ? new Date(task.endDate) : undefined,
@@ -58,6 +63,8 @@ export const useTaskForm = ({ task, users, onSave }: UseTaskFormProps) => {
         title: '',
         description: '',
         assignedTo: undefined,
+        priority: 'normal',
+        watcherIds: [],
         dueDate: undefined,
         status: 'draft',
         images: []
@@ -67,7 +74,7 @@ export const useTaskForm = ({ task, users, onSave }: UseTaskFormProps) => {
     setFormErrors({});
   }, [task]);
 
-  const handleInputChange = (field: string, value: any) => {
+  const handleInputChange = <K extends keyof CreateTaskData>(field: K, value: CreateTaskData[K]) => {
     setFormData(prev => ({
       ...prev,
       [field]: value
@@ -148,6 +155,8 @@ export const useTaskForm = ({ task, users, onSave }: UseTaskFormProps) => {
       title: '',
       description: '',
       assignedTo: undefined,
+      priority: 'normal',
+      watcherIds: [],
       dueDate: undefined,
       startDate: undefined,
       endDate: undefined,

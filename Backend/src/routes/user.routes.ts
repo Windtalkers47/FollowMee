@@ -16,6 +16,9 @@ router.use(authenticateToken);
 // Get all users
 router.get('/', checkPermission('VIEW_USERS'), (req, res, next) => userController.getAllUsers(req, res, next));
 
+// Minimal active-user directory for customer/task assignment.
+router.get('/assignable', (req, res, next) => userController.getAssignableUsers(req, res, next));
+
 // Get current user's profile
 router.get('/me', (req, res, next) => userController.getProfile(req, res, next));
 

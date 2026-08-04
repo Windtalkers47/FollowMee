@@ -27,6 +27,11 @@ import { assertTaskTransition, getTaskWorkflowCapabilities, TaskStatus } from '.
 import { TaskActionError } from '../errors/task-transition.error';
 import { createTaskFocusSummary } from '../utils/task-focus.util';
 import { rewardService } from './reward.service';
+import { TaskWatcher } from '../entities/TaskWatcher';
+import { TaskActivity } from '../entities/TaskActivity';
+import { taskAccessService } from './task-access.service';
+import type { TaskScope } from '../types/organization.types';
+import { TaskImage } from '../entities/TaskImage';
 
 export interface TaskLeaderboardEntry {
   userId: number;
@@ -40,11 +45,25 @@ export class TaskService {
   private customTaskRepository: TaskRepository;
   private taskImageService: TaskImageService;
   private taskRepository: Repository<Task>;
+  private watcherRepository = AppDataSource.getRepository(TaskWatcher);
+  private activityRepository = AppDataSource.getRepository(TaskActivity);
 
   constructor(taskImageService?: TaskImageService) {
     this.customTaskRepository = new TaskRepository();
     this.taskImageService = taskImageService || new TaskImageService();
     this.taskRepository = AppDataSource.getRepository(Task);
+  }
+
+  private async recordActivity(taskId: string, actorUserId: number, action: string, metadata?: Record<string, unknown>): Promise<void> {
+    await this.activityRepository.save(this.activityRepository.create({ taskId, actorUserId, action, metadata: metadata || null }));
+  }
+
+  private async organizationAudience(): Promise<number[]> {
+    const rows = await AppDataSource.getRepository(User).find({
+      select: { userId: true },
+      where: { isActive: true },
+    });
+    return rows.map(row => row.userId);
   }
 
   private async safelyNotify(operation: () => Promise<unknown>, context: Record<string, unknown>): Promise<void> {
@@ -83,8 +102,8 @@ export class TaskService {
   }
 
   async createTask(createTaskDto: CreateTaskDto, userId: number): Promise<TaskResponseDto> {
-    if ((createTaskDto.images?.length || 0) > 10) {
-      throw new Error('A task can contain at most 10 images');
+    if ((createTaskDto.images?.length || 0) > 6) {
+      throw new Error('A task can contain at most 6 images');
     }
     const initialStatus = (createTaskDto.status || 'draft') as TaskStatus;
     if (!['draft', 'todo'].includes(initialStatus)) {
@@ -100,12 +119,14 @@ export class TaskService {
       throw error;
     }
 
+    await taskAccessService.assertActiveUsers([createTaskDto.assignedTo || 0, ...(createTaskDto.watcherIds || [])]);
     const task = new Task();
     task.taskId = uuidv4();
     task.title = createTaskDto.title;
     task.description = createTaskDto.description;
     task.assignedTo = createTaskDto.assignedTo;
     task.createdBy = userId;
+    task.priority = createTaskDto.priority || 'normal';
     task.dueDate = createTaskDto.dueDate ? new Date(createTaskDto.dueDate) : undefined;
     task.startDate = createTaskDto.startDate ? new Date(createTaskDto.startDate) : undefined;
     task.endDate = createTaskDto.endDate ? new Date(createTaskDto.endDate) : undefined;
@@ -114,7 +135,15 @@ export class TaskService {
     task.completionScore = 0;
     task.reopenedCount = 0;
 
-    const savedTask = await this.taskRepository.save(task);
+    const savedTask = await AppDataSource.transaction(async manager => {
+      const saved = await manager.getRepository(Task).save(task);
+      const watcherIds = [...new Set(createTaskDto.watcherIds || [])];
+      if (watcherIds.length) await manager.getRepository(TaskWatcher).save(watcherIds.map(watcherId => manager.getRepository(TaskWatcher).create({ taskId: saved.taskId, userId: watcherId })));
+      const imageInputs = createTaskDto.images?.length ? createTaskDto.images : createTaskDto.imageUrl ? [{ imageUrl: createTaskDto.imageUrl, imageOrder: 0 }] : [];
+      if (imageInputs.length) await manager.getRepository(TaskImage).save(imageInputs.map((image, index) => manager.getRepository(TaskImage).create({ taskId: saved.taskId, imageUrl: image.imageUrl, imageOrder: image.imageOrder ?? index, uploadedBy: userId, isActive: true })));
+      await manager.getRepository(TaskActivity).save(manager.getRepository(TaskActivity).create({ taskId: saved.taskId, actorUserId: userId, action: 'created', metadata: { priority: saved.priority, status: saved.status } }));
+      return saved;
+    });
 
     // Draft assignment is private planning data until the creator publishes it.
     if (savedTask.status !== 'draft' && savedTask.assignedTo && savedTask.assignedTo !== userId) {
@@ -127,21 +156,6 @@ export class TaskService {
       ), { taskId: savedTask.taskId, action: 'create-assignment', recipientId });
     }
 
-    // Handle images from request - convert to task images
-    if (createTaskDto.images && createTaskDto.images.length > 0) {
-      for (const imageData of createTaskDto.images) {
-        await this.taskImageService.createTaskImage(savedTask.taskId, {
-          imageUrl: imageData.imageUrl,
-          imageOrder: imageData.imageOrder || 0
-        }, userId);
-      }
-    } else if (createTaskDto.imageUrl) {
-      await this.taskImageService.createTaskImage(savedTask.taskId, {
-        imageUrl: createTaskDto.imageUrl,
-        imageOrder: 0
-      }, userId);
-    }
-    
     // Fetch the user data separately to avoid relation issues
     const createdByUser = await AppDataSource.getRepository(User).findOne({
       where: { userId: savedTask.createdBy },
@@ -168,16 +182,22 @@ export class TaskService {
     };
     
     const response = await this.mapToResponseDto(taskWithRelations as any, userId);
+    const createdWatcherIds = (createTaskDto.watcherIds || []).filter(id => id !== userId && id !== savedTask.assignedTo);
+    if (savedTask.status !== 'draft' && createdWatcherIds.length) {
+      await this.safelyNotify(() => NotificationHelper.notifyTaskUpdated(
+        savedTask.title,
+        savedTask.taskId,
+        userId,
+        createdWatcherIds,
+      ), { taskId: savedTask.taskId, action: 'watching-created' });
+    }
     webSocketService.emitDomainEvent('task:created', {
       taskId: savedTask.taskId,
       actorUserId: userId,
       assignedTo: savedTask.assignedTo,
       status: savedTask.status,
       updatedAt: savedTask.updatedAt,
-    }, (savedTask.status === 'draft'
-      ? [savedTask.createdBy]
-      : [savedTask.createdBy, savedTask.assignedTo, userId]
-    ).filter((id): id is number => Boolean(id)));
+    }, savedTask.status === 'draft' ? [savedTask.createdBy] : await this.organizationAudience());
     return response;
   }
 
@@ -185,7 +205,8 @@ export class TaskService {
     const page = Math.max(1, Number(query.page) || 1);
     const limit = Math.min(100, Math.max(1, Number(query.limit) || 10));
     const normalizedQuery = { ...query, page, limit };
-    const [tasks, total] = await this.customTaskRepository.findTasksWithRelations(normalizedQuery, viewerUserId);
+    const access = viewerUserId ? await taskAccessService.context(viewerUserId) : undefined;
+    const [tasks, total] = await this.customTaskRepository.findTasksWithRelations(normalizedQuery, access);
     const totalPages = Math.ceil(total / limit);
 
     const response: TaskListResponseDto = {
@@ -201,7 +222,7 @@ export class TaskService {
       response.topPerformers = this.calculateTopPerformers(tasks);
     }
     if (query.includeFocus === true || String(query.includeFocus) === 'true') {
-      const meta = await this.customTaskRepository.getScheduleMeta(viewerUserId);
+      const meta = await this.customTaskRepository.getScheduleMeta(access);
       response.statusCounts = meta.statusCounts;
       response.focus = meta.focus;
     }
@@ -252,12 +273,31 @@ export class TaskService {
     if (task.status === 'draft' && task.createdBy !== viewerUserId) {
       throw new TaskActionError('Draft tasks are only visible to their creator', 'view_draft', 403, task.status as TaskStatus);
     }
+    const access = await taskAccessService.context(viewerUserId);
+    taskAccessService.assertView(task, access);
     return this.mapToResponseDto(task, viewerUserId);
   }
 
+  async getTaskActivities(taskId: string, viewerUserId: number, limit = 50) {
+    const task = await this.customTaskRepository.findById(taskId);
+    if (!task) throw Object.assign(new Error('Task not found'), { statusCode: 404 });
+    taskAccessService.assertView(task, await taskAccessService.context(viewerUserId));
+    return this.activityRepository.find({
+      where: { taskId }, relations: ['actor'], order: { createdAt: 'DESC' }, take: Math.min(Math.max(limit, 1), 100),
+    });
+  }
+
+  async managerReassign(taskId: string, assignedTo: number | undefined, userId: number, expectedVersion?: number) {
+    return this.updateTask(taskId, { assignedTo, expectedVersion }, userId);
+  }
+
+  async managerCancel(taskId: string, userId: number, expectedVersion?: number) {
+    return this.updateTask(taskId, { status: 'cancelled', expectedVersion }, userId);
+  }
+
   async updateTask(taskId: string, updateTaskDto: UpdateTaskDto, userId: number): Promise<TaskResponseDto> {
-    if ((updateTaskDto.images?.length || 0) > 10) {
-      throw new Error('A task can contain at most 10 images');
+    if ((updateTaskDto.images?.length || 0) > 6) {
+      throw new Error('A task can contain at most 6 images');
     }
     const task = await this.customTaskRepository.findById(taskId);
 
@@ -266,15 +306,22 @@ export class TaskService {
     }
     const previousStatus = task.status;
     const previousAssignedTo = task.assignedTo;
+    const access = await taskAccessService.context(userId);
+    taskAccessService.assertView(task, access);
+    const canManage = taskAccessService.canManage(task, access);
+    if (updateTaskDto.expectedVersion !== undefined && updateTaskDto.expectedVersion !== task.version) {
+      throw Object.assign(new Error('This task was changed by another user. Reload it before saving.'), { statusCode: 409, code: 'TASK_VERSION_CONFLICT', currentVersion: task.version });
+    }
 
-    const isStatusOnlyUpdate = Object.keys(updateTaskDto).length === 1 && updateTaskDto.status !== undefined;
+    const mutationKeys = Object.keys(updateTaskDto).filter(key => key !== 'expectedVersion');
+    const isStatusOnlyUpdate = mutationKeys.length === 1 && updateTaskDto.status !== undefined;
     
     // Metadata and assignment belong to the creator. Assignees only move their work through action endpoints.
-    if (!isStatusOnlyUpdate && task.createdBy !== userId) {
+    if (!isStatusOnlyUpdate && !canManage) {
       throw new TaskActionError('Only the task creator can edit task details or assignment', 'edit_metadata', 403, task.status as TaskStatus);
     }
     
-    if (isStatusOnlyUpdate && task.createdBy !== userId && task.assignedTo !== userId) {
+    if (isStatusOnlyUpdate && !canManage && task.assignedTo !== userId) {
       throw new Error('You can only update task status if you are the creator or assigned user');
     }
 
@@ -283,6 +330,9 @@ export class TaskService {
     if (updateTaskDto.assignedTo !== undefined) {
       task.assignedTo = updateTaskDto.assignedTo;
     }
+    if (updateTaskDto.priority !== undefined) task.priority = updateTaskDto.priority;
+    const watcherIdsToValidate = updateTaskDto.watcherIds ?? (await this.watcherRepository.find({ where: { taskId } })).map(watcher => watcher.userId);
+    await taskAccessService.assertActiveUsers([task.assignedTo || 0, ...watcherIdsToValidate]);
     if (updateTaskDto.dueDate !== undefined) {
       task.dueDate = updateTaskDto.dueDate ? new Date(updateTaskDto.dueDate) : undefined;
     }
@@ -307,7 +357,7 @@ export class TaskService {
         error.code = 'TASK_ASSIGNEE_REQUIRED';
         throw error;
       }
-      assertTaskTransition(task, updateTaskDto.status as TaskStatus, userId);
+      assertTaskTransition(task, updateTaskDto.status as TaskStatus, userId, canManage);
       if (updateTaskDto.status === 'done') {
         const completedAt = new Date();
         const onTimeBonus = task.dueDate && completedAt <= new Date(task.dueDate) ? 3 : 0;
@@ -323,38 +373,23 @@ export class TaskService {
 
     task.updatedAt = new Date();
 
-    // Handle images update
-    if (updateTaskDto.images !== undefined) {
-      const existingImages = await this.taskImageService.getTaskImages(task.taskId);
-      
-      for (const existingImage of existingImages) {
-        await this.taskImageService.deactivateTaskImage(existingImage.imageId);
+    const savedTask = await AppDataSource.transaction(async manager => {
+      const saved = await manager.getRepository(Task).save(task);
+      if (updateTaskDto.watcherIds !== undefined) {
+        await manager.getRepository(TaskWatcher).delete({ taskId });
+        const unique = [...new Set(updateTaskDto.watcherIds)];
+        if (unique.length) await manager.getRepository(TaskWatcher).save(unique.map(watcherId => manager.getRepository(TaskWatcher).create({ taskId, userId: watcherId })));
       }
-      
-      if (updateTaskDto.images.length > 0) {
-        for (const imageData of updateTaskDto.images) {
-          await this.taskImageService.createTaskImage(task.taskId, {
-            imageUrl: imageData.imageUrl,
-            imageOrder: imageData.imageOrder || 0
-          }, userId);
-        }
+      const imageInputs = updateTaskDto.images !== undefined ? updateTaskDto.images : updateTaskDto.imageUrl !== undefined ? (updateTaskDto.imageUrl ? [{ imageUrl: updateTaskDto.imageUrl, imageOrder: 0 }] : []) : undefined;
+      if (imageInputs !== undefined) {
+        await manager.getRepository(TaskImage).update({ taskId, isActive: true }, { isActive: false, deletedAt: new Date() });
+        if (imageInputs.length) await manager.getRepository(TaskImage).save(imageInputs.map((image, index) => manager.getRepository(TaskImage).create({ taskId, imageUrl: image.imageUrl, imageOrder: image.imageOrder ?? index, uploadedBy: userId, isActive: true })));
       }
-    } else if (updateTaskDto.imageUrl !== undefined) {
-      const existingImages = await this.taskImageService.getTaskImages(task.taskId);
-      for (const existingImage of existingImages) {
-        await this.taskImageService.deactivateTaskImage(existingImage.imageId);
-      }
-      
-      if (updateTaskDto.imageUrl) {
-        await this.taskImageService.createTaskImage(task.taskId, {
-          imageUrl: updateTaskDto.imageUrl,
-          imageOrder: 0
-        }, userId);
-      }
-    }
-
-    const savedTask = await this.taskRepository.save(task);
-    const relatedRecipients = [savedTask.createdBy, savedTask.assignedTo]
+      await manager.getRepository(TaskActivity).save(manager.getRepository(TaskActivity).create({ taskId, actorUserId: userId, action: 'updated', metadata: { previousStatus, status: saved.status, previousAssignedTo, assignedTo: saved.assignedTo, ownerOverride: access.isOwner && saved.createdBy !== userId } }));
+      return saved;
+    });
+    const savedWatcherIds = (await this.watcherRepository.find({ where: { taskId } })).map(watcher => watcher.userId);
+    const relatedRecipients = [...new Set([savedTask.createdBy, savedTask.assignedTo, ...savedWatcherIds])]
       .filter((id): id is number => Boolean(id) && id !== userId);
     const assignmentChanged = updateTaskDto.assignedTo !== undefined
       && updateTaskDto.assignedTo !== previousAssignedTo;
@@ -400,12 +435,9 @@ export class TaskService {
       assignedTo: savedTask.assignedTo,
       status: savedTask.status,
       updatedAt: savedTask.updatedAt,
-    }, (savedTask.status === 'draft'
-      ? [savedTask.createdBy]
-      : [savedTask.createdBy, previousAssignedTo, savedTask.assignedTo, userId]
-    ).filter((id): id is number => Boolean(id)));
+    }, savedTask.status === 'draft' ? [savedTask.createdBy] : await this.organizationAudience());
     if (savedTask.status === 'done' && previousStatus !== 'done') {
-      webSocketService.broadcast('activity:created', { taskId: savedTask.taskId, status: savedTask.status, updatedAt: savedTask.updatedAt });
+      webSocketService.emitDomainEvent('activity:created', { taskId: savedTask.taskId, status: savedTask.status, updatedAt: savedTask.updatedAt }, await this.organizationAudience());
     }
     return response;
   }
@@ -417,26 +449,27 @@ export class TaskService {
       throw new Error('Task not found');
     }
 
-    if (task.createdBy !== userId) {
+    const access = await taskAccessService.context(userId);
+    taskAccessService.assertManage(task, access);
+    if (!taskAccessService.canManage(task, access)) {
       throw new TaskActionError('Only the task creator can delete this task', 'delete', 403, task.status as TaskStatus);
     }
 
-    // Delete all associated images from Cloudinary before deleting the task
+    // Commit the resource state before performing external Cloudinary side effects.
     const images = await this.taskImageService.getTaskImages(taskId);
+    task.isActive = false;
+    task.deletedAt = new Date();
+    await this.taskRepository.save(task);
+    await this.recordActivity(task.taskId, userId, 'deleted', { ownerOverride: access.isOwner && task.createdBy !== userId });
+    webSocketService.emitDomainEvent('task:deleted', { taskId, actorUserId: userId, updatedAt: task.updatedAt }, task.status === 'draft' ? [task.createdBy] : await this.organizationAudience());
     for (const image of images) {
-      if (image.imageUrl) {
-        try {
-          await CloudinaryUtil.deleteImage(image.imageUrl);
-        } catch (error) {
-          console.error('Failed to delete image from Cloudinary:', error);
-        }
+      if (!image.imageUrl) continue;
+      try {
+        await CloudinaryUtil.deleteImage(image.imageUrl);
+      } catch (error) {
+        console.error('Failed to delete image from Cloudinary after task deletion:', error);
       }
     }
-
-    // Soft delete by marking as inactive
-    task.isActive = false;
-    await this.taskRepository.save(task);
-    webSocketService.emitDomainEvent('task:deleted', { taskId, actorUserId: userId, updatedAt: task.updatedAt }, [task.createdBy, task.assignedTo, userId].filter((id): id is number => Boolean(id)));
   }
 
   async getUserTasks(userId: number, includeAssigned: boolean = true): Promise<TaskResponseDto[]> {
@@ -509,6 +542,7 @@ export class TaskService {
     if (!task) {
       throw new Error('Task not found');
     }
+    taskAccessService.assertView(task, await taskAccessService.context(userId));
 
     if (task.assignedTo !== userId) {
       throw new TaskActionError('Only the task assignee can submit this task', 'submit_review', 403, task.status as TaskStatus);
@@ -519,6 +553,7 @@ export class TaskService {
     }
 
     await this.customTaskRepository.updateTaskStatus(taskId, 'review');
+    await this.recordActivity(taskId, userId, 'submitted_for_review');
     await this.safelyNotify(() => NotificationHelper.notifyTaskStatus(
       NotificationType.TASK_UPDATED,
       'Task ready for review',
@@ -563,7 +598,8 @@ export class TaskService {
       throw error;
     }
 
-    if (task.createdBy !== userId) {
+    const access = await taskAccessService.context(userId);
+    if (!taskAccessService.canManage(task, access)) {
       throw new TaskActionError('Only the task creator can request changes', 'request_changes', 403, task.status as TaskStatus);
     }
 
@@ -585,6 +621,7 @@ export class TaskService {
         isActive: true,
       }));
     });
+    await this.recordActivity(taskId, userId, 'changes_requested', { reason: trimmedReason, ownerOverride: access.isOwner && task.createdBy !== userId });
     await this.safelyNotify(() => NotificationHelper.notifyTaskStatus(
       NotificationType.TASK_UPDATED,
       'Task needs changes',
@@ -617,7 +654,8 @@ export class TaskService {
       throw new Error('Task not found');
     }
 
-    if (task.createdBy !== userId) {
+    const access = await taskAccessService.context(userId);
+    if (!taskAccessService.canManage(task, access)) {
       throw new TaskActionError('Only the task creator can approve this task', 'approve', 403, task.status as TaskStatus);
     }
 
@@ -632,6 +670,7 @@ export class TaskService {
     task.completedAt = completedAt;
     task.completionScore = Math.max(4, 10 + onTimeBonus - reopenPenalty);
     await this.taskRepository.save(task);
+    await this.recordActivity(taskId, userId, 'approved', { score: task.completionScore, ownerOverride: access.isOwner && task.createdBy !== userId });
     await this.safelyAwardTask(task);
     await this.safelyNotify(() => NotificationHelper.notifyTaskStatus(
       NotificationType.TASK_COMPLETED,
@@ -654,11 +693,11 @@ export class TaskService {
       status: 'done',
       updatedAt: updatedTask.updatedAt,
     }, [updatedTask.createdBy, updatedTask.assignedTo, userId].filter((id): id is number => Boolean(id)));
-    webSocketService.broadcast('activity:created', {
+    webSocketService.emitDomainEvent('activity:created', {
       taskId,
       status: 'done',
       updatedAt: updatedTask.updatedAt,
-    });
+    }, await this.organizationAudience());
 
     return this.mapToResponseDto(updatedTask, userId);
   }
@@ -741,8 +780,8 @@ export class TaskService {
         affectedUsers.add(task.createdBy);
         if (task.assignedTo) affectedUsers.add(task.assignedTo);
 
-        // Bulk lifecycle changes belong to the creator; roles never bypass ownership.
-        if (task.createdBy !== userId) {
+        const access = await taskAccessService.context(userId);
+        if (!taskAccessService.canManage(task, access)) {
           failed.push({ taskId, reason: 'You do not have permission to update this task', code: 'TASK_UPDATE_FORBIDDEN' });
           continue;
         }
@@ -752,7 +791,7 @@ export class TaskService {
             failed.push({ taskId, reason: `Invalid task transition from ${task.status} to done`, code: 'INVALID_TASK_TRANSITION' });
             continue;
           }
-          if (task.createdBy !== userId) {
+          if (!taskAccessService.canManage(task, access)) {
             failed.push({ taskId, reason: 'Only the task creator can approve a task in review', code: 'TASK_APPROVAL_FORBIDDEN' });
             continue;
           }
@@ -781,7 +820,7 @@ export class TaskService {
             updated++;
             continue;
           }
-          assertTaskTransition(task, status as TaskStatus, userId);
+          assertTaskTransition(task, status as TaskStatus, userId, taskAccessService.canManage(task, access));
           await this.customTaskRepository.updateTaskStatus(taskId, status);
           if (task.status === 'draft' && status === 'todo' && task.assignedTo && task.assignedTo !== userId) {
             const recipientId = task.assignedTo;
@@ -826,16 +865,17 @@ export class TaskService {
         affectedUsers.add(task.createdBy);
         if (task.assignedTo) affectedUsers.add(task.assignedTo);
 
-        // Deletion belongs to the creator; assignees and administrative roles
-        // do not inherit ownership of the task.
-        if (task.createdBy !== userId) {
+        const access = await taskAccessService.context(userId);
+        if (!taskAccessService.canManage(task, access)) {
           failed.push(taskId);
           continue;
         }
 
         // Soft delete by marking as inactive
         task.isActive = false;
+        task.deletedAt = new Date();
         await this.taskRepository.save(task);
+        await this.recordActivity(taskId, userId, 'deleted', { bulk: true, ownerOverride: access.isOwner && task.createdBy !== userId });
         deleted++;
       } catch (error) {
         failed.push(taskId);
@@ -867,13 +907,14 @@ export class TaskService {
         if (task.assignedTo) affectedUsers.add(task.assignedTo);
         if (assignedTo) affectedUsers.add(assignedTo);
 
-        // Check permission - only creator can reassign tasks
-        if (task.createdBy !== userId) {
+        const access = await taskAccessService.context(userId);
+        if (!taskAccessService.canManage(task, access)) {
           failed.push(taskId);
           continue;
         }
 
         const oldAssignedTo = task.assignedTo;
+        await taskAccessService.assertActiveUsers(assignedTo ? [assignedTo] : []);
         task.assignedTo = assignedTo;
 
         // Draft assignment remains private until the task is published.
@@ -913,11 +954,12 @@ export class TaskService {
     const threeDaysLater = addDays(now, 3);
 
     // Get all active tasks for this user
+    const access = await taskAccessService.context(userId);
     const [allTasks] = await this.customTaskRepository.findTasksWithRelations({
       assignedTo: userId,
       page: 1,
       limit: 1000
-    });
+    }, access);
 
     const activeTasks = allTasks.filter(task => task.isActive && ['todo', 'in_progress', 'review'].includes(task.status));
 
@@ -1045,7 +1087,11 @@ export class TaskService {
     const images = await this.taskImageService.getTaskImages(task.taskId);
     const imageUrl = images && images.length > 0 ? images[0].imageUrl : undefined;
 
-    const workflow = getTaskWorkflowCapabilities(task, viewerUserId);
+    const access = viewerUserId ? await taskAccessService.context(viewerUserId) : undefined;
+    const canOwnerOverride = Boolean(access?.isOwner && task.createdBy !== viewerUserId);
+    const workflow = getTaskWorkflowCapabilities(task, viewerUserId, canOwnerOverride);
+    const watcherIds = (await this.watcherRepository.find({ where: { taskId: task.taskId } })).map(watcher => watcher.userId);
+    const scope: TaskScope = task.status === 'draft' ? 'private_draft' : 'organization';
 
     const response: TaskResponseDto = {
       taskId: task.taskId,
@@ -1053,6 +1099,10 @@ export class TaskService {
       description: task.description,
       assignedTo: task.assignedTo,
       createdBy: task.createdBy,
+      priority: task.priority,
+      version: task.version,
+      watcherIds,
+      scope,
       dueDate: task.dueDate,
       startDate: task.startDate,
       endDate: task.endDate,

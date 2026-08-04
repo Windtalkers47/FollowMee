@@ -1,5 +1,5 @@
 -- FollowMee clean schema
--- Schema version: 2026-07-28 / User preferences, purple theme and localization
+-- Schema version: 2026-08-04 / Single-organization ownership and task hardening
 -- MySQL 8.0+ / MariaDB 10.6+
 --
 -- WARNING: This script drops every FollowMee table and all data in it.
@@ -39,6 +39,8 @@ DROP TABLE IF EXISTS `comment_reactions`;
 DROP TABLE IF EXISTS `task_likes`;
 DROP TABLE IF EXISTS `task_images`;
 DROP TABLE IF EXISTS `task_comments`;
+DROP TABLE IF EXISTS `task_activities`;
+DROP TABLE IF EXISTS `task_watchers`;
 DROP TABLE IF EXISTS `tasks`;
 DROP TABLE IF EXISTS `role_permissions`;
 DROP TABLE IF EXISTS `user_roles`;
@@ -85,6 +87,7 @@ CREATE TABLE `users` (
 CREATE TABLE `customers` (
   `customerId` VARCHAR(36) NOT NULL,
   `userId` INT NULL,
+  `assignedTo` INT NULL,
   `createdBy` INT NULL,
   `updatedBy` INT NULL,
   `customerName` VARCHAR(50) NOT NULL,
@@ -108,14 +111,18 @@ CREATE TABLE `customers` (
   PRIMARY KEY (`customerId`),
   UNIQUE KEY `uq_customers_email` (`customerEmail`),
   KEY `idx_customers_owner` (`userId`),
+  KEY `idx_customers_assigned_to` (`assignedTo`),
   KEY `idx_customers_status_deleted` (`status`, `deletedAt`),
   KEY `idx_customers_name` (`customerName`, `customerLastName`),
   CONSTRAINT `fk_customers_owner`
     FOREIGN KEY (`userId`) REFERENCES `users` (`userId`)
+    ON DELETE SET NULL ON UPDATE CASCADE,
+  CONSTRAINT `fk_customers_assigned_to`
+    FOREIGN KEY (`assignedTo`) REFERENCES `users` (`userId`)
     ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Customer is private CRM data. Public profiles are an explicit publishing
+-- Customer ownership is resource-scoped. Public profiles are an explicit publishing
 -- layer with independent lifecycle, privacy controls and analytics.
 CREATE TABLE `public_profiles` (
   `profileId` VARCHAR(36) NOT NULL,
@@ -249,6 +256,8 @@ CREATE TABLE `tasks` (
   `description` TEXT NULL,
   `assignedTo` INT NULL,
   `createdBy` INT NOT NULL,
+  `priority` ENUM('low','normal','high','urgent') NOT NULL DEFAULT 'normal',
+  `version` INT NOT NULL DEFAULT 1,
   `startDate` DATETIME NULL,
   `endDate` DATETIME NULL,
   `dueDate` DATETIME NULL,
@@ -278,6 +287,21 @@ CREATE TABLE `tasks` (
     CHECK (`startDate` IS NULL OR `endDate` IS NULL OR `endDate` >= `startDate`),
   CONSTRAINT `chk_tasks_completion_score` CHECK (`completionScore` >= 0),
   CONSTRAINT `chk_tasks_reopened_count` CHECK (`reopenedCount` >= 0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `task_watchers` (
+  `taskId` VARCHAR(36) NOT NULL, `userId` INT NOT NULL, `createdAt` TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (`taskId`,`userId`), KEY `idx_task_watchers_user` (`userId`,`taskId`),
+  CONSTRAINT `fk_task_watcher_task` FOREIGN KEY (`taskId`) REFERENCES `tasks` (`taskId`) ON DELETE CASCADE,
+  CONSTRAINT `fk_task_watcher_user` FOREIGN KEY (`userId`) REFERENCES `users` (`userId`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `task_activities` (
+  `activityId` BIGINT NOT NULL AUTO_INCREMENT, `taskId` VARCHAR(36) NOT NULL, `actorUserId` INT NULL,
+  `action` VARCHAR(50) NOT NULL, `metadata` JSON NULL, `createdAt` TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (`activityId`), KEY `idx_task_activity_task_created` (`taskId`,`createdAt`),
+  CONSTRAINT `fk_task_activity_task` FOREIGN KEY (`taskId`) REFERENCES `tasks` (`taskId`) ON DELETE CASCADE,
+  CONSTRAINT `fk_task_activity_actor` FOREIGN KEY (`actorUserId`) REFERENCES `users` (`userId`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `task_comments` (
@@ -363,7 +387,8 @@ CREATE TABLE `comment_reactions` (
 CREATE TABLE `user_sessions` (
   `id` INT NOT NULL AUTO_INCREMENT,
   `userId` INT NOT NULL,
-  `refreshToken` VARCHAR(255) NOT NULL,
+  `refreshToken` VARCHAR(255) NULL,
+  `refreshTokenHash` CHAR(64) NULL,
   `userAgent` TEXT NULL,
   `ipAddress` VARCHAR(45) NULL,
   `isActive` TINYINT(1) NOT NULL DEFAULT 1,
@@ -374,6 +399,7 @@ CREATE TABLE `user_sessions` (
     ON UPDATE CURRENT_TIMESTAMP(6),
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_user_sessions_refresh_token` (`refreshToken`),
+  UNIQUE KEY `uq_user_sessions_token_hash` (`refreshTokenHash`),
   KEY `idx_user_sessions_user_active_expires` (`userId`, `isActive`, `expiresAt`),
   KEY `idx_user_sessions_expires` (`expiresAt`),
   CONSTRAINT `fk_user_sessions_user`
@@ -767,13 +793,15 @@ INSERT INTO `migrations` (`timestamp`, `name`) VALUES
   (1795000000000, 'AddUserPreferences1795000000000'),
   (1796000000000, 'AddNotificationTranslations1796000000000'),
   (1797000000000, 'AddProfileChangedNotificationPreference1797000000000'),
-  (1798000000000, 'OwnerOrganizationRewards1798000000000');
+  (1798000000000, 'OwnerOrganizationRewards1798000000000'),
+  (1799000000000, 'TeamsAndTaskHardening1799000000000'),
+  (1800000000000, 'SingleOrganizationOwnership1800000000000');
 
 INSERT INTO `roles` (`roleName`, `description`, `roleLevel`) VALUES
   ('Owner', 'System owner with full access and ownership transfer authority', 999),
   ('Admin', 'Manage users and content', 100),
   ('Moderator', 'Moderate content and users', 50),
-  ('Customer', 'Regular user', 1);
+  ('Member', 'Organization member', 1);
 
 INSERT INTO `permissions` (`permissionName`, `description`) VALUES
   ('SYSTEM_ADMIN', 'Full system administration'),
@@ -787,7 +815,9 @@ INSERT INTO `permissions` (`permissionName`, `description`) VALUES
   ('VIEW_TASKS', 'View tasks'),
   ('MANAGE_TASKS', 'Manage tasks'),
   ('PUBLISH_PROFILES', 'Publish, unpublish and delete organization profiles'),
-  ('MANAGE_REWARDS', 'Manage reward settings, catalog, missions and redemptions');
+  ('MANAGE_REWARDS', 'Manage reward settings, catalog, missions and redemptions'),
+  ('VIEW_NOTIFICATION_ANALYTICS', 'View organization notification analytics'),
+  ('MANAGE_NOTIFICATION_SYSTEM', 'Manage notification delivery and retention');
 
 INSERT INTO `role_permissions` (`roleId`, `permissionId`)
 SELECT r.`roleId`, p.`permissionId`
@@ -796,12 +826,13 @@ CROSS JOIN `permissions` p
 WHERE r.`roleName` = 'Owner'
    OR (r.`roleName` = 'Admin' AND p.`permissionName` IN (
      'VIEW_USERS', 'CREATE_USERS', 'UPDATE_USERS',
-     'VIEW_CUSTOMERS', 'MANAGE_CUSTOMERS', 'VIEW_TASKS', 'MANAGE_TASKS', 'PUBLISH_PROFILES'
+     'VIEW_CUSTOMERS', 'MANAGE_CUSTOMERS', 'VIEW_TASKS', 'MANAGE_TASKS', 'PUBLISH_PROFILES',
+     'VIEW_NOTIFICATION_ANALYTICS'
    ))
    OR (r.`roleName` = 'Moderator' AND p.`permissionName` IN (
      'VIEW_USERS', 'VIEW_CUSTOMERS', 'MANAGE_CUSTOMERS', 'VIEW_TASKS'
    ))
-   OR (r.`roleName` = 'Customer' AND p.`permissionName` = 'VIEW_TASKS');
+   OR (r.`roleName` = 'Member' AND p.`permissionName` = 'VIEW_TASKS');
 
 COMMIT;
 

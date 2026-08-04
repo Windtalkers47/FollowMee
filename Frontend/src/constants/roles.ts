@@ -3,7 +3,7 @@ export const ROLE_NAMES = {
   OWNER: 'Owner',
   ADMIN: 'Admin', 
   MODERATOR: 'Moderator',
-  CUSTOMER: 'Customer'
+  MEMBER: 'Member'
 } as const;
 
 export type RoleName = typeof ROLE_NAMES[keyof typeof ROLE_NAMES];
@@ -23,7 +23,8 @@ export const normalizeRoleName = (role: string): RoleName => {
     case 'moderator':
       return ROLE_NAMES.MODERATOR;
     case 'customer':
-      return ROLE_NAMES.CUSTOMER;
+    case 'member':
+      return ROLE_NAMES.MEMBER;
     default:
       // Return the original if no match found
       return role as RoleName;

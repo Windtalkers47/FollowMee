@@ -115,4 +115,3 @@ export class User {
     return `${this.userName} ${this.userLastName}`.trim();
   }
 }
-

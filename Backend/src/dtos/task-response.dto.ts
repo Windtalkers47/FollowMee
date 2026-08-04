@@ -1,6 +1,7 @@
 import { IsNotEmpty, IsString, Length } from 'class-validator';
 import { TaskImageResponseDto } from './task-image.dto';
 import type { TaskFocusSummary } from '../utils/task-focus.util';
+import type { TaskPriority, TaskScope } from '../types/organization.types';
 
 export class TaskResponseDto {
   taskId!: string;
@@ -8,6 +9,10 @@ export class TaskResponseDto {
   description?: string;
   assignedTo?: number;
   createdBy!: number;
+  priority!: TaskPriority;
+  version!: number;
+  watcherIds!: number[];
+  scope!: TaskScope;
   dueDate?: Date;
   startDate?: Date;
   endDate?: Date;
@@ -53,6 +58,7 @@ export class TaskResponseDto {
     canSubmitReview: boolean;
     canRequestChanges: boolean;
     canCancel: boolean;
+    canOwnerOverride: boolean;
     primaryAction?: 'start' | 'submit_review' | 'review' | 'view';
     nextActor?: {
       userId: number;

@@ -16,7 +16,7 @@ const users = [
   ['QA', 'Creator', 'qa-creator@example.test', 'Owner'],
   ['QA', 'Assignee', 'qa-assignee@example.test', 'Admin'],
   ['QA', 'Reviewer', 'qa-reviewer@example.test', 'Admin'],
-  ['QA', 'Unrelated', 'qa-unrelated@example.test', 'Customer'],
+  ['QA', 'Unrelated', 'qa-unrelated@example.test', 'Member'],
 ];
 const fixtureIds = {
   customer: 'e2e00000-0000-4000-8000-000000000001',
@@ -64,9 +64,9 @@ async function main() {
 
     await connection.execute(
       `INSERT INTO customers
-        (customerId, userId, customerName, customerLastName, customerEmail, status, isActive)
-       VALUES (?, ?, 'E2E', 'Customer', 'fixture-customer@example.test', 'active', 1)`,
-      [fixtureIds.customer, userIds['qa-creator@example.test']],
+        (customerId, userId, assignedTo, createdBy, updatedBy, customerName, customerLastName, customerEmail, status, isActive)
+       VALUES (?, ?, ?, ?, ?, 'E2E', 'Customer', 'fixture-customer@example.test', 'active', 1)`,
+      [fixtureIds.customer, userIds['qa-creator@example.test'], userIds['qa-creator@example.test'], userIds['qa-creator@example.test'], userIds['qa-creator@example.test']],
     );
 
     await connection.execute(

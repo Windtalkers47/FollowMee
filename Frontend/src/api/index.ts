@@ -4,6 +4,7 @@
 export * from './auth.api';
 export * from './customer.api';
 export * from './notification.api';
+export type { OrganizationRole, TaskScope, TaskPriority } from '../types/organization.types';
 
 // Explicitly export User from user.api only (task.api has its own User type)
 export { userApi, type User } from './user.api';

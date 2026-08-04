@@ -13,12 +13,6 @@ export class NotificationController {
     try {
       const dto: CreateNotificationDto = req.body;
       const userId = req.user?.userId;
-      const roles = (req.user?.roles || []).map(role => role.toLowerCase());
-      if (!roles.some(role => role === 'admin' || role === 'superadmin')) {
-        res.status(403).json({ message: 'Admin permission is required' });
-        return;
-      }
-
       // If no actorUserId provided, use current user
       if (!dto.actorUserId && userId) {
         dto.actorUserId = userId;

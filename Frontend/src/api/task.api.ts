@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { API_BASE_URL } from './config';
+import type { TaskPriority, TaskScope } from '../types/organization.types';
 
 export interface User {
   userId: number;
@@ -38,6 +39,10 @@ export interface Task {
   description?: string;
   assignedTo?: number;
   createdBy: number;
+  priority: TaskPriority;
+  version: number;
+  watcherIds: number[];
+  scope: TaskScope;
   dueDate?: string;
   startDate?: string;
   endDate?: string;
@@ -81,6 +86,7 @@ export interface Task {
     canSubmitReview: boolean;
     canRequestChanges: boolean;
     canCancel: boolean;
+    canOwnerOverride: boolean;
     primaryAction?: 'start' | 'submit_review' | 'review' | 'view';
     nextActor?: {
       userId: number;
@@ -186,10 +192,13 @@ export interface CreateTaskData {
   title: string;
   description?: string;
   assignedTo?: number;
+  priority?: TaskPriority;
+  watcherIds?: number[];
+  expectedVersion?: number;
   dueDate?: Date;
   startDate?: Date;
   endDate?: Date;
-  dueDateRange?: [Date, Date] | [null, null];
+  dueDateRange?: [Date | null, Date | null];
   imageUrl?: string; // Backward compatibility - single image
   images?: { imageUrl: string; imageOrder?: number }[]; // Multiple images
   status?: 'draft' | 'todo' | 'in_progress' | 'review' | 'done' | 'cancelled';
@@ -201,6 +210,9 @@ export interface UpdateTaskData {
   title?: string;
   description?: string;
   assignedTo?: number;
+  priority?: TaskPriority;
+  watcherIds?: number[];
+  expectedVersion?: number;
   dueDate?: Date | string;
   startDate?: Date | string;
   endDate?: Date | string;

@@ -7,6 +7,9 @@ import { StatusCountsResponse } from '../types/status.types';
 import { CloudinaryUtil } from '../utils/cloudinary.util';
 import dataSource from '../config/database';
 import { In } from 'typeorm';
+import { customerAccessService, CustomerAccessContext } from './customer-access.service';
+import { User } from '../entities/User';
+import { ApplicationError } from '../errors/application.error';
 
 export class CustomerService {
   private customerRepository: CustomerRepository;
@@ -15,10 +18,33 @@ export class CustomerService {
     this.customerRepository = new CustomerRepository();
   }
 
-  async findAll(options?: { 
+  private present(customer: Customer, access: CustomerAccessContext, users: Map<number, User> = new Map()): CustomerResponseDto {
+    const assignedTo = customer.assignedTo ?? customer.userId ?? undefined;
+    const assignedUser = assignedTo ? users.get(assignedTo) : undefined;
+    const creatorUser = customer.createdBy ? users.get(customer.createdBy) : undefined;
+    return new CustomerResponseDto({
+      ...customer,
+      userId: assignedTo,
+      assignedTo,
+      createdBy: customer.createdBy ?? undefined,
+      assignedToUser: assignedUser ? { userId: assignedUser.userId, userName: assignedUser.userName, userLastName: assignedUser.userLastName, userImageUrl: assignedUser.userImageUrl || undefined } : undefined,
+      createdByUser: creatorUser ? { userId: creatorUser.userId, userName: creatorUser.userName, userLastName: creatorUser.userLastName, userImageUrl: creatorUser.userImageUrl || undefined } : undefined,
+      capabilities: customerAccessService.capabilities(customer, access),
+    });
+  }
+
+  private async presentMany(customers: Customer[], viewerUserId: number): Promise<CustomerResponseDto[]> {
+    const access = await customerAccessService.context(viewerUserId);
+    const ids = [...new Set(customers.flatMap(customer => [customer.assignedTo, customer.createdBy].filter((id): id is number => Boolean(id))))];
+    const users = ids.length ? await dataSource.getRepository(User).find({ where: { userId: In(ids) } }) : [];
+    const userMap = new Map(users.map(user => [user.userId, user]));
+    return customers.map(customer => this.present(customer, access, userMap));
+  }
+
+  async findAll(options: {
     status?: 'active' | 'inactive' | 'canceled' | 'all';
     search?: string;
-  }): Promise<CustomerResponseDto[]> {
+  } | undefined, viewerUserId: number): Promise<CustomerResponseDto[]> {
     const { status, search } = options || {};
     
     // Build filter conditions
@@ -53,10 +79,7 @@ export class CustomerService {
         c.customerX?.toLowerCase().includes(searchLower)
       );
       
-      return filtered.map(c => new CustomerResponseDto({
-        ...c,
-        userId: c.userId ?? undefined
-      }));
+      return this.presentMany(filtered, viewerUserId);
     }
     
     const customers = await this.customerRepository.findMany({ 
@@ -64,21 +87,15 @@ export class CustomerService {
       order: { createdAt: 'DESC' }
     } as any);
 
-    return customers.map(c => new CustomerResponseDto({
-      ...c,
-      userId: c.userId ?? undefined
-    }));
+    return this.presentMany(customers, viewerUserId);
   }
 
-  async findOne(id: string): Promise<CustomerResponseDto> {
+  async findOne(id: string, viewerUserId: number): Promise<CustomerResponseDto> {
     const customer = await this.customerRepository.findById(id);
     if (!customer) {
       throw new Error(`Customer with ID ${id} not found`);
     }
-    return new CustomerResponseDto({
-      ...customer,
-      userId: customer.userId ?? undefined
-    });
+    return (await this.presentMany([customer], viewerUserId))[0];
   }
 
   /**
@@ -122,17 +139,18 @@ export class CustomerService {
   }
 
   async create(data: CreateCustomerDto, userId?: number): Promise<CustomerResponseDto> {
+    if (!userId) throw new ApplicationError('Authentication required', 'AUTH_REQUIRED', 401);
+    const assignedTo = data.assignedTo ?? userId;
+    await customerAccessService.assertActiveAssignee(assignedTo);
     const customer = this.customerRepository.create({
       ...data,
-      userId: userId ?? null,
-      createdBy: userId ?? null,
-      updatedBy: userId ?? null,
+      assignedTo,
+      userId: assignedTo,
+      createdBy: userId,
+      updatedBy: userId,
     });
     const created = await this.customerRepository.save(customer);
-    return new CustomerResponseDto({
-      ...created,
-      userId: created.userId ?? undefined
-    });
+    return (await this.presentMany([created], userId))[0];
   }
 
   async update(id: string, data: UpdateCustomerDto, actorUserId?: number): Promise<CustomerResponseDto> {
@@ -141,14 +159,28 @@ export class CustomerService {
       throw new Error(`Customer with ID ${id} not found`);
     }
 
-    Object.assign(customer, data);
+    if (!actorUserId) throw new ApplicationError('Authentication required', 'AUTH_REQUIRED', 401);
+    const access = await customerAccessService.context(actorUserId);
+    customerAccessService.assertEdit(customer, access);
+    const { assignedTo: _assignedTo, userId: _userId, createdBy: _createdBy, ...safeData } = data as UpdateCustomerDto & Record<string, unknown>;
+    Object.assign(customer, safeData);
     if (actorUserId) customer.updatedBy = actorUserId;
     const updated = await this.customerRepository.save(customer);
     
-    return new CustomerResponseDto({
-      ...updated,
-      userId: updated.userId ?? undefined
-    });
+    return (await this.presentMany([updated], actorUserId))[0];
+  }
+
+  async reassign(id: string, assignedTo: number, actorUserId: number): Promise<CustomerResponseDto> {
+    const customer = await this.customerRepository.findById(id);
+    if (!customer) throw new ApplicationError('Customer not found', 'CUSTOMER_NOT_FOUND', 404);
+    const access = await customerAccessService.context(actorUserId);
+    customerAccessService.assertReassign(customer, access);
+    await customerAccessService.assertActiveAssignee(assignedTo);
+    customer.assignedTo = assignedTo;
+    customer.userId = assignedTo;
+    customer.updatedBy = actorUserId;
+    const updated = await this.customerRepository.save(customer);
+    return (await this.presentMany([updated], actorUserId))[0];
   }
 
   async delete(id: string, actorUserId?: number): Promise<void> {
@@ -156,42 +188,50 @@ export class CustomerService {
     if (!customer) {
       throw new Error(`Customer with ID ${id} not found`);
     }
-    // Soft delete by marking as inactive
+    if (!actorUserId) throw new ApplicationError('Authentication required', 'AUTH_REQUIRED', 401);
+    const access = await customerAccessService.context(actorUserId);
+    customerAccessService.assertDelete(customer, access);
     customer.isActive = false;
+    customer.deletedAt = new Date();
     if (actorUserId) customer.updatedBy = actorUserId;
     await this.customerRepository.save(customer);
   }
 
-  async bulkUpdateStatus(customerIds: string[], status: 'active' | 'inactive') {
+  async bulkUpdateStatus(customerIds: string[], status: 'active' | 'inactive', actorUserId: number) {
     const ids = [...new Set(customerIds)].filter(Boolean).slice(0, 500);
     if (!ids.length) throw new Error('At least one customer is required');
-    const result = await dataSource.getRepository(Customer).update(
-      { customerId: In(ids) },
-      { status, isActive: status === 'active' }
-    );
-    return { requested: ids.length, updated: result.affected || 0 };
+    const customers = await dataSource.getRepository(Customer).find({ where: { customerId: In(ids) } });
+    if (customers.length !== ids.length) throw new ApplicationError('One or more customers were not found', 'CUSTOMER_NOT_FOUND', 404);
+    const access = await customerAccessService.context(actorUserId);
+    customers.forEach(customer => customerAccessService.assertEdit(customer, access));
+    await dataSource.transaction(async manager => {
+      customers.forEach(customer => { customer.status = status; customer.isActive = status === 'active'; customer.updatedBy = actorUserId; });
+      await manager.getRepository(Customer).save(customers);
+    });
+    return { requested: ids.length, updated: customers.length };
   }
 
-  async bulkDelete(customerIds: string[]) {
+  async bulkDelete(customerIds: string[], actorUserId: number) {
     const ids = [...new Set(customerIds)].filter(Boolean).slice(0, 500);
     if (!ids.length) throw new Error('At least one customer is required');
-    const result = await dataSource.getRepository(Customer).update(
-      { customerId: In(ids) },
-      { isActive: false }
-    );
-    return { requested: ids.length, updated: result.affected || 0 };
+    const customers = await dataSource.getRepository(Customer).find({ where: { customerId: In(ids) } });
+    if (customers.length !== ids.length) throw new ApplicationError('One or more customers were not found', 'CUSTOMER_NOT_FOUND', 404);
+    const access = await customerAccessService.context(actorUserId);
+    customers.forEach(customer => customerAccessService.assertDelete(customer, access));
+    await dataSource.transaction(async manager => {
+      customers.forEach(customer => { customer.isActive = false; customer.deletedAt = new Date(); customer.updatedBy = actorUserId; });
+      await manager.getRepository(Customer).save(customers);
+    });
+    return { requested: ids.length, updated: customers.length };
   }
 
-  async getCustomerWithProfile(id: string): Promise<CustomerResponseDto | null> {
+  async getCustomerWithProfile(id: string, viewerUserId: number): Promise<CustomerResponseDto | null> {
     const customer = await this.customerRepository.findById(id);
     if (!customer) return null;
-    return new CustomerResponseDto({
-      ...customer,
-      userId: customer.userId ?? undefined
-    });
+    return (await this.presentMany([customer], viewerUserId))[0];
   }
 
-  async searchCustomers(query: string, includeInactive = false): Promise<CustomerResponseDto[]> {
+  async searchCustomers(query: string, viewerUserId: number, includeInactive = false): Promise<CustomerResponseDto[]> {
     // Simple search implementation - Search across 10 key fields
     const customers = await this.customerRepository.find({ isActive: !includeInactive } as any);
     const searchLower = query.toLowerCase();
@@ -207,22 +247,20 @@ export class CustomerService {
       c.customerLine?.toLowerCase().includes(searchLower) ||
       c.customerX?.toLowerCase().includes(searchLower)
     );
-    return filtered.map(c => new CustomerResponseDto({
-      ...c,
-      userId: c.userId ?? undefined
-    }));
+    return this.presentMany(filtered, viewerUserId);
   }
 
   async getStatusCounts(): Promise<StatusCountsResponse> {
     return this.customerRepository.getStatusCounts();
   }
 
-  async uploadCustomerImage(id: string, fileBuffer: Buffer): Promise<CustomerResponseDto> {
+  async uploadCustomerImage(id: string, fileBuffer: Buffer, actorUserId: number): Promise<CustomerResponseDto> {
     const customer = await this.customerRepository.findById(id);
     if (!customer) {
       throw new Error(`Customer with ID ${id} not found`);
     }
 
+    customerAccessService.assertEdit(customer, await customerAccessService.context(actorUserId));
     // Delete old image if exists
     if (customer.customerImageUrl) {
       await CloudinaryUtil.deleteImage(customer.customerImageUrl);
@@ -232,32 +270,24 @@ export class CustomerService {
     customer.customerImageUrl = uploadResult || undefined;
     
     const updated = await this.customerRepository.save(customer);
-    return new CustomerResponseDto({
-      ...updated,
-      userId: updated.userId ?? undefined
-    });
+    return (await this.presentMany([updated], actorUserId))[0];
   }
 
-  async removeCustomerImage(id: string): Promise<CustomerResponseDto> {
+  async removeCustomerImage(id: string, actorUserId: number): Promise<CustomerResponseDto> {
     const customer = await this.customerRepository.findById(id);
     if (!customer) {
       throw new Error(`Customer with ID ${id} not found`);
     }
 
+    customerAccessService.assertEdit(customer, await customerAccessService.context(actorUserId));
     if (customer.customerImageUrl) {
       await CloudinaryUtil.deleteImage(customer.customerImageUrl);
       customer.customerImageUrl = undefined;
       const updated = await this.customerRepository.save(customer);
-      return new CustomerResponseDto({
-        ...updated,
-        userId: updated.userId ?? undefined
-      });
+      return (await this.presentMany([updated], actorUserId))[0];
     }
 
-    return new CustomerResponseDto({
-      ...customer,
-      userId: customer.userId ?? undefined
-    });
+    return (await this.presentMany([customer], actorUserId))[0];
   }
 }
 

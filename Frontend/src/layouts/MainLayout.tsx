@@ -122,6 +122,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
     if (item.path === '/users' && !canManageUsers) {
       return false;
     }
+    if (item.path === '/notification-analytics' && !canManageUsers) return false;
     return true;
   }), [canManageUsers]);
   const menuLabels = useMemo<Record<string, string>>(() => ({

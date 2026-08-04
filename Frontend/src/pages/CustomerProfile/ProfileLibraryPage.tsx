@@ -87,7 +87,7 @@ const ProfileLibraryPage = () => {
   }, [profiles, search]);
 
   const availableCustomers = customers.filter(
-    (customer) => !profiles.some((profile) => profile.customerId === customer.customerId)
+    (customer) => customer.capabilities.canEdit && !profiles.some((profile) => profile.customerId === customer.customerId)
   );
 
   const create = async () => {

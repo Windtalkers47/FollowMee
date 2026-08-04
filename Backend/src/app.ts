@@ -21,6 +21,7 @@ import { Server as SocketIOServer } from 'socket.io';
 import rateLimit from 'express-rate-limit';
 import { getAllowedOrigins, isAllowedOrigin, verifyMutationOrigin } from './config/security.config';
 import { formatDatabaseConnectionError } from './utils/database-error.util';
+import crypto from 'crypto';
 
 // Import routes
 import authRoutes from './routes/auth.routes';
@@ -186,6 +187,12 @@ class App {
 
     // Parse cookies
     this.app.use(cookieParser());
+    this.app.use((req, res, next) => {
+      const requestId = req.get('x-request-id') || crypto.randomUUID();
+      res.locals.requestId = requestId;
+      res.setHeader('x-request-id', requestId);
+      next();
+    });
     this.app.use(verifyMutationOrigin);
 
     this.app.use('/api', rateLimit({
@@ -296,6 +303,8 @@ class App {
         message: err?.message || 'Internal Server Error',
         ...(err?.code ? { code: err.code } : {}),
         ...(err?.details ? { details: err.details } : {}),
+        ...(err?.currentVersion ? { currentVersion: err.currentVersion } : {}),
+        requestId: res.locals.requestId,
         ...(err?.code === 'INVALID_TASK_PAYLOAD' ? { code: err.code, fields: err.fields } : {}),
         ...(isTaskTransition ? {
           code: err.code,

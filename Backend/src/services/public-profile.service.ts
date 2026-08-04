@@ -2,6 +2,8 @@ import crypto from 'crypto';
 import { IsNull } from 'typeorm';
 import dataSource from '../config/database';
 import { Customer } from '../entities/Customer';
+import { customerAccessService, CustomerAccessContext } from './customer-access.service';
+import { ApplicationError } from '../errors/application.error';
 import {
   PublicProfile,
   PublicProfileStatus,
@@ -76,6 +78,24 @@ export class PublicProfileService {
   private eventRepository = dataSource.getRepository(PublicProfileEvent);
   private customerRepository = dataSource.getRepository(Customer);
 
+  private capabilities(profile: PublicProfile, access: CustomerAccessContext) {
+    const resource = profile.customer || {
+      createdBy: profile.createdBy ?? profile.userId,
+      assignedTo: null,
+    };
+    const customerCapabilities = customerAccessService.capabilities(resource, access);
+    return {
+      canEdit: customerCapabilities.canEdit,
+      canPublish: customerCapabilities.canPublish,
+      canUnpublish: customerCapabilities.canPublish,
+      canDelete: customerCapabilities.canDelete,
+    };
+  }
+
+  private present(profile: PublicProfile, access: CustomerAccessContext) {
+    return Object.assign(profile, { capabilities: this.capabilities(profile, access) });
+  }
+
   private normalizeSlug(value: string) {
     return value
       .trim()
@@ -132,11 +152,12 @@ export class PublicProfileService {
   }
 
   async listOwned(userId: number) {
-    return this.profileRepository.find({
+    const [profiles, access] = await Promise.all([this.profileRepository.find({
       where: { deletedAt: IsNull() },
       relations: ['links', 'customer'],
       order: { updatedAt: 'DESC', links: { sortOrder: 'ASC' } },
-    });
+    }), customerAccessService.context(userId)]);
+    return profiles.map(profile => this.present(profile, access));
   }
 
   async getOwned(profileId: string, userId: number) {
@@ -146,7 +167,7 @@ export class PublicProfileService {
       order: { links: { sortOrder: 'ASC' } },
     });
     if (!profile) throw new Error('Profile not found');
-    return profile;
+    return this.present(profile, await customerAccessService.context(userId));
   }
 
   async create(userId: number, input: PublicProfileInput) {
@@ -156,11 +177,13 @@ export class PublicProfileService {
         where: { customerId: input.customerId, deletedAt: IsNull() },
       });
       if (!customer) throw new Error('Customer not found');
+      customerAccessService.assertEdit(customer, await customerAccessService.context(userId));
       const existing = await this.profileRepository.findOne({
         where: { customerId: input.customerId, deletedAt: IsNull() },
       });
       if (existing) return this.getOwned(existing.profileId, userId);
-      if (!customer.userId) {
+      if (!customer.assignedTo) {
+        customer.assignedTo = userId;
         customer.userId = userId;
         await this.customerRepository.save(customer);
       }
@@ -220,6 +243,9 @@ export class PublicProfileService {
 
   async update(profileId: string, userId: number, input: PublicProfileInput) {
     const profile = await this.getOwned(profileId, userId);
+    if (!(profile as PublicProfile & { capabilities: { canEdit: boolean } }).capabilities.canEdit) {
+      throw new ApplicationError('Only the customer creator, assignee, or Owner can edit this profile', 'PROFILE_EDIT_FORBIDDEN', 403);
+    }
     profile.updatedBy = userId;
 
     for (const field of editableFields) {
@@ -262,6 +288,9 @@ export class PublicProfileService {
     status: PublicProfileStatus
   ) {
     const profile = await this.getOwned(profileId, userId);
+    if (!(profile as PublicProfile & { capabilities: { canPublish: boolean } }).capabilities.canPublish) {
+      throw new ApplicationError('Only the customer creator or Owner can publish this profile', 'PROFILE_PUBLISH_FORBIDDEN', 403);
+    }
     profile.updatedBy = userId;
     if (status === 'published') {
       if (!profile.displayName || !profile.slug) {
@@ -277,6 +306,9 @@ export class PublicProfileService {
 
   async remove(profileId: string, userId: number) {
     const profile = await this.getOwned(profileId, userId);
+    if (!(profile as PublicProfile & { capabilities: { canDelete: boolean } }).capabilities.canDelete) {
+      throw new ApplicationError('Only the customer creator or Owner can delete this profile', 'PROFILE_DELETE_FORBIDDEN', 403);
+    }
     profile.updatedBy = userId;
     profile.deletedAt = new Date();
     profile.status = 'draft';

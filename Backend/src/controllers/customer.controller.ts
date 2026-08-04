@@ -11,6 +11,17 @@ import auditService from '../services/audit.service';
 export class CustomerController {
   constructor(private readonly customerService: CustomerService) {}
 
+  private sendError(res: Response, error: unknown, fallback: string) {
+    const typed = error as { statusCode?: number; code?: string; message?: string };
+    const status = Number(typed?.statusCode) || 500;
+    return res.status(status).json({
+      success: false,
+      message: status >= 500 ? fallback : typed.message || fallback,
+      ...(typed.code ? { code: typed.code } : {}),
+      ...(status >= 500 && process.env.NODE_ENV === 'development' ? { error: typed.message } : {}),
+    });
+  }
+
   /**
    * Get public customer profile by ID (no authentication required)
    */
@@ -70,7 +81,7 @@ export class CustomerController {
       const search = req.query.search as string | undefined;
       
       // Get customers with status filter
-      const customers = await this.customerService.findAll({ status, search });
+      const customers = await this.customerService.findAll({ status, search }, req.user!.userId);
       
       // Apply pagination on client side since service doesn't support it yet
       const total = customers.length;
@@ -114,7 +125,7 @@ export class CustomerController {
         });
       }
       
-      const results = await this.customerService.searchCustomers(search as string);
+      const results = await this.customerService.searchCustomers(search as string, req.user!.userId);
       
       return res.json({ 
         success: true, 
@@ -142,7 +153,7 @@ export class CustomerController {
   async getCustomerById(req: Request, res: Response) {
     try {
       const { id } = req.params;
-      const customer = await this.customerService.findOne(id);
+      const customer = await this.customerService.findOne(id, req.user!.userId);
       
       if (!customer) {
         return res.status(404).json({ 
@@ -184,7 +195,7 @@ export class CustomerController {
           errors: errors.map(err => Object.values(err.constraints || {})).flat()
         });
       }
-      
+
       // Create the customer
       const customer = await this.customerService.create(createCustomerDto, req.user?.userId);
       
@@ -238,6 +249,7 @@ export class CustomerController {
     try {
       const { id } = req.params;
       const { base64Image, ...otherData } = req.body;
+      let imageUrlToDelete: string | undefined;
       
       
       const updateData = plainToInstance(UpdateCustomerDto, otherData);
@@ -251,19 +263,17 @@ export class CustomerController {
           errors: errors.map(err => Object.values(err.constraints || {})).flat()
         });
       }
+
+      const existingCustomer = await this.customerService.findOne(id, req.user!.userId);
+      if (!existingCustomer.capabilities.canEdit) {
+        return res.status(403).json({ success: false, code: 'CUSTOMER_EDIT_FORBIDDEN', message: 'Only the creator, assignee, or Owner can edit this customer' });
+      }
       
       // Handle image removal if requested
       if (updateData.removeImage) {
         // Find the customer to get the current image URL
-        const customer = await this.customerService.findOne(id);
-        if (customer && customer.customerImageUrl) {
-          try {
-            await deleteFromCloudinary(customer.customerImageUrl);
-          } catch (error) {
-            console.error('Error deleting image from Cloudinary:', error);
-            // Continue even if deletion fails
-          }
-        }
+        const customer = await this.customerService.findOne(id, req.user!.userId);
+        imageUrlToDelete = customer?.customerImageUrl || undefined;
         // Set customerImageUrl to null to remove it (service handles null values)
         updateData.customerImageUrl = null;
       }
@@ -281,6 +291,13 @@ export class CustomerController {
       }
       
       const customer = await this.customerService.update(id, updateData, req.user?.userId);
+      if (imageUrlToDelete) {
+        try {
+          await deleteFromCloudinary(imageUrlToDelete);
+        } catch (error) {
+          console.error('Error deleting image after customer update:', error);
+        }
+      }
       
       if (!customer) {
         return res.status(404).json({ 
@@ -309,11 +326,7 @@ export class CustomerController {
         });
       }
       
-      return res.status(500).json({ 
-        success: false, 
-        message: 'Failed to update customer',
-        error: errorMessage
-      });
+      return this.sendError(res, error, 'Failed to update customer');
     }
   }
 
@@ -342,12 +355,15 @@ export class CustomerController {
       }
 
       // Find the customer
-      const customer = await this.customerService.findOne(customerId);
+      const customer = await this.customerService.findOne(customerId, req.user!.userId);
       if (!customer) {
         return res.status(404).json({
           success: false,
           message: 'Customer not found',
         });
+      }
+      if (!customer.capabilities.canEdit) {
+        return res.status(403).json({ success: false, code: 'CUSTOMER_EDIT_FORBIDDEN', message: 'Only the creator, assignee, or Owner can edit this customer' });
       }
 
       // Upload to Cloudinary
@@ -378,12 +394,7 @@ export class CustomerController {
       });
     } catch (error: unknown) {
       console.error('Error uploading customer image to Cloudinary:', error);
-      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
-      return res.status(500).json({
-        success: false,
-        message: 'Failed to upload profile image',
-        error: process.env.NODE_ENV === 'development' ? errorMessage : undefined,
-      });
+      return this.sendError(res, error, 'Failed to upload profile image');
     }
   }
 
@@ -395,26 +406,29 @@ export class CustomerController {
       const { customerId } = req.params;
 
       // Find the customer
-      const customer = await this.customerService.findOne(customerId);
+      const customer = await this.customerService.findOne(customerId, req.user!.userId);
       if (!customer || !customer.customerImageUrl) {
         return res.status(404).json({
           success: false,
           message: 'Customer or profile image not found',
         });
       }
-
-      // Delete the image from Cloudinary
-      try {
-        await deleteFromCloudinary(customer.customerImageUrl);
-      } catch (error) {
-        console.error('Error deleting image from Cloudinary:', error);
-        // Continue even if deletion fails to ensure the database is updated
+      if (!customer.capabilities.canEdit) {
+        return res.status(403).json({ success: false, code: 'CUSTOMER_EDIT_FORBIDDEN', message: 'Only the creator, assignee, or Owner can edit this customer' });
       }
 
-      // Update customer to remove the image URL
+      const imageUrlToDelete = customer.customerImageUrl;
+
+      // Commit the database state before the external Cloudinary side effect.
       const updatedCustomer = await this.customerService.update(customerId, {
-        customerImageUrl: undefined,
+        customerImageUrl: null,
       } as UpdateCustomerDto, req.user?.userId);
+
+      try {
+        await deleteFromCloudinary(imageUrlToDelete);
+      } catch (error) {
+        console.error('Error deleting image from Cloudinary:', error);
+      }
 
       return res.json({
         success: true,
@@ -423,12 +437,7 @@ export class CustomerController {
       });
     } catch (error: unknown) {
       console.error('Error deleting customer image:', error);
-      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
-      return res.status(500).json({
-        success: false,
-        message: 'Failed to delete profile image',
-        error: process.env.NODE_ENV === 'development' ? errorMessage : undefined,
-      });
+      return this.sendError(res, error, 'Failed to delete profile image');
     }
   }
 
@@ -440,15 +449,19 @@ export class CustomerController {
       const { id } = req.params;
       
       // Find the customer first to get the image URL
-      const customer = await this.customerService.findOne(id);
+      const customer = await this.customerService.findOne(id, req.user!.userId);
       if (!customer) {
         return res.status(404).json({ 
           success: false, 
           message: 'Customer not found' 
         });
       }
+      if (!customer.capabilities.canDelete) {
+        return res.status(403).json({ success: false, code: 'CUSTOMER_DELETE_FORBIDDEN', message: 'Only the creator or Owner can delete this customer' });
+      }
 
-      // Delete the image from Cloudinary if it exists
+      // Commit the soft delete before the external Cloudinary side effect.
+      await this.customerService.delete(id, req.user?.userId);
       if (customer.customerImageUrl) {
         try {
           await deleteFromCloudinary(customer.customerImageUrl);
@@ -458,8 +471,6 @@ export class CustomerController {
         }
       }
 
-      // Delete the customer
-      await this.customerService.delete(id, req.user?.userId);
       await auditService.logEvent({ userId: req.user?.userId || null, action: 'CUSTOMER_DELETED', status: 'SUCCESS', details: { customerId: id } });
       
       return res.json({ 
@@ -468,12 +479,26 @@ export class CustomerController {
       });
     } catch (error: unknown) {
       console.error('Error deleting customer:', error);
-      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
-      return res.status(500).json({ 
-        success: false, 
-        message: 'Failed to deactivate customer',
-        error: errorMessage
+      return this.sendError(res, error, 'Failed to deactivate customer');
+    }
+  }
+
+  async reassignCustomer(req: Request, res: Response) {
+    try {
+      const assignedTo = Number(req.body?.assignedTo);
+      if (!Number.isInteger(assignedTo) || assignedTo <= 0) {
+        return res.status(400).json({ success: false, message: 'A valid assignee is required' });
+      }
+      const customer = await this.customerService.reassign(req.params.id, assignedTo, req.user!.userId);
+      await auditService.logEvent({
+        userId: req.user!.userId,
+        action: 'CUSTOMER_REASSIGNED',
+        status: 'SUCCESS',
+        details: { customerId: req.params.id, assignedTo },
       });
+      return res.json({ success: true, data: customer });
+    } catch (error) {
+      return this.sendError(res, error, 'Failed to reassign customer');
     }
   }
 
@@ -484,22 +509,22 @@ export class CustomerController {
       if (!['active', 'inactive'].includes(status)) {
         return res.status(400).json({ success: false, message: 'Status must be active or inactive' });
       }
-      const data = await this.customerService.bulkUpdateStatus(customerIds, status);
+      const data = await this.customerService.bulkUpdateStatus(customerIds, status, req.user!.userId);
       await auditService.logEvent({ userId: req.user?.userId || null, action: 'CUSTOMER_BULK_STATUS_UPDATED', status: 'SUCCESS', details: { customerIds, status } });
       return res.json({ success: true, data });
     } catch (error) {
-      return res.status(400).json({ success: false, message: error instanceof Error ? error.message : 'Bulk update failed' });
+      return this.sendError(res, error, 'Bulk update failed');
     }
   }
 
   async bulkDelete(req: Request, res: Response) {
     try {
       const customerIds = Array.isArray(req.body?.customerIds) ? req.body.customerIds : [];
-      const data = await this.customerService.bulkDelete(customerIds);
+      const data = await this.customerService.bulkDelete(customerIds, req.user!.userId);
       await auditService.logEvent({ userId: req.user?.userId || null, action: 'CUSTOMER_BULK_DELETED', status: 'SUCCESS', details: { customerIds } });
       return res.json({ success: true, data });
     } catch (error) {
-      return res.status(400).json({ success: false, message: error instanceof Error ? error.message : 'Bulk delete failed' });
+      return this.sendError(res, error, 'Bulk delete failed');
     }
   }
 

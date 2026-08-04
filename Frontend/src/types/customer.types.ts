@@ -5,6 +5,17 @@ export type CustomerStatus = 'active' | 'inactive' | 'canceled' | 'all';
 export interface CustomerData {
   customerId: string;
   userId?: number | null;
+  assignedTo?: number | null;
+  createdBy?: number | null;
+  assignedToUser?: { userId: number; userName: string; userLastName: string; userImageUrl?: string };
+  createdByUser?: { userId: number; userName: string; userLastName: string; userImageUrl?: string };
+  capabilities: {
+    canView: boolean;
+    canEdit: boolean;
+    canReassign: boolean;
+    canDelete: boolean;
+    canPublish: boolean;
+  };
   customerName: string;
   customerLastName: string | null;
   customerEmail: string;
@@ -31,7 +42,7 @@ export interface Customer extends CustomerData {
 
 // DTOs for creating and updating customers
 export interface CreateCustomerDto {
-  userId?: number;
+  assignedTo?: number;
   customerName: string;
   customerLastName?: string | null;
   customerEmail: string;

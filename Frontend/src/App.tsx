@@ -4,7 +4,6 @@ import { Box, CircularProgress } from '@mui/material';
 import { useAppDispatch, useAppSelector } from './store/store';
 import { restoreSession, clearAuth, updateUser } from './store/slices/authSlice';
 import { connectWebSocket, disconnectWebSocket, fetchNotifications, fetchUnreadCount } from './store/slices/notificationSlice';
-import MainLayout from './layouts/MainLayout';
 import { API_BASE_URL } from './api/config';
 import { ErrorBoundary } from './components/ErrorBoundary/ErrorBoundary';
 import { AsyncErrorBoundary } from './components/ErrorBoundary/AsyncErrorBoundary';
@@ -32,6 +31,7 @@ const SettingsPage = React.lazy(() => import('./pages/Settings'));
 const NotificationAnalytics = React.lazy(() => import('./pages/NotificationAnalytics'));
 const NotificationsPage = React.lazy(() => import('./pages/Notifications'));
 const RewardsPage = React.lazy(() => import('./pages/Rewards'));
+const MainLayout = React.lazy(() => import('./layouts/MainLayout'));
 
 const LoadingSpinner = () => (
   <Box
@@ -61,11 +61,11 @@ const ProtectedRoute = () => {
   }
 
   return (
-    <MainLayout>
-      <Suspense fallback={<LoadingSpinner />}>
+    <Suspense fallback={<LoadingSpinner />}>
+      <MainLayout>
         <Outlet />
-      </Suspense>
-    </MainLayout>
+      </MainLayout>
+    </Suspense>
   );
 };
 

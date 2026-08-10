@@ -10,6 +10,10 @@ export interface UpdateUserPreferenceInput {
   locale?: UserLocale;
   brandTheme?: BrandTheme;
   colorMode?: ColorModePreference;
+  selectedAuraKey?: string | null;
+  profileCardMotion?: 'full' | 'subtle' | 'off';
+  shareDefaults?: Record<string, boolean | string> | null;
+  privacyDefaults?: Record<string, boolean | string> | null;
 }
 
 const LOCALES: UserLocale[] = ['en', 'th'];
@@ -40,7 +44,7 @@ export class UserPreferenceService {
     requestedLocale?: string
   ): Promise<UserPreference> {
     const invalidKeys = Object.keys(input).filter(
-      key => !['locale', 'brandTheme', 'colorMode'].includes(key)
+      key => !['locale', 'brandTheme', 'colorMode', 'selectedAuraKey', 'profileCardMotion', 'shareDefaults', 'privacyDefaults'].includes(key)
     );
     if (invalidKeys.length > 0) {
       throw new Error(`Unsupported preference: ${invalidKeys.join(', ')}`);
@@ -53,6 +57,16 @@ export class UserPreferenceService {
     }
     if (input.colorMode && !COLOR_MODES.includes(input.colorMode)) {
       throw new Error('Invalid color mode');
+    }
+    if (input.profileCardMotion && !['full', 'subtle', 'off'].includes(input.profileCardMotion)) {
+      throw new Error('Invalid profile card motion');
+    }
+    if (input.selectedAuraKey) {
+      const unlocked = await AppDataSource.query(`
+        SELECT 1 FROM user_badges ub INNER JOIN reward_badges rb ON rb.badgeId = ub.badgeId
+        WHERE ub.userId = ? AND rb.auraKey = ? LIMIT 1
+      `, [userId, input.selectedAuraKey]);
+      if (!unlocked.length) throw new Error('Invalid or locked Aura');
     }
 
     const preference = await this.getOrCreate(userId, requestedLocale);

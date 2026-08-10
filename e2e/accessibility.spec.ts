@@ -39,4 +39,15 @@ test.describe('accessibility smoke', () => {
     await expect(page.getByRole('heading', { name: 'Notifications' })).toBeVisible();
     await assertNoSeriousAccessibilityIssues(page);
   });
+
+  test('analytics date range is keyboard reachable and has no serious violations', async ({ page }) => {
+    test.skip(!hasTwoQaUsers, 'Authenticated accessibility checks require the isolated seeded QA database.');
+    await loginAs(page, 'creator');
+    await page.goto('/analytics');
+    const trigger = page.getByRole('button', { name: 'Date range', exact: true });
+    await trigger.focus();
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('button', { name: 'Apply' })).toBeVisible();
+    await assertNoSeriousAccessibilityIssues(page);
+  });
 });

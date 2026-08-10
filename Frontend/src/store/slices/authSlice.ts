@@ -23,6 +23,7 @@ export interface AuthUser {
   userPhone2?: string;
   userImageUrl?: string | null;
   roles: string[];
+  permissions?: string[];
   fullName?: string;
 }
 
@@ -91,6 +92,7 @@ const authSlice = createSlice({
         userPhone1: action.payload.user.userPhone1,
         userPhone2: action.payload.user.userPhone2,
         roles: action.payload.user?.roles,
+        permissions: action.payload.user?.permissions,
         fullName: action.payload.user.fullName,
       };
       state.isAuthenticated = true;
@@ -148,6 +150,7 @@ const authSlice = createSlice({
           userEmail: action.payload.data!.userEmail,
           userImageUrl: action.payload.data!.userImageUrl,
           roles: action.payload.data!.roles || [],
+          permissions: action.payload.data!.permissions || [],
           fullName: action.payload.data!.fullName,
         };
         state.isAuthenticated = true;

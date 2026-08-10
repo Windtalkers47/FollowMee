@@ -70,6 +70,7 @@ const fromApiFormat = (data: ApiCustomer): CustomerData => {
     customerX: data.customerX ?? null,
     customerAddress: data.customerAddress ?? null,
     customerImageUrl: data.customerImageUrl ?? null,
+    imageCrop: data.imageCrop ?? null,
     createdAt: data.createdAt ?? '',
     updatedAt: data.updatedAt ?? '',
     deletedAt: data.deletedAt ?? null,
@@ -81,7 +82,8 @@ const apiRequest = async <T>(
   endpoint: string,
   method: string,
   data?: RequestPayload | FormData,
-  isFormData: boolean = false
+  isFormData: boolean = false,
+  signal?: AbortSignal,
 ): Promise<T> => {
   const headers: HeadersInit = {
     'X-Application-Name': apiConfig.headers['X-Application-Name'],
@@ -103,6 +105,7 @@ const apiRequest = async <T>(
     headers,
     credentials: 'include',
     body: isFormData ? data as FormData : (data ? JSON.stringify(toApiFormat(data as RequestPayload)) : undefined),
+    signal,
   });
 
   let json: unknown = null;
@@ -155,19 +158,24 @@ export const customerApi = {
     page = 1,
     limit = 10,
     search?: string,
-    status?: CustomerStatus
+    status?: CustomerStatus,
+    assignedTo?: number,
+    createdBy?: number,
+    signal?: AbortSignal,
   ): Promise<PaginatedCustomers> {
     const params = new URLSearchParams({
       page: String(page),
       limit: String(limit),
       ...(search && { search }),
       ...(status && { status }),
+      ...(assignedTo && { assignedTo: String(assignedTo) }),
+      ...(createdBy && { createdBy: String(createdBy) }),
     });
 
     const result = await apiRequest<{
       data: ApiCustomer[];
       meta: PaginatedCustomers['meta'];
-    }>(`/customers?${params}`, 'GET');
+    }>(`/customers?${params}`, 'GET', undefined, false, signal);
 
     return {
       data: result.data.map(fromApiFormat),
@@ -254,6 +262,26 @@ export const customerApi = {
   async reassignCustomer(customerId: string, assignedTo: number): Promise<CustomerData> {
     const result = await apiRequest<{ data: ApiCustomer }>(`/customers/${customerId}/assignee`, 'PUT', { assignedTo });
     return fromApiFormat(result.data);
+  },
+
+  async checkDuplicates(data: Partial<CustomerData>, excludeCustomerId?: string): Promise<{
+    emailConflict: boolean;
+    matches: Array<{ customerId: string; displayName: string; reasons: string[]; hardBlock: boolean }>;
+  }> {
+    const response = await apiRequest<{ data: { emailConflict: boolean; matches: Array<{ customerId: string; displayName: string; reasons: string[]; hardBlock: boolean }> } }>(
+      '/customers/duplicate-check', 'POST', { ...data, excludeCustomerId } as RequestPayload,
+    );
+    return response.data;
+  },
+
+  async getTimeline(customerId: string): Promise<Array<{
+    activityId: number; activityType: string; metadata: Record<string, unknown> | null; createdAt: string;
+    actorUserId?: number; actorUserName?: string; actorUserLastName?: string; actorUserImageUrl?: string;
+  }>> {
+    const response = await apiRequest<{ data: Array<{ activityId: number; activityType: string; metadata: Record<string, unknown> | null; createdAt: string }> }>(
+      `/customers/${customerId}/activities`, 'GET',
+    );
+    return response.data;
   },
 
   async bulkUpdateStatus(customerIds: string[], status: 'active' | 'inactive'): Promise<{ requested: number; updated: number }> {

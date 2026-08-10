@@ -116,7 +116,7 @@ async function verify() {
       missingTables.length ||
       unexpectedTables.length ||
       result.tablesMissingPrimaryKey.length ||
-      result.migrations !== 18 ||
+      result.migrations !== 20 ||
       !result.userIdAutoIncrement
     ) {
       throw new Error(`Clean schema verification failed: ${JSON.stringify(result)}`);

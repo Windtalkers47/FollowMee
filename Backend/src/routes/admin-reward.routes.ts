@@ -7,6 +7,7 @@ const router = Router();
 const controller = new RewardController();
 
 router.use(isAuthenticated, checkRole('Owner'));
+router.post('/seasons/:seasonId/close', controller.closeSeason);
 router.get('/redemptions', controller.redemptions);
 router.post('/redemptions/:id/approve', controller.approve);
 router.post('/redemptions/:id/reject', controller.reject);

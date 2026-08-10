@@ -32,6 +32,18 @@ export class UserPreference {
   @Column({ type: 'enum', enum: ['light', 'dark', 'system'], default: 'system' })
   colorMode: ColorModePreference = 'system';
 
+  @Column({ type: 'varchar', length: 60, nullable: true })
+  selectedAuraKey!: string | null;
+
+  @Column({ type: 'enum', enum: ['full', 'subtle', 'off'], default: 'subtle' })
+  profileCardMotion: 'full' | 'subtle' | 'off' = 'subtle';
+
+  @Column({ type: 'json', nullable: true })
+  shareDefaults!: Record<string, boolean | string> | null;
+
+  @Column({ type: 'json', nullable: true })
+  privacyDefaults!: Record<string, boolean | string> | null;
+
   @CreateDateColumn({ type: 'timestamp' })
   createdAt!: Date;
 

@@ -7,6 +7,8 @@ const router = Router();
 // All dashboard routes require authentication
 router.use(authenticateToken);
 
+router.get('/overview', (req, res, next) => dashboardController.getOverview(req, res, next));
+
 // Get dashboard statistics
 router.get('/stats', (req, res, next) => dashboardController.getDashboardStats(req, res, next));
 

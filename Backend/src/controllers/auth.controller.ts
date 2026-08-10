@@ -12,6 +12,7 @@ import { UserRole } from '../entities/UserRole';
 import { In } from 'typeorm';
 import rateLimit from 'express-rate-limit';
 import * as jwt from 'jsonwebtoken';
+import { invitationService } from '../services/invitation.service';
 
 // Rate limiting for login attempts
 const loginLimiter = rateLimit({
@@ -60,7 +61,18 @@ class AuthController {
         });
       }
 
-      const { email, userPassword, userName, userLastName, userPhone1 } = req.body;
+      const { email, userPassword, userName, userLastName, userPhone1, invitationToken } = req.body;
+      const publicRegistrationAllowed = process.env.NODE_ENV !== 'production'
+        && process.env.ALLOW_PUBLIC_REGISTRATION !== 'false';
+      const invitation = invitationToken
+        ? await invitationService.validate(String(invitationToken))
+        : null;
+      if (!invitation && !publicRegistrationAllowed) {
+        return res.status(403).json({ success: false, message: 'An invitation is required', code: 'INVITATION_REQUIRED' });
+      }
+      if (invitation && invitation.email.toLowerCase() !== String(email).trim().toLowerCase()) {
+        return res.status(400).json({ success: false, message: 'Email must match the invitation', code: 'INVITATION_EMAIL_MISMATCH' });
+      }
 
       // Check if user already exists (active or inactive)
       const existingUser = await this.userRepository.findOne({ 
@@ -103,9 +115,9 @@ class AuthController {
       try {
         const targetRole = 'Member';
 
-        let role = await this.roleRepository.findOne({ 
-          where: [{ roleName: targetRole }, { roleName: 'Customer' }]
-        });
+        let role = invitation?.roleId
+          ? await this.roleRepository.findOne({ where: { roleId: invitation.roleId, isActive: true } })
+          : await this.roleRepository.findOne({ where: [{ roleName: targetRole }, { roleName: 'Customer' }] });
 
         if (!role) {
           // Create role if it doesn't exist
@@ -172,8 +184,9 @@ class AuthController {
           roleId: role.roleId
         });
         await this.userRoleRepository.save(userRole);
+        if (invitation) await invitationService.accept(invitation.invitationId);
       } catch (roleError) {
-        // Continue with registration even if role assignment fails
+        throw roleError;
       }
 
       // Log the user in using auth service
@@ -235,7 +248,7 @@ class AuthController {
       // Use auth service to handle login (includes token generation and cookie setting)
       const result = await this.authService.login(email, password, req, res);
       
-      const { user: userData, roles } = result;
+      const { user: userData, roles, permissions } = result;
 
       // Return success response with user data
       return res.status(200).json({
@@ -246,6 +259,7 @@ class AuthController {
           userEmail: userData.userEmail,
           userImageUrl: userData.userImageUrl,
           roles,
+          permissions,
           fullName: `${userData.userName} ${userData.userLastName}`.trim()
         },
         message: 'Login successful'
@@ -339,7 +353,7 @@ class AuthController {
       const user = await this.userRepository.findOne({
         where: { userId: req.user.userId },
         select: ['userId', 'userEmail', 'userName', 'userLastName', 'userPhone1', 'userImageUrl', 'isActive'],
-        relations: ['userRoles', 'userRoles.role']
+        relations: ['userRoles', 'userRoles.role', 'userRoles.role.rolePermissions', 'userRoles.role.rolePermissions.permission']
       });
       
       if (!user) {
@@ -350,6 +364,7 @@ class AuthController {
       }
 
       const roles = user.userRoles.map(ur => ur.role.roleName);
+      const permissions = [...new Set(user.userRoles.flatMap(ur => ur.role.rolePermissions?.map(rp => rp.permission?.permissionName).filter(Boolean) || []))];
 
       return res.status(200).json({
         success: true,
@@ -362,6 +377,7 @@ class AuthController {
           userImageUrl: user.userImageUrl,
           isActive: user.isActive,
           roles,
+          permissions,
           fullName: `${user.userName} ${user.userLastName}`.trim()
         }
       });

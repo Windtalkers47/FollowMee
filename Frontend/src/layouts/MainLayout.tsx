@@ -10,6 +10,7 @@ import type { UserProfileUpdatedEvent } from '../types/profile-event.types';
 import NotificationBell from '../components/NotificationBell/NotificationBell';
 import NotificationDropdown from '../components/NotificationDropdown/NotificationDropdown';
 import { clearCache } from '../services/api/dashboardApi';
+import { prefetchPrimaryRoute } from '../utils/routePrefetch';
 
 import {
   Box,
@@ -80,7 +81,7 @@ const menuItems = [
   { text: 'Tasks & Schedule', icon: <Schedule />, path: '/schedule', exact: true, group: 'Workspace' },
   { text: 'Customers', icon: <Group />, path: '/customer', exact: true, group: 'Workspace' },
   { text: 'Profile Cards', icon: <AccountCircle />, path: '/customer-profile', exact: false, group: 'Workspace' },
-  { text: 'Analytics', icon: <Analytics />, path: '/notification-analytics', exact: true, group: 'Insights' },
+  { text: 'Analytics', icon: <Analytics />, path: '/analytics', exact: true, group: 'Insights' },
   { text: 'Completed Work', icon: <PostAdd />, path: '/posts', exact: true, group: 'Insights' },
   { text: 'Rewards', icon: <Redeem />, path: '/rewards', exact: true, group: 'Insights' },
   { text: 'User Management', icon: <PeopleAlt />, path: '/users', exact: true, group: 'Administration' },
@@ -92,7 +93,7 @@ const compactMenuLabels: Record<string, string> = {
   '/schedule': 'Schedule',
   '/customer': 'Customers',
   '/customer-profile': 'Profiles',
-  '/notification-analytics': 'Analytics',
+  '/analytics': 'Analytics',
   '/posts': 'Completed',
   '/rewards': 'Rewards',
   '/users': 'Users',
@@ -107,6 +108,17 @@ const MainLayout = ({ children }: MainLayoutProps) => {
   useEffect(() => {
     mainRef.current?.scrollTo({ top: 0, behavior: 'auto' });
   }, [location.pathname]);
+
+  useEffect(() => {
+    const preload = () => ['/dashboard', '/my-work', '/schedule', '/customer'].forEach(prefetchPrimaryRoute);
+    const browserWindow = window as Window & { requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void };
+    if (browserWindow.requestIdleCallback) {
+      const id = browserWindow.requestIdleCallback(preload, { timeout: 2500 });
+      return () => browserWindow.cancelIdleCallback?.(id);
+    }
+    const timer = window.setTimeout(preload, 1200);
+    return () => window.clearTimeout(timer);
+  }, []);
   const dispatch = useAppDispatch();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const { t } = useUserPreferences();
@@ -122,7 +134,6 @@ const MainLayout = ({ children }: MainLayoutProps) => {
     if (item.path === '/users' && !canManageUsers) {
       return false;
     }
-    if (item.path === '/notification-analytics' && !canManageUsers) return false;
     return true;
   }), [canManageUsers]);
   const menuLabels = useMemo<Record<string, string>>(() => ({
@@ -131,7 +142,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
     '/schedule': t('nav.tasks'),
     '/customer': t('nav.customers'),
     '/customer-profile': t('nav.profiles'),
-    '/notification-analytics': t('nav.analytics'),
+    '/analytics': t('nav.analytics'),
     '/posts': t('nav.activity'),
     '/rewards': t('nav.rewards'),
     '/users': t('nav.users'),
@@ -502,6 +513,8 @@ const MainLayout = ({ children }: MainLayoutProps) => {
                   <ListItemButton
                     selected={active}
                     aria-label={label}
+                    onMouseEnter={() => prefetchPrimaryRoute(item.path)}
+                    onFocus={() => prefetchPrimaryRoute(item.path)}
                     onClick={() => {
                       navigate(item.path);
                       if (isMobile) setMobileOpen(false);
@@ -821,7 +834,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
           { label: t('nav.activity'), path: '/posts', icon: <PostAdd fontSize="small" /> },
           { label: t('nav.rewards'), path: '/rewards', icon: <Redeem fontSize="small" /> },
           { label: t('nav.profiles'), path: '/customer-profile', icon: <AccountCircle fontSize="small" /> },
-          { label: t('nav.analytics'), path: '/notification-analytics', icon: <Analytics fontSize="small" /> },
+          { label: t('nav.analytics'), path: '/analytics', icon: <Analytics fontSize="small" /> },
           ...(canManageUsers ? [{ label: t('nav.users'), path: '/users', icon: <PeopleAlt fontSize="small" /> }] : []),
           { label: t('nav.settings'), path: '/settings', icon: <Settings fontSize="small" /> },
         ].map(item => (

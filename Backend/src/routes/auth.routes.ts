@@ -3,10 +3,13 @@ import { authenticateToken } from '../middleware/auth.middleware';
 import { decryptRequestMiddleware } from '../middleware/requestDecryption.middleware';
 import AuthController from '../controllers/auth.controller';
 import { body } from 'express-validator';
+import { InvitationController } from '../controllers/invitation.controller';
 
 const router = Router();
+const invitationController = new InvitationController();
 
 // Public routes
+router.get('/invitations/:token', invitationController.validate);
 router.post(
   '/register',
   decryptRequestMiddleware,

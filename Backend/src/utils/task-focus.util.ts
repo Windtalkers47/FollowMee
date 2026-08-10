@@ -52,7 +52,7 @@ export const createTaskFocusSummary = (
           { kind: 'overdue', count: counts.overdue, targetFilter: 'overdue' },
           { kind: 'due_today', count: counts.dueToday, targetFilter: 'today' },
           { kind: 'waiting_review', count: counts.waitingReview || 0, targetFilter: 'review' },
-          { kind: 'due_soon', count: counts.dueSoon, targetFilter: 'week' },
+          { kind: 'due_soon', count: counts.dueSoon, targetFilter: 'soon' },
         ];
   const primary = priorities.find((item) => item.count > 0);
   return {

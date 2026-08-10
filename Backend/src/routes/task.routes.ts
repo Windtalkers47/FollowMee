@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { ProductivityController } from '../controllers/productivity.controller';
 import { TaskController } from '../controllers/task.controller';
 import { TaskService } from '../services/task.service';
 import { TaskImageService } from '../services/task-image.service';
@@ -10,6 +11,7 @@ import { Task } from '../entities/Task';
 import { TaskImage } from '../entities/TaskImage';
 
 const router = Router();
+const productivityController = new ProductivityController();
 
 // Initialize dependencies
 const taskImageService = new TaskImageService();
@@ -18,6 +20,12 @@ const taskController = new TaskController(taskService);
 
 // All task routes require authentication
 router.use(authenticateToken);
+router.post('/:taskId/duplicate', productivityController.duplicate);
+router.get('/:taskId/checklist', productivityController.checklist);
+router.put('/:taskId/checklist', productivityController.replaceChecklist);
+router.put('/:taskId/checklist/:itemId', productivityController.toggleChecklist);
+router.put('/:taskId/block', productivityController.block);
+router.put('/:taskId/unblock', productivityController.unblock);
 
 // Create a new task
 router.post('/', (req, res, next) => taskController.createTask(req, res, next));
@@ -50,6 +58,9 @@ router.post('/', (req, res, next) => taskController.createTask(req, res, next));
  *       200: { description: Paged tasks plus optional organization focus }
  */
 router.get('/', (req, res, next) => taskController.getTasks(req, res, next));
+
+// Cached independently by the client so paging/filtering never recomputes organization focus.
+router.get('/schedule-meta', (req, res, next) => taskController.getScheduleMeta(req, res, next));
 
 // Get current user's tasks
 router.get('/my-tasks', (req, res, next) => taskController.getMyTasks(req, res, next));

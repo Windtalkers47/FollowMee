@@ -284,6 +284,44 @@ export class UserService {
     return { message: 'User deactivated successfully' };
   }
 
+  async getDeactivationImpact(id: number) {
+    await this.assertUserIsNotSystemOwner(id);
+    const rows = await AppDataSource.query(`
+      SELECT
+        (SELECT COUNT(*) FROM tasks WHERE assignedTo = ? AND status IN ('todo','in_progress','review')) AS activeTasks,
+        (SELECT COUNT(*) FROM tasks WHERE createdBy = ? AND status = 'draft') AS drafts,
+        (SELECT COUNT(*) FROM task_recurrence_rules WHERE createdBy = ? AND isActive = 1) AS recurringRules,
+        (SELECT COUNT(*) FROM customers WHERE assignedTo = ? AND deletedAt IS NULL) AS customers,
+        (SELECT COUNT(*) FROM tasks WHERE createdBy = ? AND status = 'review') AS approvals
+    `, [id, id, id, id, id]);
+    const impact = rows[0] || {};
+    const requiresTransfer = Object.values(impact).some(value => Number(value || 0) > 0);
+    return { ...impact, requiresTransfer };
+  }
+
+  async reassignAndDeactivate(id: number, transferTo: number | null, actorUserId: number) {
+    const impact = await this.getDeactivationImpact(id);
+    if (impact.requiresTransfer && !transferTo) throw new ApplicationError('Choose an active user to receive assigned resources', 'USER_TRANSFER_REQUIRED', 409);
+    if (transferTo === id) throw new ApplicationError('Resources must be transferred to another user', 'USER_TRANSFER_INVALID', 400);
+    if (transferTo) {
+      const recipient = await this.userRepository.findOne({ userId: transferTo });
+      if (!recipient?.isActive) throw new ApplicationError('Transfer recipient must be active', 'USER_TRANSFER_RECIPIENT_INACTIVE', 409);
+    }
+    await this.assertUserIsNotSystemOwner(id);
+    await AppDataSource.transaction(async manager => {
+      if (transferTo) {
+        await manager.query(`UPDATE tasks SET assignedTo = ? WHERE assignedTo = ? AND status IN ('todo','in_progress','review')`, [transferTo, id]);
+        await manager.query(`UPDATE tasks SET createdBy = ? WHERE createdBy = ? AND status IN ('draft','review')`, [transferTo, id]);
+        await manager.query(`UPDATE task_recurrence_rules SET createdBy = ?, updatedAt = CURRENT_TIMESTAMP WHERE createdBy = ? AND isActive = 1`, [transferTo, id]);
+        await manager.query(`UPDATE task_templates SET createdBy = ?, updatedAt = CURRENT_TIMESTAMP WHERE createdBy = ?`, [transferTo, id]);
+        await manager.query(`UPDATE customers SET assignedTo = ?, userId = ?, updatedBy = ? WHERE assignedTo = ? AND deletedAt IS NULL`, [transferTo, transferTo, actorUserId, id]);
+      }
+      await manager.query('UPDATE users SET isActive = 0, updatedAt = CURRENT_TIMESTAMP WHERE userId = ?', [id]);
+      await manager.query('DELETE FROM user_roles WHERE userId = ?', [id]);
+    });
+    return { message: 'Resources reassigned and user deactivated', transferredTo: transferTo, impact };
+  }
+
   /**
    * Change user password
    */

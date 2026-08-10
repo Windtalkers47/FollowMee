@@ -170,7 +170,7 @@ export class AuthService {
         'userPhone1',
         'userPhone2'
       ],
-      relations: ['userRoles', 'userRoles.role']
+      relations: ['userRoles', 'userRoles.role', 'userRoles.role.rolePermissions', 'userRoles.role.rolePermissions.permission']
     });
     
     if (!user) {
@@ -187,6 +187,7 @@ export class AuthService {
     }
 
     const roles = normalizeRoles(user.userRoles.map(ur => ur.role.roleName));
+    const permissions = [...new Set(user.userRoles.flatMap(ur => ur.role.rolePermissions?.map(rp => rp.permission?.permissionName).filter(Boolean) || []))] as string[];
 
     const token = this.generateAccessToken({
       userId: user.userId,
@@ -198,7 +199,7 @@ export class AuthService {
 
     // Don't return password in the response
     const { userPassword, ...userWithoutPassword } = user;
-    return { user: userWithoutPassword, roles };
+    return { user: userWithoutPassword, roles, permissions };
   }
 
   /**

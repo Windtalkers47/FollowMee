@@ -75,30 +75,22 @@ export class CustomerController {
   async getCustomers(req: Request, res: Response) {
     try {
       const page = parseInt(req.query.page as string) || 1;
-      // iOS 2026: Default limit = 100 for showing all data
-      const limit = parseInt(req.query.limit as string) || 100;
+      const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 25));
       const status = req.query.status as 'active' | 'inactive' | 'canceled' | undefined;
       const search = req.query.search as string | undefined;
+      const assignedTo = Number(req.query.assignedTo) || undefined;
+      const createdBy = Number(req.query.createdBy) || undefined;
       
-      // Get customers with status filter
-      const customers = await this.customerService.findAll({ status, search }, req.user!.userId);
-      
-      // Apply pagination on client side since service doesn't support it yet
-      const total = customers.length;
-      const start = (page - 1) * limit;
-      const paginatedCustomers = customers.slice(start, start + limit);
-      
-      // iOS 2026: Use actual returned data length for limit
-      const actualLimit = paginatedCustomers.length;
+      const result = await this.customerService.findPage({ page, limit, status, search, assignedTo, createdBy }, req.user!.userId);
       
       return res.json({ 
         success: true, 
-        data: paginatedCustomers,
+        data: result.items,
         meta: { 
-          total: total, 
-          page: page, 
-          limit: actualLimit,
-          totalPages: Math.ceil(total / limit)
+          total: result.total,
+          page: result.page,
+          limit: result.limit,
+          totalPages: result.totalPages,
         }
       });
     } catch (error: unknown) {
@@ -499,6 +491,24 @@ export class CustomerController {
       return res.json({ success: true, data: customer });
     } catch (error) {
       return this.sendError(res, error, 'Failed to reassign customer');
+    }
+  }
+
+  async duplicateCheck(req: Request, res: Response) {
+    try {
+      const data = await this.customerService.duplicateCheck(req.body || {}, req.body?.excludeCustomerId);
+      return res.json({ success: true, data });
+    } catch (error) {
+      return this.sendError(res, error, 'Failed to check possible duplicates');
+    }
+  }
+
+  async getTimeline(req: Request, res: Response) {
+    try {
+      const data = await this.customerService.getTimeline(req.params.id, req.user!.userId);
+      return res.json({ success: true, data });
+    } catch (error) {
+      return this.sendError(res, error, 'Failed to fetch customer timeline');
     }
   }
 

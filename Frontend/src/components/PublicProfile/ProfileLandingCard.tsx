@@ -1,4 +1,4 @@
-import type { MouseEvent } from 'react';
+import { useState, type MouseEvent } from 'react';
 import {
   Avatar,
   Box,
@@ -33,6 +33,7 @@ interface ProfileLandingCardProps {
   profile: LandingCardProfile;
   preview?: boolean;
   onEvent?: (eventType: ProfileEventType, target?: string) => void;
+  disableMotion?: boolean;
 }
 
 const platformIcon = (platform: string) => {
@@ -60,8 +61,10 @@ const ProfileLandingCard = ({
   profile,
   preview = false,
   onEvent,
+  disableMotion = false,
 }: ProfileLandingCardProps) => {
-  const { t } = useUserPreferences();
+  const { t, profileCardMotion } = useUserPreferences();
+  const [tilt, setTilt] = useState({ x: 0, y: 0 });
   const preset = getProfileTemplate(profile.templateKey);
   const colors = {
     background: profile.themeConfig?.backgroundColor || preset.background,
@@ -80,6 +83,13 @@ const ProfileLandingCard = ({
 
   return (
     <Box
+      onPointerMove={(event) => {
+        if (!preview || disableMotion || profileCardMotion === 'off' || event.pointerType === 'touch' || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+        const rect = event.currentTarget.getBoundingClientRect();
+        const strength = profileCardMotion === 'full' ? 10 : 5;
+        setTilt({ x: ((event.clientY - rect.top) / rect.height - .5) * -strength, y: ((event.clientX - rect.left) / rect.width - .5) * strength });
+      }}
+      onPointerLeave={() => setTilt({ x: 0, y: 0 })}
       sx={{
         width: '100%',
         minHeight: { xs: 620, sm: 690 },
@@ -90,6 +100,10 @@ const ProfileLandingCard = ({
         position: 'relative',
         overflow: 'hidden',
         isolation: 'isolate',
+        transform: preview && !disableMotion ? `perspective(1200px) rotateX(${tilt.x}deg) rotateY(${tilt.y}deg)` : 'none',
+        transformStyle: 'preserve-3d',
+        transition: 'transform 180ms ease, box-shadow 180ms ease',
+        '@media (pointer: coarse), (prefers-reduced-motion: reduce)': { transform: 'none !important', transition: 'none' },
         boxShadow: { xs: 'none', sm: '0 30px 80px rgba(18, 31, 22, .18)' },
         '&::before': {
           content: '""',
@@ -152,6 +166,9 @@ const ProfileLandingCard = ({
               color: colors.text,
               border: '4px solid rgba(255,255,255,.78)',
               boxShadow: '0 18px 42px rgba(25, 38, 28, .22)',
+              '& img': profile.imageCrop ? {
+                transform: `translate(${profile.imageCrop.x * 50}%, ${profile.imageCrop.y * 50}%) scale(${profile.imageCrop.zoom}) rotate(${profile.imageCrop.rotation}deg)`,
+              } : undefined,
             }}
           >
             {profile.displayName.slice(0, 2).toUpperCase()}

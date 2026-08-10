@@ -82,7 +82,9 @@ interface TrendDataPoint {
   clicked: number;
 }
 
-const NotificationAnalytics = () => {
+interface NotificationAnalyticsProps { startDate?: string; endDate?: string }
+
+const NotificationAnalytics = ({ startDate, endDate }: NotificationAnalyticsProps = {}) => {
   const theme = useTheme();
   const { locale, t } = useUserPreferences();
   const [loading, setLoading] = useState(true);
@@ -90,18 +92,20 @@ const NotificationAnalytics = () => {
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
   const [previousMetrics, setPreviousMetrics] = useState<DashboardMetrics | null>(null);
   const [periodDays, setPeriodDays] = useState(30);
+  const externalRange = Boolean(startDate && endDate);
 
   useEffect(() => {
     loadMetrics();
-  }, [periodDays]);
+  }, [periodDays, startDate, endDate]);
 
   const loadMetrics = async () => {
     try {
       setLoading(true);
-      const end = new Date();
-      const start = new Date(end.getTime() - periodDays * 86400000);
+      const end = externalRange ? new Date(`${endDate}T23:59:59.999`) : new Date();
+      const start = externalRange ? new Date(`${startDate}T00:00:00`) : new Date(end.getTime() - periodDays * 86400000);
+      const resolvedPeriodDays = Math.max(1, Math.round((end.getTime() - start.getTime()) / 86400000));
       const previousEnd = new Date(start.getTime() - 1);
-      const previousStart = new Date(previousEnd.getTime() - periodDays * 86400000);
+      const previousStart = new Date(previousEnd.getTime() - resolvedPeriodDays * 86400000);
       const [dashboard, previous] = await Promise.all([
         getDashboardMetrics(start.toISOString(), end.toISOString()),
         getDashboardMetrics(previousStart.toISOString(), previousEnd.toISOString()),
@@ -137,7 +141,7 @@ const NotificationAnalytics = () => {
   const exportCsv = () => {
     if (!metrics) return;
     const rows = [
-      ['Metric', `Last ${periodDays} days`],
+      ['Metric', externalRange ? `${startDate} - ${endDate}` : `Last ${periodDays} days`],
       ['Total sent', metrics.totalSent],
       ['Total opened', metrics.totalOpened],
       ['Total clicked', metrics.totalClicked],
@@ -152,7 +156,7 @@ const NotificationAnalytics = () => {
     const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
     const anchor = document.createElement('a');
     anchor.href = url;
-    anchor.download = `followmee-notification-analytics-${periodDays}d.csv`;
+    anchor.download = `followmee-notification-analytics-${externalRange ? `${startDate}-${endDate}` : `${periodDays}d`}.csv`;
     anchor.click();
     URL.revokeObjectURL(url);
   };
@@ -190,14 +194,14 @@ const NotificationAnalytics = () => {
           <Typography variant="body2" color="text.secondary">{t('analytics.subtitle')}</Typography>
         </Box>
         <Stack direction="row" spacing={1}>
-          <FormControl size="small" sx={{ minWidth: 140 }}>
+          {!externalRange && <FormControl size="small" sx={{ minWidth: 140 }}>
             <InputLabel>{t('analytics.period')}</InputLabel>
             <Select label={t('analytics.period')} value={periodDays} onChange={(event) => setPeriodDays(Number(event.target.value))}>
               <MenuItem value={7}>{t('analytics.lastDays', { count: 7 })}</MenuItem>
               <MenuItem value={30}>{t('analytics.lastDays', { count: 30 })}</MenuItem>
               <MenuItem value={90}>{t('analytics.lastDays', { count: 90 })}</MenuItem>
             </Select>
-          </FormControl>
+          </FormControl>}
           <Button variant="outlined" startIcon={<Download />} onClick={exportCsv} disabled={!metrics || metrics.totalSent === 0}>{t('analytics.export')}</Button>
         </Stack>
       </Stack>

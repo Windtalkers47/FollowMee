@@ -1,5 +1,5 @@
 -- FollowMee clean schema
--- Schema version: 2026-08-04 / Single-organization ownership and task hardening
+-- Schema version: 2026-08-10 / Productivity, invitations, profiles and season results
 -- MySQL 8.0+ / MariaDB 10.6+
 --
 -- WARNING: This script drops every FollowMee table and all data in it.
@@ -14,6 +14,14 @@ USE `followmee`;
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 
+DROP TABLE IF EXISTS `outbox_events`;
+DROP TABLE IF EXISTS `reward_season_results`;
+DROP TABLE IF EXISTS `customer_activities`;
+DROP TABLE IF EXISTS `task_checklist_items`;
+DROP TABLE IF EXISTS `task_recurrence_rules`;
+DROP TABLE IF EXISTS `task_templates`;
+DROP TABLE IF EXISTS `user_saved_views`;
+DROP TABLE IF EXISTS `organization_invitations`;
 DROP TABLE IF EXISTS `reward_redemptions`;
 DROP TABLE IF EXISTS `reward_catalog_items`;
 DROP TABLE IF EXISTS `mission_progress_events`;
@@ -66,6 +74,7 @@ CREATE TABLE `users` (
   `userPhone1` VARCHAR(20) NULL,
   `userPhone2` VARCHAR(20) NULL,
   `userImageUrl` VARCHAR(500) NULL,
+  `imageCrop` JSON NULL,
   `isActive` TINYINT(1) NOT NULL DEFAULT 1,
   `resetToken` VARCHAR(255) NULL,
   `resetTokenExpires` DATETIME NULL,
@@ -102,6 +111,7 @@ CREATE TABLE `customers` (
   `customerX` VARCHAR(255) NULL,
   `customerAddress` VARCHAR(500) NULL,
   `customerImageUrl` VARCHAR(512) NULL,
+  `imageCrop` JSON NULL,
   `status` ENUM('active', 'inactive', 'canceled') NOT NULL DEFAULT 'active',
   `isActive` TINYINT(1) NOT NULL DEFAULT 1,
   `deletedAt` DATETIME NULL,
@@ -113,6 +123,7 @@ CREATE TABLE `customers` (
   KEY `idx_customers_owner` (`userId`),
   KEY `idx_customers_assigned_to` (`assignedTo`),
   KEY `idx_customers_status_deleted` (`status`, `deletedAt`),
+  KEY `idx_customers_status_created` (`status`, `createdAt`, `customerId`),
   KEY `idx_customers_name` (`customerName`, `customerLastName`),
   CONSTRAINT `fk_customers_owner`
     FOREIGN KEY (`userId`) REFERENCES `users` (`userId`)
@@ -124,6 +135,14 @@ CREATE TABLE `customers` (
 
 -- Customer ownership is resource-scoped. Public profiles are an explicit publishing
 -- layer with independent lifecycle, privacy controls and analytics.
+CREATE TABLE `customer_activities` (
+  `activityId` BIGINT NOT NULL AUTO_INCREMENT, `customerId` VARCHAR(36) NOT NULL, `actorUserId` INT NULL,
+  `activityType` VARCHAR(60) NOT NULL, `metadata` JSON NULL, `createdAt` TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (`activityId`), KEY `idx_customer_activity` (`customerId`,`createdAt`),
+  CONSTRAINT `fk_customer_activity_customer` FOREIGN KEY (`customerId`) REFERENCES `customers` (`customerId`) ON DELETE CASCADE,
+  CONSTRAINT `fk_customer_activity_actor` FOREIGN KEY (`actorUserId`) REFERENCES `users` (`userId`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE `public_profiles` (
   `profileId` VARCHAR(36) NOT NULL,
   `userId` INT NOT NULL,
@@ -135,6 +154,7 @@ CREATE TABLE `public_profiles` (
   `headline` VARCHAR(140) NULL,
   `bio` VARCHAR(500) NULL,
   `avatarUrl` VARCHAR(512) NULL,
+  `imageCrop` JSON NULL,
   `templateKey` VARCHAR(32) NOT NULL DEFAULT 'soft-mint',
   `themeConfig` JSON NULL,
   `status` ENUM('draft', 'published') NOT NULL DEFAULT 'draft',
@@ -250,12 +270,72 @@ CREATE TABLE `role_permissions` (
     ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE `outbox_events` (
+  `eventId` BIGINT NOT NULL AUTO_INCREMENT, `eventType` VARCHAR(100) NOT NULL, `aggregateType` VARCHAR(60) NULL,
+  `aggregateId` VARCHAR(100) NULL, `payload` JSON NOT NULL, `idempotencyKey` VARCHAR(190) NOT NULL,
+  `status` ENUM('pending','processing','processed','failed') NOT NULL DEFAULT 'pending', `attempts` INT NOT NULL DEFAULT 0,
+  `nextAttemptAt` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, `lockedAt` DATETIME NULL, `processedAt` DATETIME NULL,
+  `lastError` VARCHAR(1000) NULL, `createdAt` TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updatedAt` TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (`eventId`), UNIQUE KEY `uq_outbox_idempotency` (`idempotencyKey`), KEY `idx_outbox_claim` (`status`,`nextAttemptAt`,`eventId`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `organization_invitations` (
+  `invitationId` BIGINT NOT NULL AUTO_INCREMENT, `email` VARCHAR(191) NOT NULL, `tokenHash` CHAR(64) NOT NULL,
+  `roleId` INT NULL, `invitedBy` INT NOT NULL, `status` ENUM('pending','accepted','expired','revoked') NOT NULL DEFAULT 'pending',
+  `expiresAt` DATETIME NOT NULL, `acceptedAt` DATETIME NULL, `revokedAt` DATETIME NULL,
+  `createdAt` TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6), `updatedAt` TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (`invitationId`), UNIQUE KEY `uq_invitation_token` (`tokenHash`), KEY `idx_invitation_email_status` (`email`,`status`),
+  CONSTRAINT `fk_invitation_role` FOREIGN KEY (`roleId`) REFERENCES `roles` (`roleId`) ON DELETE SET NULL,
+  CONSTRAINT `fk_invitation_inviter` FOREIGN KEY (`invitedBy`) REFERENCES `users` (`userId`) ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `user_saved_views` (
+  `viewId` BIGINT NOT NULL AUTO_INCREMENT, `userId` INT NOT NULL, `pageKey` VARCHAR(60) NOT NULL, `name` VARCHAR(80) NOT NULL,
+  `filters` JSON NOT NULL, `sort` JSON NULL, `isDefault` TINYINT(1) NOT NULL DEFAULT 0,
+  `createdAt` TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6), `updatedAt` TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (`viewId`), UNIQUE KEY `uq_saved_view_name` (`userId`,`pageKey`,`name`),
+  CONSTRAINT `fk_saved_view_user` FOREIGN KEY (`userId`) REFERENCES `users` (`userId`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `task_templates` (
+  `templateId` BIGINT NOT NULL AUTO_INCREMENT, `name` VARCHAR(100) NOT NULL, `title` VARCHAR(255) NOT NULL, `description` TEXT NULL,
+  `priority` ENUM('low','normal','high','urgent') NOT NULL DEFAULT 'normal', `defaultAssigneeId` INT NULL,
+  `watcherIds` JSON NULL, `checklist` JSON NULL, `visibility` ENUM('private','organization') NOT NULL DEFAULT 'private',
+  `createdBy` INT NOT NULL, `isActive` TINYINT(1) NOT NULL DEFAULT 1, `createdAt` TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updatedAt` TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6), PRIMARY KEY (`templateId`),
+  KEY `idx_task_template_owner` (`createdBy`,`visibility`,`isActive`),
+  CONSTRAINT `fk_task_template_creator` FOREIGN KEY (`createdBy`) REFERENCES `users` (`userId`) ON DELETE RESTRICT,
+  CONSTRAINT `fk_task_template_assignee` FOREIGN KEY (`defaultAssigneeId`) REFERENCES `users` (`userId`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `task_recurrence_rules` (
+  `recurrenceRuleId` BIGINT NOT NULL AUTO_INCREMENT, `templateId` BIGINT NOT NULL, `cadence` ENUM('daily','weekly','monthly') NOT NULL,
+  `intervalValue` INT NOT NULL DEFAULT 1, `weekdays` JSON NULL, `dayOfMonth` TINYINT NULL, `localTime` TIME NOT NULL,
+  `timezone` VARCHAR(60) NOT NULL DEFAULT 'Asia/Bangkok', `startsOn` DATE NOT NULL, `endsOn` DATE NULL, `nextRunAt` DATETIME NOT NULL,
+  `lastGeneratedAt` DATETIME NULL, `status` ENUM('active','paused','completed') NOT NULL DEFAULT 'active', `createdBy` INT NOT NULL,
+  `createdAt` TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6), `updatedAt` TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (`recurrenceRuleId`), KEY `idx_recurrence_due` (`status`,`nextRunAt`),
+  CONSTRAINT `fk_recurrence_template` FOREIGN KEY (`templateId`) REFERENCES `task_templates` (`templateId`) ON DELETE CASCADE,
+  CONSTRAINT `fk_recurrence_creator` FOREIGN KEY (`createdBy`) REFERENCES `users` (`userId`) ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE `tasks` (
   `taskId` VARCHAR(36) NOT NULL,
   `title` VARCHAR(255) NOT NULL,
   `description` TEXT NULL,
   `assignedTo` INT NULL,
   `createdBy` INT NOT NULL,
+  `duplicatedFromTaskId` VARCHAR(36) NULL,
+  `templateId` BIGINT NULL,
+  `recurrenceRuleId` BIGINT NULL,
+  `scheduledFor` DATETIME NULL,
+  `occurrenceKey` VARCHAR(180) NULL,
+  `blockedReason` VARCHAR(500) NULL,
+  `blockedAt` DATETIME NULL,
+  `blockedBy` INT NULL,
+  `completedBy` INT NULL,
+  `approvedBy` INT NULL,
   `priority` ENUM('low','normal','high','urgent') NOT NULL DEFAULT 'normal',
   `version` INT NOT NULL DEFAULT 1,
   `startDate` DATETIME NULL,
@@ -277,16 +357,37 @@ CREATE TABLE `tasks` (
   KEY `idx_tasks_creator_created` (`createdBy`, `createdAt`),
   KEY `idx_tasks_status_deleted_due` (`status`, `deletedAt`, `dueDate`),
   KEY `idx_tasks_leaderboard` (`status`, `assignedTo`, `completionScore`, `completedAt`),
+  UNIQUE KEY `uq_tasks_occurrence_key` (`occurrenceKey`),
+  KEY `idx_tasks_duplicate_source` (`duplicatedFromTaskId`),
+  KEY `idx_tasks_recurrence` (`recurrenceRuleId`,`scheduledFor`),
+  KEY `idx_tasks_active_updated` (`isActive`, `updatedAt`, `taskId`),
+  KEY `idx_tasks_assignee_active_status_updated` (`assignedTo`, `isActive`, `status`, `updatedAt`, `taskId`),
   CONSTRAINT `fk_tasks_assignee`
     FOREIGN KEY (`assignedTo`) REFERENCES `users` (`userId`)
     ON DELETE SET NULL ON UPDATE CASCADE,
   CONSTRAINT `fk_tasks_creator`
     FOREIGN KEY (`createdBy`) REFERENCES `users` (`userId`)
     ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT `fk_tasks_duplicate_source` FOREIGN KEY (`duplicatedFromTaskId`) REFERENCES `tasks` (`taskId`) ON DELETE SET NULL,
+  CONSTRAINT `fk_tasks_template` FOREIGN KEY (`templateId`) REFERENCES `task_templates` (`templateId`) ON DELETE SET NULL,
+  CONSTRAINT `fk_tasks_recurrence` FOREIGN KEY (`recurrenceRuleId`) REFERENCES `task_recurrence_rules` (`recurrenceRuleId`) ON DELETE SET NULL,
+  CONSTRAINT `fk_tasks_blocked_by` FOREIGN KEY (`blockedBy`) REFERENCES `users` (`userId`) ON DELETE SET NULL,
+  CONSTRAINT `fk_tasks_completed_by` FOREIGN KEY (`completedBy`) REFERENCES `users` (`userId`) ON DELETE SET NULL,
+  CONSTRAINT `fk_tasks_approved_by` FOREIGN KEY (`approvedBy`) REFERENCES `users` (`userId`) ON DELETE SET NULL,
   CONSTRAINT `chk_tasks_date_range`
     CHECK (`startDate` IS NULL OR `endDate` IS NULL OR `endDate` >= `startDate`),
   CONSTRAINT `chk_tasks_completion_score` CHECK (`completionScore` >= 0),
   CONSTRAINT `chk_tasks_reopened_count` CHECK (`reopenedCount` >= 0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `task_checklist_items` (
+  `checklistItemId` BIGINT NOT NULL AUTO_INCREMENT, `taskId` VARCHAR(36) NOT NULL, `label` VARCHAR(255) NOT NULL,
+  `isRequired` TINYINT(1) NOT NULL DEFAULT 0, `sortOrder` INT NOT NULL DEFAULT 0, `isCompleted` TINYINT(1) NOT NULL DEFAULT 0,
+  `completedBy` INT NULL, `completedAt` DATETIME NULL, `createdAt` TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updatedAt` TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6), PRIMARY KEY (`checklistItemId`),
+  KEY `idx_task_checklist` (`taskId`,`sortOrder`),
+  CONSTRAINT `fk_task_checklist_task` FOREIGN KEY (`taskId`) REFERENCES `tasks` (`taskId`) ON DELETE CASCADE,
+  CONSTRAINT `fk_task_checklist_completer` FOREIGN KEY (`completedBy`) REFERENCES `users` (`userId`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `task_watchers` (
@@ -511,7 +612,11 @@ CREATE TABLE `user_notification_settings` (
   `emailEnabled` TINYINT(1) NOT NULL DEFAULT 0,
   `pushEnabled` TINYINT(1) NOT NULL DEFAULT 1,
   `doNotDisturbEnabled` TINYINT(1) NOT NULL DEFAULT 0,
-  `digestMode` ENUM('none', 'hourly', 'daily') NOT NULL DEFAULT 'none',
+  `digestMode` ENUM('none', 'hourly', 'daily', 'weekly') NOT NULL DEFAULT 'none',
+  `digestDay` TINYINT NULL,
+  `digestTime` VARCHAR(5) NOT NULL DEFAULT '08:00',
+  `timezone` VARCHAR(60) NOT NULL DEFAULT 'Asia/Bangkok',
+  `lastDigestAt` DATETIME NULL,
   `quietHoursStart` TINYINT NULL DEFAULT 22,
   `quietHoursEnd` TINYINT NULL DEFAULT 7,
   `priorityFilter` ENUM('all', 'high', 'none') NOT NULL DEFAULT 'all',
@@ -535,6 +640,10 @@ CREATE TABLE `user_preferences` (
   `locale` ENUM('en', 'th') NOT NULL DEFAULT 'en',
   `brandTheme` ENUM('purple', 'green') NOT NULL DEFAULT 'purple',
   `colorMode` ENUM('light', 'dark', 'system') NOT NULL DEFAULT 'system',
+  `selectedAuraKey` VARCHAR(60) NULL,
+  `profileCardMotion` ENUM('full','subtle','off') NOT NULL DEFAULT 'subtle',
+  `shareDefaults` JSON NULL,
+  `privacyDefaults` JSON NULL,
   `createdAt` TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   `updatedAt` TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)
     ON UPDATE CURRENT_TIMESTAMP(6),
@@ -652,6 +761,15 @@ CREATE TABLE `reward_seasons` (
   KEY `idx_reward_season_dates` (`startsAt`, `endsAt`, `status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE `reward_season_results` (
+  `resultId` BIGINT NOT NULL AUTO_INCREMENT, `seasonId` INT NOT NULL, `userId` INT NOT NULL, `rankValue` INT NOT NULL,
+  `score` INT NOT NULL, `completedTasks` INT NOT NULL DEFAULT 0, `onTimeTasks` INT NOT NULL DEFAULT 0,
+  `firstPassTasks` INT NOT NULL DEFAULT 0, `lastScoredAt` DATETIME NULL, `finalizedAt` DATETIME NOT NULL,
+  PRIMARY KEY (`resultId`), UNIQUE KEY `uq_season_result_user` (`seasonId`,`userId`), UNIQUE KEY `uq_season_result_rank` (`seasonId`,`rankValue`),
+  CONSTRAINT `fk_season_result_season` FOREIGN KEY (`seasonId`) REFERENCES `reward_seasons` (`seasonId`) ON DELETE CASCADE,
+  CONSTRAINT `fk_season_result_user` FOREIGN KEY (`userId`) REFERENCES `users` (`userId`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE `reward_wallets` (
   `userId` INT NOT NULL, `availablePoints` INT NOT NULL DEFAULT 0, `reservedPoints` INT NOT NULL DEFAULT 0,
   `lifetimeEarned` INT NOT NULL DEFAULT 0,
@@ -676,7 +794,7 @@ CREATE TABLE `reward_point_ledger` (
 
 CREATE TABLE `reward_badges` (
   `badgeId` INT NOT NULL AUTO_INCREMENT, `badgeKey` VARCHAR(60) NOT NULL, `nameKey` VARCHAR(120) NOT NULL,
-  `descriptionKey` VARCHAR(120) NOT NULL, `icon` VARCHAR(40) NOT NULL, `isActive` TINYINT(1) NOT NULL DEFAULT 1,
+  `descriptionKey` VARCHAR(120) NOT NULL, `icon` VARCHAR(40) NOT NULL, `auraKey` VARCHAR(60) NULL, `rankValue` TINYINT NULL, `isActive` TINYINT(1) NOT NULL DEFAULT 1,
   PRIMARY KEY (`badgeId`), UNIQUE KEY `uq_reward_badge_key` (`badgeKey`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -795,7 +913,9 @@ INSERT INTO `migrations` (`timestamp`, `name`) VALUES
   (1797000000000, 'AddProfileChangedNotificationPreference1797000000000'),
   (1798000000000, 'OwnerOrganizationRewards1798000000000'),
   (1799000000000, 'TeamsAndTaskHardening1799000000000'),
-  (1800000000000, 'SingleOrganizationOwnership1800000000000');
+  (1800000000000, 'SingleOrganizationOwnership1800000000000'),
+  (1810000000000, 'ProductivityEngagementFoundation1810000000000'),
+  (1820000000000, 'OptimizeWorkLists1820000000000');
 
 INSERT INTO `roles` (`roleName`, `description`, `roleLevel`) VALUES
   ('Owner', 'System owner with full access and ownership transfer authority', 999),
@@ -817,7 +937,9 @@ INSERT INTO `permissions` (`permissionName`, `description`) VALUES
   ('PUBLISH_PROFILES', 'Publish, unpublish and delete organization profiles'),
   ('MANAGE_REWARDS', 'Manage reward settings, catalog, missions and redemptions'),
   ('VIEW_NOTIFICATION_ANALYTICS', 'View organization notification analytics'),
-  ('MANAGE_NOTIFICATION_SYSTEM', 'Manage notification delivery and retention');
+  ('MANAGE_NOTIFICATION_SYSTEM', 'Manage notification delivery and retention'),
+  ('VIEW_ORGANIZATION_ANALYTICS', 'View organization-wide analytics');
+
 
 INSERT INTO `role_permissions` (`roleId`, `permissionId`)
 SELECT r.`roleId`, p.`permissionId`

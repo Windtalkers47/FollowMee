@@ -407,6 +407,16 @@ export class DashboardService {
       userRank
     };
   }
+
+  async getOverview(userId: number, range: TimeRange = '1d', limit = 5) {
+    const [stats, leaderboard, pendingTasks] = await Promise.all([
+      this.getDashboardStats(userId, range),
+      this.getLeaderboard(limit),
+      this.getPendingTasks(userId, limit),
+    ]);
+    leaderboard.myRank = stats.userRank;
+    return { stats, leaderboard, pendingTasks };
+  }
 }
 
 export default new DashboardService();

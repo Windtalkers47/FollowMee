@@ -31,6 +31,7 @@ interface TaskCardLiquidProps {
   onStartProgress?: (taskId: string) => void;
   onCancel?: (taskId: string) => void;
   onUpdateTaskStatus?: (taskId: string, status: Task['status']) => void;
+  onDuplicate?: (task: Task) => void;
   showActions?: boolean;
   compact?: boolean;
   showWorkflowActions?: boolean;
@@ -52,6 +53,7 @@ const TaskCardLiquid: React.FC<TaskCardLiquidProps> = ({
   onStartProgress,
   onCancel,
   onUpdateTaskStatus,
+  onDuplicate,
   showActions = true,
   compact = false,
   showWorkflowActions = true,
@@ -218,6 +220,7 @@ const TaskCardLiquid: React.FC<TaskCardLiquidProps> = ({
         onDelete={onDelete}
         onCancel={onCancel}
         onUpdateTaskStatus={onUpdateTaskStatus}
+        onDuplicate={onDuplicate}
       />
 
       {/* Comments Section */}

@@ -55,6 +55,12 @@ export interface TaskWorkflowCapabilities {
   canRequestChanges: boolean;
   canCancel: boolean;
   canOwnerOverride: boolean;
+  canDuplicate: boolean;
+  canManageChecklist: boolean;
+  canToggleChecklist: boolean;
+  canManageRecurrence: boolean;
+  canSaveTemplate: boolean;
+  canSetBlocked: boolean;
   primaryAction: 'start' | 'submit_review' | 'review' | 'view';
   nextActor?: {
     userId: number;
@@ -103,6 +109,12 @@ export const getTaskWorkflowCapabilities = (
     canRequestChanges: canApprove,
     canCancel: (isCreator || canOwnerOverride) && status !== 'done' && status !== 'cancelled',
     canOwnerOverride,
+    canDuplicate: isCreator || canOwnerOverride,
+    canManageChecklist: (isCreator || canOwnerOverride) && status !== 'done' && status !== 'cancelled',
+    canToggleChecklist: (isCreator || isAssignee || canOwnerOverride) && status !== 'done' && status !== 'cancelled',
+    canManageRecurrence: isCreator || canOwnerOverride,
+    canSaveTemplate: isCreator || canOwnerOverride,
+    canSetBlocked: (isCreator || isAssignee || canOwnerOverride) && status !== 'done' && status !== 'cancelled',
     primaryAction: status === 'todo' && isAssignee
       ? 'start'
       : canSubmitReview

@@ -7,6 +7,7 @@ import {
   Button,
   Card,
   CardContent,
+  Checkbox,
   Chip,
   CircularProgress,
   Dialog,
@@ -20,9 +21,13 @@ import {
   StepLabel,
   Stepper,
   TextField,
+  FormControl,
+  InputLabel,
+  MenuItem,
+  Select,
   Typography,
 } from '@mui/material';
-import { ArrowBack, CheckCircle, Replay } from '@mui/icons-material';
+import { ArrowBack, Block, CheckCircle, ContentCopy, Replay, Save, Repeat } from '@mui/icons-material';
 import { commentApi, taskApi, Task } from '../../api/task.api';
 import { useUserPreferences } from '../../contexts/UserPreferencesContext';
 import feedback from '../../services/feedback.service';
@@ -46,6 +51,10 @@ const TaskDetailPage = () => {
   const { t } = useUserPreferences();
   const [changesOpen, setChangesOpen] = useState(false);
   const [reason, setReason] = useState('');
+  const [blockOpen, setBlockOpen] = useState(false);
+  const [blockReason, setBlockReason] = useState('');
+  const [recurrenceOpen, setRecurrenceOpen] = useState(false);
+  const [recurrence, setRecurrence] = useState({ cadence: 'weekly' as 'daily' | 'weekly' | 'monthly', intervalValue: 1, localTime: '09:00', startsOn: '' });
 
   const taskQuery = useQuery({
     queryKey: ['task-detail', taskId],
@@ -97,6 +106,43 @@ const TaskDetailPage = () => {
     onError: () => feedback.error(t('feedback.failed'), t('feedback.tryAgain')),
   });
 
+  const duplicateMutation = useMutation({
+    mutationFn: () => taskApi.duplicateTask(taskId),
+    onSuccess: result => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      navigate(`/tasks/${result.taskId}`);
+      feedback.success('Task duplicated', 'A private draft was created without assignee, dates, comments, or rewards.');
+    },
+    onError: () => feedback.error(t('feedback.failed'), t('feedback.tryAgain')),
+  });
+
+  const checklistMutation = useMutation({
+    mutationFn: ({ itemId, completed }: { itemId: number; completed: boolean }) => taskApi.toggleChecklist(taskId, itemId, completed),
+    onSuccess: checklist => queryClient.setQueryData(['task-detail', taskId], (current: Task | undefined) => current ? { ...current, checklist } : current),
+    onError: () => feedback.error(t('feedback.failed'), t('feedback.tryAgain')),
+  });
+
+  const blockedMutation = useMutation({
+    mutationFn: ({ blocked, reason, version }: { blocked: boolean; reason: string; version: number }) => taskApi.setBlocked(taskId, blocked, reason, version),
+    onSuccess: async () => {
+      setBlockOpen(false);
+      setBlockReason('');
+      await taskQuery.refetch();
+      queryClient.invalidateQueries({ queryKey: ['my-work'] });
+    },
+    onError: () => feedback.error(t('feedback.failed'), t('feedback.tryAgain')),
+  });
+  const templateMutation = useMutation({
+    mutationFn: async ({ recurring }: { recurring: boolean }) => {
+      const current = taskQuery.data!;
+      const template = await taskApi.createTemplate({ name: current.title, title: current.title, description: current.description || undefined, priority: current.priority, defaultAssigneeId: current.assignedTo, checklist: (current.checklist || []).map(item => ({ label: item.label, isRequired: item.isRequired })), visibility: 'private' });
+      if (recurring) await taskApi.createRecurrence({ templateId: template.templateId, ...recurrence, weekdays: recurrence.cadence === 'weekly' ? [new Date(`${recurrence.startsOn}T00:00:00+07:00`).getDay()] : undefined, dayOfMonth: recurrence.cadence === 'monthly' ? new Date(`${recurrence.startsOn}T00:00:00+07:00`).getDate() : undefined });
+      return recurring;
+    },
+    onSuccess: recurring => { setRecurrenceOpen(false); feedback.success(recurring ? 'Recurring task created' : 'Template saved', recurring ? 'Occurrences use Asia/Bangkok time and are protected from duplicates.' : 'The private template is ready to reuse.'); },
+    onError: () => feedback.error(t('feedback.failed'), t('feedback.tryAgain')),
+  });
+
   const handleApprove = async () => {
     const result = await feedback.fire({
       icon: 'question',
@@ -128,21 +174,40 @@ const TaskDetailPage = () => {
             <Box>
               <Stack direction="row" gap={1} alignItems="center" flexWrap="wrap">
                 <Typography variant="h4" fontWeight={750}>{task.title}</Typography>
-                <Chip label={task.status.replace('_', ' ')} color={task.status === 'review' ? 'warning' : task.status === 'done' ? 'success' : 'primary'} />
+                <Chip label={t(statusKeys[task.status])} color={task.status === 'review' ? 'warning' : task.status === 'done' ? 'success' : 'primary'} />
               </Stack>
               <Typography color="text.secondary" sx={{ mt: 1 }}>{task.description || t('myWork.noDescription')}</Typography>
             </Box>
-            {task.workflow?.canApprove && (
-              <Stack direction={{ xs: 'column', sm: 'row' }} gap={1} alignSelf={{ sm: 'flex-start' }}>
+            <Stack direction={{ xs: 'column', sm: 'row' }} gap={1} alignSelf={{ sm: 'flex-start' }}>
+              {task.workflow?.canDuplicate && (
+                <Button variant="outlined" startIcon={<ContentCopy />} onClick={() => duplicateMutation.mutate()} disabled={duplicateMutation.isPending}>
+                  {t('feature.duplicate')}
+                </Button>
+              )}
+              {task.workflow?.canSaveTemplate && <Button variant="outlined" startIcon={<Save />} disabled={templateMutation.isPending} onClick={() => templateMutation.mutate({ recurring: false })}>{t('feature.saveTemplate')}</Button>}
+              {task.workflow?.canManageRecurrence && <Button variant="outlined" startIcon={<Repeat />} onClick={() => setRecurrenceOpen(true)}>{t('feature.repeat')}</Button>}
+              {task.workflow?.canSetBlocked && (
+                <Button variant="outlined" color={task.blockedAt ? 'success' : 'warning'} startIcon={<Block />} onClick={() => task.blockedAt ? blockedMutation.mutate({ blocked: false, reason: '', version: task.version }) : setBlockOpen(true)}>
+                  {task.blockedAt ? t('feature.unblock') : t('feature.markBlocked')}
+                </Button>
+              )}
+              {task.workflow?.canApprove && (<>
                 <Button variant="outlined" color="warning" startIcon={<Replay />} onClick={() => setChangesOpen(true)}>
                   {t('taskDetail.requestChanges')}
                 </Button>
                 <Button variant="contained" color="success" startIcon={<CheckCircle />} onClick={handleApprove} disabled={approveMutation.isPending}>
                   {t('taskDetail.approve')}
                 </Button>
-              </Stack>
-            )}
+              </>)}
+            </Stack>
           </Stack>
+
+          {task.duplicatedFromTask && (
+            <Alert severity="info" sx={{ mt: 2 }} action={<Button size="small" onClick={() => navigate(`/tasks/${task.duplicatedFromTask!.taskId}`)}>{t('feature.viewSource')}</Button>}>
+              {t('feature.duplicatedFrom', { title: task.duplicatedFromTask.title })}
+            </Alert>
+          )}
+          {task.blockedAt && <Alert severity="warning" sx={{ mt: 2 }}>{t('feature.blockedReasonValue', { reason: task.blockedReason || '' })}</Alert>}
 
           <Divider sx={{ my: 3 }} />
           <Typography variant="subtitle1" fontWeight={700} mb={1}>{t('taskDetail.workflow')}</Typography>
@@ -161,6 +226,25 @@ const TaskDetailPage = () => {
 
       <Grid container spacing={2}>
         <Grid size={{ xs: 12, md: 8 }}>
+          {(task.checklist || []).length > 0 && (
+            <Card variant="outlined" sx={{ borderRadius: 3, mb: 2 }}>
+              <CardContent>
+                <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1}>
+                  <Typography variant="h6" fontWeight={700}>{t('feature.checklist')}</Typography>
+                  <Chip size="small" label={`${task.checklist?.filter(item => item.isCompleted).length || 0}/${task.checklist?.length || 0}`} />
+                </Stack>
+                <Stack spacing={0.5}>
+                  {task.checklist?.map(item => (
+                    <Stack key={item.checklistItemId} direction="row" alignItems="center">
+                      <Checkbox checked={item.isCompleted} disabled={!task.workflow?.canToggleChecklist || checklistMutation.isPending} onChange={(_, completed) => checklistMutation.mutate({ itemId: item.checklistItemId, completed })} />
+                      <Typography sx={{ textDecoration: item.isCompleted ? 'line-through' : 'none', color: item.isCompleted ? 'text.secondary' : 'text.primary' }}>{item.label}</Typography>
+                      {item.isRequired && <Chip size="small" color="warning" variant="outlined" label={t('feature.required')} sx={{ ml: 'auto' }} />}
+                    </Stack>
+                  ))}
+                </Stack>
+              </CardContent>
+            </Card>
+          )}
           {(task.images || []).length > 0 && (
             <Card variant="outlined" sx={{ borderRadius: 3, mb: 2 }}>
               <CardContent>
@@ -235,6 +319,11 @@ const TaskDetailPage = () => {
                   <Typography>{task.endDate ? dateFormatter.format(new Date(task.endDate)) : '-'}</Typography>
                 </Box>
               </Stack>
+              {task.status === 'done' && (
+                <Alert severity="success" sx={{ mt: 2 }}>
+                  {t('feature.completedSnapshot', { done: task.checklist?.filter(item => item.isCompleted).length || 0, total: task.checklist?.length || 0 })}
+                </Alert>
+              )}
             </CardContent>
           </Card>
         </Grid>
@@ -262,6 +351,21 @@ const TaskDetailPage = () => {
             {t('taskDetail.sendBack')}
           </Button>
         </DialogActions>
+      </Dialog>
+
+      <Dialog open={blockOpen} onClose={() => !blockedMutation.isPending && setBlockOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>{t('feature.markBlocked')}</DialogTitle>
+        <DialogContent>
+          <Typography color="text.secondary" sx={{ mb: 2 }}>{t('feature.blockedHelp')}</Typography>
+          <TextField autoFocus required multiline minRows={3} fullWidth label={t('feature.blockedReason')} value={blockReason} inputProps={{ maxLength: 500 }} onChange={event => setBlockReason(event.target.value)} />
+        </DialogContent>
+        <DialogActions>
+          <Button color="inherit" onClick={() => setBlockOpen(false)}>{t('common.cancel')}</Button>
+          <Button variant="contained" color="warning" disabled={!blockReason.trim() || blockedMutation.isPending} onClick={() => blockedMutation.mutate({ blocked: true, reason: blockReason, version: task.version })}>{t('feature.markBlocked')}</Button>
+        </DialogActions>
+      </Dialog>
+      <Dialog open={recurrenceOpen} onClose={() => !templateMutation.isPending && setRecurrenceOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>{t('feature.createRecurring')}</DialogTitle><DialogContent><Stack gap={2} mt={1}><FormControl><InputLabel>{t('feature.frequency')}</InputLabel><Select label={t('feature.frequency')} value={recurrence.cadence} onChange={event => setRecurrence(value => ({ ...value, cadence: event.target.value as typeof value.cadence }))}><MenuItem value="daily">{t('feature.daily')}</MenuItem><MenuItem value="weekly">{t('feature.weekly')}</MenuItem><MenuItem value="monthly">{t('feature.monthly')}</MenuItem></Select></FormControl><TextField type="number" label={t('feature.every')} value={recurrence.intervalValue} inputProps={{ min: 1, max: 365 }} onChange={event => setRecurrence(value => ({ ...value, intervalValue: Math.max(1, Number(event.target.value)) }))} /><TextField type="date" label={t('feature.startDate')} InputLabelProps={{ shrink: true }} value={recurrence.startsOn} onChange={event => setRecurrence(value => ({ ...value, startsOn: event.target.value }))} /><TextField type="time" label={t('feature.bangkokTime')} InputLabelProps={{ shrink: true }} value={recurrence.localTime} onChange={event => setRecurrence(value => ({ ...value, localTime: event.target.value }))} /></Stack></DialogContent><DialogActions><Button onClick={() => setRecurrenceOpen(false)}>{t('common.cancel')}</Button><Button variant="contained" disabled={templateMutation.isPending || !recurrence.startsOn} onClick={() => templateMutation.mutate({ recurring: true })}>{t('feature.createRecurrence')}</Button></DialogActions>
       </Dialog>
     </Box>
   );

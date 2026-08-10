@@ -30,6 +30,7 @@ export interface CustomerData {
   isActive: boolean;
   status: CustomerStatus;
   customerImageUrl?: string | null;
+  imageCrop?: { x: number; y: number; zoom: number; rotation: number } | null;
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import React from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
@@ -28,6 +28,8 @@ import {
   FormControl,
   InputLabel,
   Stack,
+  ToggleButton,
+  ToggleButtonGroup,
 } from '@mui/material';
 import {
   Settings as SettingsIcon,
@@ -49,6 +51,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAppSelector } from '../../store/store';
 import { taskApi, likeApi, commentApi, Task, TaskLikeSummary, UserRank, UpdateTaskData } from '../../api/task.api';
 import { rewardApi } from '../../api/reward.api';
+import { toPng } from 'html-to-image';
+import AchievementShareCard, { type AchievementShareEntry } from '../../components/AchievementShareCard';
+import DuplicateTaskDialog from '../../components/DuplicateTaskDialog';
 import { userApi } from '../../api/user.api';
 import TaskCard from '../../components/TaskCard';
 import TaskCardLiquid from '../../components/TaskCard/TaskCardLiquid';
@@ -107,6 +112,7 @@ interface TaskFeedCardProps {
   onStartProgress?: (taskId: string) => void;
   onCancel?: (taskId: string) => void;
   onUpdateTaskStatus?: (taskId: string, status: Task['status']) => void;
+  onDuplicate?: (task: Task) => void;
 }
 
 const getEmbeddedLikeSummary = (task: Task): TaskLikeSummary | undefined => {
@@ -136,6 +142,7 @@ const TaskFeedCard: React.FC<TaskFeedCardProps> = ({
   onStartProgress,
   onCancel,
   onUpdateTaskStatus,
+  onDuplicate,
 }) => {
   const { user } = useAppSelector((state) => state.auth);
 
@@ -144,7 +151,7 @@ const TaskFeedCard: React.FC<TaskFeedCardProps> = ({
     task,
   });
 
-  const showActions = hasAnyPermission(permissions);
+  const showActions = hasAnyPermission(permissions) || Boolean(task.workflow?.canDuplicate);
 
   // Use Liquid Glass TaskCard for better UI experience
   return (
@@ -163,6 +170,7 @@ const TaskFeedCard: React.FC<TaskFeedCardProps> = ({
       onStartProgress={onStartProgress}
       onCancel={onCancel}
       onUpdateTaskStatus={onUpdateTaskStatus}
+      onDuplicate={onDuplicate}
       showActions={showActions}
       compact={false} // Use full width for better social media feel
       showWorkflowActions={false}
@@ -179,6 +187,7 @@ const PostsPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [taskLikeSummaries, setTaskLikeSummaries] = useState<Record<string, TaskLikeSummary>>({});
   const [isSearching, setIsSearching] = useState(false);
+  const [duplicateTask, setDuplicateTask] = useState<Task | null>(null);
   const [doneDialogOpen, setDoneDialogOpen] = useState(false);
   const [doneTaskData, setDoneTaskData] = useState<{ task: Task; newRank: UserRank } | null>(null);
   const [undoneDialogOpen, setUndoneDialogOpen] = useState(false);
@@ -556,6 +565,30 @@ const PostsPage = () => {
   const bookedDates = getBookedDates(editingTask);
 
   const completedTasksList = isSearching ? (searchResults?.tasks || []) : (allTasksResponse?.tasks || []);
+  const achievementRef = useRef<HTMLDivElement | null>(null);
+  const [shareFormat, setShareFormat] = useState<'square' | 'story'>('square');
+  const [isSharingAchievement, setIsSharingAchievement] = useState(false);
+  const myAchievement = rewardSummaryQuery.data?.myRank && rewardSummaryQuery.data.myRank <= 3
+    ? rewardSummaryQuery.data.leaderboard.find(entry => entry.userId === user?.userId)
+    : undefined;
+  const myAchievementEntry: AchievementShareEntry | undefined = myAchievement && rewardSummaryQuery.data?.myRank
+    ? { ...myAchievement, rank: rewardSummaryQuery.data.myRank as 1 | 2 | 3 }
+    : undefined;
+  const shareAchievement = async () => {
+    if (!achievementRef.current || !rewardSummaryQuery.data || !myAchievementEntry) return;
+    setIsSharingAchievement(true);
+    try {
+      const dataUrl = await toPng(achievementRef.current, { pixelRatio: 2, cacheBust: true, width: 540, height: shareFormat === 'story' ? 960 : 540 });
+      const blob = await (await fetch(dataUrl)).blob();
+      const file = new File([blob], `followmee-achievement-${shareFormat}.png`, { type: 'image/png' });
+      if (navigator.share && navigator.canShare?.({ files: [file] })) await navigator.share({ files: [file], title: 'My FollowMee achievement' });
+      else { const link = document.createElement('a'); link.href = dataUrl; link.download = file.name; link.click(); }
+    } catch {
+      feedback.error(t('feedback.failed'), t('feedback.tryAgain'));
+    } finally {
+      setIsSharingAchievement(false);
+    }
+  };
 
   const tabs = [
     { label: t('activity.allFilter'), key: 'all' },
@@ -613,6 +646,37 @@ const PostsPage = () => {
           </Stack>
         </Paper>
       )}
+      {rewardSummaryQuery.data && <Paper variant="outlined" sx={{ mb: 3, p: 3, borderRadius: 4 }}>
+        <Typography variant="h5" fontWeight={850}>{t('feature.seasonTopThree')}</Typography>
+        <Grid container spacing={2} alignItems="end" mt={0}>
+          {[rewardSummaryQuery.data.leaderboard[1], rewardSummaryQuery.data.leaderboard[0], rewardSummaryQuery.data.leaderboard[2]].map((entry, index) => entry && (
+            <Grid key={entry.userId} size={{ xs: 12, sm: 4 }} sx={{ order: { xs: index === 1 ? 1 : index === 0 ? 2 : 3, sm: index + 1 } }}>
+              <Paper sx={{ p: 2, minHeight: index === 1 ? 210 : 180, textAlign: 'center', borderRadius: 4, display: 'grid', placeContent: 'center', background: index === 1 ? 'radial-gradient(circle at top,#fff5bf,#fff 65%)' : 'background.paper' }}>
+                <Typography fontSize={38}>{index === 1 ? '🥇' : index === 0 ? '🥈' : '🥉'}</Typography>
+                <Typography fontWeight={900}>{entry.userName} {entry.userLastName}</Typography>
+                <Typography color="text.secondary">{rewardSummaryQuery.data.season.seasonKey}</Typography>
+                <Typography variant="h5" color="primary.main" fontWeight={850}>#{index === 1 ? 1 : index === 0 ? 2 : 3} · {t('feature.pointsShort', { score: entry.score })}</Typography>
+              </Paper>
+            </Grid>
+          ))}
+        </Grid>
+        {myAchievementEntry && <Box mt={2}>
+          <Stack direction={{ xs: 'column', sm: 'row' }} gap={1} mb={2} alignItems={{ sm: 'center' }}>
+            <ToggleButtonGroup exclusive value={shareFormat} onChange={(_, value) => value && setShareFormat(value)} size="small">
+              <ToggleButton value="square">{t('feature.square')}</ToggleButton>
+              <ToggleButton value="story">{t('feature.story')}</ToggleButton>
+            </ToggleButtonGroup>
+            <Button variant="contained" disabled={isSharingAchievement} onClick={() => void shareAchievement()}>
+              {isSharingAchievement ? <CircularProgress size={20} color="inherit" /> : t('feature.shareAchievement')}
+            </Button>
+          </Stack>
+          <Box sx={{ width: '100%', maxWidth: shareFormat === 'story' ? 360 : 540, mx: 'auto', aspectRatio: shareFormat === 'story' ? '9 / 16' : '1 / 1', overflow: 'hidden', borderRadius: 4, bgcolor: 'action.hover', position: 'relative' }}>
+            <Box sx={{ position: 'absolute', inset: 0, transformOrigin: 'top left', transform: shareFormat === 'story' ? 'scale(0.6666667)' : 'scale(min(1, calc((100vw - 64px) / 540)))', '@media (max-width: 603px)': { transform: `scale(calc((100vw - 64px) / 540))` } }}>
+              <AchievementShareCard ref={achievementRef} entry={myAchievementEntry} seasonLabel={rewardSummaryQuery.data.season.seasonKey} format={shareFormat} pointsLabel={t('feature.pointsShort', { score: myAchievementEntry.score })} brandLabel={t('feature.followMeeAchievement')} recognitionLabel={t('feature.recognizedWithFollowMee')} />
+            </Box>
+          </Box>
+        </Box>}
+      </Paper>}
 
       {/* Liquid Glass Search Section */}
       <Box sx={{ mb: 3 }}>
@@ -757,12 +821,15 @@ const PostsPage = () => {
                 onLike={handleLike}
                 onUnlike={handleUnlike}
                 onComment={handleComment}
+                onDuplicate={setDuplicateTask}
               />
             </Grid>
           ))}
         </Grid>
       )}
       
+      <DuplicateTaskDialog task={duplicateTask} open={Boolean(duplicateTask)} onClose={() => setDuplicateTask(null)} />
+
       {/* Task Done Success Dialog */}
       <Dialog
         open={doneDialogOpen}

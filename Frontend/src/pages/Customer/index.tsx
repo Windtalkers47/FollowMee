@@ -58,6 +58,8 @@ import { customerApi } from '../../api/customer.api';
 import { useUserPreferences } from '../../contexts/UserPreferencesContext';
 import { formatLocalizedDate } from '../../utils/localeFormat';
 import { normalizeSocialUrl } from '../../utils/socialUrl';
+import { useQuery } from '@tanstack/react-query';
+import { userApi } from '../../api/user.api';
 
 interface Customer extends CustomerType {}
 
@@ -182,6 +184,7 @@ const CustomerPage = () => {
   const DEFAULT_PAGE_SIZE = 25;
 
   const [searchInput, setSearchInput] = useState(filter.search || '');
+  const initialFilterSignature = useRef('');
   const [tabValue, setTabValue] = useState(0);
   const [selected, setSelected] = useState<string[]>([]);
   const [actionMenuAnchorEl, setActionMenuAnchorEl] = useState<null | HTMLElement>(null);
@@ -191,13 +194,24 @@ const CustomerPage = () => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [formApiError, setFormApiError] = useState<ApiError | null>(null);
+  const { data: activeUsers = [] } = useQuery({ queryKey: ['assignable-users'], queryFn: userApi.getAssignableUsers });
   
   const emptyRows = page > 0 ? Math.max(0, (1 + page) * pageSize - customers.length) : 0;
 
   useEffect(() => {
     const statusMap = { 0: 'all', 1: 'active', 2: 'inactive', 3: 'canceled' } as const;
-    handleFilterChange({ status: statusMap[tabValue as keyof typeof statusMap] as CustomerStatus | 'all', search: filter.search });
+    const status = statusMap[tabValue as keyof typeof statusMap] as CustomerStatus | 'all';
+    const signature = `${status}|${filter.search}|${filter.assignedTo || ''}|${filter.createdBy || ''}`;
+    if (initialFilterSignature.current === signature) return;
+    initialFilterSignature.current = signature;
+    handleFilterChange({ status, search: filter.search });
   }, [tabValue]);
+
+  useEffect(() => {
+    if (!searchInput.trim() || searchInput === filter.search) return;
+    const timer = window.setTimeout(() => handleFilterChange({ search: searchInput.trim() }), 300);
+    return () => window.clearTimeout(timer);
+  }, [searchInput, filter.search, handleFilterChange]);
 
   // ใช้ customers โดยตรงจาก API แทนการ filter ใน frontend
   // เพราะ API ส่งข้อมูลที่มี pagination มาแล้ว
@@ -296,6 +310,7 @@ const CustomerPage = () => {
         customerLine: formData.customerLine || null,
         customerX: formData.customerX || null,
         customerAddress: formData.customerAddress || null,
+        imageCrop: formData.imageCrop || null,
         status: formData.isActive ? 'active' : 'inactive',
         isActive: formData.isActive || false,
         updatedAt: new Date().toISOString(),
@@ -304,6 +319,15 @@ const CustomerPage = () => {
         ...(formData.removeImage ? { removeImage: formData.removeImage } : {}),
         ...(editingCustomer ? { createdAt: editingCustomer.createdAt } : { createdAt: new Date().toISOString() }),
       };
+      const duplicateCheck = await customerApi.checkDuplicates(payload, editingCustomer?.customerId);
+      if (duplicateCheck.emailConflict) {
+        setFormApiError({ field: 'customerEmail', message: 'This email is already used by another customer.' });
+        return;
+      }
+      if (duplicateCheck.matches.length) {
+        const confirmation = await feedback.confirm({ title: 'Possible duplicate customer', message: duplicateCheck.matches.map(match => `${match.displayName}: ${match.reasons.join(', ')}`).join('\n'), consequence: 'The data will stay separate; FollowMee will not merge records automatically.', confirmLabel: 'Save anyway', cancelLabel: t('common.cancel') });
+        if (!confirmation.isConfirmed) return;
+      }
   
       let result;
       if (editingCustomer) {
@@ -1272,7 +1296,7 @@ const CustomerPage = () => {
         {total > 50 && (
           <Box display="flex" justifyContent="flex-end" mt={4}>
             <TablePagination
-              rowsPerPageOptions={[10, 25, 50, 100]}
+              rowsPerPageOptions={[25, 50, 100]}
               component="div"
               count={total}
               rowsPerPage={pageSize}
@@ -1307,6 +1331,9 @@ const CustomerPage = () => {
       <FilterMenu 
         anchorEl={filterAnchorEl}
         onClose={() => setFilterAnchorEl(null)}
+        users={activeUsers}
+        onCreator={(createdBy) => handleFilterChange({ createdBy })}
+        onAssignee={(assignedTo) => handleFilterChange({ assignedTo })}
       />
       
       <ActionMenu

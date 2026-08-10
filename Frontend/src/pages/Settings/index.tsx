@@ -18,6 +18,7 @@ import {
   AccordionDetails,
   ToggleButton,
   ToggleButtonGroup,
+  TextField,
 } from '@mui/material';
 import {
   Settings as SettingsIcon,
@@ -69,6 +70,12 @@ const SettingsPage = () => {
     setLocale,
     setBrandTheme,
     setColorMode,
+    profileCardMotion,
+    shareDefaults,
+    privacyDefaults,
+    setProfileCardMotion,
+    setShareDefaults,
+    setPrivacyDefaults,
     t,
   } = useUserPreferences();
 
@@ -85,7 +92,7 @@ const SettingsPage = () => {
     dispatch(fetchSettings());
   }, [dispatch]);
 
-  const handleNotificationSettingChange = (setting: string, value: boolean) => {
+  const handleNotificationSettingChange = (setting: string, value: boolean | string | number | null) => {
     if (notificationSettings) {
       dispatch(updateSettings({ [setting]: value }));
     }
@@ -482,12 +489,33 @@ const SettingsPage = () => {
               }
               label={t('settings.emailNotifications')}
             />
+            <Divider sx={{ my: 1 }} />
+            <Typography variant="subtitle2" fontWeight={600}>{t('feature.notificationDigest')}</Typography>
+            <FormControl fullWidth>
+              <InputLabel>{t('feature.digest')}</InputLabel>
+              <Select label={t('feature.digest')} value={notificationSettings.digestMode || 'none'} onChange={(event) => handleNotificationSettingChange('digestMode', event.target.value)}>
+                <MenuItem value="none">{t('feature.off')}</MenuItem><MenuItem value="daily">{t('feature.daily')}</MenuItem><MenuItem value="weekly">{t('feature.weekly')}</MenuItem>
+              </Select>
+            </FormControl>
+            {notificationSettings.digestMode !== 'none' && <Box display="grid" gridTemplateColumns={{ xs: '1fr', sm: notificationSettings.digestMode === 'weekly' ? '1fr 1fr' : '1fr' }} gap={2}>
+              {notificationSettings.digestMode === 'weekly' && <FormControl><InputLabel>{t('feature.day')}</InputLabel><Select label={t('feature.day')} value={notificationSettings.digestDay ?? 1} onChange={(event) => handleNotificationSettingChange('digestDay', Number(event.target.value))}>{['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'].map((day, index) => <MenuItem key={day} value={index}>{day}</MenuItem>)}</Select></FormControl>}
+              <TextField type="time" label={t('feature.deliveryTime')} InputLabelProps={{ shrink: true }} value={notificationSettings.digestTime || '08:00'} onChange={(event) => handleNotificationSettingChange('digestTime', event.target.value)} />
+            </Box>}
           </Box>
         ) : (
           <Typography variant="body2" color="text.secondary">
             {t('settings.notificationLoadError')}
           </Typography>
         )}
+      </Paper>
+
+      <Paper sx={{ p: 3, mb: 3 }}>
+        <Typography variant="overline" color="text.secondary">{t('feature.profileSharing')}</Typography>
+        <Typography variant="h6" mb={2}>{t('feature.cardExperience')}</Typography>
+        <FormControl fullWidth sx={{ mb: 2 }}><InputLabel>{t('feature.motion')}</InputLabel><Select label={t('feature.motion')} value={profileCardMotion} onChange={(event) => savePreference(() => setProfileCardMotion(event.target.value as 'full' | 'subtle' | 'off'))}><MenuItem value="full">{t('feature.full')}</MenuItem><MenuItem value="subtle">{t('feature.subtle')}</MenuItem><MenuItem value="off">{t('feature.off')}</MenuItem></Select></FormControl>
+        <FormControlLabel control={<Switch checked={shareDefaults.badge !== false} onChange={(_, checked) => savePreference(() => setShareDefaults({ ...shareDefaults, badge: checked }))} />} label={t('feature.showBadgeShare')} />
+        <FormControlLabel control={<Switch checked={shareDefaults.score !== false} onChange={(_, checked) => savePreference(() => setShareDefaults({ ...shareDefaults, score: checked }))} />} label={t('feature.showScoreShare')} />
+        <FormControl fullWidth sx={{ mt: 2 }}><InputLabel>{t('feature.defaultVisibility')}</InputLabel><Select label={t('feature.defaultVisibility')} value={String(privacyDefaults.visibility || 'private')} onChange={(event) => savePreference(() => setPrivacyDefaults({ ...privacyDefaults, visibility: event.target.value }))}><MenuItem value="private">{t('feature.private')}</MenuItem><MenuItem value="unlisted">{t('feature.unlisted')}</MenuItem><MenuItem value="public">{t('feature.public')}</MenuItem></Select></FormControl>
       </Paper>
 
       <Paper sx={{ p: 3 }}>

@@ -57,6 +57,19 @@ export class UserManagementController {
     }
   }
 
+  async getDeactivationImpact(req: Request, res: Response) {
+    try { return res.json({ success: true, data: await this.userService.getDeactivationImpact(Number(req.params.id)) }); }
+    catch (error) { const typed = error as { statusCode?: number; code?: string; message?: string }; return res.status(typed.statusCode || 500).json({ success: false, code: typed.code, message: typed.message || 'Failed to calculate impact' }); }
+  }
+
+  async deactivateWithTransfer(req: Request, res: Response) {
+    try {
+      const transferTo = req.body?.transferTo ? Number(req.body.transferTo) : null;
+      const data = await this.userService.reassignAndDeactivate(Number(req.params.id), transferTo, req.user!.userId);
+      return res.json({ success: true, data });
+    } catch (error) { const typed = error as { statusCode?: number; code?: string; message?: string }; return res.status(typed.statusCode || 500).json({ success: false, code: typed.code, message: typed.message || 'Failed to deactivate user' }); }
+  }
+
   /**
    * Assign role to user
    */

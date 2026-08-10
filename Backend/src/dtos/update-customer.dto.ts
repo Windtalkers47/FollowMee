@@ -1,4 +1,4 @@
-import { IsString, IsEmail, IsOptional, MaxLength, IsBoolean, IsEnum } from 'class-validator';
+import { IsString, IsEmail, IsOptional, MaxLength, IsBoolean, IsEnum, IsObject } from 'class-validator';
 
 export class UpdateCustomerDto {
   @IsString()
@@ -60,6 +60,10 @@ export class UpdateCustomerDto {
   @IsOptional()
   @MaxLength(255, { message: 'Image URL must be at most 255 characters' })
   customerImageUrl?: string | null;
+
+  @IsObject()
+  @IsOptional()
+  imageCrop?: { x: number; y: number; zoom: number; rotation: number } | null;
 
   @IsBoolean()
   @IsOptional()

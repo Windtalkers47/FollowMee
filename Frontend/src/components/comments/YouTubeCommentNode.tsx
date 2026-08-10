@@ -24,7 +24,7 @@ import { selectCurrentUser } from '../../store/slices/authSlice';
 import ConfirmDialog from '../ConfirmDialog/ConfirmDialog';
 import { useUserPreferences } from '../../contexts/UserPreferencesContext';
 import { formatLocalizedRelativeTime } from '../../utils/localeFormat';
-import SmartAvatar from '../SmartAvatar';
+import RecognitionAvatar from '../RecognitionAvatar';
 
 const REACTIONS = [
   { type: 'like', emoji: '👍', label: 'Like' },
@@ -76,7 +76,7 @@ const YouTubeCommentNode: React.FC<Props> = ({ row }) => {
   return (
     <Box sx={{ py: 0.75 }}>
       <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
-        <SmartAvatar user={displayUser} avatarVariant="glass" size={34} />
+        <RecognitionAvatar user={displayUser} recognition={data.user?.recognition} size={34} />
 
         <Box sx={{ minWidth: 0, flex: 1 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minHeight: 24 }}>

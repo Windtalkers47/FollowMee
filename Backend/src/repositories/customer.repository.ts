@@ -1,4 +1,4 @@
-import { FindOneOptions, getRepository } from 'typeorm';
+import { Brackets, FindOneOptions, getRepository } from 'typeorm';
 import { Customer } from '../entities/Customer';
 import { BaseRepository } from './base.repository';
 import { StatusCountsResponse } from '../types/status.types';
@@ -138,6 +138,48 @@ export class CustomerRepository extends BaseRepository<Customer> {
       .getManyAndCount();
     
     return [customers, total];
+  }
+
+  async findPage(options: {
+    page: number;
+    limit: number;
+    status?: 'active' | 'inactive' | 'canceled' | 'all';
+    search?: string;
+    assignedTo?: number;
+    createdBy?: number;
+  }): Promise<[Customer[], number]> {
+    const page = Math.max(1, options.page);
+    const limit = Math.min(100, Math.max(1, options.limit));
+    const query = this.repository.createQueryBuilder('customer');
+
+    if (options.status && options.status !== 'all') {
+      query.andWhere('customer.status = :status', { status: options.status });
+    }
+    if (options.assignedTo) query.andWhere('customer.assignedTo = :assignedTo', { assignedTo: options.assignedTo });
+    if (options.createdBy) query.andWhere('customer.createdBy = :createdBy', { createdBy: options.createdBy });
+    const search = options.search?.trim();
+    if (search) {
+      query.andWhere(new Brackets(scope => {
+        const fields = [
+          'customer.customerName', 'customer.customerLastName', 'customer.customerEmail',
+          'customer.customerPhone1', 'customer.customerPhone2', 'customer.customerAddress',
+          'customer.customerFacebook', 'customer.customerInstagram', 'customer.customerTikTok',
+          'customer.customerLine', 'customer.customerX',
+        ];
+        fields.forEach((field, index) => {
+          const clause = `${field} LIKE :search`;
+          if (index === 0) scope.where(clause, { search: `%${search}%` });
+          else scope.orWhere(clause, { search: `%${search}%` });
+        });
+      }));
+    }
+
+    return query
+      .orderBy('customer.createdAt', 'DESC')
+      .addOrderBy('customer.customerId', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit)
+      .getManyAndCount();
   }
 
   /**

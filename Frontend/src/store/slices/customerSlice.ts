@@ -26,9 +26,12 @@ interface CustomerState {
   page: number;
   pageSize: number;
   statusStats: StatusStats | null;
+  activeListRequestId: string | null;
   filter: {
     status: CustomerStatus | 'all';
     search: string;
+    assignedTo?: number;
+    createdBy?: number;
   };
 }
 
@@ -41,9 +44,12 @@ const initialState: CustomerState = {
   page: 1,
   pageSize: 25,
   statusStats: null,
+  activeListRequestId: null,
   filter: {
     status: 'all',
     search: '',
+    assignedTo: undefined,
+    createdBy: undefined,
   },
 };
 
@@ -74,6 +80,8 @@ interface FetchCustomersParams {
   limit?: number;
   search?: string;
   status?: CustomerStatus;
+  assignedTo?: number;
+  createdBy?: number;
 }
 
 export const fetchStatusStats = createAsyncThunk<StatusStats, void, { rejectValue: string }>(
@@ -90,7 +98,7 @@ export const fetchStatusStats = createAsyncThunk<StatusStats, void, { rejectValu
 
 export const fetchCustomers = createAsyncThunk(
   'customers/fetchCustomers',
-  async (params: FetchCustomersParams = {}, { getState, rejectWithValue }) => {
+  async (params: FetchCustomersParams = {}, { getState, rejectWithValue, signal }) => {
     try {
       const state = getState() as RootState;
       const customer = state.customer;
@@ -110,6 +118,9 @@ export const fetchCustomers = createAsyncThunk(
         limit,
         search,
         status,
+        params.assignedTo ?? customer.filter.assignedTo,
+        params.createdBy ?? customer.filter.createdBy,
+        signal,
       );
 
       return {
@@ -207,18 +218,23 @@ const customerSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
-      .addCase(fetchCustomers.pending, (state) => {
+      .addCase(fetchCustomers.pending, (state, action) => {
         state.status = 'loading';
+        state.activeListRequestId = action.meta.requestId;
       })
       .addCase(fetchCustomers.fulfilled, (state, action) => {
+        if (state.activeListRequestId !== action.meta.requestId) return;
         state.status = 'succeeded';
+        state.activeListRequestId = null;
         state.items = action.payload.items;
         state.total = action.payload.total;
         state.page = action.payload.page;
         state.pageSize = action.payload.pageSize;
       })
       .addCase(fetchCustomers.rejected, (state, action) => {
+        if (state.activeListRequestId !== action.meta.requestId) return;
         state.status = 'failed';
+        state.activeListRequestId = null;
         state.error = action.payload as string;
       })
       .addCase(fetchStatusStats.fulfilled, (state, action) => {
@@ -242,7 +258,7 @@ const customerSlice = createSlice({
         // iOS 2026: After creating customer, reset pagination state
         // This ensures the next refetch() will get all customers with correct limit (100)
         state.page = 1;
-        state.pageSize = 100; // Reset to iOS 2026 default
+        state.pageSize = 25;
         // Add new customer to the list (will be replaced by refetch)
         state.items.unshift(action.payload);
         state.total += 1;

@@ -7,10 +7,8 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
-import { MoreVert as MoreVertIcon } from '@mui/icons-material';
+import MoreVertIcon from '@mui/icons-material/MoreVert';
 import { Task } from '../../api/task.api';
-import { useLiquidGlass } from '../../contexts/LiquidGlassContext';
-import { gradientPresets } from '../../styles/liquidGlassStyles';
 import SmartAvatar from '../SmartAvatar';
 
 const statusColors: Record<Task['status'], 'default' | 'primary' | 'warning' | 'success'> = {
@@ -43,10 +41,6 @@ const TaskHeader: React.FC<TaskHeaderProps> = ({
   onMenuOpen,
 }) => {
   const theme = useTheme();
-  const { liquidGlassSettings } = useLiquidGlass();
-  
-  // Get gradient preset for status chip
-  const preset = gradientPresets[liquidGlassSettings.gradientPreset];
 
   return (
     <Box sx={{ 
@@ -96,9 +90,8 @@ const TaskHeader: React.FC<TaskHeaderProps> = ({
                 fontSize: '0.65rem', 
                 height: 18,
                 fontWeight: 600,
-                // Use gradient preset for status chip background
                 background: task.status === 'done'
-                  ? preset.light  // Use gradient preset for Done status
+                  ? theme.palette.mode === 'dark' ? '#0f5132' : '#d9fbe8'
                   : task.status === 'in_progress'
                     ? 'linear-gradient(135deg, rgba(245, 158, 11, 0.8), rgba(251, 191, 36, 0.8))'
                     : task.status === 'review'
@@ -106,15 +99,17 @@ const TaskHeader: React.FC<TaskHeaderProps> = ({
                       : theme.palette.mode === 'dark'
                         ? 'rgba(255, 255, 255, 0.2)'
                         : 'rgba(255, 255, 255, 0.9)',
-                color: task.status === 'done' || task.status === 'in_progress' || task.status === 'review'
-                  ? '#ffffff'
+                color: task.status === 'done'
+                  ? theme.palette.mode === 'dark' ? '#f2fff7' : '#075b35'
+                  : task.status === 'in_progress' || task.status === 'review'
+                    ? '#ffffff'
                   : theme.palette.mode === 'dark'
                     ? '#ffffff'
                     : 'rgba(0, 0, 0, 0.85)',
                 backdropFilter: 'blur(10px) saturate(180%)',
                 WebkitBackdropFilter: 'blur(10px) saturate(180%)',
                 border: task.status === 'done'
-                  ? '1px solid rgba(16, 185, 129, 0.4)'
+                  ? theme.palette.mode === 'dark' ? '1px solid #4ade80' : '1px solid #36a56f'
                   : task.status === 'in_progress'
                     ? '1px solid rgba(245, 158, 11, 0.4)'
                     : task.status === 'review'

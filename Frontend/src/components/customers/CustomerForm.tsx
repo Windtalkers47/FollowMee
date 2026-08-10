@@ -35,6 +35,7 @@ import { styled } from '@mui/material/styles';
 import { useUserPreferences } from '../../contexts/UserPreferencesContext';
 import { useQuery } from '@tanstack/react-query';
 import { userApi } from '../../api/user.api';
+import ImageCropEditor from '../ImageCropEditor';
 
 export type CustomerFormData = {
   customerId?: string;
@@ -52,6 +53,7 @@ export type CustomerFormData = {
   customerAddress?: string;
   customerImageUrl?: string | null;
   customerImageFile?: File | null;
+  imageCrop?: { x: number; y: number; zoom: number; rotation: number } | null;
   isActive: boolean;
   removeImage?: boolean; // Flag to indicate image should be removed
 };
@@ -79,6 +81,7 @@ type FormValues = {
   customerAddress?: string;
   customerImageUrl?: string | null;
   customerImageFile?: File | null;
+  imageCrop?: { x: number; y: number; zoom: number; rotation: number } | null;
   isActive: boolean;
   removeImage?: boolean; // Flag to indicate image should be removed
 };
@@ -114,6 +117,7 @@ const schema: yup.ObjectSchema<FormValues> = yup.object().shape({
   customerAddress: yup.string().optional(),
   customerImageUrl: yup.string().nullable().optional(),
   customerImageFile: yup.mixed<File>().nullable().optional(),
+  imageCrop: yup.object({ x: yup.number().required(), y: yup.number().required(), zoom: yup.number().required(), rotation: yup.number().required() }).nullable().optional(),
   isActive: yup.boolean().default(true).required(),
   removeImage: yup.boolean().optional(),
 });
@@ -438,7 +442,7 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
     const optionalFields = [
       'customerId', 'customerLastName', 'customerPhone1', 'customerPhone2',
       'customerFacebook', 'customerInstagram', 'customerTikTok', 
-      'customerLine', 'customerX', 'customerAddress'
+      'customerLine', 'customerX', 'customerAddress', 'imageCrop'
     ];
     
     optionalFields.forEach(field => {
@@ -483,6 +487,7 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
       customerEmail: '',
       isActive: true,
       customerImageUrl: null,
+      imageCrop: null,
       removeImage: false, // Initialize removeImage flag
       ...initialData 
     }),
@@ -668,6 +673,7 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
                 </Button>
               )}
             </Box>
+            {imagePreview && <Controller name="imageCrop" control={control} render={({ field }) => <Box width="100%" maxWidth={420}><ImageCropEditor src={imagePreview} value={field.value} onChange={field.onChange} /></Box>} />}
 
             <Box sx={{ textAlign: 'center', width: '100%' }}>
               <Typography variant="caption" color="text.secondary" display="block">

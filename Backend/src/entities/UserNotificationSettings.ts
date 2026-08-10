@@ -59,7 +59,19 @@ export class UserNotificationSettings {
 
   // U4-PREFERENCES: Digest mode (none, hourly, daily)
   @Column({ name: 'digestMode', type: 'varchar', length: 20, default: 'none' })
-  digestMode: 'none' | 'hourly' | 'daily' = 'none';
+  digestMode: 'none' | 'hourly' | 'daily' | 'weekly' = 'none';
+
+  @Column({ name: 'digestDay', type: 'int', nullable: true })
+  digestDay!: number | null;
+
+  @Column({ name: 'digestTime', type: 'varchar', length: 5, default: '08:00' })
+  digestTime: string = '08:00';
+
+  @Column({ name: 'timezone', type: 'varchar', length: 60, default: 'Asia/Bangkok' })
+  timezone: string = 'Asia/Bangkok';
+
+  @Column({ name: 'lastDigestAt', type: 'datetime', nullable: true })
+  lastDigestAt!: Date | null;
 
   // U4-PREFERENCES: Quiet hours
   @Column({ name: 'quietHoursStart', type: 'int', default: 22, nullable: true })

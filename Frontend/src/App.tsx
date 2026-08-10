@@ -11,24 +11,25 @@ import { webSocketService } from './services/websocket.service';
 import { useQueryClient } from '@tanstack/react-query';
 import type { UserProfileUpdatedEvent } from './types/profile-event.types';
 import { patchUserInCache } from './utils/patchUserInCache';
+import { primaryRouteLoaders } from './utils/routePrefetch';
 
 // Lazy load pages
 const LoginPage = React.lazy(() => import('./pages/Login'));
 const RegisterPage = React.lazy(() => import('./pages/Register'));
 const ForgotPasswordPage = React.lazy(() => import('./pages/ForgotPassword'));
 const ResetPasswordPage = React.lazy(() => import('./pages/ResetPassword'));
-const DashboardPage = React.lazy(() => import('./pages/Dashboard'));
+const DashboardPage = React.lazy(primaryRouteLoaders['/dashboard']);
 const PostsPage = React.lazy(() => import('./pages/Posts'));
-const MyWorkPage = React.lazy(() => import('./pages/MyWork'));
+const MyWorkPage = React.lazy(primaryRouteLoaders['/my-work']);
 const TaskDetailPage = React.lazy(() => import('./pages/TaskDetail'));
-const SchedulePageWithSelection = React.lazy(() => import('./pages/Schedule'));
-const CustomerPage = React.lazy(() => import('./pages/Customer'));
+const SchedulePageWithSelection = React.lazy(primaryRouteLoaders['/schedule']);
+const CustomerPage = React.lazy(primaryRouteLoaders['/customer']);
 const ProfileLibraryPage = React.lazy(() => import('./pages/CustomerProfile/ProfileLibraryPage'));
 const ProfileEditorPage = React.lazy(() => import('./pages/CustomerProfile/ProfileEditorPage'));
 const PublicProfilePage = React.lazy(() => import('./pages/CustomerProfile/PublicProfilePage'));
 const UsersPage = React.lazy(() => import('./pages/UsersManagement'));
 const SettingsPage = React.lazy(() => import('./pages/Settings'));
-const NotificationAnalytics = React.lazy(() => import('./pages/NotificationAnalytics'));
+const AnalyticsPage = React.lazy(() => import('./pages/Analytics'));
 const NotificationsPage = React.lazy(() => import('./pages/Notifications'));
 const RewardsPage = React.lazy(() => import('./pages/Rewards'));
 const MainLayout = React.lazy(() => import('./layouts/MainLayout'));
@@ -349,7 +350,8 @@ const App = () => {
                   <Route path="/customer-profile" element={<ProfileLibraryPage />} />
                   <Route path="/customer-profile/:profileId/edit" element={<ProfileEditorPage />} />
                   <Route path="/customer/:customerId/profile" element={<Navigate to="/customer-profile" replace />} />
-                  <Route path="/notification-analytics" element={<NotificationAnalytics />} />
+                  <Route path="/analytics" element={<AnalyticsPage />} />
+                  <Route path="/notification-analytics" element={<Navigate to="/analytics?tab=notifications" replace />} />
                   <Route path="/notifications" element={<NotificationsPage />} />
                   <Route path="/rewards" element={<RewardsPage />} />
                 </Route>

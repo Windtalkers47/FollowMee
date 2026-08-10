@@ -7,7 +7,7 @@ import {
   MoreVert as MoreVertIcon, Edit as EditIcon, Delete as DeleteIcon,
   CalendarToday as CalendarIcon, Person as PersonIcon, Cancel as CancelIcon,
   Check as CheckIcon, ArrowForward as ArrowForwardIcon, Close as CloseIcon,
-  Image as ImageIcon, AssignmentInd as AssignmentIndIcon,
+  AssignmentInd as AssignmentIndIcon, ContentCopy as ContentCopyIcon,
 } from '@mui/icons-material';
 import feedback from '../../services/feedback.service';
 import { Task, TaskLikeSummary } from '../../api/task.api';
@@ -30,6 +30,8 @@ interface Props {
   onUpdateTaskStatus?: (taskId: string, status: Task['status']) => void;
   isSelected?: boolean; onToggleSelect?: (taskId: string) => void;
   isInSelectionMode?: boolean; onEnterSelectionMode?: () => void; onCardClick?: () => void;
+  onDuplicate?: (task: Task) => void;
+  isFocused?: boolean;
 }
 
 type Translate = (key: MessageKey, values?: Record<string, string | number>) => string;
@@ -60,6 +62,8 @@ const ScheduleTaskCard: React.FC<Props> = ({
   task, currentUserId, onEdit, onDelete, onStartProgress, onCancel,
   onUpdateTaskStatus, isSelected = false, onToggleSelect, isInSelectionMode = false,
   onEnterSelectionMode, onCardClick,
+  onDuplicate,
+  isFocused = false,
 }) => {
   const theme = useTheme();
   const { locale, t } = useUserPreferences();
@@ -80,7 +84,7 @@ const ScheduleTaskCard: React.FC<Props> = ({
   };
 
   return <>
-    <Box data-testid={`task-card-${task.taskId}`} onClick={handleCardClick} sx={{ height: '100%', minHeight: 360, p: { xs: 2, sm: 2.5 }, borderRadius: 3, cursor: isInSelectionMode ? 'pointer' : 'pointer', position: 'relative', backgroundColor: isSelected ? (theme.palette.mode === 'dark' ? 'rgba(52,199,89,.14)' : '#F0FBF2') : 'background.paper', border: isSelected ? `2px solid ${feedbackTokens.success}` : '1px solid', borderColor: isSelected ? feedbackTokens.success : 'divider', transition: 'border-color .2s, background-color .2s', '&:hover': { borderColor: isSelected ? feedbackTokens.success : 'text.secondary' } }}>
+    <Box tabIndex={-1} data-testid={`task-card-${task.taskId}`} onClick={handleCardClick} sx={{ height: '100%', minHeight: 360, p: { xs: 2, sm: 2.5 }, borderRadius: 3, cursor: 'pointer', position: 'relative', backgroundColor: isSelected ? (theme.palette.mode === 'dark' ? 'rgba(52,199,89,.14)' : '#F0FBF2') : isFocused ? 'action.selected' : 'background.paper', border: isSelected || isFocused ? '2px solid' : '1px solid', borderColor: isSelected ? feedbackTokens.success : isFocused ? 'primary.main' : 'divider', boxShadow: isFocused ? `0 0 0 4px ${theme.palette.primary.main}22` : 'none', transition: 'border-color .2s, background-color .2s, box-shadow .2s', '&:hover': { borderColor: isSelected ? feedbackTokens.success : 'text.secondary' }, '&:focus-visible': { outline: `3px solid ${theme.palette.primary.main}`, outlineOffset: 3 } }}>
       {images.length > 0 && <Box onClick={(e) => e.stopPropagation()} sx={{ display: 'grid', gridTemplateColumns: visibleImages.length > 1 ? 'repeat(2, 1fr)' : '1fr', gap: .5, mb: 2, borderRadius: 2, overflow: 'hidden', height: visibleImages.length === 1 ? 150 : 120 }}>
         {visibleImages.map((image, index) => <Box key={image.imageId} component="img" {...getResponsiveImageProps(image.imageUrl, '(max-width: 600px) 100vw, (max-width: 1200px) 50vw, 320px')} alt={t('scheduleCard.imageAlt', { title: task.title, count: index + 1 })} loading="lazy" onClick={() => setLightbox(image.imageUrl)} sx={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'zoom-in', gridColumn: visibleImages.length === 3 && index === 0 ? 'span 2' : 'auto' }} />)}
         {images.length > 4 && <Box sx={{ position: 'absolute', mt: 9, ml: 'calc(100% - 74px)', bgcolor: 'rgba(0,0,0,.68)', color: '#fff', borderRadius: 1, px: 1, py: .5, fontSize: 12 }}>+{images.length - 4}</Box>}
@@ -113,6 +117,7 @@ const ScheduleTaskCard: React.FC<Props> = ({
 
       <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={() => setAnchorEl(null)} onClick={(e) => e.stopPropagation()}>
         <MenuItem onClick={() => { onEdit(task); setAnchorEl(null); }} disabled={!permissions.canEdit}><EditIcon fontSize="small" sx={{ mr: 1.5 }} />{t('scheduleCard.editTask')}</MenuItem>
+        {task.workflow?.canDuplicate && onDuplicate && <MenuItem onClick={() => { onDuplicate(task); setAnchorEl(null); }}><ContentCopyIcon fontSize="small" sx={{ mr: 1.5 }} />{t('feature.duplicateTask')}</MenuItem>}
         {task.status === 'draft' && onUpdateTaskStatus && (
           <MenuItem
             onClick={() => { onUpdateTaskStatus(task.taskId, 'todo'); setAnchorEl(null); }}

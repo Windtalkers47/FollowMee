@@ -16,6 +16,7 @@ import {
   Select,
   MenuItem,
   Pagination,
+  Stack,
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -39,6 +40,7 @@ import { likeApi } from '../../api/task.api';
 import { TaskForm } from '../../components/TaskForm/TaskForm';
 import { getBookedDates } from '../../utils/dateUtils';
 import ScheduleTaskCard from '../../components/ScheduleTaskCard';
+import DuplicateTaskDialog from '../../components/DuplicateTaskDialog';
 import TaskFocusCard from '../../components/SmartSuggestions/TaskFocusCard';
 import SelectionModeTopBar from '../../components/SelectionMode/SelectionModeTopBar';
 import { useMultiSelect } from '../../hooks/useMultiSelect';
@@ -48,6 +50,8 @@ import toast from '../../utils/toast';
 import { taskStatusTokens } from '../../styles/designTokens';
 import { useUserPreferences } from '../../contexts/UserPreferencesContext';
 import { isAllowedTaskTransition } from '../../utils/taskWorkflow';
+import { useFocusSession } from '../../hooks/useFocusSession';
+import { resolveScheduleFocus, ScheduleDateFilter } from '../../utils/scheduleFocus';
 
 /* ================== Types ================== */
 type TabPanelProps = {
@@ -58,6 +62,16 @@ type TabPanelProps = {
 
 type TaskStatus = 'draft' | 'todo' | 'in_progress' | 'review' | 'done' | 'cancelled';
 const tabKeys: Array<'all' | TaskStatus> = ['all', 'draft', 'todo', 'in_progress', 'review', 'done', 'cancelled'];
+type DateFilter = ScheduleDateFilter;
+type SortOption = 'updated_desc' | 'due_asc' | 'title_asc';
+type ScheduleView = {
+  activeTab: number;
+  dateFilter: DateFilter;
+  sortBy: SortOption;
+  searchInput: string;
+  searchQuery: string;
+  page: number;
+};
 
 /* ================== TabPanel ================== */
 const TabPanel = ({ children, value, index }: TabPanelProps) => (
@@ -77,10 +91,64 @@ const SchedulePage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | undefined>();
-  const [sortBy, setSortBy] = useState<'updated_desc' | 'due_asc' | 'title_asc'>('updated_desc');
-  const [dateFilter, setDateFilter] = useState<'all' | 'overdue' | 'today' | 'soon' | 'week'>('all');
+  const [sortBy, setSortBy] = useState<SortOption>('updated_desc');
+  const [dateFilter, setDateFilter] = useState<DateFilter>('all');
   const [page, setPage] = useState(1);
   const [creatorOnlySelection, setCreatorOnlySelection] = useState(false);
+  const [duplicateTask, setDuplicateTask] = useState<Task | null>(null);
+  const [focusedTaskId, setFocusedTaskId] = useState<string | null>(null);
+  const currentView = useMemo<ScheduleView>(() => ({
+    activeTab,
+    dateFilter,
+    sortBy,
+    searchInput,
+    searchQuery,
+    page,
+  }), [activeTab, dateFilter, sortBy, searchInput, searchQuery, page]);
+  const { focusTarget, enterFocus, leaveFocus, takePreviousView } = useFocusSession(currentView);
+  const focusView = resolveScheduleFocus(activeTab, dateFilter, focusTarget);
+  const focusDateFilter = focusView.effectiveDateFilter;
+  const focusStatus = focusView.effectiveStatus;
+  const displayedTab = focusView.displayedTab;
+  const focusTargetLabel = focusTarget === 'overdue'
+    ? t('schedule.overdue')
+    : focusTarget === 'today'
+      ? t('schedule.dueToday')
+      : focusTarget === 'soon'
+        ? t('schedule.nextThreeDays')
+        : focusTarget === 'week'
+          ? t('schedule.nextSevenDays')
+          : focusTarget === 'review' || focusTarget === 'approval'
+            ? t('schedule.review')
+            : focusTarget || '';
+
+  const clearFocusForInteraction = () => {
+    leaveFocus();
+    setFocusedTaskId(null);
+  };
+
+  const restorePreviousView = () => {
+    const snapshot = takePreviousView();
+    setFocusedTaskId(null);
+    if (!snapshot) return;
+    setActiveTab(snapshot.activeTab);
+    setDateFilter(snapshot.dateFilter);
+    setSortBy(snapshot.sortBy);
+    setSearchInput(snapshot.searchInput);
+    setSearchQuery(snapshot.searchQuery);
+    setPage(snapshot.page);
+  };
+
+  const showAllTasks = () => {
+    leaveFocus();
+    setFocusedTaskId(null);
+    setActiveTab(0);
+    setDateFilter('all');
+    setSortBy('updated_desc');
+    setSearchInput('');
+    setSearchQuery('');
+    setPage(1);
+  };
 
   // Multi-select hook - using taskId as id
   const multiSelect = useMultiSelect<{ id: string }>();
@@ -114,11 +182,13 @@ const SchedulePage = () => {
 
   // Handle search
   const handleSearch = () => {
+    clearFocusForInteraction();
     setSearchQuery(searchInput);
     setPage(1);
   };
 
   const handleClearSearch = () => {
+    clearFocusForInteraction();
     setSearchInput('');
     setSearchQuery('');
     setPage(1);
@@ -131,20 +201,19 @@ const SchedulePage = () => {
   const { data: tasksResponse, isLoading, error, refetch } = useQuery({
     queryKey: ['tasks', {
       search: searchQuery,
-      status: tabKeys[activeTab],
-      dateFilter,
+      status: focusStatus,
+      dateFilter: focusDateFilter,
       sortBy,
       page,
       creatorOnlySelection,
     }],
     queryFn: () => taskApi.getTasks({
       search: searchQuery || undefined,
-      status: tabKeys[activeTab] === 'all' ? undefined : tabKeys[activeTab] as TaskStatus,
-      dueFilter: dateFilter,
+      status: focusView.query.status,
+      dueFilter: focusView.query.dueFilter,
       sort: sortBy,
       page,
       limit: 24,
-      includeFocus: true,
       createdBy: creatorOnlySelection ? user?.userId : undefined,
     }),
     placeholderData: (previous) => previous,
@@ -160,7 +229,7 @@ const SchedulePage = () => {
       .map(task => task.taskId);
     const skipped = selectedTaskIds.length - validIds.length;
     if (skipped > 0) {
-      toast.warning(`This action is not available for every selected task.`);
+      toast.warning(t('schedule.actionUnavailableForSelection'));
       return [];
     }
     return validIds;
@@ -489,6 +558,18 @@ const SchedulePage = () => {
 
   const filteredTasks = tasksResponse?.tasks || [];
 
+  React.useEffect(() => {
+    if (!focusTarget || filteredTasks.length === 0 || isLoading) return;
+    const taskId = filteredTasks[0].taskId;
+    setFocusedTaskId(taskId);
+    const timeout = window.setTimeout(() => {
+      const element = document.querySelector<HTMLElement>(`[data-testid="task-card-${taskId}"]`);
+      element?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'center' });
+      element?.focus({ preventScroll: true });
+    }, 80);
+    return () => window.clearTimeout(timeout);
+  }, [focusTarget, filteredTasks, isLoading]);
+
   const groupedTasks = useMemo(() => filteredTasks.reduce((groups, task) => {
     groups.all.push(task);
     groups[task.status]?.push(task);
@@ -603,8 +684,8 @@ const SchedulePage = () => {
 
   // Get current tab tasks for select all - convert to { id: string } format
   const currentTabTasks = useMemo(
-    () => (groupedTasks[tabs[activeTab].key] || []).map(task => ({ id: task.taskId })),
-    [activeTab, groupedTasks, tabs],
+    () => (groupedTasks[tabs[displayedTab].key] || []).map(task => ({ id: task.taskId })),
+    [displayedTab, groupedTasks, tabs],
   );
   const allowedBulkActions = useMemo(() => {
     const selected = Array.from(multiSelect.selectedIds)
@@ -639,24 +720,28 @@ const SchedulePage = () => {
     },
     enabled: true,
   });
+  const { data: scheduleMeta } = useQuery({
+    queryKey: ['tasks', 'schedule-meta', user?.userId],
+    queryFn: taskApi.getScheduleMeta,
+    enabled: Boolean(user?.userId),
+    staleTime: 30_000,
+  });
 
   return (
     <Box sx={{ width: '100%', maxWidth: '100vw', overflow: 'hidden' }}>
       <Box sx={{ px: { xs: 2, sm: 3, md: 4 }, pt: 3 }}>
         <TaskFocusCard
           scope="organization"
-          focus={tasksResponse?.focus}
+          focus={scheduleMeta?.focus}
           onFilter={(target) => {
-            if (target === 'review') {
-              setActiveTab(tabKeys.indexOf('review'));
-              setDateFilter('all');
-            } else {
-              setActiveTab(0);
-              setDateFilter(target as typeof dateFilter);
-            }
+            enterFocus(target);
+            setFocusedTaskId(null);
             setPage(1);
           }}
         />
+        {focusTarget && <Alert severity="info" sx={{ mb: 2 }} action={<Stack direction="row" gap={1}><Button size="small" onClick={restorePreviousView}>{t('feature.backToPreviousView')}</Button><Button size="small" onClick={showAllTasks}>{t('feature.showAllTasks')}</Button></Stack>}>
+          {t('feature.focusModeActive', { filter: focusTargetLabel })}
+        </Alert>}
       </Box>
 
       {/* Header with Search */}
@@ -680,6 +765,7 @@ const SchedulePage = () => {
                 variant="outlined"
                 startIcon={<CheckBoxOutlineBlankIcon />}
                 onClick={() => {
+                  clearFocusForInteraction();
                   setCreatorOnlySelection(!hasOwnerOverrideTaskOnPage);
                   setActiveTab(0);
                   setDateFilter('all');
@@ -735,7 +821,10 @@ const SchedulePage = () => {
             fullWidth
             placeholder={t('schedule.searchPlaceholder')}
             value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
+            onChange={(e) => {
+              if (focusTarget) clearFocusForInteraction();
+              setSearchInput(e.target.value);
+            }}
             onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
             variant="outlined"
             sx={{
@@ -796,8 +885,9 @@ const SchedulePage = () => {
 
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', sm: '180px 200px' }, gap: 1.5, mt: 1.5, justifyContent: 'end' }}>
           <FormControl size="small">
-            <InputLabel>{t('schedule.dueDate')}</InputLabel>
-            <Select label={t('schedule.dueDate')} value={dateFilter} onChange={(event) => {
+            <InputLabel id="schedule-due-filter-label">{t('schedule.dueDate')}</InputLabel>
+            <Select id="schedule-due-filter" labelId="schedule-due-filter-label" label={t('schedule.dueDate')} value={focusDateFilter} onChange={(event) => {
+              clearFocusForInteraction();
               setDateFilter(event.target.value as typeof dateFilter);
               setPage(1);
             }}>
@@ -809,8 +899,9 @@ const SchedulePage = () => {
             </Select>
           </FormControl>
           <FormControl size="small">
-            <InputLabel>{t('schedule.sort')}</InputLabel>
-            <Select label={t('schedule.sort')} value={sortBy} onChange={(event) => {
+            <InputLabel id="schedule-sort-label">{t('schedule.sort')}</InputLabel>
+            <Select id="schedule-sort" labelId="schedule-sort-label" label={t('schedule.sort')} value={sortBy} onChange={(event) => {
+              clearFocusForInteraction();
               setSortBy(event.target.value as typeof sortBy);
               setPage(1);
             }}>
@@ -835,14 +926,15 @@ const SchedulePage = () => {
           }}
         >
           {tabs.map((tab) => {
-            const isActive = activeTab === tabs.indexOf(tab);
-            const taskCount = tasksResponse?.statusCounts?.[tab.key]
-              ?? (tab.key === tabs[activeTab].key ? tasksResponse?.total || 0 : 0);
+            const isActive = displayedTab === tabs.indexOf(tab);
+            const taskCount = scheduleMeta?.statusCounts?.[tab.key]
+              ?? (tab.key === tabs[displayedTab].key ? tasksResponse?.total || 0 : 0);
             
             return (
               <Button
                 key={tab.key}
                 onClick={() => {
+                  clearFocusForInteraction();
                   setActiveTab(tabs.indexOf(tab));
                   setPage(1);
                 }}
@@ -900,7 +992,7 @@ const SchedulePage = () => {
 
       {/* Task Lists */}
       {tabs.map((tab, index) => (
-        <TabPanel key={tab.key} value={activeTab} index={index}>
+        <TabPanel key={tab.key} value={displayedTab} index={index}>
           {isLoading ? (
             <Box display="flex" justifyContent="center" p={4}>
               <CircularProgress />
@@ -945,6 +1037,8 @@ const SchedulePage = () => {
                           onStartProgress={handleStartProgress}
                           onUpdateTaskStatus={handleUpdateTaskStatus}
                           onCardClick={() => navigate(`/tasks/${task.taskId}`)}
+                          onDuplicate={setDuplicateTask}
+                          isFocused={focusedTaskId === task.taskId}
                         />
                       </Grid>
                     ))}
@@ -1012,6 +1106,7 @@ const SchedulePage = () => {
           }
         }}
       />
+      <DuplicateTaskDialog task={duplicateTask} open={Boolean(duplicateTask)} onClose={() => setDuplicateTask(null)} />
 
       {/* Selection Mode - Fixed Bottom Bar (Dime-style) */}
       <SelectionModeTopBar

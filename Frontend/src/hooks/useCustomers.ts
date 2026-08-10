@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
 import { useAppDispatch, useAppSelector } from '../store/store';
 import {
   fetchCustomers,
@@ -21,10 +21,19 @@ import { Customer, CustomerStatus } from '../types/customer.types';
  * 3. Clear search instantly resets to default state
  * 4. No pagination memory - always reset on filter change
  */
-const iOS_DEFAULT_LIMIT = 100;
+const DEFAULT_LIMIT = 25;
 
 export const useCustomers = () => {
   const dispatch = useAppDispatch();
+  const activeFetch = useRef<{ abort: () => void } | null>(null);
+  const runFetch = useCallback((params: Parameters<typeof fetchCustomers>[0]) => {
+    activeFetch.current?.abort?.();
+    const request = dispatch(fetchCustomers(params));
+    activeFetch.current = request;
+    return request;
+  }, [dispatch]);
+
+  useEffect(() => () => activeFetch.current?.abort?.(), []);
 
   const {
     items: customers,
@@ -44,14 +53,14 @@ export const useCustomers = () => {
     (newPage: number) => {
       dispatch(setPage(newPage));
       // Refetch data when page changes
-      dispatch(fetchCustomers({ 
+      runFetch({
         page: newPage, 
         limit: pageSize, 
         status: filter.status === 'all' ? undefined : filter.status,
         search: filter.search 
-      }));
+      });
     },
-    [dispatch, pageSize, filter.status, filter.search]
+    [dispatch, runFetch, pageSize, filter.status, filter.search]
   );
 
   const handlePageSizeChange = useCallback(
@@ -59,21 +68,21 @@ export const useCustomers = () => {
       dispatch(setPageSize(newSize));
       dispatch(setPage(1));
       // Refetch data when page size changes
-      dispatch(fetchCustomers({ 
+      runFetch({
         page: 1, 
         limit: newSize, 
         status: filter.status === 'all' ? undefined : filter.status,
         search: filter.search 
-      }));
+      });
     },
-    [dispatch, filter.status, filter.search]
+    [dispatch, runFetch, filter.status, filter.search]
   );
 
   /**
    * iOS 2026: Reset pageSize to default when clearing search
    * This ensures that after clearing search, we show all data (up to 100 items)
    */
-  const handleFilterChange = useCallback((newFilter: { status?: CustomerStatus | 'all'; search?: string; limit?: number }) => {
+  const handleFilterChange = useCallback((newFilter: { status?: CustomerStatus | 'all'; search?: string; limit?: number; assignedTo?: number; createdBy?: number }) => {
     const updatedFilter = { ...filter, ...newFilter };
     dispatch(setFilter(updatedFilter));
     // Reset to first page when filters change
@@ -82,19 +91,21 @@ export const useCustomers = () => {
     // iOS 2026: When clearing search, reset to default limit (100)
     // This ensures we show all data after clearing search
     const isClearingSearch = !newFilter.search || newFilter.search.trim() === '';
-    const limitToUse = isClearingSearch ? iOS_DEFAULT_LIMIT : (newFilter.limit ?? pageSize);
+    const limitToUse = isClearingSearch ? DEFAULT_LIMIT : (newFilter.limit ?? pageSize);
     
     // Refetch data when filter changes
-    dispatch(fetchCustomers({ 
+    runFetch({
       page: 1, 
       limit: limitToUse, 
       status: updatedFilter.status === 'all' ? undefined : updatedFilter.status,
       search: updatedFilter.search 
-    }));
+      ,assignedTo: updatedFilter.assignedTo
+      ,createdBy: updatedFilter.createdBy
+    });
     
     // Also fetch status stats to update tab counts
     dispatch(fetchStatusStats());
-  }, [dispatch, pageSize, filter]);
+  }, [dispatch, runFetch, pageSize, filter]);
 
   // ===============================
   // Refetch data
@@ -107,14 +118,16 @@ export const useCustomers = () => {
     // Read latest values from selector to avoid stale closure
     const currentState = { 
       page: 1, // Always refetch from page 1
-      limit: iOS_DEFAULT_LIMIT, // iOS 2026: Always use default limit (100)
+      limit: pageSize || DEFAULT_LIMIT,
       status: filter.status === 'all' ? undefined : filter.status,
       search: filter.search || undefined,
+      assignedTo: filter.assignedTo,
+      createdBy: filter.createdBy,
     };
     
-    dispatch(fetchCustomers(currentState));
+    runFetch(currentState);
     dispatch(fetchStatusStats());
-  }, [dispatch, filter.status, filter.search]);
+  }, [dispatch, runFetch, pageSize, filter.status, filter.search, filter.assignedTo, filter.createdBy]);
 
   // ===============================
   // CRUD

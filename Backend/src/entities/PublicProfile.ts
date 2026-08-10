@@ -68,6 +68,9 @@ export class PublicProfile {
   @Column({ type: 'varchar', length: 512, nullable: true })
   avatarUrl!: string | null;
 
+  @Column({ type: 'json', nullable: true })
+  imageCrop!: { x: number; y: number; zoom: number; rotation: number } | null;
+
   @Column({ type: 'varchar', length: 32, default: 'soft-mint' })
   templateKey!: string;
 

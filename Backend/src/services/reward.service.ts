@@ -3,6 +3,7 @@ import AppDataSource from '../config/database';
 import { ApplicationError } from '../errors/application.error';
 import { webSocketService } from './websocket.service';
 import { NotificationHelper } from '../utils/notification.util';
+import { outboxService } from './outbox.service';
 
 type MissionCadence = 'weekly' | 'monthly';
 type RedemptionDecision = 'approved' | 'rejected' | 'fulfilled';
@@ -47,10 +48,17 @@ const getPeriods = (now = new Date()) => {
 export class RewardService {
   private expiryTimer: NodeJS.Timeout | null = null;
 
+  constructor() {
+    outboxService.register('reward.season.achievement', async payload => {
+      await NotificationHelper.notifyRewardAchievement(Number(payload.userId), Number(payload.seasonId), Number(payload.rank));
+    });
+  }
+
   startExpiryWorker(): void {
     if (this.expiryTimer) return;
     void this.releaseExpiredRedemptions();
-    this.expiryTimer = setInterval(() => void this.releaseExpiredRedemptions(), 15 * 60 * 1000);
+    void this.closeExpiredSeasons();
+    this.expiryTimer = setInterval(() => { void this.releaseExpiredRedemptions(); void this.closeExpiredSeasons(); }, 15 * 60 * 1000);
     this.expiryTimer.unref?.();
   }
 
@@ -70,6 +78,13 @@ export class RewardService {
         ('top-three','rewards.badge.topThree','rewards.badge.topThreeDescription','trophy'),
         ('comeback','rewards.badge.comeback','rewards.badge.comebackDescription','comeback')
       ON DUPLICATE KEY UPDATE nameKey = VALUES(nameKey), descriptionKey = VALUES(descriptionKey)
+    `);
+    await AppDataSource.query(`
+      INSERT INTO reward_badges (badgeKey, nameKey, descriptionKey, icon, auraKey, rankValue) VALUES
+        ('season-champion','rewards.badge.champion','rewards.badge.championDescription','emoji_events','champion-gold',1),
+        ('season-runner-up','rewards.badge.runnerUp','rewards.badge.runnerUpDescription','military_tech','runner-silver',2),
+        ('season-third-place','rewards.badge.thirdPlace','rewards.badge.thirdPlaceDescription','workspace_premium','third-bronze',3)
+      ON DUPLICATE KEY UPDATE auraKey = VALUES(auraKey), rankValue = VALUES(rankValue)
     `);
     await AppDataSource.query(`
       INSERT INTO mission_templates
@@ -391,7 +406,7 @@ export class RewardService {
       AppDataSource.query('SELECT availablePoints, reservedPoints, lifetimeEarned FROM reward_wallets WHERE userId = ?', [userId]),
       AppDataSource.query(`SELECT COALESCE(SUM(completionScore),0) AS score, COUNT(*) AS completedTasks FROM tasks WHERE assignedTo = ? AND status = 'done' AND completedAt >= ? AND completedAt < ?`, [userId, season.startsAt, season.endsAt]),
       this.getMissions(userId),
-      AppDataSource.query(`SELECT rb.badgeKey, rb.nameKey, rb.descriptionKey, rb.icon, ub.awardedAt FROM user_badges ub INNER JOIN reward_badges rb ON rb.badgeId = ub.badgeId WHERE ub.userId = ? ORDER BY ub.awardedAt DESC`, [userId]),
+      AppDataSource.query(`SELECT rb.badgeKey, rb.nameKey, rb.descriptionKey, rb.icon, rb.auraKey, rb.rankValue, ub.seasonId, ub.awardedAt FROM user_badges ub INNER JOIN reward_badges rb ON rb.badgeId = ub.badgeId WHERE ub.userId = ? ORDER BY ub.awardedAt DESC`, [userId]),
       AppDataSource.query(`SELECT rr.*, rci.name AS itemName FROM reward_redemptions rr INNER JOIN reward_catalog_items rci ON rci.itemId = rr.itemId WHERE rr.userId = ? ORDER BY rr.createdAt DESC LIMIT 20`, [userId]),
       this.getLeaderboard(season.seasonId, season.startsAt, season.endsAt),
     ]);
@@ -405,6 +420,9 @@ export class RewardService {
       leaderboard,
       missions,
       badges,
+      latestAchievement: badges[0] || null,
+      seasonPodium: leaderboard.slice(0, 3),
+      availableAuras: badges.filter((badge: any) => badge.auraKey).map((badge: any) => badge.auraKey),
       redemptions,
     };
   }
@@ -424,6 +442,82 @@ export class RewardService {
       ORDER BY score DESC, onTimeTasks DESC, firstPassTasks DESC, lastScoredAt ASC
       LIMIT 20
     `, [startsAt, endsAt]);
+  }
+
+  async listSeasons() {
+    return AppDataSource.query(`
+      SELECT rs.*, COUNT(rsr.resultId) AS participantCount
+      FROM reward_seasons rs
+      LEFT JOIN reward_season_results rsr ON rsr.seasonId = rs.seasonId
+      GROUP BY rs.seasonId
+      ORDER BY rs.startsAt DESC
+    `);
+  }
+
+  private async closeExpiredSeasons() {
+    const rows = await AppDataSource.query("SELECT seasonId FROM reward_seasons WHERE status <> 'closed' AND endsAt <= NOW() ORDER BY endsAt LIMIT 10");
+    for (const row of rows) await this.closeSeason(Number(row.seasonId)).catch(error => console.error('reward_season_close_failed', { seasonId: row.seasonId, error: error instanceof Error ? error.message : String(error) }));
+  }
+
+  async getSeason(seasonId: number) {
+    const seasons = await AppDataSource.query('SELECT * FROM reward_seasons WHERE seasonId = ? LIMIT 1', [seasonId]);
+    if (!seasons[0]) throw new ApplicationError('Reward season not found', 'REWARD_SEASON_NOT_FOUND', 404);
+    const results = await AppDataSource.query(`
+      SELECT rsr.*, u.userName, u.userLastName, u.userImageUrl, rb.badgeKey, rb.auraKey
+      FROM reward_season_results rsr
+      INNER JOIN users u ON u.userId = rsr.userId
+      LEFT JOIN reward_badges rb ON rb.rankValue = rsr.rankValue
+      WHERE rsr.seasonId = ? ORDER BY rsr.rankValue
+    `, [seasonId]);
+    return { season: seasons[0], results };
+  }
+
+  async closeSeason(seasonId: number) {
+    const runner = AppDataSource.createQueryRunner();
+    await runner.connect();
+    await runner.startTransaction();
+    try {
+      const season = (await runner.query('SELECT * FROM reward_seasons WHERE seasonId = ? FOR UPDATE', [seasonId]))[0];
+      if (!season) throw new ApplicationError('Reward season not found', 'REWARD_SEASON_NOT_FOUND', 404);
+      const existing = await runner.query('SELECT COUNT(*) AS total FROM reward_season_results WHERE seasonId = ?', [seasonId]);
+      if (season.status === 'closed' && Number(existing[0]?.total || 0) > 0) {
+        await runner.commitTransaction();
+        return this.getSeason(seasonId);
+      }
+      const leaderboard = await runner.query(`
+        SELECT u.userId, COALESCE(SUM(t.completionScore),0) AS score, COUNT(t.taskId) AS completedTasks,
+               SUM(CASE WHEN t.dueDate IS NOT NULL AND t.completedAt <= t.dueDate THEN 1 ELSE 0 END) AS onTimeTasks,
+               SUM(CASE WHEN t.reopenedCount = 0 THEN 1 ELSE 0 END) AS firstPassTasks, MAX(t.completedAt) AS lastScoredAt
+        FROM users u
+        INNER JOIN tasks t ON t.assignedTo = u.userId AND t.status = 'done' AND t.completedAt >= ? AND t.completedAt < ?
+        GROUP BY u.userId
+        ORDER BY score DESC, onTimeTasks DESC, firstPassTasks DESC, lastScoredAt ASC, u.userId ASC
+      `, [season.startsAt, season.endsAt]);
+      for (let index = 0; index < leaderboard.length; index += 1) {
+        const result = leaderboard[index];
+        const rank = index + 1;
+        await runner.query(`
+          INSERT IGNORE INTO reward_season_results
+            (seasonId,userId,rankValue,score,completedTasks,onTimeTasks,firstPassTasks,lastScoredAt,finalizedAt)
+          VALUES (?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP)
+        `, [seasonId, result.userId, rank, result.score, result.completedTasks, result.onTimeTasks, result.firstPassTasks, result.lastScoredAt]);
+        if (rank <= 3) {
+          await runner.query(`
+            INSERT IGNORE INTO user_badges (userId,badgeId,seasonId,sourceId)
+            SELECT ?, badgeId, ?, ? FROM reward_badges WHERE rankValue = ? LIMIT 1
+          `, [result.userId, seasonId, `season:${seasonId}:rank:${rank}`, rank]);
+          await outboxService.enqueue({ eventType: 'reward.season.achievement', aggregateType: 'reward_season', aggregateId: seasonId, payload: { userId: Number(result.userId), seasonId, rank }, idempotencyKey: `reward-season:${seasonId}:user:${result.userId}:achievement` }, runner.manager);
+        }
+      }
+      await runner.query("UPDATE reward_seasons SET status = 'closed' WHERE seasonId = ?", [seasonId]);
+      await runner.commitTransaction();
+      return this.getSeason(seasonId);
+    } catch (error) {
+      await runner.rollbackTransaction();
+      throw error;
+    } finally {
+      await runner.release();
+    }
   }
 
   async getMissions(userId: number) {

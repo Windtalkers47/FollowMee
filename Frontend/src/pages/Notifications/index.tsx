@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Box,
@@ -73,6 +73,16 @@ const NotificationsPage = () => {
     await action();
     await Promise.all([load(), dispatch(fetchUnreadCount())]);
   };
+  const groups = useMemo(() => {
+    const map = new Map<string, NotificationRecipient[]>();
+    items.forEach(item => {
+      const notification = item.notification;
+      const bucket = Math.floor(new Date(notification.createdAt).getTime() / (15 * 60 * 1000));
+      const key = `${notification.notificationType}:${notification.entityType || ''}:${notification.entityId || ''}:${bucket}`;
+      map.set(key, [...(map.get(key) || []), item]);
+    });
+    return [...map.values()];
+  }, [items]);
 
   return (
     <Box sx={{ maxWidth: 980, mx: 'auto', px: { xs: 1.5, sm: 3 }, py: { xs: 2, md: 4 } }}>
@@ -112,19 +122,20 @@ const NotificationsPage = () => {
             <Typography variant="body2" color="text.secondary">{t('notification.emptyView')}</Typography>
           </Stack>
         ) : (
-          items.map(item => (
-            <NotificationItem
-              key={item.recipientId}
-              recipient={item}
-              archived={view === 'archived'}
-              onMarkAsRead={id => void run(() => notificationApi.markAsRead(id))}
-              onMarkAsUnread={id => void run(() => notificationApi.markAsUnread(id))}
-              onArchive={id => void run(() => notificationApi.archiveNotification(id))}
-              onRestore={id => void run(() => notificationApi.restoreNotification(id))}
-              onDelete={id => {
-                setDeleteId(id);
-              }}
-            />
+          groups.map(group => (
+            <Box key={group.map(item => item.recipientId).join('-')} sx={{ borderBottom: '1px solid', borderColor: 'divider' }}>
+              {group.length > 1 && <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ px: 2, py: 1, bgcolor: 'action.hover' }}><Typography variant="caption" fontWeight={800}>{group[0].notification.title} · {t('feature.groupUpdates', { count: group.length })}</Typography><Stack direction="row"><Button size="small" onClick={() => void run(() => Promise.all(group.filter(item => !item.isRead).map(item => notificationApi.markAsRead(item.recipientId))))}>{t('feature.readGroup')}</Button>{view !== 'archived' && <Button size="small" onClick={() => void run(() => Promise.all(group.map(item => notificationApi.archiveNotification(item.recipientId))))}>{t('feature.archiveGroup')}</Button>}</Stack></Stack>}
+              {group.map(item => <NotificationItem
+                key={item.recipientId}
+                recipient={item}
+                archived={view === 'archived'}
+                onMarkAsRead={id => void run(() => notificationApi.markAsRead(id))}
+                onMarkAsUnread={id => void run(() => notificationApi.markAsUnread(id))}
+                onArchive={id => void run(() => notificationApi.archiveNotification(id))}
+                onRestore={id => void run(() => notificationApi.restoreNotification(id))}
+                onDelete={id => setDeleteId(id)}
+              />)}
+            </Box>
           ))
         )}
         {!loading && items.length > 0 && (

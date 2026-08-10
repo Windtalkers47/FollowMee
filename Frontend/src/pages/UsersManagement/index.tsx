@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import {
   Box,
   Button,
@@ -46,6 +46,7 @@ import { useUserPreferences } from '../../contexts/UserPreferencesContext';
 import { formatLocalizedDate } from '../../utils/localeFormat';
 import SmartAvatar from '../../components/SmartAvatar';
 import { useAppSelector } from '../../store/store';
+import { API_URL } from '../../utils/runtimeEnv';
 
 // Styled components
 const StyledCard = styled(Card)(({ theme }) => ({
@@ -96,8 +97,6 @@ const UsersPage = () => {
     fetchUsers,
     assignRoleToUser,
     removeRoleFromUser,
-    createUser,
-    deleteUser,
     transferOwnership,
   } = useUsersManagement();
   const currentUser = useAppSelector((state) => state.auth.user);
@@ -116,6 +115,16 @@ const UsersPage = () => {
   const [creatingUser, setCreatingUser] = useState(false);
   const [createError, setCreateError] = useState('');
   const [assignRoleError, setAssignRoleError] = useState('');
+  const [invitations, setInvitations] = useState<Array<{ invitationId: number; email: string; roleName?: string; status: string; expiresAt: string; createdAt: string }>>([]);
+  const loadInvitations = useCallback(async () => {
+    const response = await fetch(`${API_URL}/user-management/invitations`, { credentials: 'include' });
+    if (response.ok) setInvitations((await response.json()).data || []);
+  }, []);
+  useEffect(() => {
+    // Loading is asynchronous; state is updated only after the request resolves.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void loadInvitations();
+  }, [loadInvitations]);
 
   // Calculate role counts
   const getRoleCounts = () => {
@@ -157,6 +166,7 @@ const UsersPage = () => {
     assignRoleDialog.user?.roles?.some((role) => normalizeRoleName(role) === ROLE_NAMES.OWNER),
   );
   const [ownerTransferDialog, setOwnerTransferDialog] = useState<{ open: boolean; user: User | null; password: string; error: string }>({ open: false, user: null, password: '', error: '' });
+  const [deactivateDialog, setDeactivateDialog] = useState<{ open: boolean; user: User | null; impact: Record<string, number> | null; transferTo: number | ''; error: string }>({ open: false, user: null, impact: null, transferTo: '', error: '' });
 
   const handleAssignRoleOpen = useCallback((user: User) => {
     const normalizedRole = user.roles[0] ? normalizeRoleName(user.roles[0]) : undefined;
@@ -183,25 +193,20 @@ const UsersPage = () => {
   }, []);
 
   const handleCreateUser = async () => {
-    if (!newUser.userName.trim() || !newUser.userLastName.trim() ||
-        !newUser.userEmail.trim() || newUser.userPassword.length < 8 || !newUser.roleId) {
+    if (!newUser.userEmail.trim() || !newUser.roleId) {
       setCreateError(t('users.requiredFields'));
       return;
     }
     setCreatingUser(true);
     setCreateError('');
-    const ok = await createUser({
-      userName: newUser.userName.trim(),
-      userLastName: newUser.userLastName.trim(),
-      userEmail: newUser.userEmail.trim(),
-      userPassword: newUser.userPassword,
-      userPhone1: newUser.userPhone1.trim() || undefined
-    }, newUser.roleId);
+    const response = await fetch(`${API_URL}/user-management/invitations`, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: newUser.userEmail.trim(), roleId: newUser.roleId }) });
+    const ok = response.ok;
     setCreatingUser(false);
     if (ok) {
-      const displayName = `${newUser.userName} ${newUser.userLastName}`.trim();
+      const displayName = newUser.userEmail.trim();
       setCreateDialogOpen(false);
       setNewUser(emptyNewUser);
+      await loadInvitations();
       await feedback.success({
         title: t('users.createdTitle'),
         message: t('users.createdText', { name: displayName }),
@@ -209,7 +214,8 @@ const UsersPage = () => {
         dedupeKey: `user-created-${newUser.userEmail}`,
       });
     } else {
-      setCreateError(t('users.createFailed'));
+      const body = await response.json().catch(() => ({}));
+      setCreateError(body.message || t('users.createFailed'));
     }
   };
 
@@ -312,39 +318,22 @@ const UsersPage = () => {
   }, []);
 
   const handleDeleteUser = useCallback(async (user: User) => {
-    const result = await feedback.fire({
-      title: 'Are you sure?',
-      text: t('users.deleteQuestion', { name: `${user.userName} ${user.userLastName || ''}`.trim() }),
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonText: t('users.deleteConfirm'),
-      cancelButtonText: t('common.cancel'),
-      reverseButtons: true,
-    });
+    const response = await fetch(`${API_URL}/user-management/users/${user.userId}/deactivation-impact`, { credentials: 'include' });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) { await feedback.error({ title: t('feedback.failed'), message: body.message || t('users.deleteFailed') }); return; }
+    setDeactivateDialog({ open: true, user, impact: body.data, transferTo: '', error: '' });
+  }, [t]);
 
-    if (result.isConfirmed) {
-      try {
-        const success = await deleteUser(user.userId);
-        if (success) {
-          await feedback.fire({
-            icon: 'success',
-            importance: 'milestone',
-            title: t('users.deletedTitle'),
-            text: t('users.deletedText', { name: user.userName }),
-            timer: 5000,
-            timerProgressBar: true,
-            showConfirmButton: false,
-          });
-        }
-      } catch (error) {
-        await feedback.fire({
-          icon: 'error',
-          title: t('feedback.failed'),
-          text: t('users.deleteFailed'),
-        });
-      }
-    }
-  }, [deleteUser, t]);
+  const confirmDeactivate = async () => {
+    const target = deactivateDialog.user;
+    if (!target) return;
+    const response = await fetch(`${API_URL}/user-management/users/${target.userId}/deactivate`, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ transferTo: deactivateDialog.transferTo || null }) });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) { setDeactivateDialog(value => ({ ...value, error: body.message || t('users.deleteFailed') })); return; }
+    setDeactivateDialog({ open: false, user: null, impact: null, transferTo: '', error: '' });
+    await fetchUsers();
+    await feedback.success({ title: t('users.deletedTitle'), message: t('users.deletedText', { name: target.userName }), importance: 'milestone' });
+  };
 
   if (loading) {
     return (
@@ -506,19 +495,21 @@ const UsersPage = () => {
         </CardContent>
       </StyledCard>
 
+      <Paper variant="outlined" sx={{ mt: 3, p: 2, borderRadius: 3 }}>
+        <Typography variant="h6" fontWeight={700}>{t('feature.invitations')}</Typography>
+        <Typography variant="body2" color="text.secondary" mb={2}>{t('feature.invitationHelp')}</Typography>
+        <TableContainer><Table size="small"><TableHead><TableRow><TableCell>{t('feature.email')}</TableCell><TableCell>{t('feature.role')}</TableCell><TableCell>{t('feature.status')}</TableCell><TableCell>{t('feature.expires')}</TableCell><TableCell align="right">{t('feature.actions')}</TableCell></TableRow></TableHead><TableBody>{invitations.map(invite => <TableRow key={invite.invitationId}><TableCell>{invite.email}</TableCell><TableCell>{invite.roleName || t('role.member')}</TableCell><TableCell><Chip size="small" label={invite.status} color={invite.status === 'pending' ? 'warning' : invite.status === 'accepted' ? 'success' : 'default'} /></TableCell><TableCell>{formatLocalizedDate(invite.expiresAt, locale)}</TableCell><TableCell align="right">{['pending','expired'].includes(invite.status) && <Button size="small" onClick={async () => { await fetch(`${API_URL}/user-management/invitations/${invite.invitationId}/resend`, { method: 'POST', credentials: 'include' }); await loadInvitations(); }}>{t('feature.resend')}</Button>}{invite.status === 'pending' && <Button size="small" color="error" onClick={async () => { await fetch(`${API_URL}/user-management/invitations/${invite.invitationId}/revoke`, { method: 'POST', credentials: 'include' }); await loadInvitations(); }}>{t('feature.revoke')}</Button>}</TableCell></TableRow>)}</TableBody></Table></TableContainer>
+      </Paper>
+
       <Dialog open={createDialogOpen} onClose={() => !creatingUser && setCreateDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>{t('users.addMember')}</DialogTitle>
+        <DialogTitle>{t('feature.inviteMember')}</DialogTitle>
         <DialogContent>
           <Typography color="text.secondary" sx={{ mb: 2 }}>
-            {t('users.createHelp')}
+            {t('feature.inviteMemberHelp')}
           </Typography>
           {createError && <Alert severity="error" sx={{ mb: 2 }}>{createError}</Alert>}
           <Box component="form" autoComplete="off" sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
-            <TextField required autoComplete="off" label={t('common.firstName')} value={newUser.userName} onChange={(e) => setNewUser((value) => ({ ...value, userName: e.target.value }))} />
-            <TextField required autoComplete="off" label={t('common.lastName')} value={newUser.userLastName} onChange={(e) => setNewUser((value) => ({ ...value, userLastName: e.target.value }))} />
             <TextField required type="email" autoComplete="off" label={t('common.email')} value={newUser.userEmail} onChange={(e) => setNewUser((value) => ({ ...value, userEmail: e.target.value }))} sx={{ gridColumn: { sm: '1 / -1' } }} />
-            <TextField required type="password" autoComplete="new-password" label={t('users.temporaryPassword')} helperText={t('users.passwordHint')} value={newUser.userPassword} onChange={(e) => setNewUser((value) => ({ ...value, userPassword: e.target.value }))} />
-            <TextField autoComplete="off" label={t('common.phoneOptional')} value={newUser.userPhone1} onChange={(e) => setNewUser((value) => ({ ...value, userPhone1: e.target.value }))} />
             <FormControl required sx={{ gridColumn: { sm: '1 / -1' } }}>
               <InputLabel>{t('common.role')}</InputLabel>
               <Select label={t('common.role')} value={newUser.roleId || ''} onChange={(e) => setNewUser((value) => ({ ...value, roleId: Number(e.target.value) }))}>
@@ -532,7 +523,7 @@ const UsersPage = () => {
         <DialogActions>
           <Button color="inherit" onClick={() => setCreateDialogOpen(false)} disabled={creatingUser}>{t('common.cancel')}</Button>
           <Button variant="contained" onClick={handleCreateUser} disabled={creatingUser}>
-            {creatingUser ? t('users.creating') : t('users.createUser')}
+            {creatingUser ? t('feature.sending') : t('feature.sendInvitation')}
           </Button>
         </DialogActions>
       </Dialog>
@@ -686,6 +677,10 @@ const UsersPage = () => {
             {assigningRole ? t('users.assigningRole') : t('users.assignRole')}
           </Button>
         </DialogActions>
+      </Dialog>
+
+      <Dialog open={deactivateDialog.open} onClose={() => setDeactivateDialog({ open: false, user: null, impact: null, transferTo: '', error: '' })} maxWidth="sm" fullWidth>
+        <DialogTitle>{t('feature.deactivateTitle')}</DialogTitle><DialogContent><Typography color="text.secondary" mb={2}>{t('feature.deactivateHelp')}</Typography>{deactivateDialog.error && <Alert severity="error" sx={{ mb: 2 }}>{deactivateDialog.error}</Alert>}<Box display="grid" gridTemplateColumns="repeat(2,1fr)" gap={1} mb={2}>{Object.entries(deactivateDialog.impact || {}).filter(([key]) => key !== 'requiresTransfer').map(([key, value]) => <Paper variant="outlined" sx={{ p: 1.5 }} key={key}><Typography variant="caption" color="text.secondary">{key}</Typography><Typography variant="h6">{value}</Typography></Paper>)}</Box>{Boolean(deactivateDialog.impact?.requiresTransfer) && <FormControl fullWidth><InputLabel>{t('feature.transferTo')}</InputLabel><Select label={t('feature.transferTo')} value={deactivateDialog.transferTo} onChange={event => setDeactivateDialog(value => ({ ...value, transferTo: Number(event.target.value), error: '' }))}>{users.filter(user => user.isActive && user.userId !== deactivateDialog.user?.userId).map(user => <MenuItem key={user.userId} value={user.userId}>{user.userName} {user.userLastName}</MenuItem>)}</Select></FormControl>}</DialogContent><DialogActions><Button onClick={() => setDeactivateDialog({ open: false, user: null, impact: null, transferTo: '', error: '' })}>{t('common.cancel')}</Button><Button color="error" variant="contained" disabled={Boolean(deactivateDialog.impact?.requiresTransfer) && !deactivateDialog.transferTo} onClick={() => void confirmDeactivate()}>{t('feature.transferDeactivate')}</Button></DialogActions>
       </Dialog>
 
       <Dialog open={ownerTransferDialog.open} onClose={() => !assigningRole && setOwnerTransferDialog({ open: false, user: null, password: '', error: '' })} maxWidth="xs" fullWidth>

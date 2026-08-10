@@ -11,7 +11,10 @@ export default defineConfig({
     timeout: 8_000,
     toHaveScreenshot: { maxDiffPixelRatio: 0.025 },
   },
-  fullyParallel: true,
+  // Seeded projects share one disposable database. Running them concurrently makes
+  // destructive workflow specs race across browsers and produces false failures.
+  fullyParallel: !seeded,
+  workers: seeded ? 1 : undefined,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   reporter: [['list'], ['html', { open: 'never' }]],

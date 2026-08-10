@@ -83,6 +83,12 @@ export interface PendingTasksData {
   total: number;
 }
 
+export interface DashboardOverview {
+  stats: DashboardStats;
+  leaderboard: LeaderboardData;
+  pendingTasks: PendingTasksData;
+}
+
 // Helper type for API response
 interface ApiResponse<T> {
   success: boolean;
@@ -98,6 +104,11 @@ const PENDING_TASKS_CACHE_DURATION = 5 * 60 * 1000; // 5 นาที (Tasks เ
 const statsCache = new Map<string, { data: DashboardStats; timestamp: number }>();
 const leaderboardCache = new Map<string, { data: LeaderboardData; timestamp: number }>();
 const pendingTasksCache = new Map<string, { data: PendingTasksData; timestamp: number }>();
+
+export const getDashboardOverview = async (range: '1d' | '5d' | '7d' | '1m' | '3m' | '6m' | 'ytd' | '1y' | '5y' = '1d'): Promise<DashboardOverview> => {
+  const response = await api.get<ApiResponse<DashboardOverview>>(`/dashboard/overview?range=${range}&limit=5`);
+  return response.data.data;
+};
 
 /**
  * Get dashboard statistics with caching

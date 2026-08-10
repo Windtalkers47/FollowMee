@@ -57,6 +57,14 @@ export interface UserNotificationSettingsResponseDto {
   notifyProfileChanged: boolean;
   emailEnabled: boolean;
   pushEnabled: boolean;
+  doNotDisturbEnabled: boolean;
+  digestMode: 'none' | 'hourly' | 'daily' | 'weekly';
+  digestDay: number | null;
+  digestTime: string;
+  timezone: string;
+  quietHoursStart: number | null;
+  quietHoursEnd: number | null;
+  priorityFilter: 'all' | 'high' | 'none';
   createdAt: Date;
   updatedAt: Date;
 }

@@ -359,6 +359,16 @@ export enum NotificationType {
     });
   }
 
+  static async notifyRewardAchievement(userId: number, seasonId: number, rank: number): Promise<void> {
+    await this.createNotification({
+      notificationType: NotificationType.SYSTEM_ANNOUNCEMENT,
+      entityType: 'reward_season', entityId: String(seasonId),
+      title: `Season #${rank} achievement`, message: `You finished the season at rank #${rank}. Your badge and Aura are ready.`,
+      titleKey: 'notification.reward.seasonRank.title', messageKey: 'notification.reward.seasonRank.message',
+      translationParams: { rank, seasonId }, actionUrl: '/rewards', recipientUserIds: [userId], skipQueue: true,
+    });
+  }
+
   /**
    * Create a customer created notification
    * Customer creation is sent immediately (not aggregated)

@@ -21,6 +21,25 @@ export class TaskResponseDto {
   isActive!: boolean;
   createdAt!: Date;
   updatedAt!: Date;
+  duplicatedFromTaskId?: string | null;
+  duplicatedFromTask?: { taskId: string; title: string } | null;
+  templateId?: number | null;
+  recurrenceRuleId?: number | null;
+  scheduledFor?: Date | null;
+  blockedReason?: string | null;
+  blockedAt?: Date | null;
+  blockedBy?: number | null;
+  completedBy?: number | null;
+  approvedBy?: number | null;
+  checklist?: Array<{
+    checklistItemId: number;
+    label: string;
+    isRequired: boolean;
+    isCompleted: boolean;
+    sortOrder: number;
+    completedBy?: number | null;
+    completedAt?: Date | null;
+  }>;
 
   // Relations
   images?: TaskImageResponseDto[];
@@ -59,6 +78,12 @@ export class TaskResponseDto {
     canRequestChanges: boolean;
     canCancel: boolean;
     canOwnerOverride: boolean;
+    canDuplicate: boolean;
+    canManageChecklist: boolean;
+    canToggleChecklist: boolean;
+    canManageRecurrence: boolean;
+    canSaveTemplate: boolean;
+    canSetBlocked: boolean;
     primaryAction?: 'start' | 'submit_review' | 'review' | 'view';
     nextActor?: {
       userId: number;

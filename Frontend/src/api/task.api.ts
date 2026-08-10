@@ -51,6 +51,17 @@ export interface Task {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+  duplicatedFromTaskId?: string | null;
+  duplicatedFromTask?: { taskId: string; title: string } | null;
+  templateId?: number | null;
+  recurrenceRuleId?: number | null;
+  scheduledFor?: string | null;
+  blockedReason?: string | null;
+  blockedAt?: string | null;
+  blockedBy?: number | null;
+  completedBy?: number | null;
+  approvedBy?: number | null;
+  checklist?: TaskChecklistItem[];
   images?: TaskImage[];
   assignedToUser?: {
     userId: number;
@@ -87,6 +98,12 @@ export interface Task {
     canRequestChanges: boolean;
     canCancel: boolean;
     canOwnerOverride: boolean;
+    canDuplicate: boolean;
+    canManageChecklist: boolean;
+    canToggleChecklist: boolean;
+    canManageRecurrence: boolean;
+    canSaveTemplate: boolean;
+    canSetBlocked: boolean;
     primaryAction?: 'start' | 'submit_review' | 'review' | 'view';
     nextActor?: {
       userId: number;
@@ -95,6 +112,16 @@ export interface Task {
     };
   };
   attentionReason?: 'assigned' | 'approval_required';
+}
+
+export interface TaskChecklistItem {
+  checklistItemId: number;
+  label: string;
+  isRequired: boolean;
+  isCompleted: boolean;
+  sortOrder: number;
+  completedBy?: number | null;
+  completedAt?: string | null;
 }
 
 export interface MyWorkResponse {
@@ -155,6 +182,11 @@ export interface TaskComment {
     userName: string;
     userLastName: string;
     userImageUrl?: string;
+    recognition?: {
+      auraKey?: string;
+      rankValue?: 1 | 2 | 3;
+      badgeKey?: string;
+    };
   };
   replies?: TaskComment[];
   reactions?: TaskCommentReaction[];
@@ -345,6 +377,24 @@ export interface PrioritySummaryResponse {
 
 // Task CRUD operations
 export const taskApi = {
+  duplicateTask: async (taskId: string, includeAttachments = false): Promise<{ taskId: string; attachmentCopyStatus: string }> => {
+    const response = await axios.post(`${API_BASE_URL}/tasks/${taskId}/duplicate`, { includeAttachments }, { withCredentials: true });
+    return response.data.data;
+  },
+
+  replaceChecklist: async (taskId: string, items: Array<{ label: string; isRequired?: boolean }>): Promise<TaskChecklistItem[]> => {
+    const response = await axios.put(`${API_BASE_URL}/tasks/${taskId}/checklist`, { items }, { withCredentials: true });
+    return response.data.data;
+  },
+
+  toggleChecklist: async (taskId: string, itemId: number, completed: boolean): Promise<TaskChecklistItem[]> => {
+    const response = await axios.put(`${API_BASE_URL}/tasks/${taskId}/checklist/${itemId}`, { completed }, { withCredentials: true });
+    return response.data.data;
+  },
+
+  setBlocked: async (taskId: string, blocked: boolean, reason: string, expectedVersion: number): Promise<void> => {
+    await axios.put(`${API_BASE_URL}/tasks/${taskId}/${blocked ? 'block' : 'unblock'}`, { reason, expectedVersion }, { withCredentials: true });
+  },
   // Create a new task
   createTask: async (data: CreateTaskData): Promise<Task> => {
     const response = await axios.post(`${API_BASE_URL}/tasks`, data, {
@@ -469,6 +519,31 @@ export const taskApi = {
       params,
       withCredentials: true,
     });
+    return response.data.data;
+  },
+
+  getScheduleMeta: async (): Promise<{ statusCounts: Record<string, number>; focus?: TaskFocusSummary }> => {
+    const response = await axios.get(`${API_BASE_URL}/tasks/schedule-meta`, { withCredentials: true });
+    return response.data.data;
+  },
+
+  getSavedViews: async (pageKey = 'my-work'): Promise<Array<{ savedViewId: number; name: string; filters: Record<string, unknown>; sort: Record<string, unknown> | null; isDefault: boolean }>> => {
+    const response = await axios.get(`${API_BASE_URL}/productivity/saved-views`, { params: { pageKey }, withCredentials: true });
+    return response.data.data;
+  },
+
+  saveView: async (input: { pageKey: string; name: string; filters: Record<string, unknown>; sort?: Record<string, unknown>; isDefault?: boolean }) => {
+    const response = await axios.post(`${API_BASE_URL}/productivity/saved-views`, input, { withCredentials: true });
+    return response.data.data;
+  },
+
+  createTemplate: async (input: { name: string; title: string; description?: string; priority?: string; defaultAssigneeId?: number; watcherIds?: number[]; checklist?: Array<{ label: string; isRequired: boolean }>; visibility?: 'private' | 'organization' }) => {
+    const response = await axios.post(`${API_BASE_URL}/productivity/templates`, input, { withCredentials: true });
+    return response.data.data as { templateId: number };
+  },
+
+  createRecurrence: async (input: { templateId: number; cadence: 'daily' | 'weekly' | 'monthly'; intervalValue: number; weekdays?: number[]; dayOfMonth?: number; localTime: string; startsOn: string; endsOn?: string }) => {
+    const response = await axios.post(`${API_BASE_URL}/productivity/recurrences`, input, { withCredentials: true });
     return response.data.data;
   },
 

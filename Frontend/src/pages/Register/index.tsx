@@ -1,5 +1,5 @@
-import React, { useState, useRef } from 'react';
-import { useNavigate, Link as RouterLink } from 'react-router-dom';
+import React, { useEffect, useState, useRef } from 'react';
+import { useNavigate, Link as RouterLink, useSearchParams } from 'react-router-dom';
 import { useAppDispatch } from '../../store/store';
 import { loginUser } from '../../store/slices/authSlice';
 import authApi, { LoginCredentials, RegisterCredentials } from '../../api/auth.api';
@@ -13,6 +13,7 @@ import {
   CircularProgress,
   Link,
   Divider,
+  Alert,
   IconButton,
   InputAdornment,
 } from '@mui/material';
@@ -37,6 +38,9 @@ interface FormTouched {
 }
 
 const Register = () => {
+  const [searchParams] = useSearchParams();
+  const invitationToken = searchParams.get('invite') || '';
+  const [invitationState, setInvitationState] = useState<'loading' | 'valid' | 'invalid' | 'public'>(invitationToken ? 'loading' : 'public');
   const [formData, setFormData] = useState({
     userName: '',
     userLastName: '',
@@ -66,6 +70,17 @@ const Register = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const { t } = useUserPreferences();
+
+  useEffect(() => {
+    if (!invitationToken) return;
+    let active = true;
+    authApi.invitation(invitationToken).then(response => {
+      if (!active) return;
+      setFormData(current => ({ ...current, email: response.data?.email || current.email }));
+      setInvitationState('valid');
+    }).catch(() => active && setInvitationState('invalid'));
+    return () => { active = false; };
+  }, [invitationToken]);
   
   // Refs for scrolling to error fields
   const userNameRef = useRef<HTMLInputElement>(null);
@@ -226,7 +241,8 @@ const Register = () => {
         userName: formData.userName,
         userLastName: formData.userLastName,
         userPassword: formData.password,
-        userPhone1: formData.userPhone1 || undefined
+        userPhone1: formData.userPhone1 || undefined,
+        invitationToken: invitationToken || undefined,
       };
       
       const response = await authApi.register(registrationData);
@@ -374,6 +390,8 @@ const Register = () => {
         }}>
           
           <Box component="form" onSubmit={handleSubmit} noValidate>
+            {invitationState === 'loading' && <Alert severity="info" sx={{ mb: 2 }}>{t('feature.inviteValidating')}</Alert>}
+            {invitationState === 'invalid' && <Alert severity="error" sx={{ mb: 2 }}>{t('feature.inviteInvalid')}</Alert>}
             <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
               <TextField
                 margin="normal"

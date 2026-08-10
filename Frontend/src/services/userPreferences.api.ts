@@ -11,6 +11,10 @@ export interface UserPreferences {
   locale: Locale;
   brandTheme: BrandTheme;
   colorMode: ColorModePreference;
+  selectedAuraKey?: string | null;
+  profileCardMotion?: 'full' | 'subtle' | 'off';
+  shareDefaults?: Record<string, boolean | string> | null;
+  privacyDefaults?: Record<string, boolean | string> | null;
 }
 
 export const userPreferencesApi = {
@@ -24,7 +28,7 @@ export const userPreferencesApi = {
   },
 
   async update(
-    updates: Partial<Pick<UserPreferences, 'locale' | 'brandTheme' | 'colorMode'>>
+    updates: Partial<UserPreferences>
   ): Promise<UserPreferences> {
     const response = await axios.patch(`${API_BASE_URL}/user-preferences`, updates, {
       withCredentials: true,

@@ -11,6 +11,14 @@ export interface RegisterCredentials {
   userLastName: string;
   userPassword: string;
   userPhone1?: string;
+  invitationToken?: string;
+}
+
+export interface InvitationPreview {
+  email: string;
+  roleId: number | null;
+  roleName?: string;
+  expiresAt: string;
 }
 
 export interface LoginCredentials {
@@ -34,6 +42,12 @@ interface ForgotPasswordResponse {
 // API
 // --------------------
 const authApi = {
+  invitation: async (token: string): Promise<ApiResponse<InvitationPreview>> => {
+    const response = await fetch(`${apiConfig.baseURL}/auth/invitations/${encodeURIComponent(token)}`, {
+      headers: { ...apiConfig.headers },
+    });
+    return handleResponse<ApiResponse<InvitationPreview>>(response);
+  },
   /**
    * Login with email & password
    */

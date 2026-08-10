@@ -40,7 +40,11 @@ import publicProfileRoutes from './routes/public-profile.routes';
 import userPreferenceRoutes from './routes/user-preference.routes';
 import rewardRoutes from './routes/reward.routes';
 import adminRewardRoutes from './routes/admin-reward.routes';
+import productivityRoutes from './routes/productivity.routes';
+import analyticsRoutes from './routes/analytics.routes';
 import { rewardService } from './services/reward.service';
+import { outboxService } from './services/outbox.service';
+import { productivityService } from './services/productivity.service';
 
 // Load environment variables
 dotenv.config();
@@ -74,6 +78,8 @@ class App {
       await this.initializeNotificationServices(notificationService);
       await rewardService.ensureDevelopmentSeed();
       rewardService.startExpiryWorker();
+      outboxService.start();
+      productivityService.startRecurrenceWorker();
 
       // Then set up other middleware and routes
       this.initializeMiddlewares();
@@ -114,6 +120,8 @@ class App {
       notificationQueueService.clearAll();
       taskDeadlineNotificationService.stop();
       rewardService.stopExpiryWorker();
+      outboxService.stop();
+      productivityService.stopRecurrenceWorker();
 
       // Stop cleanup service
       notificationCleanupService.stop();
@@ -268,6 +276,8 @@ class App {
     this.app.use('/api/user-preferences', userPreferenceRoutes);
     this.app.use('/api/rewards', rewardRoutes);
     this.app.use('/api/admin/rewards', adminRewardRoutes);
+    this.app.use('/api/productivity', productivityRoutes);
+    this.app.use('/api/analytics', analyticsRoutes);
 
     // Task routes
     this.app.use('/api/tasks', taskRoutes);
@@ -303,6 +313,7 @@ class App {
         message: err?.message || 'Internal Server Error',
         ...(err?.code ? { code: err.code } : {}),
         ...(err?.details ? { details: err.details } : {}),
+        ...(err?.messageKey ? { messageKey: err.messageKey } : {}),
         ...(err?.currentVersion ? { currentVersion: err.currentVersion } : {}),
         requestId: res.locals.requestId,
         ...(err?.code === 'INVALID_TASK_PAYLOAD' ? { code: err.code, fields: err.fields } : {}),

@@ -67,6 +67,9 @@ export class Customer {
   @Column({ name: 'customerImageUrl', type: 'varchar', length: 512, nullable: true })
   customerImageUrl?: string;
 
+  @Column({ name: 'imageCrop', type: 'json', nullable: true })
+  imageCrop!: { x: number; y: number; zoom: number; rotation: number } | null;
+
   @Column({ name: 'isActive', type: 'boolean', default: true })
   isActive: boolean = true;
 

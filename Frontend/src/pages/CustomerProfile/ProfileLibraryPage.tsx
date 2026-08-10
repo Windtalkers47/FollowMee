@@ -6,6 +6,9 @@ import {
   EditRounded,
   LinkRounded,
   MoreHorizRounded,
+  ContentCopyRounded,
+  IosShareRounded,
+  QrCode2Rounded,
   PublicRounded,
   SearchRounded,
   VisibilityOffRounded,
@@ -291,6 +294,12 @@ const ProfileLibraryPage = () => {
                   label={t(`profile.visibility.${profile.visibility}`)}
                   variant="outlined"
                 />
+                <Chip
+                  size="small"
+                  label={profile.shareStatus === 'ready_to_share' ? 'Ready to share' : profile.shareStatus === 'needs_attention' ? 'Needs attention' : 'Draft'}
+                  color={profile.shareStatus === 'ready_to_share' ? 'success' : profile.shareStatus === 'needs_attention' ? 'warning' : 'default'}
+                  variant={profile.shareStatus === 'ready_to_share' ? 'filled' : 'outlined'}
+                />
               </Stack>
               <Stack direction="row" spacing={0.75} alignItems="center" sx={{ mt: 2.5 }}>
                 <AnalyticsRounded color="action" fontSize="small" />
@@ -338,6 +347,12 @@ const ProfileLibraryPage = () => {
         <MenuItem disabled={menuProfile?.capabilities?.canEdit === false} onClick={() => menuProfile && navigate(`/customer-profile/${menuProfile.profileId}/edit`)}>
           {t('profile.edit')}
         </MenuItem>
+        {menuProfile?.status === 'published' && menuProfile.visibility !== 'private' && <MenuItem onClick={() => {
+          void navigator.clipboard.writeText(`${window.location.origin}/p/${menuProfile.slug}`);
+          setMenuAnchor(null);
+        }}><ContentCopyRounded fontSize="small" sx={{ mr: 1 }} />{t('profile.editor.copyUrl')}</MenuItem>}
+        {menuProfile?.status === 'published' && menuProfile.visibility !== 'private' && <MenuItem onClick={() => navigate(`/customer-profile/${menuProfile.profileId}/edit?share=1`)}><IosShareRounded fontSize="small" sx={{ mr: 1 }} />{t('profile.public.share')}</MenuItem>}
+        {menuProfile?.status === 'published' && menuProfile.visibility !== 'private' && <MenuItem onClick={() => navigate(`/customer-profile/${menuProfile.profileId}/edit?share=qr`)}><QrCode2Rounded fontSize="small" sx={{ mr: 1 }} />{t('profile.public.qrCode')}</MenuItem>}
         {menuProfile?.capabilities?.canDelete !== false && <MenuItem onClick={() => { setDeleteProfile(menuProfile); setMenuAnchor(null); }} sx={{ color: 'error.main' }}>{t('profile.delete')}</MenuItem>}
       </Menu>
 

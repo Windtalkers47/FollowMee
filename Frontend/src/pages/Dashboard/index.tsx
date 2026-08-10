@@ -5,12 +5,14 @@ import {
   Container,
   Grid,
   CircularProgress,
+  LinearProgress,
   ToggleButtonGroup,
   ToggleButton,
   useTheme,
   Avatar,
   Button,
   Alert,
+  Stack,
 } from '@mui/material';
 import {
   People as PeopleIcon,
@@ -43,8 +45,7 @@ import {
 } from '../../components/LiquidGlassDashboard';
 import {
   getDashboardStats,
-  getLeaderboard,
-  getPendingTasks,
+  getDashboardOverview,
   clearCache,
   DashboardStats,
   LeaderboardData,
@@ -56,6 +57,9 @@ import { brandColors } from '../../styles/designTokens';
 import { useUserPreferences } from '../../contexts/UserPreferencesContext';
 import { formatLocalizedDate, formatLocalizedNumber } from '../../utils/localeFormat';
 import type { MessageKey } from '../../i18n/messages';
+import { useQuery } from '@tanstack/react-query';
+import { taskApi } from '../../api/task.api';
+import { rewardApi } from '../../api/reward.api';
 
 // Register ChartJS components (once, at module level)
 ChartJS.register(
@@ -96,6 +100,12 @@ const DashboardPage: React.FC = () => {
   
   const gradientPreset = 'freshGreen' as const;
   const isDarkMode = theme.palette.mode === 'dark';
+  const todayWork = useQuery({ queryKey: ['my-work', user?.userId], queryFn: () => taskApi.getMyWork({ limit: 50 }), enabled: Boolean(user?.userId), staleTime: 15_000 });
+  const rewardSummary = useQuery({ queryKey: ['dashboard', 'achievement'], queryFn: rewardApi.summary, enabled: Boolean(user?.userId), staleTime: 30_000 });
+  const todayItems = useMemo(() => [...(todayWork.data?.items || [])].sort((a, b) => {
+    const weight = (task: typeof a) => { const due = task.endDate || task.dueDate; const dueTime = due ? new Date(due).getTime() : Infinity; const endToday = new Date().setHours(23,59,59,999); return dueTime < Date.now() ? 0 : task.attentionReason === 'approval_required' ? 1 : dueTime <= endToday ? 2 : task.blockedAt ? 3 : 4; };
+    return weight(a) - weight(b);
+  }).slice(0, 5), [todayWork.data?.items]);
 
   // Fetch Stats only (เรียกเมื่อเปลี่ยน time range)
   const fetchStatsOnly = useCallback(async (range: TimeRange) => {
@@ -114,13 +124,10 @@ const DashboardPage: React.FC = () => {
   // Fetch Static Data (Leaderboard + Pending Tasks) - เรียกครั้งเดียว
   const fetchStaticData = useCallback(async () => {
     try {
-      const [leaderboardData, tasksData] = await Promise.all([
-        getLeaderboard(5),
-        getPendingTasks(5),
-      ]);
-      
-      setLeaderboard(leaderboardData);
-      setPendingTasks(tasksData.tasks);
+      const overview = await getDashboardOverview('1d');
+      setDashboardStats(overview.stats);
+      setLeaderboard(overview.leaderboard);
+      setPendingTasks(overview.pendingTasks.tasks);
     } catch (error) {
       console.error('Failed to fetch static data:', error);
     }
@@ -445,24 +452,9 @@ const DashboardPage: React.FC = () => {
     return t('dashboard.customerGrowth', { period: t(periodKey) });
   }, [timeRange, t]);
 
-  if (isInitialLoading) {
-    return (
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          minHeight: '100vh',
-          background: gradientPresets.freshGreen.light,
-        }}
-      >
-        <CircularProgress color="primary" />
-      </Box>
-    );
-  }
-
   return (
     <Container maxWidth="xl" sx={{ py: 4, minHeight: '100vh' }}>
+      {isInitialLoading && <LinearProgress aria-label={t('dashboard.loading')} sx={{ mb: 2, borderRadius: 99 }} />}
       <Box
         sx={{ width: '100%' }}
       >
@@ -572,6 +564,11 @@ const DashboardPage: React.FC = () => {
         </Box>
 
         {/* Stats Cards */}
+        <Grid container spacing={3} sx={{ mb: 4 }}>
+          <Grid size={{ xs: 12, lg: 8 }}><LiquidGlassCard gradientPreset={gradientPreset} isDarkMode={isDarkMode} sx={{ p: 3, height: '100%' }}><Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}><Box><Typography variant="h6" fontWeight={800}>{t('feature.todayTitle')}</Typography><Typography variant="body2" color="text.secondary">{t('feature.todayOrder')}</Typography></Box><Button onClick={() => navigate('/my-work')}>{t('feature.openMyWork')}</Button></Stack>{todayWork.isError ? <Alert severity="error" action={<Button onClick={() => todayWork.refetch()}>{t('feedback.retry')}</Button>}>{t('feature.todayLoadError')}</Alert> : todayWork.isLoading ? <CircularProgress size={24} /> : todayItems.length ? <Stack gap={1}>{todayItems.map(task => <Button key={task.taskId} variant="outlined" onClick={() => navigate(`/tasks/${task.taskId}`)} sx={{ justifyContent: 'space-between' }}><span>{task.title}</span><span>{task.blockedAt ? t('feature.blocked') : task.attentionReason?.replaceAll('_', ' ') || task.status}</span></Button>)}</Stack> : <Alert severity="success">{t('feature.allClearToday')}</Alert>}</LiquidGlassCard></Grid>
+          <Grid size={{ xs: 12, lg: 4 }}><LiquidGlassCard gradientPreset={gradientPreset} isDarkMode={isDarkMode} sx={{ p: 3, height: '100%' }}><Typography variant="h6" fontWeight={800}>{t('feature.latestAchievement')}</Typography>{rewardSummary.data?.latestAchievement ? <Stack alignItems="center" textAlign="center" mt={2}><Typography fontSize={44}>🏅</Typography><Typography fontWeight={800}>{rewardSummary.data.latestAchievement.nameKey}</Typography><Typography color="text.secondary">{t('feature.seasonProgress', { rank: rewardSummary.data.myRank || '—', score: rewardSummary.data.seasonScore })}</Typography><Button onClick={() => navigate('/rewards')} sx={{ mt: 1 }}>{t('feature.showBadges')}</Button></Stack> : <Typography color="text.secondary" mt={2}>{t('feature.noAchievement')}</Typography>}</LiquidGlassCard></Grid>
+        </Grid>
+
         <Box sx={{ mb: 4 }}>
           <Grid container spacing={3}>
             <Grid size={{ xs: 12, sm: 6, lg: 3 }}>

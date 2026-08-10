@@ -23,6 +23,10 @@ type StoredPreferences = {
   locale: Locale;
   brandTheme: BrandTheme;
   colorMode: ColorModePreference;
+  selectedAuraKey: string | null;
+  profileCardMotion: 'full' | 'subtle' | 'off';
+  shareDefaults: Record<string, boolean | string>;
+  privacyDefaults: Record<string, boolean | string>;
 };
 
 const browserLocale = (): Locale =>
@@ -39,9 +43,13 @@ const normalizeStored = (raw: string | null): StoredPreferences => {
       colorMode: ['light', 'dark', 'system'].includes(saved.colorMode)
         ? saved.colorMode
         : 'system',
+      selectedAuraKey: typeof saved.selectedAuraKey === 'string' ? saved.selectedAuraKey : null,
+      profileCardMotion: ['full', 'subtle', 'off'].includes(saved.profileCardMotion) ? saved.profileCardMotion : 'subtle',
+      shareDefaults: saved.shareDefaults && typeof saved.shareDefaults === 'object' ? saved.shareDefaults : { displayName: true, badge: true, score: true, season: true, format: 'square' },
+      privacyDefaults: saved.privacyDefaults && typeof saved.privacyDefaults === 'object' ? saved.privacyDefaults : { visibility: 'private', showContact: false },
     };
   } catch {
-    return { locale: browserLocale(), brandTheme: 'purple', colorMode: 'system' };
+    return { locale: browserLocale(), brandTheme: 'purple', colorMode: 'system', selectedAuraKey: null, profileCardMotion: 'subtle', shareDefaults: { displayName: true, badge: true, score: true, season: true, format: 'square' }, privacyDefaults: { visibility: 'private', showContact: false } };
   }
 };
 
@@ -54,6 +62,10 @@ interface UserPreferencesContextValue extends StoredPreferences {
   setLocale: (locale: Locale) => Promise<void>;
   setBrandTheme: (theme: BrandTheme) => Promise<void>;
   setColorMode: (mode: ColorModePreference) => Promise<void>;
+  setProfileCardMotion: (mode: 'full' | 'subtle' | 'off') => Promise<void>;
+  setSelectedAuraKey: (key: string | null) => Promise<void>;
+  setShareDefaults: (value: Record<string, boolean | string>) => Promise<void>;
+  setPrivacyDefaults: (value: Record<string, boolean | string>) => Promise<void>;
   t: (key: MessageKey, values?: Record<string, string | number>) => string;
 }
 
@@ -91,6 +103,10 @@ export const UserPreferencesProvider = ({ children }: { children: ReactNode }) =
             locale: server.locale,
             brandTheme: server.brandTheme,
             colorMode: server.colorMode,
+            selectedAuraKey: server.selectedAuraKey || null,
+            profileCardMotion: server.profileCardMotion || 'subtle',
+            shareDefaults: server.shareDefaults || preferences.shareDefaults,
+            privacyDefaults: server.privacyDefaults || preferences.privacyDefaults,
           });
         }
       })
@@ -110,6 +126,10 @@ export const UserPreferencesProvider = ({ children }: { children: ReactNode }) =
         locale: saved.locale,
         brandTheme: saved.brandTheme,
         colorMode: saved.colorMode,
+        selectedAuraKey: saved.selectedAuraKey || null,
+        profileCardMotion: saved.profileCardMotion || 'subtle',
+        shareDefaults: saved.shareDefaults || next.shareDefaults,
+        privacyDefaults: saved.privacyDefaults || next.privacyDefaults,
       });
     } catch (error) {
       persistLocal(previous);
@@ -124,6 +144,10 @@ export const UserPreferencesProvider = ({ children }: { children: ReactNode }) =
     setLocale: locale => update({ locale }),
     setBrandTheme: brandTheme => update({ brandTheme }),
     setColorMode: colorMode => update({ colorMode }),
+    setProfileCardMotion: profileCardMotion => update({ profileCardMotion }),
+    setSelectedAuraKey: selectedAuraKey => update({ selectedAuraKey }),
+    setShareDefaults: shareDefaults => update({ shareDefaults }),
+    setPrivacyDefaults: privacyDefaults => update({ privacyDefaults }),
     t: (key, values) => {
       let output: string = messages[preferences.locale][key] || messages.en[key] || key;
       Object.entries(values || {}).forEach(([name, replacement]) => {

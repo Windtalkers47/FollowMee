@@ -19,6 +19,7 @@ export interface LoginResponse {
     userPhone2?: string;
     userImageUrl?: string | null;
     roles: string[];
+    permissions?: string[];
     fullName?: string;
   };
   accessToken: string;

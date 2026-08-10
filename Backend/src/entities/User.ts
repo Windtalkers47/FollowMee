@@ -66,6 +66,9 @@ export class User {
   @Column('varchar', { length: 500, nullable: true })
   userImageUrl!: string | null;
 
+  @Column('json', { nullable: true })
+  imageCrop!: { x: number; y: number; zoom: number; rotation: number } | null;
+
   @Column('datetime', { nullable: true })
   deletedAt?: Date;
 

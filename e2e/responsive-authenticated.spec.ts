@@ -2,10 +2,15 @@ import { test, expect, hasTwoQaUsers, loginAs } from './fixtures';
 
 const routes = [
   '/dashboard',
+  '/my-work',
   '/schedule',
+  '/tasks/e2e00000-0000-4000-8000-000000000002',
   '/customer',
   '/customer-profile',
+  '/customer-profile/e2e00000-0000-4000-8000-000000000003/edit',
   '/posts',
+  '/rewards',
+  '/analytics',
   '/notification-analytics',
   '/notifications',
   '/users',

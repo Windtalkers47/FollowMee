@@ -30,6 +30,7 @@ import { rewardService } from './reward.service';
 import { TaskWatcher } from '../entities/TaskWatcher';
 import { TaskActivity } from '../entities/TaskActivity';
 import { taskAccessService } from './task-access.service';
+import type { TaskAccessContext } from './task-access.service';
 import type { TaskScope } from '../types/organization.types';
 import { TaskImage } from '../entities/TaskImage';
 
@@ -210,7 +211,7 @@ export class TaskService {
     const totalPages = Math.ceil(total / limit);
 
     const response: TaskListResponseDto = {
-      tasks: await Promise.all(tasks.map(task => this.mapToResponseDto(task, viewerUserId))),
+      tasks: await this.mapTasksToResponseDto(tasks, viewerUserId, access),
       total,
       page,
       limit,
@@ -228,6 +229,11 @@ export class TaskService {
     }
 
     return response;
+  }
+
+  async getScheduleMeta(viewerUserId: number) {
+    const access = await taskAccessService.context(viewerUserId);
+    return this.customTaskRepository.getScheduleMeta(access);
   }
 
   private calculateTopPerformers(tasks: Task[]): Array<{userId: number, userName: string, userLastName: string, completedTasks: number}> {
@@ -275,7 +281,7 @@ export class TaskService {
     }
     const access = await taskAccessService.context(viewerUserId);
     taskAccessService.assertView(task, access);
-    return this.mapToResponseDto(task, viewerUserId);
+    return this.mapToResponseDto(task, viewerUserId, access);
   }
 
   async getTaskActivities(taskId: string, viewerUserId: number, limit = 50) {
@@ -474,20 +480,22 @@ export class TaskService {
 
   async getUserTasks(userId: number, includeAssigned: boolean = true): Promise<TaskResponseDto[]> {
     const tasks = await this.customTaskRepository.findTasksByAssignedUser(userId);
-    return await Promise.all(tasks
-      .filter((task) => task.status !== 'draft' || task.createdBy === userId)
-      .map(task => this.mapToResponseDto(task, userId)));
+    return this.mapTasksToResponseDto(
+      tasks.filter((task) => task.status !== 'draft' || task.createdBy === userId),
+      userId,
+    );
   }
 
   async getMyWork(userId: number, limit = 20, cursor?: string): Promise<MyWorkResponseDto> {
     const result = await this.customTaskRepository.findMyWork(userId, limit, cursor);
-    const items = await Promise.all(result.tasks.map(async (task) => {
-      const mapped = await this.mapToResponseDto(task, userId);
+    const mappedTasks = await this.mapTasksToResponseDto(result.tasks, userId);
+    const items = mappedTasks.map((mapped, index) => {
+      const task = result.tasks[index];
       mapped.attentionReason = task.status === 'review' && task.createdBy === userId
         ? 'approval_required'
         : 'assigned';
       return mapped;
-    }));
+    });
     const last = result.tasks[result.tasks.length - 1];
     const count = (key: string) => Number(result.counts[key]) || 0;
     return {
@@ -550,6 +558,11 @@ export class TaskService {
 
     if (task.status !== 'in_progress') {
       throw new TaskActionError('Only a task in progress can be submitted for review', 'submit_review', 409, task.status as TaskStatus);
+    }
+
+    const incompleteRequired = await AppDataSource.query(`SELECT COUNT(*) AS total FROM task_checklist_items WHERE taskId=? AND isRequired=1 AND isCompleted=0`, [taskId]);
+    if (Number(incompleteRequired[0]?.total || 0) > 0) {
+      throw Object.assign(new Error('Complete all required checklist items before submitting for review'), { statusCode: 409, code: 'TASK_REQUIRED_CHECKLIST_INCOMPLETE', details: { incomplete: Number(incompleteRequired[0].total) } });
     }
 
     await this.customTaskRepository.updateTaskStatus(taskId, 'review');
@@ -668,6 +681,8 @@ export class TaskService {
     const reopenPenalty = Math.min((task.reopenedCount || 0) * 2, 6);
     task.status = 'done';
     task.completedAt = completedAt;
+    task.completedBy = task.assignedTo || null;
+    task.approvedBy = userId;
     task.completionScore = Math.max(4, 10 + onTimeBonus - reopenPenalty);
     await this.taskRepository.save(task);
     await this.recordActivity(taskId, userId, 'approved', { score: task.completionScore, ownerOverride: access.isOwner && task.createdBy !== userId });
@@ -1082,18 +1097,68 @@ export class TaskService {
     };
   }
 
-  private async mapToResponseDto(task: Task, viewerUserId?: number): Promise<TaskResponseDto> {
-    // Get task images
-    const images = await this.taskImageService.getTaskImages(task.taskId);
-    const imageUrl = images && images.length > 0 ? images[0].imageUrl : undefined;
+  private async mapTasksToResponseDto(
+    tasks: Task[],
+    viewerUserId?: number,
+    suppliedAccess?: TaskAccessContext,
+  ): Promise<TaskResponseDto[]> {
+    if (!tasks.length) return [];
+    const taskIds = tasks.map(task => task.taskId);
+    const access = suppliedAccess || (viewerUserId ? await taskAccessService.context(viewerUserId) : undefined);
+    const placeholders = taskIds.map(() => '?').join(',');
+    const sourceIds = [...new Set(tasks.map(task => task.duplicatedFromTaskId).filter((id): id is string => Boolean(id)))];
 
-    const access = viewerUserId ? await taskAccessService.context(viewerUserId) : undefined;
-    const canOwnerOverride = Boolean(access?.isOwner && task.createdBy !== viewerUserId);
-    const workflow = getTaskWorkflowCapabilities(task, viewerUserId, canOwnerOverride);
-    const watcherIds = (await this.watcherRepository.find({ where: { taskId: task.taskId } })).map(watcher => watcher.userId);
-    const scope: TaskScope = task.status === 'draft' ? 'private_draft' : 'organization';
+    const [images, watchers, checklistRows, sourceTasks] = await Promise.all([
+      AppDataSource.getRepository(TaskImage).find({
+        where: { taskId: In(taskIds), isActive: true },
+        relations: ['uploadedByUser'],
+        order: { imageOrder: 'ASC' },
+      }),
+      this.watcherRepository.find({ where: { taskId: In(taskIds) } }),
+      AppDataSource.query(
+        `SELECT taskId,checklistItemId,label,isRequired,isCompleted,sortOrder,completedBy,completedAt FROM task_checklist_items WHERE taskId IN (${placeholders}) ORDER BY taskId,sortOrder,checklistItemId`,
+        taskIds,
+      ),
+      sourceIds.length
+        ? this.taskRepository.find({ where: { taskId: In(sourceIds) }, select: { taskId: true, title: true } })
+        : Promise.resolve([] as Task[]),
+    ]);
 
-    const response: TaskResponseDto = {
+    const imagesByTask = new Map<string, TaskImage[]>();
+    images.forEach(image => imagesByTask.set(image.taskId, [...(imagesByTask.get(image.taskId) || []), image]));
+    const watchersByTask = new Map<string, number[]>();
+    watchers.forEach(watcher => watchersByTask.set(watcher.taskId, [...(watchersByTask.get(watcher.taskId) || []), watcher.userId]));
+    const checklistByTask = new Map<string, any[]>();
+    checklistRows.forEach((item: any) => checklistByTask.set(item.taskId, [...(checklistByTask.get(item.taskId) || []), item]));
+    const sourceById = new Map(sourceTasks.map(source => [source.taskId, { taskId: source.taskId, title: source.title }]));
+
+    return tasks.map(task => {
+      const taskImages = imagesByTask.get(task.taskId) || [];
+      const responseImages = taskImages.map(image => ({
+        imageId: image.imageId,
+        taskId: image.taskId,
+        imageUrl: image.imageUrl,
+        imageOrder: image.imageOrder,
+        uploadedBy: image.uploadedBy,
+        isActive: image.isActive,
+        createdAt: image.createdAt,
+        uploadedByUser: image.uploadedByUser ? {
+          userId: image.uploadedByUser.userId,
+          userName: image.uploadedByUser.userName,
+          userLastName: image.uploadedByUser.userLastName,
+          userImageUrl: image.uploadedByUser.userImageUrl || undefined,
+        } : undefined,
+      }));
+      const checklist = (checklistByTask.get(task.taskId) || []).map((item: any) => ({
+        ...item,
+        isRequired: Boolean(item.isRequired),
+        isCompleted: Boolean(item.isCompleted),
+      }));
+      const canOwnerOverride = Boolean(access?.isOwner && task.createdBy !== viewerUserId);
+      const workflow = getTaskWorkflowCapabilities(task, viewerUserId, canOwnerOverride);
+      const scope: TaskScope = task.status === 'draft' ? 'private_draft' : 'organization';
+
+      return {
       taskId: task.taskId,
       title: task.title,
       description: task.description,
@@ -1101,17 +1166,28 @@ export class TaskService {
       createdBy: task.createdBy,
       priority: task.priority,
       version: task.version,
-      watcherIds,
+      watcherIds: watchersByTask.get(task.taskId) || [],
       scope,
       dueDate: task.dueDate,
       startDate: task.startDate,
       endDate: task.endDate,
       status: task.status,
-      imageUrl: imageUrl,
+      imageUrl: responseImages[0]?.imageUrl,
       isActive: task.isActive,
       createdAt: task.createdAt,
       updatedAt: task.updatedAt,
-      images: images,
+      duplicatedFromTaskId: task.duplicatedFromTaskId,
+      duplicatedFromTask: task.duplicatedFromTaskId ? sourceById.get(task.duplicatedFromTaskId) || null : null,
+      templateId: task.templateId,
+      recurrenceRuleId: task.recurrenceRuleId,
+      scheduledFor: task.scheduledFor,
+      blockedReason: task.blockedReason,
+      blockedAt: task.blockedAt,
+      blockedBy: task.blockedBy,
+      completedBy: task.completedBy,
+      approvedBy: task.approvedBy,
+      checklist,
+      images: responseImages,
       assignedToUser: task.assignedToUser ? {
         userId: task.assignedToUser.userId,
         userName: task.assignedToUser.userName,
@@ -1135,9 +1211,16 @@ export class TaskService {
         userLike: (task as any)._reactionCounts?.userLike,
       },
       workflow,
-    };
+      } satisfies TaskResponseDto;
+    });
+  }
 
-    return response;
+  private async mapToResponseDto(
+    task: Task,
+    viewerUserId?: number,
+    suppliedAccess?: TaskAccessContext,
+  ): Promise<TaskResponseDto> {
+    return (await this.mapTasksToResponseDto([task], viewerUserId, suppliedAccess))[0];
   }
 }
 

@@ -73,6 +73,36 @@ export class Task {
   @Column({ name: 'reopenedCount', type: 'int', default: 0 })
   reopenedCount: number = 0;
 
+  @Column({ name: 'duplicatedFromTaskId', type: 'char', length: 36, nullable: true })
+  duplicatedFromTaskId!: string | null;
+
+  @Column({ name: 'templateId', type: 'bigint', nullable: true })
+  templateId!: number | null;
+
+  @Column({ name: 'recurrenceRuleId', type: 'bigint', nullable: true })
+  recurrenceRuleId!: number | null;
+
+  @Column({ name: 'scheduledFor', type: 'datetime', nullable: true })
+  scheduledFor!: Date | null;
+
+  @Column({ name: 'occurrenceKey', type: 'varchar', length: 180, nullable: true })
+  occurrenceKey!: string | null;
+
+  @Column({ name: 'blockedReason', type: 'varchar', length: 500, nullable: true })
+  blockedReason!: string | null;
+
+  @Column({ name: 'blockedAt', type: 'datetime', nullable: true })
+  blockedAt!: Date | null;
+
+  @Column({ name: 'blockedBy', type: 'int', nullable: true })
+  blockedBy!: number | null;
+
+  @Column({ name: 'completedBy', type: 'int', nullable: true })
+  completedBy!: number | null;
+
+  @Column({ name: 'approvedBy', type: 'int', nullable: true })
+  approvedBy!: number | null;
+
   @CreateDateColumn({ name: 'createdAt' })
   createdAt!: Date;
 

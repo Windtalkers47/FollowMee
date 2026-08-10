@@ -65,6 +65,9 @@ export class CustomerResponseDto {
   customerImageUrl!: string | null;
 
   @Expose()
+  imageCrop?: { x: number; y: number; zoom: number; rotation: number } | null;
+
+  @Expose()
   isActive!: boolean;
 
   @Expose()

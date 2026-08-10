@@ -10,13 +10,11 @@ import {
   useTheme,
 } from '@mui/material';
 import { alpha } from '@mui/material/styles';
-import {
-  ChevronLeft,
-  ChevronRight,
-  CalendarToday,
-  Close
-} from '@mui/icons-material';
-import { startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, getYear, setYear } from 'date-fns';
+import ChevronLeft from '@mui/icons-material/ChevronLeft';
+import ChevronRight from '@mui/icons-material/ChevronRight';
+import CalendarToday from '@mui/icons-material/CalendarToday';
+import Close from '@mui/icons-material/Close';
+import { startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addDays, addMonths, subMonths, getYear, setYear, differenceInCalendarDays } from 'date-fns';
 import { useUserPreferences } from '../../contexts/UserPreferencesContext';
 import { formatLocalizedDate, formatLocalizedNumber } from '../../utils/localeFormat';
 
@@ -29,6 +27,10 @@ interface RangeCalendarProps {
   error?: boolean;
   helperText?: string;
   bookedDates?: Date[]; // New prop for booked/marked dates
+  allowPast?: boolean;
+  minDate?: Date;
+  maxDate?: Date;
+  maxRangeDays?: number;
 }
 
 export const RangeCalendar: React.FC<RangeCalendarProps> = ({
@@ -38,7 +40,11 @@ export const RangeCalendar: React.FC<RangeCalendarProps> = ({
   disabled = false,
   error = false,
   helperText,
-  bookedDates = []
+  bookedDates = [],
+  allowPast = false,
+  minDate,
+  maxDate,
+  maxRangeDays,
 }) => {
   const { t, locale } = useUserPreferences();
   const resolvedLabel = label || t('calendar.selectRange');
@@ -46,46 +52,82 @@ export const RangeCalendar: React.FC<RangeCalendarProps> = ({
   const [open, setOpen] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [yearPickerOpen, setYearPickerOpen] = useState(false);
+  const [draftValue, setDraftValue] = useState<[Date | null, Date | null]>(value);
+  const [rangeError, setRangeError] = useState('');
+
+  const openCalendar = () => {
+    if (disabled) return;
+    setDraftValue(value);
+    setRangeError('');
+    let preferredMonth = value[0] || new Date();
+    if (maxDate && preferredMonth > maxDate) preferredMonth = maxDate;
+    if (minDate && preferredMonth < minDate) preferredMonth = minDate;
+    setCurrentMonth(preferredMonth);
+    setOpen(true);
+  };
+
+  const dayIsDisabled = (date: Date) => {
+    const day = new Date(date); day.setHours(0, 0, 0, 0);
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const minimum = minDate ? new Date(minDate) : allowPast ? null : today;
+    const maximum = maxDate ? new Date(maxDate) : null;
+    if (minimum) minimum.setHours(0, 0, 0, 0);
+    if (maximum) maximum.setHours(0, 0, 0, 0);
+    return Boolean((minimum && day < minimum) || (maximum && day > maximum));
+  };
 
 
   const handleDateClick = (date: Date) => {
     if (disabled) return;
 
-    // Prevent selecting past dates
-    const today = new Date();
-    today.setHours(0, 0, 0, 0); // Set to start of day for fair comparison
-    const selectedDate = new Date(date);
-    selectedDate.setHours(0, 0, 0, 0);
+    if (dayIsDisabled(date)) return;
 
-    if (selectedDate < today) {
-      return; // Don't allow selection of past dates
-    }
-
-    const [start, end] = value;
+    const [start, end] = draftValue;
     
     if (!start || (start && end)) {
       // Start new selection
-      onChange([date, null]);
+      setDraftValue([date, null]);
+      setRangeError('');
     } else if (start && !end) {
       // Complete the range
       if (date < start) {
-        onChange([date, start]);
+        setDraftValue([date, start]);
       } else {
-        onChange([start, date]);
+        setDraftValue([start, date]);
       }
     }
   };
 
   const handleClear = () => {
-    onChange([null, null]);
+    setDraftValue([null, null]);
+    setRangeError('');
   };
+
+  const dateKey = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  const focusCalendarDay = (date: Date, offset: number) => {
+    const next = addDays(date, offset);
+    if (dayIsDisabled(next)) return;
+    if (!isSameMonth(next, currentMonth)) setCurrentMonth(startOfMonth(next));
+    window.requestAnimationFrame(() => {
+      document.querySelector<HTMLElement>(`[data-calendar-date="${dateKey(next)}"]`)?.focus();
+    });
+  };
+
+  const previousMonth = subMonths(currentMonth, 1);
+  const nextMonth = addMonths(currentMonth, 1);
+  const previousMonthDisabled = Boolean(minDate && endOfMonth(previousMonth) < startOfMonth(minDate));
+  const nextMonthDisabled = Boolean(maxDate && startOfMonth(nextMonth) > startOfMonth(maxDate));
+  const [draftStart, draftEnd] = draftValue;
+  const draftTooLong = Boolean(draftStart && draftEnd && maxRangeDays && differenceInCalendarDays(draftEnd, draftStart) + 1 > maxRangeDays);
+  const canApply = Boolean(draftStart && draftEnd && !draftTooLong);
 
   const renderCalendarDays = () => {
     const monthStart = startOfMonth(currentMonth);
     const monthEnd = endOfMonth(currentMonth);
     const days = eachDayOfInterval({ start: monthStart, end: monthEnd });
     
-    const weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const weekDays = Array.from({ length: 7 }, (_, index) => new Intl.DateTimeFormat(locale === 'th' ? 'th-TH' : 'en-US', { weekday: 'short' }).format(new Date(2024, 0, 1 + index)));
+    const leadingDays = (monthStart.getDay() + 6) % 7;
     
     return (
       <Box>
@@ -109,29 +151,39 @@ export const RangeCalendar: React.FC<RangeCalendarProps> = ({
         
         {/* Calendar days */}
         <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 1 }}>
+          {Array.from({ length: leadingDays }).map((_, index) => <Box key={`blank-${index}`} aria-hidden sx={{ width: 40, height: 40 }} />)}
           {days.map((day, index) => {
-            const [start, end] = value;
-            const isSelected = (start && isSameDay(day, start)) || (end && isSameDay(day, end));
+            const [start, end] = draftValue;
+            const isSelected = Boolean((start && isSameDay(day, start)) || (end && isSameDay(day, end)));
             const isInRange = start && end && day > start && day < end;
             const isToday = isSameDay(day, new Date());
             const isCurrentMonth = isSameMonth(day, currentMonth);
             
-            // Check if date is in the past
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            const selectedDate = new Date(day);
-            selectedDate.setHours(0, 0, 0, 0);
-            const isPastDate = selectedDate < today;
+            const isPastDate = dayIsDisabled(day);
             
             // Check if date is booked/marked (from existing tasks)
             const isBooked = bookedDates.some(bookedDate => isSameDay(day, bookedDate));
             // Check if date is in current selection
-            const isInCurrentSelection = (start && isSameDay(day, start)) || (end && isSameDay(day, end)) || (start && end && day > start && day < end);
+            const isInCurrentSelection = isSelected || Boolean(isInRange);
+            const accessibleDate = formatLocalizedDate(day, locale, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
             
             return (
               <Box
+                component="button"
+                type="button"
                 key={index}
                 onClick={() => handleDateClick(day)}
+                onKeyDown={(event) => {
+                  const offsets: Record<string, number> = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 };
+                  const offset = offsets[event.key];
+                  if (!offset) return;
+                  event.preventDefault();
+                  focusCalendarDay(day, offset);
+                }}
+                data-calendar-date={dateKey(day)}
+                aria-label={accessibleDate}
+                aria-pressed={isInCurrentSelection}
+                disabled={disabled || isPastDate}
                 sx={{
                   position: 'relative',
                   width: 40,
@@ -140,18 +192,22 @@ export const RangeCalendar: React.FC<RangeCalendarProps> = ({
                   alignItems: 'center',
                   justifyContent: 'center',
                   cursor: disabled || isPastDate ? 'not-allowed' : 'pointer',
-                  borderRadius: '50%',
+                  borderRadius: isSelected ? '50%' : isInRange ? '10px' : '50%',
                   fontSize: '14px',
                   fontWeight: isSelected ? 600 : 400,
-                  color: isInCurrentSelection
+                  color: isSelected
                     ? 'primary.contrastText'
+                    : isInRange
+                    ? 'text.primary'
                     : isPastDate
                     ? 'text.disabled'
                     : isCurrentMonth
                     ? 'text.primary'
                     : 'text.secondary',
-                  background: isInCurrentSelection
+                  bgcolor: isSelected
                     ? theme.palette.primary.main
+                    : isInRange
+                    ? alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.24 : 0.14)
                     : isBooked && !isInCurrentSelection
                     ? alpha(theme.palette.primary.main, 0.14)
                     : isToday 
@@ -159,8 +215,10 @@ export const RangeCalendar: React.FC<RangeCalendarProps> = ({
                     : isPastDate
                     ? theme.palette.action.disabledBackground
                     : 'transparent',
-                  border: isInCurrentSelection
+                  border: isSelected
                     ? `2px solid ${theme.palette.primary.main}`
+                    : isInRange
+                    ? `1px solid ${alpha(theme.palette.primary.main, 0.18)}`
                     : isBooked && !isInCurrentSelection
                     ? `1px solid ${alpha(theme.palette.primary.main, 0.5)}`
                     : isToday
@@ -170,8 +228,10 @@ export const RangeCalendar: React.FC<RangeCalendarProps> = ({
                   opacity: isPastDate ? 0.4 : 1,
                   boxShadow: 'none',
                   '&:hover': disabled || isPastDate ? {} : {
-                    background: isInCurrentSelection 
+                    bgcolor: isSelected
                       ? theme.palette.primary.dark
+                      : isInRange
+                      ? alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.32 : 0.2)
                       : isBooked && !isInCurrentSelection
                       ? alpha(theme.palette.primary.main, 0.22)
                       : theme.palette.action.hover,
@@ -180,7 +240,11 @@ export const RangeCalendar: React.FC<RangeCalendarProps> = ({
                     width: 44,
                     height: 44,
                     fontSize: '16px'
-                  }
+                  },
+                  '&:focus-visible': {
+                    outline: `3px solid ${alpha(theme.palette.primary.main, 0.42)}`,
+                    outlineOffset: 2,
+                  },
                 }}
               >
                 <Typography variant="body2">
@@ -212,8 +276,9 @@ export const RangeCalendar: React.FC<RangeCalendarProps> = ({
   const renderYearPicker = () => {
     const currentYear = getYear(new Date());
     const years = [];
-    // Only show current year and future years (up to 50 years ahead)
-    for (let i = currentYear; i <= currentYear + 50; i++) {
+    const firstYear = minDate ? getYear(minDate) : allowPast ? currentYear - 20 : currentYear;
+    const lastYear = maxDate ? getYear(maxDate) : currentYear + 50;
+    for (let i = firstYear; i <= lastYear; i++) {
       years.push(i);
     }
     
@@ -276,7 +341,16 @@ export const RangeCalendar: React.FC<RangeCalendarProps> = ({
   return (
     <>
       <Box
-        onClick={() => !disabled && setOpen(true)}
+        onClick={openCalendar}
+        onKeyDown={(event) => {
+          if (event.key !== 'Enter' && event.key !== ' ') return;
+          event.preventDefault();
+          openCalendar();
+        }}
+        role="button"
+        tabIndex={disabled ? -1 : 0}
+        aria-label={resolvedLabel}
+        aria-disabled={disabled}
         sx={{
           position: 'relative',
           padding: '12px 16px',
@@ -301,7 +375,7 @@ export const RangeCalendar: React.FC<RangeCalendarProps> = ({
           }
         }}
       >
-        <Stack direction="row" alignItems="center" spacing={1}>
+        <Stack direction="row" alignItems="center" spacing={1} sx={{ width: '100%' }}>
           <CalendarToday sx={{ 
             color: 'primary.main',
             fontSize: 20,
@@ -318,6 +392,7 @@ export const RangeCalendar: React.FC<RangeCalendarProps> = ({
           </Typography>
           {(value[0] || value[1]) && !disabled && (
             <IconButton
+              aria-label={t('calendar.clear')}
               size="small"
               onClick={(e) => {
                 e.stopPropagation();
@@ -354,7 +429,7 @@ export const RangeCalendar: React.FC<RangeCalendarProps> = ({
 
       <Dialog
         open={open}
-        onClose={() => setOpen(false)}
+        onClose={() => { setDraftValue(value); setOpen(false); }}
         maxWidth="sm"
         fullWidth
         PaperProps={{
@@ -388,8 +463,9 @@ export const RangeCalendar: React.FC<RangeCalendarProps> = ({
               
               <Stack direction="row" spacing={1}>
                 <IconButton
+                  aria-label={t('calendar.previousMonth')}
                   onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
-                  disabled={disabled}
+                  disabled={disabled || previousMonthDisabled}
                   sx={{
                     color: 'text.secondary',
                     background: 'action.hover',
@@ -411,6 +487,7 @@ export const RangeCalendar: React.FC<RangeCalendarProps> = ({
                 </IconButton>
                 
                 <IconButton
+                  aria-label={t('calendar.chooseYear')}
                   onClick={() => setYearPickerOpen(!yearPickerOpen)}
                   disabled={disabled}
                   sx={{
@@ -434,8 +511,9 @@ export const RangeCalendar: React.FC<RangeCalendarProps> = ({
                 </IconButton>
                 
                 <IconButton
+                  aria-label={t('calendar.nextMonth')}
                   onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
-                  disabled={disabled}
+                  disabled={disabled || nextMonthDisabled}
                   sx={{
                     color: 'text.secondary',
                     background: 'action.hover',
@@ -475,7 +553,7 @@ export const RangeCalendar: React.FC<RangeCalendarProps> = ({
             {/* Footer */}
             <Stack direction="row" spacing={2} justifyContent="flex-end">
               <Button
-                onClick={() => setOpen(false)}
+                onClick={() => { setDraftValue(value); setRangeError(''); setOpen(false); }}
                 sx={{
                   color: 'text.primary',
                   background: 'background.paper',
@@ -497,10 +575,19 @@ export const RangeCalendar: React.FC<RangeCalendarProps> = ({
               </Button>
               
               <Button
-                onClick={() => setOpen(false)}
+                aria-label={t('calendar.apply')}
+                disabled={!canApply}
+                onClick={() => {
+                  const [start, end] = draftValue;
+                  if (start && !end) { setRangeError(t('calendar.completeRange')); return; }
+                  if (start && end && maxRangeDays && differenceInCalendarDays(end, start) + 1 > maxRangeDays) { setRangeError(t('calendar.rangeTooLong', { count: maxRangeDays })); return; }
+                  onChange(draftValue);
+                  setRangeError('');
+                  setOpen(false);
+                }}
                 sx={{
                   color: 'primary.contrastText',
-                  background: 'primary.main',
+                  bgcolor: 'primary.main',
                   border: `1px solid ${theme.palette.primary.main}`,
                   borderRadius: '12px',
                   padding: '10px 20px',
@@ -508,7 +595,12 @@ export const RangeCalendar: React.FC<RangeCalendarProps> = ({
                   boxShadow: 'none',
                   transition: 'background-color 180ms ease',
                   '&:hover': {
-                    background: 'primary.dark',
+                    bgcolor: 'primary.dark',
+                  },
+                  '&.Mui-disabled': {
+                    color: 'text.disabled',
+                    bgcolor: 'action.disabledBackground',
+                    borderColor: 'divider',
                   },
                   '@media (max-width: 600px)': {
                     padding: '12px 16px',
@@ -516,9 +608,12 @@ export const RangeCalendar: React.FC<RangeCalendarProps> = ({
                   }
                 }}
               >
-                {t('common.done')}
+                {t('calendar.apply')}
               </Button>
             </Stack>
+            {(rangeError || (draftStart && !draftEnd) || draftTooLong) && <Typography role="alert" color="error.main" variant="body2">
+              {rangeError || (draftTooLong ? t('calendar.rangeTooLong', { count: maxRangeDays || 366 }) : t('calendar.completeRange'))}
+            </Typography>}
           </Stack>
         </DialogContent>
       </Dialog>

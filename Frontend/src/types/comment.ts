@@ -13,6 +13,11 @@ export interface Comment {
     userName: string;
     userLastName: string;
     userImageUrl?: string;
+    recognition?: {
+      auraKey?: string;
+      rankValue?: 1 | 2 | 3;
+      badgeKey?: string;
+    };
   };
   replies?: Comment[];
   reactions?: any[];

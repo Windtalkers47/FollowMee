@@ -30,6 +30,18 @@ export class RewardController {
     try { return res.json({ success: true, data: await rewardService.cancelRedemption(this.userId(req), Number(req.params.id)) }); }
     catch (error) { return next(error); }
   };
+  seasons = async (_req: Request, res: Response, next: NextFunction) => {
+    try { return res.json({ success: true, data: await rewardService.listSeasons() }); }
+    catch (error) { return next(error); }
+  };
+  season = async (req: Request, res: Response, next: NextFunction) => {
+    try { return res.json({ success: true, data: await rewardService.getSeason(Number(req.params.seasonId)) }); }
+    catch (error) { return next(error); }
+  };
+  closeSeason = async (req: Request, res: Response, next: NextFunction) => {
+    try { return res.json({ success: true, data: await rewardService.closeSeason(Number(req.params.seasonId)) }); }
+    catch (error) { return next(error); }
+  };
   settings = async (req: Request, res: Response, next: NextFunction) => {
     try { return res.json({ success: true, data: await rewardService.updateSettings(this.userId(req), req.body || {}) }); }
     catch (error) { return next(error); }

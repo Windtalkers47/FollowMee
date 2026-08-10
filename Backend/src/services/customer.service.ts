@@ -13,10 +13,13 @@ import { ApplicationError } from '../errors/application.error';
 
 export class CustomerService {
   private customerRepository: CustomerRepository;
+  private statusCache: { value: StatusCountsResponse; expiresAt: number } | null = null;
 
   constructor() {
     this.customerRepository = new CustomerRepository();
   }
+
+  private invalidateStatusCache() { this.statusCache = null; }
 
   private present(customer: Customer, access: CustomerAccessContext, users: Map<number, User> = new Map()): CustomerResponseDto {
     const assignedTo = customer.assignedTo ?? customer.userId ?? undefined;
@@ -41,11 +44,31 @@ export class CustomerService {
     return customers.map(customer => this.present(customer, access, userMap));
   }
 
+  async findPage(options: {
+    page: number;
+    limit: number;
+    status?: 'active' | 'inactive' | 'canceled' | 'all';
+    search?: string;
+    assignedTo?: number;
+    createdBy?: number;
+  }, viewerUserId: number) {
+    const [customers, total] = await this.customerRepository.findPage(options);
+    return {
+      items: await this.presentMany(customers, viewerUserId),
+      total,
+      page: options.page,
+      limit: options.limit,
+      totalPages: Math.ceil(total / options.limit),
+    };
+  }
+
   async findAll(options: {
     status?: 'active' | 'inactive' | 'canceled' | 'all';
     search?: string;
+    assignedTo?: number;
+    createdBy?: number;
   } | undefined, viewerUserId: number): Promise<CustomerResponseDto[]> {
-    const { status, search } = options || {};
+    const { status, search, assignedTo, createdBy } = options || {};
     
     // Build filter conditions
     const whereConditions: any = {};
@@ -56,6 +79,8 @@ export class CustomerService {
       // Use the status field directly instead of isActive
       whereConditions.status = status;
     }
+    if (assignedTo) whereConditions.assignedTo = assignedTo;
+    if (createdBy) whereConditions.createdBy = createdBy;
     // If status is 'all' or undefined, don't set status filter (show all)
     
     // Filter by search query if provided
@@ -142,6 +167,10 @@ export class CustomerService {
     if (!userId) throw new ApplicationError('Authentication required', 'AUTH_REQUIRED', 401);
     const assignedTo = data.assignedTo ?? userId;
     await customerAccessService.assertActiveAssignee(assignedTo);
+    const duplicate = await this.duplicateCheck(data);
+    if (duplicate.emailConflict) {
+      throw new ApplicationError('Customer email already exists', 'CUSTOMER_EMAIL_DUPLICATE', 409);
+    }
     const customer = this.customerRepository.create({
       ...data,
       assignedTo,
@@ -150,6 +179,8 @@ export class CustomerService {
       updatedBy: userId,
     });
     const created = await this.customerRepository.save(customer);
+    this.invalidateStatusCache();
+    await this.recordActivity(created.customerId, userId, 'created', { assignedTo });
     return (await this.presentMany([created], userId))[0];
   }
 
@@ -162,10 +193,17 @@ export class CustomerService {
     if (!actorUserId) throw new ApplicationError('Authentication required', 'AUTH_REQUIRED', 401);
     const access = await customerAccessService.context(actorUserId);
     customerAccessService.assertEdit(customer, access);
+    const duplicate = await this.duplicateCheck(data, id);
+    if (duplicate.emailConflict) {
+      throw new ApplicationError('Customer email already exists', 'CUSTOMER_EMAIL_DUPLICATE', 409);
+    }
+    const changedFields = Object.keys(data).filter(key => !['assignedTo', 'userId', 'createdBy'].includes(key));
     const { assignedTo: _assignedTo, userId: _userId, createdBy: _createdBy, ...safeData } = data as UpdateCustomerDto & Record<string, unknown>;
     Object.assign(customer, safeData);
     if (actorUserId) customer.updatedBy = actorUserId;
     const updated = await this.customerRepository.save(customer);
+    this.invalidateStatusCache();
+    await this.recordActivity(id, actorUserId, 'updated', { changedFields });
     
     return (await this.presentMany([updated], actorUserId))[0];
   }
@@ -176,10 +214,12 @@ export class CustomerService {
     const access = await customerAccessService.context(actorUserId);
     customerAccessService.assertReassign(customer, access);
     await customerAccessService.assertActiveAssignee(assignedTo);
+    const previousAssignedTo = customer.assignedTo ?? customer.userId;
     customer.assignedTo = assignedTo;
     customer.userId = assignedTo;
     customer.updatedBy = actorUserId;
     const updated = await this.customerRepository.save(customer);
+    await this.recordActivity(id, actorUserId, 'reassigned', { previousAssignedTo, assignedTo });
     return (await this.presentMany([updated], actorUserId))[0];
   }
 
@@ -195,6 +235,8 @@ export class CustomerService {
     customer.deletedAt = new Date();
     if (actorUserId) customer.updatedBy = actorUserId;
     await this.customerRepository.save(customer);
+    this.invalidateStatusCache();
+    await this.recordActivity(id, actorUserId, 'deactivated');
   }
 
   async bulkUpdateStatus(customerIds: string[], status: 'active' | 'inactive', actorUserId: number) {
@@ -208,6 +250,7 @@ export class CustomerService {
       customers.forEach(customer => { customer.status = status; customer.isActive = status === 'active'; customer.updatedBy = actorUserId; });
       await manager.getRepository(Customer).save(customers);
     });
+    this.invalidateStatusCache();
     return { requested: ids.length, updated: customers.length };
   }
 
@@ -222,6 +265,7 @@ export class CustomerService {
       customers.forEach(customer => { customer.isActive = false; customer.deletedAt = new Date(); customer.updatedBy = actorUserId; });
       await manager.getRepository(Customer).save(customers);
     });
+    this.invalidateStatusCache();
     return { requested: ids.length, updated: customers.length };
   }
 
@@ -251,7 +295,10 @@ export class CustomerService {
   }
 
   async getStatusCounts(): Promise<StatusCountsResponse> {
-    return this.customerRepository.getStatusCounts();
+    if (this.statusCache && this.statusCache.expiresAt > Date.now()) return this.statusCache.value;
+    const value = await this.customerRepository.getStatusCounts();
+    this.statusCache = { value, expiresAt: Date.now() + 15_000 };
+    return value;
   }
 
   async uploadCustomerImage(id: string, fileBuffer: Buffer, actorUserId: number): Promise<CustomerResponseDto> {
@@ -270,6 +317,7 @@ export class CustomerService {
     customer.customerImageUrl = uploadResult || undefined;
     
     const updated = await this.customerRepository.save(customer);
+    await this.recordActivity(id, actorUserId, 'image_updated');
     return (await this.presentMany([updated], actorUserId))[0];
   }
 
@@ -284,10 +332,82 @@ export class CustomerService {
       await CloudinaryUtil.deleteImage(customer.customerImageUrl);
       customer.customerImageUrl = undefined;
       const updated = await this.customerRepository.save(customer);
+      await this.recordActivity(id, actorUserId, 'image_removed');
       return (await this.presentMany([updated], actorUserId))[0];
     }
 
     return (await this.presentMany([customer], actorUserId))[0];
+  }
+
+  private normalizeEmail(value?: string | null) {
+    return String(value || '').trim().toLocaleLowerCase('en-US');
+  }
+
+  private normalizeLoose(value?: string | null) {
+    return String(value || '').normalize('NFKC').trim().toLocaleLowerCase('en-US').replace(/[\s@._+()\-]/g, '');
+  }
+
+  private editDistance(a: string, b: string) {
+    const row = Array.from({ length: b.length + 1 }, (_, index) => index);
+    for (let i = 1; i <= a.length; i += 1) {
+      let previous = row[0];
+      row[0] = i;
+      for (let j = 1; j <= b.length; j += 1) {
+        const current = row[j];
+        row[j] = Math.min(row[j] + 1, row[j - 1] + 1, previous + (a[i - 1] === b[j - 1] ? 0 : 1));
+        previous = current;
+      }
+    }
+    return row[b.length];
+  }
+
+  async duplicateCheck(input: Record<string, any>, excludeCustomerId?: string) {
+    const customers = await this.customerRepository.findMany({ order: { createdAt: 'DESC' } } as any);
+    const email = this.normalizeEmail(input.customerEmail);
+    const phones = [input.customerPhone1, input.customerPhone2].map(value => this.normalizeLoose(value)).filter(Boolean);
+    const socialFields = ['customerFacebook', 'customerInstagram', 'customerTikTok', 'customerLine', 'customerX'] as const;
+    const socials = socialFields.map(field => this.normalizeLoose(input[field])).filter(Boolean);
+    const fullName = this.normalizeLoose(`${input.customerName || ''}${input.customerLastName || ''}`);
+    const matches = customers
+      .filter(customer => customer.customerId !== excludeCustomerId)
+      .map(customer => {
+        const reasons: string[] = [];
+        if (email && this.normalizeEmail(customer.customerEmail) === email) reasons.push('email');
+        const existingPhones = [customer.customerPhone1, customer.customerPhone2].map(value => this.normalizeLoose(value)).filter(Boolean);
+        if (phones.some(phone => existingPhones.includes(phone))) reasons.push('phone');
+        const existingSocials = socialFields.map(field => this.normalizeLoose(customer[field])).filter(Boolean);
+        if (socials.some(handle => existingSocials.includes(handle))) reasons.push('social');
+        const existingName = this.normalizeLoose(`${customer.customerName || ''}${customer.customerLastName || ''}`);
+        if (fullName.length >= 4 && existingName && this.editDistance(fullName, existingName) <= Math.max(1, Math.floor(fullName.length * 0.2))) reasons.push('similar_name');
+        return reasons.length ? {
+          customerId: customer.customerId,
+          displayName: [customer.customerName, customer.customerLastName].filter(Boolean).join(' '),
+          reasons,
+          hardBlock: reasons.includes('email'),
+        } : null;
+      })
+      .filter(Boolean);
+    return { emailConflict: matches.some(match => match?.hardBlock), matches };
+  }
+
+  async getTimeline(customerId: string, viewerUserId: number) {
+    await this.findOne(customerId, viewerUserId);
+    return dataSource.query(`
+      SELECT ca.activityId, ca.activityType, ca.metadata, ca.createdAt,
+             u.userId AS actorUserId, u.userName AS actorUserName, u.userLastName AS actorUserLastName, u.userImageUrl AS actorUserImageUrl
+      FROM customer_activities ca
+      LEFT JOIN users u ON u.userId = ca.actorUserId
+      WHERE ca.customerId = ?
+      ORDER BY ca.createdAt DESC, ca.activityId DESC
+      LIMIT 200
+    `, [customerId]);
+  }
+
+  private async recordActivity(customerId: string, actorUserId: number | undefined, activityType: string, metadata?: Record<string, unknown>) {
+    await dataSource.query(
+      'INSERT INTO customer_activities (customerId, actorUserId, activityType, metadata) VALUES (?, ?, ?, ?)',
+      [customerId, actorUserId || null, activityType, metadata ? JSON.stringify(metadata) : null],
+    );
   }
 }
 

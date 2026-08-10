@@ -139,7 +139,18 @@ export class UpdateUserNotificationSettingsDto {
 
   @IsOptional()
   @IsString()
-  digestMode?: 'none' | 'hourly' | 'daily';
+  digestMode?: 'none' | 'hourly' | 'daily' | 'weekly';
+
+  @IsOptional()
+  digestDay?: number | null;
+
+  @IsOptional()
+  @IsString()
+  digestTime?: string;
+
+  @IsOptional()
+  @IsString()
+  timezone?: string;
 
   @IsOptional()
   @IsString()

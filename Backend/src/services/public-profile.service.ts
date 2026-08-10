@@ -31,6 +31,7 @@ export interface PublicProfileInput {
   headline?: string | null;
   bio?: string | null;
   avatarUrl?: string | null;
+  imageCrop?: { x: number; y: number; zoom: number; rotation: number } | null;
   templateKey?: string;
   themeConfig?: PublicProfileTheme | null;
   visibility?: PublicProfileVisibility;
@@ -58,6 +59,7 @@ const editableFields: Array<keyof Omit<PublicProfileInput, 'links' | 'customerId
   'headline',
   'bio',
   'avatarUrl',
+  'imageCrop',
   'templateKey',
   'themeConfig',
   'visibility',
@@ -71,6 +73,19 @@ const editableFields: Array<keyof Omit<PublicProfileInput, 'links' | 'customerId
   'seoTitle',
   'seoDescription',
 ];
+
+export const getPublicProfilePublishingChecklist = (profile: Pick<PublicProfile, 'displayName' | 'slug' | 'primaryCtaLabel' | 'primaryCtaUrl' | 'links'>) => {
+  const isValidUrl = (value?: string | null) => Boolean(value && /^(https?:\/\/|mailto:|tel:)/i.test(value));
+  const hasValidLink = Boolean(
+    (profile.primaryCtaLabel?.trim() && isValidUrl(profile.primaryCtaUrl)) ||
+    profile.links?.some(link => link.isVisible && isValidUrl(link.url)),
+  );
+  return [
+    { key: 'display_name', complete: Boolean(profile.displayName?.trim()) },
+    { key: 'primary_link', complete: hasValidLink },
+    { key: 'slug', complete: /^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$/.test(profile.slug || '') },
+  ];
+};
 
 export class PublicProfileService {
   private profileRepository = dataSource.getRepository(PublicProfile);
@@ -93,7 +108,18 @@ export class PublicProfileService {
   }
 
   private present(profile: PublicProfile, access: CustomerAccessContext) {
-    return Object.assign(profile, { capabilities: this.capabilities(profile, access) });
+    const checklist = this.publishingChecklist(profile);
+    return Object.assign(profile, {
+      capabilities: this.capabilities(profile, access),
+      publishingChecklist: checklist,
+      shareStatus: profile.status === 'published' && profile.visibility !== 'private' && checklist.every(item => item.complete)
+        ? 'ready_to_share'
+        : profile.status === 'published' ? 'needs_attention' : 'draft',
+    });
+  }
+
+  private publishingChecklist(profile: Pick<PublicProfile, 'displayName' | 'slug' | 'visibility' | 'primaryCtaLabel' | 'primaryCtaUrl' | 'links'>) {
+    return getPublicProfilePublishingChecklist(profile);
   }
 
   private normalizeSlug(value: string) {
@@ -211,6 +237,7 @@ export class PublicProfileService {
         headline: input.headline?.trim().slice(0, 140) || null,
         bio: input.bio?.trim().slice(0, 500) || null,
         avatarUrl: input.avatarUrl || customer?.customerImageUrl || null,
+        imageCrop: input.imageCrop || customer?.imageCrop || null,
         templateKey: input.templateKey || 'soft-mint',
         themeConfig: input.themeConfig || null,
         status: 'draft',
@@ -255,7 +282,13 @@ export class PublicProfileService {
         const slug = this.ensureSlug(value);
         const conflict = await this.profileRepository.findOne({ where: { slug } });
         if (conflict && conflict.profileId !== profileId) {
-          throw new Error('This profile URL is already in use');
+          throw new ApplicationError(
+            'This profile URL is already in use',
+            'PROFILE_SLUG_CONFLICT',
+            409,
+            { field: 'slug' },
+            'profile.validation.slugConflict',
+          );
         }
         profile.slug = slug;
       } else if (field === 'primaryCtaUrl' || field === 'secondaryCtaUrl') {
@@ -293,10 +326,17 @@ export class PublicProfileService {
     }
     profile.updatedBy = userId;
     if (status === 'published') {
-      if (!profile.displayName || !profile.slug) {
-        throw new Error('Complete the profile name and URL before publishing');
-      }
       if (profile.visibility === 'private') profile.visibility = 'unlisted';
+      const incomplete = this.publishingChecklist(profile).filter(item => !item.complete).map(item => item.key);
+      if (incomplete.length) {
+        throw new ApplicationError(
+          'Complete the required profile information before publishing',
+          'PROFILE_PUBLISH_CHECKLIST_INCOMPLETE',
+          409,
+          { missingFields: incomplete },
+          'profile.validation.publishIncomplete',
+        );
+      }
       profile.publishedAt = profile.publishedAt || new Date();
     }
     profile.status = status;
@@ -336,6 +376,7 @@ export class PublicProfileService {
       headline: profile.headline,
       bio: profile.bio,
       avatarUrl: profile.avatarUrl || customer?.customerImageUrl || null,
+      imageCrop: profile.imageCrop || customer?.imageCrop || null,
       templateKey: profile.templateKey,
       themeConfig: profile.themeConfig,
       primaryCtaLabel: profile.primaryCtaLabel,

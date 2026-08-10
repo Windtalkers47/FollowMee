@@ -36,6 +36,7 @@ export interface PublicProfileRecord {
   headline: string | null;
   bio: string | null;
   avatarUrl: string | null;
+  imageCrop?: { x: number; y: number; zoom: number; rotation: number } | null;
   templateKey: string;
   themeConfig: ProfileTheme | null;
   status: ProfileStatus;
@@ -61,6 +62,8 @@ export interface PublicProfileRecord {
     canUnpublish: boolean;
     canDelete: boolean;
   };
+  publishingChecklist?: Array<{ key: string; complete: boolean }>;
+  shareStatus?: 'draft' | 'needs_attention' | 'ready_to_share';
   links: ProfileLink[];
   customer?: CustomerData | null;
 }
@@ -72,6 +75,7 @@ export interface PublicProfileLanding {
   headline: string | null;
   bio: string | null;
   avatarUrl: string | null;
+  imageCrop?: { x: number; y: number; zoom: number; rotation: number } | null;
   templateKey: string;
   themeConfig: ProfileTheme | null;
   primaryCtaLabel: string | null;
@@ -94,6 +98,7 @@ export type ProfileDraft = Pick<
   | 'headline'
   | 'bio'
   | 'avatarUrl'
+  | 'imageCrop'
   | 'templateKey'
   | 'themeConfig'
   | 'visibility'

@@ -24,7 +24,10 @@ export interface RewardSummary {
   wallet: RewardWallet; seasonScore: number; completedTasks: number; myRank: number | null;
   leaderboard: Array<{ userId: number; userName: string; userLastName: string; userImageUrl?: string; score: number; completedTasks: number }>;
   missions: RewardMission[];
-  badges: Array<{ badgeKey: string; nameKey: string; descriptionKey: string; icon: string; awardedAt: string }>;
+  badges: Array<{ badgeKey: string; nameKey: string; descriptionKey: string; icon: string; auraKey?: string; rankValue?: number; seasonId?: number; awardedAt: string }>;
+  latestAchievement?: { badgeKey: string; nameKey: string; auraKey?: string; awardedAt: string } | null;
+  seasonPodium?: RewardSummary['leaderboard'];
+  availableAuras?: string[];
   redemptions: RewardRedemption[];
 }
 
@@ -32,6 +35,9 @@ const unwrap = <T>(response: { data: { data: T } }) => response.data.data;
 
 export const rewardApi = {
   summary: async () => unwrap<RewardSummary>(await api.get('/rewards/summary')),
+  seasons: async () => unwrap<Array<{ seasonId: number; seasonKey: string; name: string; startsAt: string; endsAt: string; status: string; participantCount: number }>>(await api.get('/rewards/seasons')),
+  season: async (id: number) => unwrap<{ season: RewardSummary['season'] & { status: string }; results: Array<{ userId: number; rankValue: number; score: number; userName: string; userLastName: string; userImageUrl?: string; badgeKey?: string; auraKey?: string }> }>(await api.get(`/rewards/seasons/${id}`)),
+  closeSeason: async (id: number) => unwrap(await api.post(`/admin/rewards/seasons/${id}/close`)),
   catalog: async () => unwrap<{ settings: { redemptionEnabled: boolean; requestExpiryHours: number }; items: RewardCatalogItem[] }>(await api.get('/rewards/catalog')),
   redeem: async (itemId: number, quantity = 1) => unwrap(await api.post('/rewards/redemptions', { itemId, quantity, requestKey: crypto.randomUUID() })),
   cancel: async (id: number) => unwrap(await api.post(`/rewards/redemptions/${id}/cancel`)),

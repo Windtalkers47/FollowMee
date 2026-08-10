@@ -4,11 +4,13 @@ import { checkPermission, checkAnyPermission, checkRole } from '../middleware/pe
 import { UserManagementController } from '../controllers/user-management.controller';
 import { UserService } from '../services/user.service';
 import { OwnerController } from '../controllers/owner.controller';
+import { InvitationController } from '../controllers/invitation.controller';
 
 // Manual dependency injection
 const userService = new UserService();
 const userManagementController = new UserManagementController(userService);
 const ownerController = new OwnerController();
+const invitationController = new InvitationController();
 
 const router = Router();
 
@@ -18,8 +20,14 @@ router.use(isAuthenticated);
 // User management routes - require VIEW_USERS permission
 router.get('/users', checkPermission('VIEW_USERS'), (req, res) => userManagementController.getAllUsers(req, res));
 router.get('/users/:id', checkPermission('VIEW_USERS'), (req, res) => userManagementController.getUserById(req, res));
+router.get('/users/:id/deactivation-impact', checkPermission('DELETE_USERS'), (req, res) => userManagementController.getDeactivationImpact(req, res));
+router.post('/users/:id/deactivate', checkPermission('DELETE_USERS'), (req, res) => userManagementController.deactivateWithTransfer(req, res));
 router.get('/system-owner', checkPermission('VIEW_USERS'), ownerController.getCurrent);
 router.put('/system-owner', checkRole('Owner'), ownerController.transfer);
+router.get('/invitations', checkPermission('CREATE_USERS'), invitationController.list);
+router.post('/invitations', checkPermission('CREATE_USERS'), invitationController.create);
+router.post('/invitations/:id/resend', checkPermission('CREATE_USERS'), invitationController.resend);
+router.post('/invitations/:id/revoke', checkPermission('CREATE_USERS'), invitationController.revoke);
 
 // User role assignment - require MANAGE_ROLES or UPDATE_USERS permission
 router.post('/users/assign-role', checkAnyPermission(['MANAGE_ROLES', 'UPDATE_USERS']), (req, res) => userManagementController.assignRoleToUser(req, res));

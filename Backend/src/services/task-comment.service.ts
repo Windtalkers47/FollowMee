@@ -10,6 +10,7 @@ import { UserRepository } from '../repositories/user.repository';
 import { NotificationHelper } from '../utils/notification.util';
 import { webSocketService } from './websocket.service';
 import { In } from 'typeorm';
+import dataSource from '../config/database';
 
 export class TaskCommentService {
   private taskCommentRepository: TaskCommentRepository;
@@ -68,7 +69,7 @@ export class TaskCommentService {
       commentId: savedComment.commentId,
       isActive: true
     });
-    const response = this.mapToResponseDto(hydratedComment || savedComment);
+    const [response] = await this.attachRecognition([this.mapToResponseDto(hydratedComment || savedComment)]);
 
     const recipients = new Set<number>();
     if (task.createdBy !== userId) recipients.add(task.createdBy);
@@ -130,7 +131,7 @@ export class TaskCommentService {
 
   async getCommentsByTask(taskId: string): Promise<TaskCommentResponseDto[]> {
     const comments = await this.taskCommentRepository.findByTaskId(taskId);
-    return comments.map(comment => this.mapToResponseDto(comment));
+    return this.attachRecognition(comments.map(comment => this.mapToResponseDto(comment)));
   }
 
   async updateComment(
@@ -171,7 +172,8 @@ export class TaskCommentService {
       commentId,
       actorUserId: userId
     });
-    return this.mapToResponseDto(updated);
+    const [response] = await this.attachRecognition([this.mapToResponseDto(updated)]);
+    return response;
   }
 
   async deleteComment(commentId: number, userId: number, taskId?: string): Promise<{ message: string }> {
@@ -227,6 +229,40 @@ export class TaskCommentService {
       } : undefined,
       reactions: comment.reactions?.map(reaction => this.mapReactionToResponseDto(reaction, comment.commentId)) || []
     };
+  }
+
+  private async attachRecognition(comments: TaskCommentResponseDto[]): Promise<TaskCommentResponseDto[]> {
+    const userIds = [...new Set(comments.map(comment => comment.user?.userId).filter((id): id is number => Boolean(id)))];
+    if (userIds.length === 0) return comments;
+
+    const placeholders = userIds.map(() => '?').join(',');
+    const rows = await dataSource.query(`
+      SELECT ub.userId, rb.badgeKey, rb.auraKey, rb.rankValue, up.selectedAuraKey, ub.awardedAt
+      FROM user_badges ub
+      INNER JOIN reward_badges rb ON rb.badgeId = ub.badgeId AND rb.isActive = 1 AND rb.auraKey IS NOT NULL
+      LEFT JOIN user_preferences up ON up.userId = ub.userId
+      WHERE ub.userId IN (${placeholders}) AND rb.rankValue IN (1,2,3)
+      ORDER BY ub.userId,
+        CASE WHEN up.selectedAuraKey IS NOT NULL AND rb.auraKey = up.selectedAuraKey THEN 0 ELSE 1 END,
+        rb.rankValue ASC,
+        ub.awardedAt DESC
+    `, userIds);
+    const recognitionByUser = new Map<number, { auraKey?: string; rankValue?: 1 | 2 | 3; badgeKey?: string }>();
+    rows.forEach((row: any) => {
+      const userId = Number(row.userId);
+      if (!recognitionByUser.has(userId)) {
+        recognitionByUser.set(userId, {
+          auraKey: row.auraKey || undefined,
+          rankValue: [1, 2, 3].includes(Number(row.rankValue)) ? Number(row.rankValue) as 1 | 2 | 3 : undefined,
+          badgeKey: row.badgeKey || undefined,
+        });
+      }
+    });
+
+    return comments.map(comment => comment.user ? {
+      ...comment,
+      user: { ...comment.user, recognition: recognitionByUser.get(comment.user.userId) },
+    } : comment);
   }
 
   private mapReactionToResponseDto(reaction: CommentReaction, commentId: number): CommentReactionResponseDto {

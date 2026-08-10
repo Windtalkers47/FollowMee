@@ -7,6 +7,18 @@ import type {
   PublicProfileRecord,
 } from '../types/publicProfile.types';
 
+export class PublicProfileApiError extends Error {
+  constructor(
+    message: string,
+    public readonly code?: string,
+    public readonly messageKey?: string,
+    public readonly details?: Record<string, unknown>,
+  ) {
+    super(message);
+    this.name = 'PublicProfileApiError';
+  }
+}
+
 async function request<T>(
   path: string,
   options: RequestInit = {}
@@ -22,7 +34,12 @@ async function request<T>(
   });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(payload?.message || response.statusText || 'Request failed');
+    throw new PublicProfileApiError(
+      payload?.message || response.statusText || 'Request failed',
+      payload?.code,
+      payload?.messageKey,
+      payload?.details,
+    );
   }
   return payload.data as T;
 }

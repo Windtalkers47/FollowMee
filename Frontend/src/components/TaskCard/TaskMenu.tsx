@@ -5,6 +5,7 @@ import {
   Delete as DeleteIcon,
   Cancel as CancelIcon,
   ArrowForward as ArrowForwardIcon,
+  ContentCopy as ContentCopyIcon,
 } from '@mui/icons-material';
 import feedback from '../../services/feedback.service';
 import { Task } from '../../api/task.api';
@@ -20,6 +21,7 @@ interface TaskMenuProps {
   onDelete?: (taskId: string) => void;
   onCancel?: (taskId: string) => void;
   onUpdateTaskStatus?: (taskId: string, status: Task['status']) => void;
+  onDuplicate?: (task: Task) => void;
 }
 
 const TaskMenu: React.FC<TaskMenuProps> = ({
@@ -31,6 +33,7 @@ const TaskMenu: React.FC<TaskMenuProps> = ({
   onDelete,
   onCancel,
   onUpdateTaskStatus,
+  onDuplicate,
 }) => {
   const { t } = useUserPreferences();
   const handleEdit = () => {
@@ -112,6 +115,13 @@ const TaskMenu: React.FC<TaskMenuProps> = ({
         <EditIcon fontSize="small" sx={{ mr: 1.5 }} />
         {t('task.edit')}
       </MenuItem>
+
+      {task.workflow?.canDuplicate && onDuplicate && (
+        <MenuItem onClick={() => { onDuplicate(task); onMenuClose(); }}>
+          <ContentCopyIcon fontSize="small" sx={{ mr: 1.5 }} />
+          {t('feature.duplicateTask')}
+        </MenuItem>
+      )}
 
       {task.status === 'draft' && (
         <MenuItem

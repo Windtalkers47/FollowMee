@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   AddRounded,
   ArrowBackRounded,
@@ -8,6 +8,9 @@ import {
   LaunchRounded,
   SaveRounded,
   CheckRounded,
+  DownloadRounded,
+  IosShareRounded,
+  QrCode2Rounded,
 } from '@mui/icons-material';
 import {
   Alert,
@@ -17,6 +20,10 @@ import {
   Chip,
   CircularProgress,
   Divider,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   FormControl,
   FormControlLabel,
   InputLabel,
@@ -30,8 +37,10 @@ import {
   ToggleButtonGroup,
   Typography,
 } from '@mui/material';
-import { publicProfileApi } from '../../api/publicProfile.api';
+import { publicProfileApi, PublicProfileApiError } from '../../api/publicProfile.api';
+import ProfileShareShowcase, { type ProfileShareStyle } from '../../components/PublicProfile/ProfileShareShowcase';
 import ProfileLandingCard from '../../components/PublicProfile/ProfileLandingCard';
+import ImageCropEditor from '../../components/ImageCropEditor';
 import { profileTemplates } from '../../styles/publicProfileTemplates';
 import type {
   ProfileAnalytics,
@@ -40,6 +49,7 @@ import type {
 } from '../../types/publicProfile.types';
 import { useUserPreferences } from '../../contexts/UserPreferencesContext';
 import { formatLocalizedNumber } from '../../utils/localeFormat';
+import { getMissingPublishingFields } from '../../utils/profilePublishing';
 
 const emptyLink = (sortOrder: number): ProfileLink => ({
   platform: 'website',
@@ -51,8 +61,9 @@ const emptyLink = (sortOrder: number): ProfileLink => ({
 
 const ProfileEditorPage = () => {
   const { profileId = '' } = useParams();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { locale, t } = useUserPreferences();
+  const { locale, t, shareDefaults, setShareDefaults } = useUserPreferences();
   const [profile, setProfile] = useState<PublicProfileRecord | null>(null);
   const [analytics, setAnalytics] = useState<ProfileAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
@@ -62,6 +73,14 @@ const ProfileEditorPage = () => {
   const [mobileMode, setMobileMode] = useState<'edit' | 'preview'>('edit');
   const [mobileStep, setMobileStep] = useState(0);
   const [lastSavedSnapshot, setLastSavedSnapshot] = useState('');
+  const [previewFormat, setPreviewFormat] = useState<'square' | 'story' | 'landscape'>('square');
+  const [shareStyle, setShareStyle] = useState<ProfileShareStyle>(shareDefaults.profileFrame === 'phone' ? 'phone' : 'clean');
+  const [exportingShare, setExportingShare] = useState(false);
+  const [shareCenterOpen, setShareCenterOpen] = useState(searchParams.has('share'));
+  const [qrDataUrl, setQrDataUrl] = useState('');
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+  const shareRef = useRef<HTMLDivElement | null>(null);
+  const fieldRefs = useRef<Record<string, HTMLElement | null>>({});
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const mobileSteps = [
     t('profile.editor.step.identity'),
@@ -112,7 +131,15 @@ const ProfileEditorPage = () => {
   const setField = <K extends keyof PublicProfileRecord>(
     field: K,
     value: PublicProfileRecord[K]
-  ) => setProfile((current) => current ? { ...current, [field]: value } : current);
+  ) => {
+    setProfile((current) => current ? { ...current, [field]: value } : current);
+    const validationKey = field === 'displayName' ? 'display_name' : field === 'slug' ? 'slug' : field === 'primaryCtaLabel' || field === 'primaryCtaUrl' || field === 'links' ? 'primary_link' : null;
+    if (validationKey) setValidationErrors(current => {
+      const next = { ...current };
+      delete next[validationKey];
+      return next;
+    });
+  };
 
   const setLink = (index: number, patch: Partial<ProfileLink>) => {
     setProfile((current) => {
@@ -124,30 +151,31 @@ const ProfileEditorPage = () => {
     });
   };
 
-  const save = async (silent = false) => {
-    if (!profile) return null;
+  const save = async (silent = false, candidate = profile) => {
+    if (!candidate) return null;
     setSaving(true);
     setError('');
     try {
-      const saved = await publicProfileApi.update(profile.profileId, {
-        slug: profile.slug,
-        displayName: profile.displayName,
-        headline: profile.headline,
-        bio: profile.bio,
-        avatarUrl: profile.avatarUrl,
-        templateKey: profile.templateKey,
-        themeConfig: profile.themeConfig,
-        visibility: profile.visibility,
-        primaryCtaLabel: profile.primaryCtaLabel,
-        primaryCtaUrl: profile.primaryCtaUrl,
-        secondaryCtaLabel: profile.secondaryCtaLabel,
-        secondaryCtaUrl: profile.secondaryCtaUrl,
-        showEmail: profile.showEmail,
-        showPhone: profile.showPhone,
-        showAddress: profile.showAddress,
-        seoTitle: profile.seoTitle,
-        seoDescription: profile.seoDescription,
-        links: profile.links.map((link, index) => ({ ...link, sortOrder: index })),
+      const saved = await publicProfileApi.update(candidate.profileId, {
+        slug: candidate.slug,
+        displayName: candidate.displayName,
+        headline: candidate.headline,
+        bio: candidate.bio,
+        avatarUrl: candidate.avatarUrl,
+        imageCrop: candidate.imageCrop,
+        templateKey: candidate.templateKey,
+        themeConfig: candidate.themeConfig,
+        visibility: candidate.visibility,
+        primaryCtaLabel: candidate.primaryCtaLabel,
+        primaryCtaUrl: candidate.primaryCtaUrl,
+        secondaryCtaLabel: candidate.secondaryCtaLabel,
+        secondaryCtaUrl: candidate.secondaryCtaUrl,
+        showEmail: candidate.showEmail,
+        showPhone: candidate.showPhone,
+        showAddress: candidate.showAddress,
+        seoTitle: candidate.seoTitle,
+        seoDescription: candidate.seoDescription,
+        links: candidate.links.map((link, index) => ({ ...link, sortOrder: index })),
       });
       setProfile(saved);
       setLastSavedSnapshot(JSON.stringify(saved));
@@ -195,8 +223,37 @@ const ProfileEditorPage = () => {
     }
   };
 
+  const focusValidationField = (key: string) => {
+    const step = key === 'display_name' ? 0 : key === 'primary_link' ? 1 : 4;
+    setMobileMode('edit');
+    setMobileStep(step);
+    window.setTimeout(() => {
+      const target = fieldRefs.current[key];
+      target?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'center' });
+      (target?.querySelector('input') as HTMLElement | null)?.focus({ preventScroll: true });
+    }, 80);
+  };
+
+  const showValidationErrors = (missing: string[]) => {
+    const next = Object.fromEntries(missing.map(key => [key, t(`profile.validation.${key}` as any)]));
+    setValidationErrors(next);
+    if (missing[0]) focusValidationField(missing[0]);
+  };
+
   const togglePublish = async () => {
-    const saved = await save();
+    if (!profile) return;
+    if (profile.status !== 'published') {
+      const missing = getMissingPublishingFields(profile);
+      if (missing.length) {
+        showValidationErrors(missing);
+        return;
+      }
+    }
+    const candidate = profile.status === 'published' || profile.visibility !== 'private'
+      ? profile
+      : { ...profile, visibility: 'unlisted' as const };
+    const autoUnlisted = profile.status !== 'published' && profile.visibility === 'private';
+    const saved = await save(false, candidate);
     if (!saved) return;
     setSaving(true);
     try {
@@ -205,13 +262,71 @@ const ProfileEditorPage = () => {
         : await publicProfileApi.publish(saved.profileId);
       setProfile(updated);
       setLastSavedSnapshot(JSON.stringify(updated));
-      setNotice(t(updated.status === 'published' ? 'profile.editor.profilePublished' : 'profile.editor.profileUnpublished'));
+      setNotice(autoUnlisted && updated.status === 'published'
+        ? t('profile.validation.publishedUnlisted')
+        : t(updated.status === 'published' ? 'profile.editor.profilePublished' : 'profile.editor.profileUnpublished'));
     } catch (publishError) {
-      setError(publishError instanceof Error ? publishError.message : t('profile.editor.publishError'));
+      if (publishError instanceof PublicProfileApiError && publishError.code === 'PROFILE_PUBLISH_CHECKLIST_INCOMPLETE') {
+        const missing = Array.isArray(publishError.details?.missingFields) ? publishError.details.missingFields.filter((item): item is string => typeof item === 'string') : [];
+        showValidationErrors(missing);
+      } else if (publishError instanceof PublicProfileApiError && publishError.code === 'PROFILE_SLUG_CONFLICT') {
+        showValidationErrors(['slug']);
+      } else {
+        setError(publishError instanceof Error ? publishError.message : t('profile.editor.publishError'));
+      }
     } finally {
       setSaving(false);
     }
   };
+
+  const changeShareStyle = (style: ProfileShareStyle) => {
+    setShareStyle(style);
+    void setShareDefaults({ ...shareDefaults, profileFrame: style });
+  };
+
+  const exportShare = async () => {
+    if (!shareRef.current || !profile) return;
+    setExportingShare(true);
+    setError('');
+    try {
+      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      const { toPng } = await import('html-to-image');
+      const frame = previewFormat === 'story' ? { width: 540, height: 960 } : previewFormat === 'landscape' ? { width: 800, height: 450 } : { width: 540, height: 540 };
+      const dataUrl = await toPng(shareRef.current, { cacheBust: true, pixelRatio: 2, ...frame });
+      const link = document.createElement('a');
+      link.href = dataUrl;
+      link.download = `followmee-${profile.slug}-${previewFormat}-${shareStyle}.png`;
+      link.click();
+      void publicProfileApi.recordEvent(profile.slug, 'image_export', `${previewFormat}:${shareStyle}`);
+    } catch {
+      setError(t('profile.editor.exportError'));
+    } finally {
+      setExportingShare(false);
+    }
+  };
+
+  const copyPublicUrl = async () => {
+    await navigator.clipboard.writeText(publicUrl);
+    setNotice(t('profile.editor.urlCopied'));
+  };
+
+  const shareProfile = async () => {
+    if (navigator.share) {
+      try { await navigator.share({ title: profile?.displayName, url: publicUrl }); return; } catch (shareError) {
+        if ((shareError as Error).name === 'AbortError') return;
+      }
+    }
+    await copyPublicUrl();
+  };
+
+  const createQr = async () => {
+    const QRCode = (await import('qrcode')).default;
+    setQrDataUrl(await QRCode.toDataURL(publicUrl, { width: 360, margin: 2, errorCorrectionLevel: 'H' }));
+  };
+
+  useEffect(() => {
+    if (profile && searchParams.get('share') === 'qr' && !qrDataUrl) void createQr();
+  }, [profile?.profileId, searchParams, qrDataUrl]);
 
   if (loading) {
     return <Box minHeight="70vh" display="grid" sx={{ placeItems: 'center' }}><CircularProgress /></Box>;
@@ -245,10 +360,10 @@ const ProfileEditorPage = () => {
         <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
           {profile.status === 'published' && profile.visibility !== 'private' && (
             <Button
-              startIcon={<LaunchRounded />}
-              onClick={() => window.open(`/p/${profile.slug}`, '_blank', 'noopener,noreferrer')}
+              startIcon={<IosShareRounded />}
+              onClick={() => setShareCenterOpen(true)}
             >
-              {t('profile.editor.openLive')}
+              {t('profile.public.share')}
             </Button>
           )}
           <Button variant="outlined" startIcon={<SaveRounded />} onClick={() => void save()} disabled={saving}>
@@ -261,6 +376,16 @@ const ProfileEditorPage = () => {
       </Stack>
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      {Object.keys(validationErrors).length > 0 && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          <Typography fontWeight={800}>{t('profile.validation.summary')}</Typography>
+          <Stack direction="row" gap={1} flexWrap="wrap" sx={{ mt: 1 }}>
+            {Object.entries(validationErrors).map(([key, message]) => (
+              <Button key={key} size="small" color="error" onClick={() => focusValidationField(key)}>{message}</Button>
+            ))}
+          </Stack>
+        </Alert>
+      )}
 
       <ToggleButtonGroup
         value={mobileMode}
@@ -282,7 +407,7 @@ const ProfileEditorPage = () => {
         }}
       >
         <Stack spacing={2} sx={{ display: { xs: mobileMode === 'edit' ? 'flex' : 'none', lg: 'flex' } }}>
-          <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 }, borderRadius: 4, display: { xs: mobileStep === 0 ? 'block' : 'none', lg: 'block' } }}>
+          <Paper ref={(node) => { fieldRefs.current.display_name = node; }} variant="outlined" sx={{ p: { xs: 2, sm: 3 }, borderRadius: 4, display: { xs: mobileStep === 0 ? 'block' : 'none', lg: 'block' } }}>
             <Typography variant="h6" fontWeight={800}>{t('profile.editor.step.identity')}</Typography>
             <Stack spacing={2} sx={{ mt: 2 }}>
               <TextField
@@ -290,6 +415,8 @@ const ProfileEditorPage = () => {
                 value={profile.displayName}
                 onChange={(event) => setField('displayName', event.target.value)}
                 required
+                error={Boolean(validationErrors.display_name)}
+                helperText={validationErrors.display_name}
               />
               <TextField
                 label={t('profile.editor.headline')}
@@ -324,10 +451,17 @@ const ProfileEditorPage = () => {
                   }}
                 />
               </Button>
+              {profile.avatarUrl && (
+                <ImageCropEditor
+                  src={profile.avatarUrl}
+                  value={profile.imageCrop}
+                  onChange={(imageCrop) => setField('imageCrop', imageCrop)}
+                />
+              )}
             </Stack>
           </Paper>
 
-          <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 }, borderRadius: 4, display: { xs: mobileStep === 1 ? 'block' : 'none', lg: 'block' } }}>
+          <Paper ref={(node) => { fieldRefs.current.primary_link = node; }} variant="outlined" sx={{ p: { xs: 2, sm: 3 }, borderRadius: 4, display: { xs: mobileStep === 1 ? 'block' : 'none', lg: 'block' } }}>
             <Typography variant="h6" fontWeight={800}>{t('profile.editor.actionSection')}</Typography>
             <Stack spacing={2} sx={{ mt: 2 }}>
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
@@ -336,12 +470,15 @@ const ProfileEditorPage = () => {
                   value={profile.primaryCtaLabel || ''}
                   onChange={(event) => setField('primaryCtaLabel', event.target.value)}
                   fullWidth
+                  error={Boolean(validationErrors.primary_link)}
                 />
                 <TextField
                   label={t('profile.editor.primaryUrl')}
                   value={profile.primaryCtaUrl || ''}
                   onChange={(event) => setField('primaryCtaUrl', event.target.value)}
                   fullWidth
+                  error={Boolean(validationErrors.primary_link)}
+                  helperText={validationErrors.primary_link}
                 />
               </Stack>
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
@@ -461,14 +598,24 @@ const ProfileEditorPage = () => {
             </Box>
           </Paper>
 
-          <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 }, borderRadius: 4, display: { xs: mobileStep === 4 ? 'block' : 'none', lg: 'block' } }}>
+          <Paper ref={(node) => { fieldRefs.current.slug = node; }} variant="outlined" sx={{ p: { xs: 2, sm: 3 }, borderRadius: 4, display: { xs: mobileStep === 4 ? 'block' : 'none', lg: 'block' } }}>
             <Typography variant="h6" fontWeight={800}>{t('profile.editor.publishingPrivacy')}</Typography>
+            <Alert severity={profile.publishingChecklist?.every(item => item.complete) ? 'success' : 'warning'} sx={{ mt: 2 }}>
+              {(profile.publishingChecklist || [
+                { key: 'display_name', complete: Boolean(profile.displayName.trim()) },
+                { key: 'primary_link', complete: Boolean((profile.primaryCtaLabel && profile.primaryCtaUrl) || profile.links.some(link => link.isVisible && link.url)) },
+                { key: 'slug', complete: /^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$/.test(profile.slug) },
+              ]).map(item => `${item.complete ? '✓' : '○'} ${item.key.replaceAll('_', ' ')}`).join(' · ')}
+            </Alert>
+            <Alert severity="info" sx={{ mt: 1 }}>{t('profile.validation.recommendations')}</Alert>
             <Stack spacing={2} sx={{ mt: 2 }}>
               <TextField
                 label={t('profile.editor.profileUrl')}
                 value={profile.slug}
                 onChange={(event) => setField('slug', event.target.value)}
-                helperText={publicUrl}
+                helperText={validationErrors.slug || publicUrl}
+                error={Boolean(validationErrors.slug)}
+                FormHelperTextProps={{ error: Boolean(validationErrors.slug) }}
                 InputProps={{
                   endAdornment: (
                     <Button
@@ -551,9 +698,10 @@ const ProfileEditorPage = () => {
               <Chip size="small" label={t('profile.views', { count: formatLocalizedNumber(analytics?.viewCount || Number(profile.viewCount || 0), locale) })} variant="outlined" />
             </Stack>
           </Stack>
-          <Box sx={{ maxWidth: 620, mx: 'auto' }}>
-            <ProfileLandingCard profile={profile} preview />
-            <Paper variant="outlined" sx={{ mt: 2, p: 2, borderRadius: 4 }}>
+          <Paper variant="outlined" sx={{ borderRadius: 5, overflow: 'hidden', bgcolor: 'background.default' }}>
+            <ProfileLandingCard profile={profile} preview disableMotion />
+          </Paper>
+          <Paper variant="outlined" sx={{ mt: 2, p: 2, borderRadius: 4 }}>
               <Typography variant="subtitle2" color="text.secondary">
                 {t('profile.editor.engagement')}
               </Typography>
@@ -576,10 +724,56 @@ const ProfileEditorPage = () => {
                   </Box>
                 ))}
               </Box>
-            </Paper>
-          </Box>
+          </Paper>
         </Box>
       </Box>
+
+      <Dialog open={shareCenterOpen} onClose={() => setShareCenterOpen(false)} fullWidth maxWidth="md">
+        <DialogTitle>{t('profile.shareCenter.title')}</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ pt: 1 }}>
+            <TextField
+              label={t('profile.editor.profileUrl')}
+              value={publicUrl}
+              InputProps={{ readOnly: true, endAdornment: <Button onClick={() => void copyPublicUrl()} startIcon={<ContentCopyRounded />}>{t('profile.editor.copyUrl')}</Button> }}
+            />
+            <Stack direction={{ xs: 'column', sm: 'row' }} gap={1}>
+              <Button startIcon={<LaunchRounded />} onClick={() => window.open(`/p/${profile.slug}`, '_blank', 'noopener,noreferrer')}>{t('profile.editor.openLive')}</Button>
+              <Button startIcon={<IosShareRounded />} onClick={() => void shareProfile()}>{t('profile.public.share')}</Button>
+              <Button startIcon={<QrCode2Rounded />} onClick={() => void createQr()}>{t('profile.public.qrCode')}</Button>
+            </Stack>
+            {qrDataUrl && (
+              <Paper variant="outlined" sx={{ p: 2, textAlign: 'center', borderRadius: 3 }}>
+                <Box component="img" src={qrDataUrl} alt={t('profile.public.qrAlt', { name: profile.displayName })} sx={{ width: 220, maxWidth: '100%' }} />
+                <Button component="a" href={qrDataUrl} download={`${profile.slug}-qr.png`} fullWidth>{t('profile.public.downloadQr')}</Button>
+              </Paper>
+            )}
+            <Divider />
+            <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" gap={1}>
+              <ToggleButtonGroup exclusive size="small" value={previewFormat} onChange={(_, value) => value && setPreviewFormat(value)}>
+                <ToggleButton value="square">{t('feature.square')}</ToggleButton>
+                <ToggleButton value="story">{t('feature.story')}</ToggleButton>
+                <ToggleButton value="landscape">{t('feature.landscape')}</ToggleButton>
+              </ToggleButtonGroup>
+              <ToggleButtonGroup exclusive size="small" value={shareStyle} onChange={(_, value) => value && changeShareStyle(value)}>
+                <ToggleButton value="clean">{t('profile.editor.cleanCard')}</ToggleButton>
+                <ToggleButton value="phone">{t('profile.editor.premiumPhone')}</ToggleButton>
+              </ToggleButtonGroup>
+            </Stack>
+            <Box sx={{ mx: 'auto', width: { xs: previewFormat === 'story' ? 270 : previewFormat === 'landscape' ? 304 : 307, sm: previewFormat === 'story' ? 324 : previewFormat === 'landscape' ? 720 : 576 }, height: { xs: previewFormat === 'story' ? 480 : previewFormat === 'landscape' ? 171 : 307, sm: previewFormat === 'story' ? 576 : previewFormat === 'landscape' ? 405 : 576 }, overflow: 'hidden', borderRadius: 3 }}>
+              <Box sx={{ transformOrigin: 'top left', transform: { xs: `scale(${previewFormat === 'story' ? .5 : previewFormat === 'landscape' ? .38 : .48})`, sm: `scale(${previewFormat === 'story' ? .6 : .9})` } }}>
+                <ProfileShareShowcase ref={shareRef} profile={profile} format={previewFormat} style={shareStyle} exporting={exportingShare} />
+              </Box>
+            </Box>
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShareCenterOpen(false)}>{t('common.close')}</Button>
+          <Button variant="contained" startIcon={<DownloadRounded />} disabled={exportingShare} onClick={() => void exportShare()}>
+            {exportingShare ? t('profile.editor.exporting') : t('profile.editor.downloadShare')}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Snackbar
         open={Boolean(notice)}

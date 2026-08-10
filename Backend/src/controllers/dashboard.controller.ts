@@ -25,6 +25,21 @@ export class DashboardController {
     }
   }
 
+  async getOverview(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const userId = req.user?.userId;
+      if (!userId) {
+        res.status(401).json({ message: 'User not authenticated' });
+        return;
+      }
+      const range = (req.query.range as TimeRange) || '1d';
+      const limit = Math.min(10, Math.max(1, Number(req.query.limit) || 5));
+      res.status(200).json({ success: true, data: await this.dashboardService.getOverview(userId, range, limit) });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   /**
    * Get leaderboard
    * GET /api/dashboard/leaderboard

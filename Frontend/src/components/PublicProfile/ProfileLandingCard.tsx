@@ -24,8 +24,8 @@ import type {
   PublicProfileLanding,
   PublicProfileRecord,
 } from '../../types/publicProfile.types';
-import { getProfileTemplate } from '../../styles/publicProfileTemplates';
 import { useUserPreferences } from '../../contexts/UserPreferencesContext';
+import { getProfileInitials, resolveProfileAppearance } from './profilePresentation';
 
 type LandingCardProfile = PublicProfileLanding | PublicProfileRecord;
 
@@ -65,13 +65,7 @@ const ProfileLandingCard = ({
 }: ProfileLandingCardProps) => {
   const { t, profileCardMotion } = useUserPreferences();
   const [tilt, setTilt] = useState({ x: 0, y: 0 });
-  const preset = getProfileTemplate(profile.templateKey);
-  const colors = {
-    background: profile.themeConfig?.backgroundColor || preset.background,
-    surface: profile.themeConfig?.surfaceColor || preset.surface,
-    text: profile.themeConfig?.textColor || preset.text,
-    accent: profile.themeConfig?.accentColor || preset.accent,
-  };
+  const colors = resolveProfileAppearance(profile);
   const contact = getContact(profile);
 
   const track =
@@ -94,9 +88,10 @@ const ProfileLandingCard = ({
         width: '100%',
         minHeight: { xs: 620, sm: 690 },
         p: { xs: 2, sm: 3 },
-        borderRadius: { xs: 0, sm: `${preset.radius + 8}px` },
+        borderRadius: { xs: 0, sm: `${colors.radius + 8}px` },
         background: colors.background,
         color: colors.text,
+        fontFamily: colors.fontFamily,
         position: 'relative',
         overflow: 'hidden',
         isolation: 'isolate',
@@ -171,7 +166,7 @@ const ProfileLandingCard = ({
               } : undefined,
             }}
           >
-            {profile.displayName.slice(0, 2).toUpperCase()}
+            {getProfileInitials(profile.displayName)}
           </Avatar>
         </Box>
 
@@ -218,7 +213,7 @@ const ProfileLandingCard = ({
                   minHeight: 54,
                   borderRadius: 999,
                   bgcolor: colors.accent,
-                  color: preset.accentText,
+                  color: colors.accentText,
                   boxShadow: `0 13px 28px color-mix(in srgb, ${colors.accent} 28%, transparent)`,
                   '&:hover': { bgcolor: colors.accent, filter: 'brightness(.94)' },
                 }}

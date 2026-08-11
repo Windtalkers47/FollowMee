@@ -3,6 +3,7 @@ import {
   PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
+  UpdateDateColumn,
   Index,
 } from 'typeorm';
 
@@ -15,9 +16,13 @@ import {
 @Entity('notification_queue')
 @Index(['notificationType', 'entityType', 'entityId', 'recipientUserId'])
 @Index(['createdAt'])
+@Index(['status', 'nextAttemptAt', 'queueId'])
 export class NotificationQueue {
   @PrimaryGeneratedColumn()
   queueId!: number;
+
+  @Column({ name: 'deduplicationKey', type: 'varchar', length: 255, nullable: true, unique: true })
+  deduplicationKey?: string;
 
   @Column({ name: 'notificationType', type: 'varchar', length: 50, nullable: false })
   notificationType!: string;
@@ -66,6 +71,30 @@ export class NotificationQueue {
 
   @Column({ name: 'groupActorUserIds', type: 'text', nullable: true })
   groupActorUserIds?: string; // JSON string of number[]
+
+  @Column({ name: 'status', type: 'enum', enum: ['pending', 'processing', 'failed', 'dead'], default: 'pending' })
+  status: 'pending' | 'processing' | 'failed' | 'dead' = 'pending';
+
+  @Column({ name: 'attempts', type: 'int', default: 0 })
+  attempts = 0;
+
+  @Column({ name: 'nextAttemptAt', type: 'datetime', default: () => 'CURRENT_TIMESTAMP' })
+  nextAttemptAt!: Date;
+
+  @Column({ name: 'lockedAt', type: 'datetime', nullable: true })
+  lockedAt?: Date | null;
+
+  @Column({ name: 'lockedBy', type: 'varchar', length: 100, nullable: true })
+  lockedBy?: string | null;
+
+  @Column({ name: 'lastError', type: 'varchar', length: 1000, nullable: true })
+  lastError?: string | null;
+
+  @Column({ name: 'deadAt', type: 'datetime', nullable: true })
+  deadAt?: Date | null;
+
+  @UpdateDateColumn({ name: 'updatedAt', type: 'timestamp', precision: 6 })
+  updatedAt!: Date;
 
   /**
    * Get actor user IDs as array

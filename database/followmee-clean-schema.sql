@@ -273,11 +273,13 @@ CREATE TABLE `role_permissions` (
 CREATE TABLE `outbox_events` (
   `eventId` BIGINT NOT NULL AUTO_INCREMENT, `eventType` VARCHAR(100) NOT NULL, `aggregateType` VARCHAR(60) NULL,
   `aggregateId` VARCHAR(100) NULL, `payload` JSON NOT NULL, `idempotencyKey` VARCHAR(190) NOT NULL,
-  `status` ENUM('pending','processing','processed','failed') NOT NULL DEFAULT 'pending', `attempts` INT NOT NULL DEFAULT 0,
-  `nextAttemptAt` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, `lockedAt` DATETIME NULL, `processedAt` DATETIME NULL,
-  `lastError` VARCHAR(1000) NULL, `createdAt` TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `status` ENUM('pending','processing','processed','failed','dead') NOT NULL DEFAULT 'pending', `attempts` INT NOT NULL DEFAULT 0,
+  `nextAttemptAt` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, `lockedAt` DATETIME NULL, `lockedBy` VARCHAR(100) NULL,
+  `processedAt` DATETIME NULL, `deadAt` DATETIME NULL, `lastError` VARCHAR(1000) NULL,
+  `createdAt` TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   `updatedAt` TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-  PRIMARY KEY (`eventId`), UNIQUE KEY `uq_outbox_idempotency` (`idempotencyKey`), KEY `idx_outbox_claim` (`status`,`nextAttemptAt`,`eventId`)
+  PRIMARY KEY (`eventId`), UNIQUE KEY `uq_outbox_idempotency` (`idempotencyKey`),
+  KEY `idx_outbox_claim` (`status`,`nextAttemptAt`,`eventId`), KEY `idx_outbox_aggregate` (`aggregateType`,`aggregateId`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `organization_invitations` (
@@ -432,6 +434,7 @@ CREATE TABLE `task_comments` (
 
 CREATE TABLE `task_images` (
   `imageId` INT NOT NULL AUTO_INCREMENT,
+  `copiedFromImageId` INT NULL,
   `taskId` VARCHAR(36) NOT NULL,
   `imageUrl` VARCHAR(512) NOT NULL,
   `imageOrder` INT NOT NULL DEFAULT 0,
@@ -442,12 +445,16 @@ CREATE TABLE `task_images` (
   PRIMARY KEY (`imageId`),
   KEY `idx_task_images_task_order` (`taskId`, `imageOrder`),
   KEY `idx_task_images_uploader` (`uploadedBy`),
+  UNIQUE KEY `uq_task_images_copy_source` (`taskId`, `copiedFromImageId`),
   CONSTRAINT `fk_task_images_task`
     FOREIGN KEY (`taskId`) REFERENCES `tasks` (`taskId`)
     ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT `fk_task_images_uploader`
     FOREIGN KEY (`uploadedBy`) REFERENCES `users` (`userId`)
     ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT `fk_task_images_copy_source`
+    FOREIGN KEY (`copiedFromImageId`) REFERENCES `task_images` (`imageId`)
+    ON DELETE SET NULL ON UPDATE CASCADE,
   CONSTRAINT `chk_task_images_order` CHECK (`imageOrder` >= 0)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -656,6 +663,7 @@ CREATE TABLE `user_preferences` (
 
 CREATE TABLE `notification_queue` (
   `queueId` INT NOT NULL AUTO_INCREMENT,
+  `deduplicationKey` VARCHAR(255) NULL,
   `notificationType` VARCHAR(50) NOT NULL,
   `entityType` VARCHAR(50) NOT NULL,
   `entityId` VARCHAR(100) NOT NULL,
@@ -671,11 +679,21 @@ CREATE TABLE `notification_queue` (
   `isSystem` TINYINT(1) NOT NULL DEFAULT 0,
   `isGlobal` TINYINT(1) NOT NULL DEFAULT 0,
   `groupActorUserIds` TEXT NULL COMMENT 'JSON array of user IDs',
+  `status` ENUM('pending','processing','failed','dead') NOT NULL DEFAULT 'pending',
+  `attempts` INT NOT NULL DEFAULT 0,
+  `nextAttemptAt` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `lockedAt` DATETIME NULL,
+  `lockedBy` VARCHAR(100) NULL,
+  `lastError` VARCHAR(1000) NULL,
+  `deadAt` DATETIME NULL,
   `createdAt` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updatedAt` TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
   PRIMARY KEY (`queueId`),
+  UNIQUE KEY `uq_notification_queue_deduplication` (`deduplicationKey`),
   KEY `idx_notification_queue_aggregate`
     (`notificationType`, `entityType`, `entityId`, `recipientUserId`),
   KEY `idx_notification_queue_created` (`createdAt`),
+  KEY `idx_notification_queue_dispatch` (`status`, `nextAttemptAt`, `queueId`),
   CONSTRAINT `fk_notification_queue_recipient`
     FOREIGN KEY (`recipientUserId`) REFERENCES `users` (`userId`)
     ON DELETE CASCADE ON UPDATE CASCADE
@@ -915,7 +933,8 @@ INSERT INTO `migrations` (`timestamp`, `name`) VALUES
   (1799000000000, 'TeamsAndTaskHardening1799000000000'),
   (1800000000000, 'SingleOrganizationOwnership1800000000000'),
   (1810000000000, 'ProductivityEngagementFoundation1810000000000'),
-  (1820000000000, 'OptimizeWorkLists1820000000000');
+  (1820000000000, 'OptimizeWorkLists1820000000000'),
+  (1830000000000, 'ReliableDeliveryWorkers1830000000000');
 
 INSERT INTO `roles` (`roleName`, `description`, `roleLevel`) VALUES
   ('Owner', 'System owner with full access and ownership transfer authority', 999),

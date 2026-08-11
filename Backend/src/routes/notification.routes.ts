@@ -3,6 +3,7 @@ import { NotificationController } from '../controllers/notification.controller';
 import { NotificationMetricController } from '../controllers/notification-metric.controller';
 import { NotificationService } from '../services/notification.service';
 import { notificationQueueService } from '../services/notification-queue.service';
+import { outboxService } from '../services/outbox.service';
 import { notificationCleanupService } from '../services/notification-cleanup.service';
 import { emailService } from '../services/email.service';
 import { pushNotificationService } from '../services/push-notification.service';
@@ -51,9 +52,11 @@ router.delete('/:recipientId', (req, res, next) => notificationController.delete
 // Monitoring endpoint for queue stats (W2-RATE-LIMIT: Monitoring)
 router.get('/queue/stats', checkPermission('MANAGE_NOTIFICATION_SYSTEM'), async (req, res, next) => {
   try {
-    const [queueSize, timerCount, cleanupStats] = await Promise.all([
+    const [queueSize, timerCount, queueHealth, outboxHealth, cleanupStats] = await Promise.all([
       notificationQueueService.getQueueSize(),
       notificationQueueService.getTimerCount(),
+      notificationQueueService.getHealth(),
+      outboxService.getHealth(),
       notificationCleanupService.getStats().catch(() => null),
     ]);
 
@@ -61,7 +64,9 @@ router.get('/queue/stats', checkPermission('MANAGE_NOTIFICATION_SYSTEM'), async 
       queue: {
         size: queueSize,
         pendingTimers: timerCount,
+        health: queueHealth,
       },
+      outbox: outboxHealth,
       cleanup: cleanupStats || null,
       timestamp: new Date().toISOString(),
     });

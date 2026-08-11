@@ -1,371 +1,264 @@
+import crypto from 'crypto';
+import AppDataSource from '../config/database';
 import { NotificationService } from './notification.service';
 import { NotificationQueueRepository } from '../repositories/notification-queue.repository';
 import { NotificationQueue } from '../entities/NotificationQueue';
 import { CreateNotificationDto } from '../dtos/notification.dto';
+import {
+  DELIVERY_LEASE_MINUTES,
+  DeliveryHealth,
+  calculateDeliveryBackoffMinutes,
+  deliveryFailureStatus,
+} from './outbox.service';
+import { logger } from '../utils/logger';
 
-/**
- * Configurable delays per notification type (W2-RATE-LIMIT: Configurable Delays)
- * W4-BATCH-DELIVERY: Batch email delivery to reduce cost
- */
 const NOTIFICATION_DELAYS: Record<string, number> = {
-  TASK_LIKE: 300000,        // 5 นาที
-  COMMENT_REACTION: 300000, // 5 นาที
-  TASK_COMMENT: 120000,     // 2 นาที
-  COMMENT_REPLY: 120000,    // 2 นาที
-  TASK_ASSIGNED: 0,         // ทันที (ไม่ queue)
-  ROLE_CHANGED: 0,          // ทันที (ไม่ queue)
-  SYSTEM_ANNOUNCEMENT: 0,   // ทันที (ไม่ queue)
-  CUSTOMER_CREATED: 0,      // ทันที (ไม่ queue)
+  TASK_LIKE: 300_000,
+  COMMENT_REACTION: 300_000,
+  TASK_COMMENT: 120_000,
+  COMMENT_REPLY: 120_000,
+  TASK_ASSIGNED: 0,
+  ROLE_CHANGED: 0,
+  SYSTEM_ANNOUNCEMENT: 0,
+  CUSTOMER_CREATED: 0,
 };
+const DEFAULT_DELAY = 300_000;
 
-const DEFAULT_DELAY = 300000; // 5 นาที
-
-/**
- * W4-BATCH-DELIVERY: Batch email delivery interval
- * Send batch emails every 15 minutes to reduce cost
- */
-const BATCH_EMAIL_INTERVAL = 15 * 60 * 1000; // 15 minutes
-
-/**
- * Notification Queue Service (Database-backed)
- * 
- * Provides notification aggregation and rate limiting to reduce notification spam.
- * Uses database persistence to ensure notifications are not lost on server restart.
- * 
- * W2-RATE-LIMIT: Database-backed queue for production readiness
- */
 export class NotificationQueueService {
-  private queueRepository: NotificationQueueRepository;
+  private readonly queueRepository = new NotificationQueueRepository();
   private notificationService: NotificationService | null = null;
-  
-  // Timers for in-memory debounce (still used for timing, data is in DB)
-  private timers: Map<string, NodeJS.Timeout> = new Map();
+  private timer: NodeJS.Timeout | null = null;
+  private activeDrain: Promise<void> | null = null;
+  private readonly workerId = `notification-${process.pid}-${crypto.randomUUID()}`.slice(0, 100);
 
-  constructor() {
-    this.queueRepository = new NotificationQueueRepository();
-  }
-
-  /**
-   * Initialize the queue service with notification service
-   */
   initialize(notificationService: NotificationService): void {
     this.notificationService = notificationService;
   }
 
-  /**
-   * Get delay for specific notification type (W2-RATE-LIMIT: Configurable Delays)
-   */
   private getDelayForType(notificationType: string): number {
     return NOTIFICATION_DELAYS[notificationType] ?? DEFAULT_DELAY;
   }
 
-  /**
-   * Check if notification type should be queued (W2-RATE-LIMIT: Configurable Delays)
-   */
   private shouldQueue(notificationType: string): boolean {
     return this.getDelayForType(notificationType) > 0;
   }
 
-  /**
-   * Add notification to queue for aggregation (W2-RATE-LIMIT - Database backed)
-   * 
-   * Uses upsert to prevent race condition when multiple events arrive simultaneously.
-   * 
-   * W2-RATE-LIMIT: Configurable Delays - Different delays per notification type
-   */
   async queueNotification(dto: CreateNotificationDto): Promise<void> {
-    if (!dto.recipientUserIds || dto.recipientUserIds.length === 0) {
-      return;
+    if (!dto.recipientUserIds?.length) return;
+    if (!this.shouldQueue(dto.notificationType)) return;
+
+    for (const recipientUserId of dto.recipientUserIds) {
+      const queueItem = new NotificationQueue();
+      queueItem.deduplicationKey = this.generateKey(dto, recipientUserId);
+      queueItem.notificationType = dto.notificationType;
+      queueItem.entityType = dto.entityType || '';
+      queueItem.entityId = dto.entityId || '';
+      queueItem.recipientUserId = recipientUserId;
+      queueItem.setActorUserIds(dto.actorUserId ? [dto.actorUserId] : []);
+      queueItem.title = dto.title;
+      queueItem.baseMessage = dto.message;
+      queueItem.titleKey = dto.titleKey;
+      queueItem.messageKey = dto.messageKey;
+      queueItem.translationParams = dto.translationParams;
+      queueItem.actionUrl = dto.actionUrl;
+      queueItem.imageUrl = dto.imageUrl;
+      queueItem.isSystem = dto.isSystem || false;
+      queueItem.isGlobal = dto.isGlobal || false;
+      if (dto.groupActorUserIds) queueItem.setGroupActorUserIds(dto.groupActorUserIds);
+      queueItem.status = 'pending';
+      queueItem.attempts = 0;
+      queueItem.nextAttemptAt = new Date(Date.now() + this.getDelayForType(dto.notificationType));
+      queueItem.lockedAt = null;
+      queueItem.lockedBy = null;
+      queueItem.lastError = null;
+      queueItem.deadAt = null;
+      await this.queueRepository.upsert(queueItem);
     }
-
-    const recipientUserId = dto.recipientUserIds[0];
-    const key = this.generateKey(dto, recipientUserId);
-
-    // Check if this notification type should be queued (W2-RATE-LIMIT: Configurable Delays)
-    if (!this.shouldQueue(dto.notificationType)) {
-      // Send immediately without queuing
-      console.log(`[NotificationQueue] Sending ${dto.notificationType} immediately (no queue)`);
-      return;
-    }
-
-    // Create queue item
-    const queueItem = new NotificationQueue();
-    queueItem.notificationType = dto.notificationType;
-    queueItem.entityType = dto.entityType || '';
-    queueItem.entityId = dto.entityId || '';
-    queueItem.recipientUserId = recipientUserId;
-    queueItem.setActorUserIds(dto.actorUserId ? [dto.actorUserId] : []);
-    queueItem.title = dto.title;
-    queueItem.baseMessage = dto.message;
-    queueItem.titleKey = dto.titleKey;
-    queueItem.messageKey = dto.messageKey;
-    queueItem.translationParams = dto.translationParams;
-    queueItem.actionUrl = dto.actionUrl;
-    queueItem.imageUrl = dto.imageUrl;
-    queueItem.isSystem = dto.isSystem || false;
-    queueItem.isGlobal = dto.isGlobal || false;
-    if (dto.groupActorUserIds) {
-      queueItem.setGroupActorUserIds(dto.groupActorUserIds);
-    }
-
-    // Use upsert to prevent race condition (W2-RATE-LIMIT: Race condition fix)
-    await this.queueRepository.upsert(queueItem);
-
-    // Reset timer for this key with type-specific delay (W2-RATE-LIMIT: Configurable Delays)
-    this.resetTimer(key, dto.notificationType);
   }
 
-  /**
-   * Immediately flush a specific notification from queue
-   * 
-   * W2-RATE-LIMIT: Retry mechanism - doesn't delete item until successful
-   * W4-BATCH-DELIVERY: Triggers batch email delivery for cost efficiency
-   */
-  async flushNotification(key: string, retryCount: number = 0): Promise<void> {
-    const MAX_RETRIES = 3;
+  start(): void {
+    if (this.timer) return;
+    this.timer = setInterval(() => {
+      void this.drain().catch(error => {
+        logger.error(`Notification queue drain failed: ${error instanceof Error ? error.message : String(error)}`);
+      });
+    }, 5_000);
+    this.timer.unref?.();
+  }
 
-    // Parse key to get queue item
-    const parts = key.split(':');
-    if (parts.length < 4) {
-      this.timers.delete(key);
-      return;
-    }
+  stop(): void {
+    if (this.timer) clearInterval(this.timer);
+    this.timer = null;
+  }
 
-    const [notificationType, entityType, entityId, recipientUserIdStr] = parts;
-    const recipientUserId = parseInt(recipientUserIdStr, 10);
+  async loadPending(): Promise<void> {
+    await this.reconcile();
+    await this.drain();
+    this.start();
+  }
 
-    const queueItem = await this.queueRepository.findByKey(
-      notificationType,
-      entityType,
-      entityId,
-      recipientUserId
-    );
-
-    if (!queueItem || !this.notificationService) {
-      this.timers.delete(key);
-      return;
-    }
-
-    // Create aggregated DTO
-    const aggregatedDto = this.createAggregatedDto(queueItem);
-
+  private async claimNext(deduplicationKey?: string): Promise<NotificationQueue | null> {
+    const runner = AppDataSource.createQueryRunner();
+    await runner.connect();
+    await runner.startTransaction();
     try {
-      await this.notificationService.createNotification(aggregatedDto);
-      
-      // Only delete from database after successful flush (W2-RATE-LIMIT: Retry mechanism)
-      await this.queueRepository.deleteById(queueItem.queueId);
-      
-      console.log(`[NotificationQueue] Flushed notification for user ${recipientUserId}`);
-      
-      // W4-BATCH-DELIVERY: Trigger batch email delivery after flushing
-      // This ensures emails are sent in batches to reduce cost
-      await this.triggerBatchEmailDelivery();
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error(`[NotificationQueue] Failed to flush (attempt ${retryCount + 1}/${MAX_RETRIES}):`, errorMessage);
-      
-      if (retryCount < MAX_RETRIES) {
-        // Retry with exponential backoff
-        const backoffDelay = Math.min(1000 * Math.pow(2, retryCount), 10000);
-        console.log(`[NotificationQueue] Retrying in ${backoffDelay}ms...`);
-        
-        await new Promise(resolve => setTimeout(resolve, backoffDelay));
-        return this.flushNotification(key, retryCount + 1);
-      } else {
-        // Max retries reached - log error but don't delete item
-        console.error(`[NotificationQueue] Max retries reached. Item will remain in queue for next flush.`);
+      const parameters: unknown[] = [];
+      const keyCondition = deduplicationKey
+        ? 'AND (deduplicationKey=? OR CONCAT(notificationType,\':\',entityType,\':\',entityId,\':\',recipientUserId)=?)'
+        : 'AND nextAttemptAt <= NOW()';
+      if (deduplicationKey) parameters.push(deduplicationKey, deduplicationKey);
+      const rows = await runner.query(`
+        SELECT * FROM notification_queue
+        WHERE status IN ('pending','failed') ${keyCondition}
+        ORDER BY queueId ASC LIMIT 1 FOR UPDATE
+      `, parameters) as NotificationQueue[];
+      const item = rows[0];
+      if (!item) {
+        await runner.commitTransaction();
+        return null;
       }
+      await runner.query(`
+        UPDATE notification_queue
+        SET status='processing',lockedAt=NOW(),lockedBy=?,attempts=attempts+1,lastError=NULL
+        WHERE queueId=?
+      `, [this.workerId, item.queueId]);
+      await runner.commitTransaction();
+      return Object.assign(new NotificationQueue(), item, { attempts: Number(item.attempts || 0) + 1 });
+    } catch (error) {
+      await runner.rollbackTransaction();
+      throw error;
+    } finally {
+      await runner.release();
     }
-
-    // Cleanup timer
-    this.timers.delete(key);
   }
 
-  /**
-   * W4-BATCH-DELIVERY: Trigger batch email delivery
-   * 
-   * Sends accumulated notifications via email in batches to reduce cost.
-   * Called periodically and after flushing notifications.
-   */
-  private async triggerBatchEmailDelivery(): Promise<void> {
-    // This method would integrate with email service to send batch emails
-    // For now, it's a placeholder for the batch delivery logic
-    console.log('[NotificationQueue] Batch email delivery triggered (W4-BATCH-DELIVERY)');
-    
-    // In a full implementation, this would:
-    // 1. Fetch all pending notifications for each user
-    // 2. Group them by recipient
-    // 3. Create a digest email with all notifications
-    // 4. Send via email service (respecting daily limit)
-  }
-
-  /**
-   * Flush all notifications immediately (e.g., on shutdown)
-   */
-  async flushAll(): Promise<void> {
-    // Get all queue items from database
-    const allItems = await this.queueRepository.getRepository().find({
-      order: { createdAt: 'ASC' },
+  async drain(limit = 25): Promise<void> {
+    if (this.activeDrain) return this.activeDrain;
+    const run = this.drainInternal(limit).finally(() => {
+      if (this.activeDrain === run) this.activeDrain = null;
     });
+    this.activeDrain = run;
+    return run;
+  }
 
-    // Group by key and flush
-    const keys = new Set<string>();
-    for (const item of allItems) {
-      const key = `${item.notificationType}:${item.entityType}:${item.entityId}:${item.recipientUserId}`;
-      keys.add(key);
-    }
-
-    for (const key of keys) {
-      await this.flushNotification(key);
+  private async drainInternal(limit: number): Promise<void> {
+    for (let index = 0; index < limit; index += 1) {
+      const item = await this.claimNext();
+      if (!item) return;
+      await this.deliver(item);
     }
   }
 
-  /**
-   * Clear all timers (on shutdown)
-   */
+  async flushNotification(key: string): Promise<void> {
+    const item = await this.claimNext(key);
+    if (item) await this.deliver(item);
+  }
+
+  private async deliver(item: NotificationQueue): Promise<void> {
+    if (!this.notificationService) {
+      await this.recordFailure(item, 'Notification service is not initialized');
+      return;
+    }
+    try {
+      await this.notificationService.createNotification(this.createAggregatedDto(item));
+      await AppDataSource.query(
+        'DELETE FROM notification_queue WHERE queueId=? AND status=\'processing\' AND lockedBy=?',
+        [item.queueId, this.workerId],
+      );
+    } catch (error) {
+      await this.recordFailure(item, error instanceof Error ? error.message : String(error));
+    }
+  }
+
+  private async recordFailure(item: NotificationQueue, message: string): Promise<void> {
+    const status = deliveryFailureStatus(item.attempts);
+    const delayMinutes = calculateDeliveryBackoffMinutes(item.attempts);
+    await AppDataSource.query(`
+      UPDATE notification_queue
+      SET status=?,lockedAt=NULL,lockedBy=NULL,lastError=?,
+          deadAt=CASE WHEN ?='dead' THEN NOW() ELSE NULL END,
+          nextAttemptAt=CASE WHEN ?='dead' THEN nextAttemptAt ELSE DATE_ADD(NOW(), INTERVAL ? MINUTE) END
+      WHERE queueId=? AND status='processing' AND lockedBy=?
+    `, [status, message.slice(0, 1000), status, status, delayMinutes, item.queueId, this.workerId]);
+    if (status === 'dead') {
+      logger.error(`Notification queue item ${item.queueId} moved to dead letter after ${item.attempts} attempts.`);
+    } else {
+      logger.warn(`Notification queue item ${item.queueId} failed; retry scheduled.`);
+    }
+  }
+
+  async reconcile(): Promise<number> {
+    const result = await AppDataSource.query(`
+      UPDATE notification_queue
+      SET status='failed',lockedAt=NULL,lockedBy=NULL,lastError='Recovered stale processing lease',nextAttemptAt=NOW()
+      WHERE status='processing' AND lockedAt < DATE_SUB(NOW(), INTERVAL ${DELIVERY_LEASE_MINUTES} MINUTE)
+    `);
+    return Number(result?.affectedRows || 0);
+  }
+
+  async flushAll(): Promise<void> {
+    await this.drain(100);
+  }
+
   clearAll(): void {
-    for (const timer of this.timers.values()) {
-      clearTimeout(timer);
-    }
-    this.timers.clear();
+    this.stop();
   }
 
-  /**
-   * Get queue size for monitoring
-   */
   async getQueueSize(): Promise<number> {
     return this.queueRepository.getCount();
   }
 
-  /**
-   * Get pending timer count
-   */
   getTimerCount(): number {
-    return this.timers.size;
+    return this.timer ? 1 : 0;
   }
 
-  /**
-   * Load pending notifications from database on startup
-   * 
-   * W2-RATE-LIMIT: Configurable Delays - Uses type-specific delays
-   */
-  async loadPending(): Promise<void> {
-    const allItems = await this.queueRepository.getRepository().find({
-      order: { createdAt: 'ASC' },
-    });
-
-    // Set timers for items that are still within debounce window
-    const now = new Date();
-    for (const item of allItems) {
-      const delay = this.getDelayForType(item.notificationType);
-      const age = now.getTime() - item.createdAt.getTime();
-      
-      if (age < delay) {
-        const key = `${item.notificationType}:${item.entityType}:${item.entityId}:${item.recipientUserId}`;
-        const remainingDelay = delay - age;
-        
-        this.timers.set(key, setTimeout(() => {
-          this.flushNotification(key);
-        }, remainingDelay));
-      } else {
-        // Item is past debounce window, flush immediately
-        const key = `${item.notificationType}:${item.entityType}:${item.entityId}:${item.recipientUserId}`;
-        await this.flushNotification(key);
-      }
-    }
-  }
-
-  /**
-   * Reset timer for a specific key with type-specific delay
-   * 
-   * W2-RATE-LIMIT: Configurable Delays
-   */
-  private resetTimer(key: string, notificationType?: string): void {
-    // Clear existing timer
-    if (this.timers.has(key)) {
-      clearTimeout(this.timers.get(key)!);
-    }
-
-    // Get delay for this notification type
-    const delay = notificationType ? this.getDelayForType(notificationType) : DEFAULT_DELAY;
-
-    // Set new timer with type-specific delay
-    const timer = setTimeout(() => {
-      this.flushNotification(key);
-    }, delay);
-
-    this.timers.set(key, timer);
-  }
-
-  /**
-   * Generate unique key for aggregation
-   */
-  private generateKey(dto: CreateNotificationDto, recipientUserId: number): string {
-    return `${dto.notificationType}:${dto.entityType}:${dto.entityId}:${recipientUserId}`;
-  }
-
-  /**
-   * Create aggregated notification DTO from queue entity
-   */
-  private createAggregatedDto(queueItem: NotificationQueue): CreateNotificationDto {
-    const actorUserIds = queueItem.getActorUserIds();
-    const actorCount = actorUserIds.length;
-
+  async getHealth(): Promise<DeliveryHealth> {
+    const rows = await AppDataSource.query(`
+      SELECT
+        SUM(status='pending') AS pending,
+        SUM(status='processing') AS processing,
+        SUM(status='failed') AS failed,
+        SUM(status='dead') AS dead,
+        SUM(status='processing' AND lockedAt < DATE_SUB(NOW(), INTERVAL ${DELIVERY_LEASE_MINUTES} MINUTE)) AS staleProcessing,
+        MIN(CASE WHEN status IN ('pending','failed') THEN nextAttemptAt END) AS oldestReadyAt
+      FROM notification_queue
+    `);
+    const row = rows[0] || {};
     return {
-      notificationType: queueItem.notificationType,
-      actorUserId: actorUserIds[0], // First actor as primary
-      entityType: queueItem.entityType,
-      entityId: queueItem.entityId,
-      title: this.aggregateTitle(queueItem.title, actorCount),
-      message: this.aggregateMessage(queueItem.baseMessage, actorUserIds),
-      titleKey: queueItem.titleKey,
-      messageKey: queueItem.messageKey,
-      translationParams: {
-        ...(queueItem.translationParams || {}),
-        actorCount,
-      },
-      actionUrl: queueItem.actionUrl,
-      imageUrl: queueItem.imageUrl,
-      isSystem: queueItem.isSystem,
-      isGlobal: queueItem.isGlobal,
-      recipientUserIds: [queueItem.recipientUserId],
-      groupActorUserIds: actorUserIds.length > 1 ? actorUserIds : undefined,
+      pending: Number(row.pending || 0),
+      processing: Number(row.processing || 0),
+      failed: Number(row.failed || 0),
+      dead: Number(row.dead || 0),
+      staleProcessing: Number(row.staleProcessing || 0),
+      oldestReadyAt: row.oldestReadyAt ? new Date(row.oldestReadyAt).toISOString() : null,
     };
   }
 
-  /**
-   * Aggregate title based on actor count
-   */
-  private aggregateTitle(baseTitle: string, actorCount: number): string {
-    if (actorCount <= 1) {
-      return baseTitle;
-    }
-    if (baseTitle.includes('Like')) {
-      return `${baseTitle} (${actorCount} people)`;
-    }
-    if (baseTitle.includes('Comment')) {
-      return `${baseTitle} (${actorCount} comments)`;
-    }
-    return `${baseTitle} (${actorCount} updates)`;
+  private generateKey(dto: CreateNotificationDto, recipientUserId: number): string {
+    return `${dto.notificationType}:${dto.entityType || ''}:${dto.entityId || ''}:${recipientUserId}`;
   }
 
-  /**
-   * Aggregate message based on actor list
-   */
-  private aggregateMessage(baseMessage: string, actorUserIds: number[], maxDisplay: number = 3): string {
-    if (actorUserIds.length <= 1) {
-      return baseMessage;
-    }
-
-    const additionalCount = actorUserIds.length - maxDisplay;
-
-    if (additionalCount > 0) {
-      return `${baseMessage} และอีก ${additionalCount} คน`;
-    }
-
-    return `${baseMessage} (${actorUserIds.length} people)`;
+  private createAggregatedDto(item: NotificationQueue): CreateNotificationDto {
+    const actorUserIds = item.getActorUserIds();
+    const actorCount = actorUserIds.length;
+    return {
+      notificationType: item.notificationType,
+      actorUserId: actorUserIds[0],
+      entityType: item.entityType,
+      entityId: item.entityId,
+      title: actorCount > 1 ? `${item.title} (${actorCount} updates)` : item.title,
+      message: actorCount > 1 ? `${item.baseMessage} (${actorCount} people)` : item.baseMessage,
+      titleKey: item.titleKey,
+      messageKey: item.messageKey,
+      translationParams: { ...(item.translationParams || {}), actorCount },
+      actionUrl: item.actionUrl,
+      imageUrl: item.imageUrl,
+      isSystem: item.isSystem,
+      isGlobal: item.isGlobal,
+      recipientUserIds: [item.recipientUserId],
+      groupActorUserIds: actorUserIds.length > 1 ? actorUserIds : undefined,
+    };
   }
 }
 
-// Singleton instance
 export const notificationQueueService = new NotificationQueueService();

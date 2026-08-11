@@ -28,8 +28,19 @@ export class ProductivityService {
       const uploadedBy = Number(payload.userId || 0);
       const images = await AppDataSource.getRepository(TaskImage).find({ where: { taskId: sourceTaskId, isActive: true }, order: { imageOrder: 'ASC' } });
       for (const image of images) {
+        const existing = await AppDataSource.getRepository(TaskImage).findOne({
+          where: { taskId: targetTaskId, copiedFromImageId: image.imageId },
+        });
+        if (existing) continue;
         const imageUrl = await CloudinaryUtil.copyImage(image.imageUrl);
-        await AppDataSource.getRepository(TaskImage).save(AppDataSource.getRepository(TaskImage).create({ taskId: targetTaskId, imageUrl, imageOrder: image.imageOrder, uploadedBy, isActive: true }));
+        await AppDataSource.getRepository(TaskImage).save(AppDataSource.getRepository(TaskImage).create({
+          taskId: targetTaskId,
+          copiedFromImageId: image.imageId,
+          imageUrl,
+          imageOrder: image.imageOrder,
+          uploadedBy,
+          isActive: true,
+        }));
       }
     });
   }

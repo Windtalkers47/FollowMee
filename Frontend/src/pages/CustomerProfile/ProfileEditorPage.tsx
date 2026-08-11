@@ -5,12 +5,9 @@ import {
   ArrowBackRounded,
   ContentCopyRounded,
   DeleteOutlineRounded,
-  LaunchRounded,
   SaveRounded,
   CheckRounded,
-  DownloadRounded,
   IosShareRounded,
-  QrCode2Rounded,
 } from '@mui/icons-material';
 import {
   Alert,
@@ -20,10 +17,6 @@ import {
   Chip,
   CircularProgress,
   Divider,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
   FormControl,
   FormControlLabel,
   InputLabel,
@@ -38,7 +31,7 @@ import {
   Typography,
 } from '@mui/material';
 import { publicProfileApi, PublicProfileApiError } from '../../api/publicProfile.api';
-import ProfileShareShowcase, { type ProfileShareStyle } from '../../components/PublicProfile/ProfileShareShowcase';
+import ProfileShareCenter from '../../components/PublicProfile/ProfileShareCenter';
 import ProfileLandingCard from '../../components/PublicProfile/ProfileLandingCard';
 import ImageCropEditor from '../../components/ImageCropEditor';
 import { profileTemplates } from '../../styles/publicProfileTemplates';
@@ -50,6 +43,7 @@ import type {
 import { useUserPreferences } from '../../contexts/UserPreferencesContext';
 import { formatLocalizedNumber } from '../../utils/localeFormat';
 import { getMissingPublishingFields } from '../../utils/profilePublishing';
+import type { MessageKey } from '../../i18n/messages';
 
 const emptyLink = (sortOrder: number): ProfileLink => ({
   platform: 'website',
@@ -63,7 +57,7 @@ const ProfileEditorPage = () => {
   const { profileId = '' } = useParams();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { locale, t, shareDefaults, setShareDefaults } = useUserPreferences();
+  const { locale, t } = useUserPreferences();
   const [profile, setProfile] = useState<PublicProfileRecord | null>(null);
   const [analytics, setAnalytics] = useState<ProfileAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
@@ -73,13 +67,8 @@ const ProfileEditorPage = () => {
   const [mobileMode, setMobileMode] = useState<'edit' | 'preview'>('edit');
   const [mobileStep, setMobileStep] = useState(0);
   const [lastSavedSnapshot, setLastSavedSnapshot] = useState('');
-  const [previewFormat, setPreviewFormat] = useState<'square' | 'story' | 'landscape'>('square');
-  const [shareStyle, setShareStyle] = useState<ProfileShareStyle>(shareDefaults.profileFrame === 'phone' ? 'phone' : 'clean');
-  const [exportingShare, setExportingShare] = useState(false);
   const [shareCenterOpen, setShareCenterOpen] = useState(searchParams.has('share'));
-  const [qrDataUrl, setQrDataUrl] = useState('');
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
-  const shareRef = useRef<HTMLDivElement | null>(null);
   const fieldRefs = useRef<Record<string, HTMLElement | null>>({});
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const mobileSteps = [
@@ -235,7 +224,7 @@ const ProfileEditorPage = () => {
   };
 
   const showValidationErrors = (missing: string[]) => {
-    const next = Object.fromEntries(missing.map(key => [key, t(`profile.validation.${key}` as any)]));
+    const next = Object.fromEntries(missing.map(key => [key, t(`profile.validation.${key}` as MessageKey)]));
     setValidationErrors(next);
     if (missing[0]) focusValidationField(missing[0]);
   };
@@ -278,55 +267,6 @@ const ProfileEditorPage = () => {
       setSaving(false);
     }
   };
-
-  const changeShareStyle = (style: ProfileShareStyle) => {
-    setShareStyle(style);
-    void setShareDefaults({ ...shareDefaults, profileFrame: style });
-  };
-
-  const exportShare = async () => {
-    if (!shareRef.current || !profile) return;
-    setExportingShare(true);
-    setError('');
-    try {
-      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-      const { toPng } = await import('html-to-image');
-      const frame = previewFormat === 'story' ? { width: 540, height: 960 } : previewFormat === 'landscape' ? { width: 800, height: 450 } : { width: 540, height: 540 };
-      const dataUrl = await toPng(shareRef.current, { cacheBust: true, pixelRatio: 2, ...frame });
-      const link = document.createElement('a');
-      link.href = dataUrl;
-      link.download = `followmee-${profile.slug}-${previewFormat}-${shareStyle}.png`;
-      link.click();
-      void publicProfileApi.recordEvent(profile.slug, 'image_export', `${previewFormat}:${shareStyle}`);
-    } catch {
-      setError(t('profile.editor.exportError'));
-    } finally {
-      setExportingShare(false);
-    }
-  };
-
-  const copyPublicUrl = async () => {
-    await navigator.clipboard.writeText(publicUrl);
-    setNotice(t('profile.editor.urlCopied'));
-  };
-
-  const shareProfile = async () => {
-    if (navigator.share) {
-      try { await navigator.share({ title: profile?.displayName, url: publicUrl }); return; } catch (shareError) {
-        if ((shareError as Error).name === 'AbortError') return;
-      }
-    }
-    await copyPublicUrl();
-  };
-
-  const createQr = async () => {
-    const QRCode = (await import('qrcode')).default;
-    setQrDataUrl(await QRCode.toDataURL(publicUrl, { width: 360, margin: 2, errorCorrectionLevel: 'H' }));
-  };
-
-  useEffect(() => {
-    if (profile && searchParams.get('share') === 'qr' && !qrDataUrl) void createQr();
-  }, [profile?.profileId, searchParams, qrDataUrl]);
 
   if (loading) {
     return <Box minHeight="70vh" display="grid" sx={{ placeItems: 'center' }}><CircularProgress /></Box>;
@@ -728,52 +668,16 @@ const ProfileEditorPage = () => {
         </Box>
       </Box>
 
-      <Dialog open={shareCenterOpen} onClose={() => setShareCenterOpen(false)} fullWidth maxWidth="md">
-        <DialogTitle>{t('profile.shareCenter.title')}</DialogTitle>
-        <DialogContent>
-          <Stack spacing={2} sx={{ pt: 1 }}>
-            <TextField
-              label={t('profile.editor.profileUrl')}
-              value={publicUrl}
-              InputProps={{ readOnly: true, endAdornment: <Button onClick={() => void copyPublicUrl()} startIcon={<ContentCopyRounded />}>{t('profile.editor.copyUrl')}</Button> }}
-            />
-            <Stack direction={{ xs: 'column', sm: 'row' }} gap={1}>
-              <Button startIcon={<LaunchRounded />} onClick={() => window.open(`/p/${profile.slug}`, '_blank', 'noopener,noreferrer')}>{t('profile.editor.openLive')}</Button>
-              <Button startIcon={<IosShareRounded />} onClick={() => void shareProfile()}>{t('profile.public.share')}</Button>
-              <Button startIcon={<QrCode2Rounded />} onClick={() => void createQr()}>{t('profile.public.qrCode')}</Button>
-            </Stack>
-            {qrDataUrl && (
-              <Paper variant="outlined" sx={{ p: 2, textAlign: 'center', borderRadius: 3 }}>
-                <Box component="img" src={qrDataUrl} alt={t('profile.public.qrAlt', { name: profile.displayName })} sx={{ width: 220, maxWidth: '100%' }} />
-                <Button component="a" href={qrDataUrl} download={`${profile.slug}-qr.png`} fullWidth>{t('profile.public.downloadQr')}</Button>
-              </Paper>
-            )}
-            <Divider />
-            <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" gap={1}>
-              <ToggleButtonGroup exclusive size="small" value={previewFormat} onChange={(_, value) => value && setPreviewFormat(value)}>
-                <ToggleButton value="square">{t('feature.square')}</ToggleButton>
-                <ToggleButton value="story">{t('feature.story')}</ToggleButton>
-                <ToggleButton value="landscape">{t('feature.landscape')}</ToggleButton>
-              </ToggleButtonGroup>
-              <ToggleButtonGroup exclusive size="small" value={shareStyle} onChange={(_, value) => value && changeShareStyle(value)}>
-                <ToggleButton value="clean">{t('profile.editor.cleanCard')}</ToggleButton>
-                <ToggleButton value="phone">{t('profile.editor.premiumPhone')}</ToggleButton>
-              </ToggleButtonGroup>
-            </Stack>
-            <Box sx={{ mx: 'auto', width: { xs: previewFormat === 'story' ? 270 : previewFormat === 'landscape' ? 304 : 307, sm: previewFormat === 'story' ? 324 : previewFormat === 'landscape' ? 720 : 576 }, height: { xs: previewFormat === 'story' ? 480 : previewFormat === 'landscape' ? 171 : 307, sm: previewFormat === 'story' ? 576 : previewFormat === 'landscape' ? 405 : 576 }, overflow: 'hidden', borderRadius: 3 }}>
-              <Box sx={{ transformOrigin: 'top left', transform: { xs: `scale(${previewFormat === 'story' ? .5 : previewFormat === 'landscape' ? .38 : .48})`, sm: `scale(${previewFormat === 'story' ? .6 : .9})` } }}>
-                <ProfileShareShowcase ref={shareRef} profile={profile} format={previewFormat} style={shareStyle} exporting={exportingShare} />
-              </Box>
-            </Box>
-          </Stack>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setShareCenterOpen(false)}>{t('common.close')}</Button>
-          <Button variant="contained" startIcon={<DownloadRounded />} disabled={exportingShare} onClick={() => void exportShare()}>
-            {exportingShare ? t('profile.editor.exporting') : t('profile.editor.downloadShare')}
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <ProfileShareCenter
+        open={shareCenterOpen}
+        onClose={() => setShareCenterOpen(false)}
+        profile={profile}
+        publicUrl={publicUrl}
+        initialMode={searchParams.get('share') === 'qr' ? 'qr' : 'link'}
+        onNotice={setNotice}
+        onError={setError}
+        onEvent={(eventType, target) => void publicProfileApi.recordEvent(profile.slug, eventType, target)}
+      />
 
       <Snackbar
         open={Boolean(notice)}

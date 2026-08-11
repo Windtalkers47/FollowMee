@@ -3,9 +3,12 @@ const path = require('node:path');
 const dotenv = require('dotenv');
 const mysql = require('mysql2/promise');
 
-dotenv.config();
+dotenv.config({ path: path.resolve(__dirname, '..', '.env') });
 
-const validationDatabase = 'followmee_schema_validation';
+const validationDatabase = process.env.E2E_DB_NAME || 'followmee_e2e';
+if (validationDatabase !== 'followmee_e2e') {
+  throw new Error(`Unsafe validation database "${validationDatabase}". Target must be exactly "followmee_e2e".`);
+}
 const schemaPath = path.resolve(__dirname, '../../database/followmee-clean-schema.sql');
 
 async function validate() {

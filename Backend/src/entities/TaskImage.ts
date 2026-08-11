@@ -7,6 +7,9 @@ export class TaskImage {
   @PrimaryGeneratedColumn()
   imageId!: number;
 
+  @Column({ name: 'copiedFromImageId', type: 'int', nullable: true })
+  copiedFromImageId?: number | null;
+
   @Column({ name: 'taskId', type: 'varchar', length: 36 })
   taskId!: string;
 

@@ -3,11 +3,11 @@ const path = require('path');
 const dotenv = require('dotenv');
 const mysql = require('mysql2/promise');
 
-dotenv.config();
+dotenv.config({ path: path.resolve(__dirname, '..', '.env') });
 
-const VERIFY_DATABASE = 'followmee_schema_verify';
-if (!/^followmee_schema_verify$/.test(VERIFY_DATABASE)) {
-  throw new Error('Unsafe verification database name');
+const VERIFY_DATABASE = process.env.E2E_DB_NAME || 'followmee_e2e';
+if (VERIFY_DATABASE !== 'followmee_e2e') {
+  throw new Error(`Unsafe verification database "${VERIFY_DATABASE}". Target must be exactly "followmee_e2e".`);
 }
 
 async function verify() {
@@ -116,7 +116,7 @@ async function verify() {
       missingTables.length ||
       unexpectedTables.length ||
       result.tablesMissingPrimaryKey.length ||
-      result.migrations !== 20 ||
+      result.migrations !== 21 ||
       !result.userIdAutoIncrement
     ) {
       throw new Error(`Clean schema verification failed: ${JSON.stringify(result)}`);

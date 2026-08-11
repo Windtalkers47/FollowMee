@@ -76,11 +76,36 @@ export class NotificationQueueRepository extends BaseRepository<NotificationQueu
    * W2-RATE-LIMIT: Race condition fix
    */
   async upsert(queueItem: NotificationQueue): Promise<void> {
-    await this.repository.upsert(queueItem, [
-      'notificationType',
-      'entityType',
-      'entityId',
-      'recipientUserId',
+    await this.repository.query(`
+      INSERT INTO notification_queue
+        (deduplicationKey,notificationType,entityType,entityId,recipientUserId,actorUserIds,
+         title,baseMessage,titleKey,messageKey,translationParams,actionUrl,imageUrl,isSystem,isGlobal,
+         groupActorUserIds,status,attempts,nextAttemptAt,lockedAt,lockedBy,lastError,deadAt)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, 'pending',0,?,NULL,NULL,NULL,NULL)
+      ON DUPLICATE KEY UPDATE
+        actorUserIds=VALUES(actorUserIds),title=VALUES(title),baseMessage=VALUES(baseMessage),
+        titleKey=VALUES(titleKey),messageKey=VALUES(messageKey),translationParams=VALUES(translationParams),
+        actionUrl=VALUES(actionUrl),imageUrl=VALUES(imageUrl),isSystem=VALUES(isSystem),isGlobal=VALUES(isGlobal),
+        groupActorUserIds=VALUES(groupActorUserIds),status='pending',attempts=0,nextAttemptAt=VALUES(nextAttemptAt),
+        lockedAt=NULL,lockedBy=NULL,lastError=NULL,deadAt=NULL
+    `, [
+      queueItem.deduplicationKey,
+      queueItem.notificationType,
+      queueItem.entityType,
+      queueItem.entityId,
+      queueItem.recipientUserId,
+      queueItem.actorUserIds,
+      queueItem.title,
+      queueItem.baseMessage,
+      queueItem.titleKey || null,
+      queueItem.messageKey || null,
+      queueItem.translationParams ? JSON.stringify(queueItem.translationParams) : null,
+      queueItem.actionUrl || null,
+      queueItem.imageUrl || null,
+      queueItem.isSystem ? 1 : 0,
+      queueItem.isGlobal ? 1 : 0,
+      queueItem.groupActorUserIds || null,
+      queueItem.nextAttemptAt,
     ]);
   }
 }

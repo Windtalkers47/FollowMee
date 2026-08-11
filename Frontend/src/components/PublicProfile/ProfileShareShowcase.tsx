@@ -1,72 +1,265 @@
-import { forwardRef, useEffect, useRef, useState, type PointerEvent } from 'react';
-import { Box, useMediaQuery } from '@mui/material';
-import type { PublicProfileRecord } from '../../types/publicProfile.types';
+import { forwardRef } from 'react';
+import { Avatar, Box, Stack, Typography } from '@mui/material';
+import type { ProfilePresentationSource } from './profilePresentation';
+import {
+  getProfileInitials,
+  getProfilePresentation,
+  resolveProfileAppearance,
+} from './profilePresentation';
 import { useUserPreferences } from '../../contexts/UserPreferencesContext';
-import ProfileLandingCard from './ProfileLandingCard';
+import { profileShareDimensions, type ProfileShareFormat } from './profileShareOptions';
 
-export type ProfileShareFormat = 'square' | 'story' | 'landscape';
-export type ProfileShareStyle = 'phone' | 'clean';
-
-const dimensions = {
-  square: { width: 540, height: 540, phoneWidth: 270, phoneHeight: 500, scale: .6 },
-  story: { width: 540, height: 960, phoneWidth: 360, phoneHeight: 740, scale: .80 },
-  landscape: { width: 800, height: 450, phoneWidth: 230, phoneHeight: 410, scale: .50 },
-} as const;
+export type { ProfileShareFormat } from './profileShareOptions';
 
 interface Props {
-  profile: PublicProfileRecord;
+  profile: ProfilePresentationSource;
   format: ProfileShareFormat;
-  style: ProfileShareStyle;
-  exporting?: boolean;
 }
 
-const ProfileShareShowcase = forwardRef<HTMLDivElement, Props>(function ProfileShareShowcase({ profile, format, style, exporting = false }, ref) {
-  const { profileCardMotion } = useUserPreferences();
-  const reduceMotion = useMediaQuery('(prefers-reduced-motion: reduce)');
-  const finePointer = useMediaQuery('(pointer: fine)');
-  const frame = dimensions[format];
-  const [tilt, setTilt] = useState({ x: 0, y: 0 });
-  const raf = useRef<number | null>(null);
-  const canTilt = style === 'phone' && finePointer && !reduceMotion && profileCardMotion !== 'off' && !exporting;
+const nameSize = (name: string, format: ProfileShareFormat) => {
+  const length = Array.from(name).length;
+  if (format === 'story') return length > 28 ? 38 : length > 18 ? 44 : 50;
+  if (format === 'landscape') return length > 28 ? 32 : length > 18 ? 37 : 43;
+  return length > 28 ? 31 : length > 18 ? 36 : 42;
+};
 
-  useEffect(() => () => { if (raf.current) cancelAnimationFrame(raf.current); }, []);
-  const move = (event: PointerEvent<HTMLDivElement>) => {
-    if (!canTilt) return;
-    const rect = event.currentTarget.getBoundingClientRect();
-    const next = { x: ((event.clientY - rect.top) / rect.height - .5) * -4, y: ((event.clientX - rect.left) / rect.width - .5) * 4 };
-    if (raf.current) cancelAnimationFrame(raf.current);
-    raf.current = requestAnimationFrame(() => setTilt(next));
-  };
+const actionSize = (label: string, format: ProfileShareFormat) => {
+  const length = Array.from(label).length;
+  if (format === 'story') return length > 34 ? 14 : length > 22 ? 15 : 17;
+  return length > 28 ? 12 : length > 18 ? 13 : 15;
+};
 
-  return <Box ref={ref} data-testid={`profile-showcase-${format}-${style}`} sx={{ width: frame.width, height: frame.height, position: 'relative', overflow: 'hidden', display: 'grid', placeItems: 'center', background: `radial-gradient(circle at 18% 14%, ${profile.themeConfig?.accentColor || '#8f6da1'}66, transparent 31%), radial-gradient(circle at 82% 84%, rgba(255,255,255,.7), transparent 28%), linear-gradient(145deg,#ddd0e9,#f7f2fa 48%,#c9b1dc)`, isolation: 'isolate' }}>
-    <Box aria-hidden sx={{ position: 'absolute', inset: '8%', border: '1px solid rgba(255,255,255,.64)', borderRadius: 8, boxShadow: 'inset 0 0 60px rgba(255,255,255,.28)' }} />
-    <Box
-      onPointerMove={move}
-      onPointerLeave={() => setTilt({ x: 0, y: 0 })}
-      sx={style === 'phone' ? {
-        width: frame.phoneWidth,
-        height: frame.phoneHeight,
-        p: format === 'landscape' ? '10px 7px' : '14px 9px',
-        boxSizing: 'border-box',
-        borderRadius: format === 'landscape' ? 34 : 42,
-        background: 'linear-gradient(135deg,#fff 0%,#cfcbd2 38%,#fff 62%,#aaa6ae 100%)',
-        boxShadow: '0 36px 65px rgba(46,29,55,.34), inset 0 0 0 2px rgba(255,255,255,.9), inset 0 0 0 5px rgba(35,31,38,.15)',
-        transform: `perspective(900px) rotateX(${exporting ? 0 : tilt.x}deg) rotateY(${exporting ? 0 : tilt.y}deg)`,
-        transformStyle: 'preserve-3d',
-        transition: 'transform 150ms ease-out',
-        position: 'relative',
-        '&::before': { content: '""', position: 'absolute', top: format === 'landscape' ? 17 : 19, left: '50%', transform: 'translateX(-50%)', width: format === 'landscape' ? 44 : 66, height: 7, borderRadius: 99, bgcolor: '#222126', zIndex: 5 },
-        '&::after': { content: '""', position: 'absolute', inset: 0, borderRadius: 'inherit', background: 'linear-gradient(115deg,transparent 22%,rgba(255,255,255,.42) 43%,transparent 58%)', pointerEvents: 'none', zIndex: 6 },
-        '@media (pointer: coarse), (prefers-reduced-motion: reduce)': { transform: 'none', transition: 'none' },
-      } : { width: frame.width * .86, height: frame.height * .86, borderRadius: 36, overflow: 'hidden', boxShadow: '0 28px 60px rgba(46,29,55,.25)', position: 'relative' }}
+const ProfileShareShowcase = forwardRef<HTMLDivElement, Props>(function ProfileShareShowcase({ profile, format }, ref) {
+  const { t } = useUserPreferences();
+  const frame = profileShareDimensions[format];
+  const appearance = resolveProfileAppearance(profile);
+  const presentation = getProfilePresentation(profile);
+  const landscape = format === 'landscape';
+  const story = format === 'story';
+  const actions = [presentation.primaryAction, ...presentation.links].filter(Boolean) as Array<{
+    key: string;
+    label: string;
+    primary: boolean;
+  }>;
+
+  const identity = (
+    <Stack
+      data-testid="share-identity"
+      alignItems={landscape ? 'flex-start' : 'center'}
+      textAlign={landscape ? 'left' : 'center'}
+      spacing={story ? 2.5 : 1.75}
+      sx={{ minWidth: 0, width: '100%' }}
     >
-      <Box sx={{ width: '100%', height: '100%', overflow: 'hidden', borderRadius: style === 'phone' ? (format === 'landscape' ? 27 : 34) : 36, bgcolor: 'background.paper', position: 'relative' }}>
-        <Box sx={{ width: 430, transformOrigin: 'top left', transform: style === 'phone' ? `scale(${frame.scale})` : `scale(${Math.min(frame.width * .86 / 430, frame.height * .86 / 690)})` }}>
-          <ProfileLandingCard profile={profile} preview disableMotion />
-        </Box>
+      <Box sx={{ position: 'relative' }}>
+        <Box
+          aria-hidden
+          sx={{
+            position: 'absolute',
+            inset: story ? -14 : -11,
+            borderRadius: '40% 60% 48% 52%',
+            bgcolor: appearance.accent,
+            opacity: 0.18,
+            transform: 'rotate(-8deg)',
+          }}
+        />
+        <Avatar
+          src={presentation.avatarUrl || undefined}
+          alt={presentation.displayName}
+          imgProps={{ crossOrigin: 'anonymous' }}
+          sx={{
+            width: story ? 132 : landscape ? 104 : 100,
+            height: story ? 132 : landscape ? 104 : 100,
+            fontSize: story ? 42 : 34,
+            fontWeight: 850,
+            bgcolor: appearance.surface,
+            color: appearance.text,
+            border: '4px solid rgba(255,255,255,.78)',
+            boxShadow: '0 16px 38px rgba(16,20,17,.2)',
+            '& img': presentation.imageCrop ? {
+              transform: `translate(${presentation.imageCrop.x * 50}%, ${presentation.imageCrop.y * 50}%) scale(${presentation.imageCrop.zoom}) rotate(${presentation.imageCrop.rotation}deg)`,
+            } : undefined,
+          }}
+        >
+          {getProfileInitials(presentation.displayName)}
+        </Avatar>
       </Box>
+
+      <Box minWidth={0} width="100%">
+        <Typography
+          component="h1"
+          sx={{
+            color: appearance.text,
+            fontSize: nameSize(presentation.displayName, format),
+            lineHeight: 1.06,
+            fontWeight: 900,
+            letterSpacing: '-.04em',
+            overflowWrap: 'anywhere',
+            display: '-webkit-box',
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: 'vertical',
+            overflow: 'hidden',
+          }}
+        >
+          {presentation.displayName}
+        </Typography>
+        {presentation.summary && (
+          <Typography
+            sx={{
+              mt: story ? 1.5 : 1,
+              mx: landscape ? 0 : 'auto',
+              maxWidth: story ? 400 : landscape ? 300 : 410,
+              color: appearance.muted,
+              fontSize: story ? 19 : 16,
+              lineHeight: 1.45,
+              display: '-webkit-box',
+              WebkitLineClamp: story ? 3 : 2,
+              WebkitBoxOrient: 'vertical',
+              overflow: 'hidden',
+              overflowWrap: 'anywhere',
+            }}
+          >
+            {presentation.summary}
+          </Typography>
+        )}
+      </Box>
+    </Stack>
+  );
+
+  const actionList = actions.length > 0 && (
+    <Box
+      data-testid="share-actions"
+      sx={{
+        width: '100%',
+        maxWidth: story ? 404 : 'none',
+        mx: story ? 'auto' : 0,
+        display: 'grid',
+        gridTemplateColumns: story ? '1fr' : 'repeat(2, minmax(0, 1fr))',
+        gap: story ? 1.4 : 1,
+      }}
+    >
+      {actions.map((action, index) => (
+        <Box
+          key={action.key}
+          data-testid={action.primary ? 'share-primary-action' : 'share-link-action'}
+          sx={{
+            minWidth: 0,
+            minHeight: story ? 56 : landscape ? 48 : 46,
+            px: story ? 3 : 1.75,
+            py: 0.75,
+            gridColumn: action.primary && !story ? '1 / -1' : undefined,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: story ? 'flex-start' : 'center',
+            borderRadius: `${Math.min(appearance.radius, 24)}px`,
+            bgcolor: action.primary ? appearance.accent : appearance.surface,
+            color: action.primary ? appearance.accentText : appearance.text,
+            border: action.primary ? '1px solid transparent' : '1px solid rgba(255,255,255,.38)',
+            boxShadow: action.primary ? '0 10px 24px rgba(15,20,16,.14)' : '0 6px 18px rgba(15,20,16,.06)',
+          }}
+        >
+          <Typography
+            data-action-index={index}
+            sx={{
+              fontSize: actionSize(action.label, format),
+              lineHeight: 1.18,
+              fontWeight: 780,
+              textAlign: story ? 'left' : 'center',
+              overflowWrap: 'anywhere',
+              display: '-webkit-box',
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: 'vertical',
+              overflow: 'hidden',
+            }}
+          >
+            {action.label}
+          </Typography>
+        </Box>
+      ))}
     </Box>
-  </Box>;
+  );
+
+  return (
+    <Box
+      ref={ref}
+      data-testid={`profile-showcase-${format}`}
+      data-layout={format}
+      data-template={profile.templateKey}
+      data-background={appearance.background}
+      data-text-color={appearance.text}
+      data-accent-color={appearance.accent}
+      sx={{
+        width: frame.width,
+        height: frame.height,
+        boxSizing: 'border-box',
+        position: 'relative',
+        overflow: 'hidden',
+        isolation: 'isolate',
+        color: appearance.text,
+        background: appearance.background,
+        fontFamily: appearance.fontFamily,
+        p: landscape ? '36px 42px 28px' : story ? '58px 48px 38px' : '36px 38px 26px',
+        display: 'grid',
+        gridTemplateRows: 'minmax(0, 1fr) auto',
+        gap: story ? '30px' : '18px',
+        '&::before': {
+          content: '""',
+          position: 'absolute',
+          width: story ? 310 : 220,
+          height: story ? 310 : 220,
+          right: story ? -120 : -85,
+          top: story ? -120 : -90,
+          borderRadius: '50%',
+          bgcolor: appearance.accent,
+          opacity: 0.13,
+          zIndex: -1,
+        },
+        '&::after': {
+          content: '""',
+          position: 'absolute',
+          width: story ? 230 : 170,
+          height: story ? 230 : 170,
+          left: story ? -105 : -80,
+          bottom: story ? -100 : -82,
+          borderRadius: '42% 58% 62% 38%',
+          bgcolor: appearance.accent,
+          opacity: 0.09,
+          transform: 'rotate(18deg)',
+          zIndex: -1,
+        },
+      }}
+    >
+      <Box
+        data-testid="share-content"
+        sx={{
+          minHeight: 0,
+          display: landscape ? 'grid' : 'flex',
+          gridTemplateColumns: landscape ? 'minmax(0, .9fr) minmax(320px, 1.1fr)' : undefined,
+          flexDirection: landscape ? undefined : 'column',
+          alignItems: landscape ? 'center' : 'stretch',
+          justifyContent: landscape ? undefined : 'center',
+          gap: landscape ? '38px' : story ? '38px' : '24px',
+        }}
+      >
+        {identity}
+        {actionList}
+      </Box>
+
+      <Typography
+        data-testid="share-brand-footer"
+        variant="caption"
+        sx={{
+          textAlign: landscape ? 'left' : 'center',
+          color: appearance.muted,
+          fontSize: story ? 13 : 11,
+          lineHeight: 1.2,
+          fontWeight: 750,
+          letterSpacing: '.08em',
+        }}
+      >
+        {t('profile.public.madeWith')}
+      </Typography>
+    </Box>
+  );
 });
 
 export default ProfileShareShowcase;

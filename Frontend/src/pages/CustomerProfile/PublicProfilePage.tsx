@@ -1,41 +1,39 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import {
-  ContentCopyRounded,
-  DownloadRounded,
-  IosShareRounded,
-  QrCode2Rounded,
-} from '@mui/icons-material';
+import ContentCopyRounded from '@mui/icons-material/ContentCopyRounded';
+import DownloadRounded from '@mui/icons-material/DownloadRounded';
+import IosShareRounded from '@mui/icons-material/IosShareRounded';
+import MoreHorizRounded from '@mui/icons-material/MoreHorizRounded';
+import QrCode2Rounded from '@mui/icons-material/QrCode2Rounded';
 import {
   Alert,
   Box,
   Button,
   CircularProgress,
-  Dialog,
-  DialogContent,
   IconButton,
+  ListItemIcon,
+  Menu,
+  MenuItem,
   Snackbar,
   Stack,
-  Tooltip,
   Typography,
 } from '@mui/material';
-import { toBlob, toPng } from 'html-to-image';
-import QRCode from 'qrcode';
 import { publicProfileApi } from '../../api/publicProfile.api';
 import ProfileLandingCard from '../../components/PublicProfile/ProfileLandingCard';
+import ProfileShareCenter, { type ProfileShareMode } from '../../components/PublicProfile/ProfileShareCenter';
 import type { ProfileEventType, PublicProfileLanding } from '../../types/publicProfile.types';
 import { useUserPreferences } from '../../contexts/UserPreferencesContext';
 
 const PublicProfilePage = () => {
   const { slug = '' } = useParams();
   const { t } = useUserPreferences();
-  const captureRef = useRef<HTMLDivElement>(null);
   const [profile, setProfile] = useState<PublicProfileLanding | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
-  const [qrDataUrl, setQrDataUrl] = useState('');
-  const [working, setWorking] = useState(false);
+  const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
+  const [shareCenterOpen, setShareCenterOpen] = useState(false);
+  const [shareCenterMode, setShareCenterMode] = useState<ProfileShareMode>('image');
 
   const profileUrl = window.location.href;
   const record = (eventType: ProfileEventType, target?: string) =>
@@ -78,7 +76,7 @@ const PublicProfilePage = () => {
       }
     };
     void load();
-  }, [slug]);
+  }, [slug, t]);
 
   const copy = async () => {
     await navigator.clipboard.writeText(profileUrl);
@@ -104,48 +102,10 @@ const PublicProfilePage = () => {
     }
   };
 
-  const exportImage = async () => {
-    if (!captureRef.current || !profile) return;
-    setWorking(true);
-    try {
-      const blob = await toBlob(captureRef.current, {
-        cacheBust: true,
-        pixelRatio: 2,
-        backgroundColor: '#F4F7F4',
-      });
-      const canShareFile = blob && typeof navigator.share === 'function' && navigator.canShare?.({
-        files: [new File([blob], `${profile.slug}.png`, { type: 'image/png' })],
-      });
-      if (blob && canShareFile) {
-        await navigator.share({
-          title: profile.displayName,
-          files: [new File([blob], `${profile.slug}.png`, { type: 'image/png' })],
-        });
-      } else {
-        const dataUrl = await toPng(captureRef.current, { cacheBust: true, pixelRatio: 2 });
-        const link = document.createElement('a');
-        link.download = `${profile.slug}-followmee.png`;
-        link.href = dataUrl;
-        link.click();
-      }
-      record('image_export');
-      setNotice(t('profile.public.imageReady'));
-    } catch (exportError) {
-      setNotice(exportError instanceof Error ? exportError.message : t('profile.public.exportError'));
-    } finally {
-      setWorking(false);
-    }
-  };
-
-  const openQr = async () => {
-    const dataUrl = await QRCode.toDataURL(profileUrl, {
-      width: 360,
-      margin: 2,
-      color: { dark: '#17211A', light: '#FFFFFF' },
-      errorCorrectionLevel: 'H',
-    });
-    setQrDataUrl(dataUrl);
-    record('qr_open');
+  const openShareCenter = (mode: ProfileShareMode) => {
+    setMenuAnchor(null);
+    setShareCenterMode(mode);
+    setShareCenterOpen(true);
   };
 
   if (loading) {
@@ -176,7 +136,7 @@ const PublicProfilePage = () => {
         py: { xs: 0, sm: 3 },
       }}
     >
-      <Box ref={captureRef} sx={{ width: '100%', maxWidth: 680, mx: 'auto' }}>
+      <Box sx={{ width: '100%', maxWidth: 680, mx: 'auto' }}>
         <ProfileLandingCard profile={profile} onEvent={record} />
       </Box>
 
@@ -199,41 +159,42 @@ const PublicProfilePage = () => {
           zIndex: 3,
         }}
       >
-        <Tooltip title={t('profile.public.share')}>
-          <IconButton onClick={share} color="primary"><IosShareRounded /></IconButton>
-        </Tooltip>
-        <Tooltip title={t('profile.public.copyLink')}>
-          <IconButton onClick={copy}><ContentCopyRounded /></IconButton>
-        </Tooltip>
-        <Tooltip title={t('profile.public.saveImage')}>
-          <span>
-            <IconButton onClick={exportImage} disabled={working}><DownloadRounded /></IconButton>
-          </span>
-        </Tooltip>
-        <Tooltip title={t('profile.public.qrCode')}>
-          <IconButton onClick={openQr}><QrCode2Rounded /></IconButton>
-        </Tooltip>
+        <Button onClick={() => void share()} startIcon={<IosShareRounded />} sx={{ borderRadius: 999, px: 1.75 }}>
+          {t('profile.public.share')}
+        </Button>
+        <Button
+          onClick={() => openShareCenter('image')}
+          startIcon={<DownloadRounded />}
+          sx={{ borderRadius: 999, px: 1.75 }}
+        >
+          {t('profile.public.saveImage')}
+        </Button>
+        <IconButton aria-label={t('profile.public.moreActions')} onClick={(event) => setMenuAnchor(event.currentTarget)}>
+          <MoreHorizRounded />
+        </IconButton>
       </Stack>
 
-      <Dialog open={Boolean(qrDataUrl)} onClose={() => setQrDataUrl('')} maxWidth="xs" fullWidth>
-        <DialogContent sx={{ textAlign: 'center', p: 4 }}>
-          <Typography variant="h6" fontWeight={800}>{t('profile.public.scanTitle')}</Typography>
-          <Box component="img" src={qrDataUrl} alt={t('profile.public.qrAlt', { name: profile.displayName })} sx={{ width: '100%', mt: 2 }} />
-          <Button
-            fullWidth
-            variant="contained"
-            sx={{ mt: 2 }}
-            onClick={() => {
-              const link = document.createElement('a');
-              link.href = qrDataUrl;
-              link.download = `${profile.slug}-qr.png`;
-              link.click();
-            }}
-          >
-            {t('profile.public.downloadQr')}
-          </Button>
-        </DialogContent>
-      </Dialog>
+      <Menu anchorEl={menuAnchor} open={Boolean(menuAnchor)} onClose={() => setMenuAnchor(null)}>
+        <MenuItem onClick={() => { setMenuAnchor(null); void copy(); }}>
+          <ListItemIcon><ContentCopyRounded fontSize="small" /></ListItemIcon>
+          {t('profile.public.copyLink')}
+        </MenuItem>
+        <MenuItem onClick={() => openShareCenter('qr')}>
+          <ListItemIcon><QrCode2Rounded fontSize="small" /></ListItemIcon>
+          {t('profile.public.qrCode')}
+        </MenuItem>
+      </Menu>
+
+      <ProfileShareCenter
+        open={shareCenterOpen}
+        onClose={() => setShareCenterOpen(false)}
+        profile={profile}
+        publicUrl={profileUrl}
+        initialMode={shareCenterMode}
+        onNotice={setNotice}
+        onError={setNotice}
+        onEvent={record}
+      />
 
       <Snackbar
         open={Boolean(notice)}

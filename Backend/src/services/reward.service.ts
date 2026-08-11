@@ -50,7 +50,18 @@ export class RewardService {
 
   constructor() {
     outboxService.register('reward.season.achievement', async payload => {
-      await NotificationHelper.notifyRewardAchievement(Number(payload.userId), Number(payload.seasonId), Number(payload.rank));
+      const userId = Number(payload.userId);
+      const seasonId = Number(payload.seasonId);
+      const existing = await AppDataSource.query(`
+        SELECT n.notificationId FROM notifications n
+        INNER JOIN notification_recipients nr ON nr.notificationId=n.notificationId
+        WHERE n.notificationType='SYSTEM_ANNOUNCEMENT' AND n.entityType='reward_season'
+          AND n.entityId=? AND n.titleKey='notification.reward.seasonRank.title' AND nr.userId=?
+        LIMIT 1
+      `, [String(seasonId), userId]);
+      if (!existing.length) {
+        await NotificationHelper.notifyRewardAchievement(userId, seasonId, Number(payload.rank));
+      }
     });
   }
 

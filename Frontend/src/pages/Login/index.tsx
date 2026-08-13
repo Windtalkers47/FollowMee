@@ -31,6 +31,8 @@ import {
 } from '../../store/slices/authSlice';
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import { useUserPreferences } from '../../contexts/UserPreferencesContext';
+import { env } from '../../utils/env';
+import { canUsePublicRegistration } from '../../utils/registrationPolicy';
 
 const MAX_ATTEMPTS = 5;
 
@@ -421,7 +423,7 @@ export default function LoginPage() {
               textAlign: 'center',
             }}
           >
-            <Typography
+            {canUsePublicRegistration(env.isDev, env.features.registration) ? <Typography
               variant="body2"
               sx={{ color: 'text.secondary' }}
             >
@@ -444,7 +446,7 @@ export default function LoginPage() {
               >
                 {t('auth.login.signUp')}
               </Typography>
-            </Typography>
+            </Typography> : <Typography variant="body2" color="text.secondary">{t('auth.login.inviteOnly')}</Typography>}
           </Box>
         </Box>
         </Box>

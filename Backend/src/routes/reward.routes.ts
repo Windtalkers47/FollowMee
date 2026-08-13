@@ -7,6 +7,8 @@ const controller = new RewardController();
 
 router.use(isAuthenticated);
 router.get('/summary', controller.summary);
+router.get('/achievements', controller.achievements);
+router.patch('/achievements/:badgeKey', controller.updateAchievement);
 router.get('/seasons/current', controller.summary);
 router.get('/seasons', controller.seasons);
 router.get('/seasons/:seasonId', controller.season);

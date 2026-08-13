@@ -31,6 +31,7 @@ export class TaskResponseDto {
   blockedBy?: number | null;
   completedBy?: number | null;
   approvedBy?: number | null;
+  completedAt?: Date | null;
   checklist?: Array<{
     checklistItemId: number;
     label: string;

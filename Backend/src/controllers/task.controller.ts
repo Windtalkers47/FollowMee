@@ -15,6 +15,7 @@ import { CloudinaryUtil } from '../utils/cloudinary.util';
 import AppDataSource from '../config/database';
 import { User } from '../entities/User';
 import { assertSafeRemoteHttpUrl } from '../utils/remote-url.util';
+import { rewardService } from '../services/reward.service';
 
 export class TaskController {
   constructor(private readonly taskService: TaskService) {}
@@ -562,12 +563,16 @@ export class TaskController {
       
       // Get user's updated rank (the assignee's rank should be updated)
       const userRank = await this.taskService.getUserRank(result.assignedTo || userId);
+      const earnedAchievements = result.completedAt
+        ? await rewardService.getRecentlyEarnedAchievements(result.assignedTo || userId, new Date(new Date(result.completedAt).getTime() - 1000))
+        : [];
       
       res.status(200).json({ 
         success: true, 
         data: {
           task: result,
-          userRank: userRank
+          userRank: userRank,
+          earnedAchievements
         }
       });
     } catch (error) {

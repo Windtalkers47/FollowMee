@@ -28,8 +28,6 @@ import {
   FormControl,
   InputLabel,
   Stack,
-  ToggleButton,
-  ToggleButtonGroup,
 } from '@mui/material';
 import {
   Settings as SettingsIcon,
@@ -53,6 +51,8 @@ import { taskApi, likeApi, commentApi, Task, TaskLikeSummary, UserRank, UpdateTa
 import { rewardApi } from '../../api/reward.api';
 import { toPng } from 'html-to-image';
 import AchievementShareCard, { type AchievementShareEntry } from '../../components/AchievementShareCard';
+import AchievementArtwork from '../../components/AchievementArtwork';
+import { translateRewardKey } from '../../utils/rewardPresentation';
 import DuplicateTaskDialog from '../../components/DuplicateTaskDialog';
 import { userApi } from '../../api/user.api';
 import TaskCard from '../../components/TaskCard';
@@ -322,13 +322,18 @@ const PostsPage = () => {
   const approveTaskMutation = useMutation({
     mutationFn: (taskId: string) => taskApi.approveTask(taskId),
     onSuccess: (response) => {
-      // Show success dialog - ONLY when task is actually approved to done
-      setDoneTaskData({ task: response.task, newRank: response.userRank });
-      setDoneDialogOpen(true);
+      const achievement = response.earnedAchievements?.[0];
+      if (achievement) {
+        void feedback.success({ title: translateRewardKey(t, achievement.nameKey), message: t('achievement.unlockedMessage'), importance: 'milestone', nextAction: { label: t('achievement.viewCollection'), onClick: () => navigate(`/rewards?tab=achievements&achievement=${achievement.badgeKey}`) } });
+      } else {
+        setDoneTaskData({ task: response.task, newRank: response.userRank });
+        setDoneDialogOpen(true);
+      }
 
       // Invalidate queries to refresh data
       queryClient.invalidateQueries({ queryKey: ['all-tasks'] });
       queryClient.invalidateQueries({ queryKey: ['assigned-tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['rewards'] });
     },
   });
 
@@ -568,20 +573,26 @@ const PostsPage = () => {
   const achievementRef = useRef<HTMLDivElement | null>(null);
   const [shareFormat, setShareFormat] = useState<'square' | 'story'>('square');
   const [isSharingAchievement, setIsSharingAchievement] = useState(false);
-  const myAchievement = rewardSummaryQuery.data?.myRank && rewardSummaryQuery.data.myRank <= 3
-    ? rewardSummaryQuery.data.leaderboard.find(entry => entry.userId === user?.userId)
+  const latestAchievement = rewardSummaryQuery.data?.latestAchievement;
+  const latestAchievementEntry: AchievementShareEntry | undefined = latestAchievement
+    ? {
+        title: translateRewardKey(t, latestAchievement.nameKey),
+        description: translateRewardKey(t, latestAchievement.requirementKey || latestAchievement.descriptionKey || latestAchievement.nameKey),
+        artworkKey: latestAchievement.artworkKey || latestAchievement.badgeKey,
+        rarity: latestAchievement.rarity || 'common',
+        earnedDate: t('achievement.earnedOn', { date: new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(latestAchievement.awardedAt)) }),
+      }
     : undefined;
-  const myAchievementEntry: AchievementShareEntry | undefined = myAchievement && rewardSummaryQuery.data?.myRank
-    ? { ...myAchievement, rank: rewardSummaryQuery.data.myRank as 1 | 2 | 3 }
-    : undefined;
-  const shareAchievement = async () => {
-    if (!achievementRef.current || !rewardSummaryQuery.data || !myAchievementEntry) return;
+  const exportAchievement = async (format: 'square' | 'story', nativeShare = false) => {
+    if (!achievementRef.current || !latestAchievementEntry) return;
+    setShareFormat(format);
     setIsSharingAchievement(true);
     try {
-      const dataUrl = await toPng(achievementRef.current, { pixelRatio: 2, cacheBust: true, width: 540, height: shareFormat === 'story' ? 960 : 540 });
+      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      const dataUrl = await toPng(achievementRef.current, { pixelRatio: 1, cacheBust: true, width: 1080, height: format === 'story' ? 1920 : 1080 });
       const blob = await (await fetch(dataUrl)).blob();
-      const file = new File([blob], `followmee-achievement-${shareFormat}.png`, { type: 'image/png' });
-      if (navigator.share && navigator.canShare?.({ files: [file] })) await navigator.share({ files: [file], title: 'My FollowMee achievement' });
+      const file = new File([blob], `followmee-achievement-${format}.png`, { type: 'image/png' });
+      if (nativeShare && navigator.share && navigator.canShare?.({ files: [file] })) await navigator.share({ files: [file], title: latestAchievementEntry.title });
       else { const link = document.createElement('a'); link.href = dataUrl; link.download = file.name; link.click(); }
     } catch {
       feedback.error(t('feedback.failed'), t('feedback.tryAgain'));
@@ -632,51 +643,32 @@ const PostsPage = () => {
         />
       </Box>
 
-      {rewardSummaryQuery.data && (
-        <Paper variant="outlined" sx={{ mb: 3, p: { xs: 2, md: 2.5 }, borderRadius: 4, bgcolor: 'action.selected' }}>
-          <Stack direction={{ xs: 'column', sm: 'row' }} alignItems={{ sm: 'center' }} gap={2}>
-            <Box flex={1}>
-              <Typography fontWeight={800}>{t('rewards.community')}</Typography>
-              <Typography color="text.secondary">
-                {t('rewards.communitySummary', { score: rewardSummaryQuery.data.seasonScore, points: rewardSummaryQuery.data.wallet.availablePoints })}
-              </Typography>
-            </Box>
-            <Chip icon={<TrophyIcon />} label={rewardSummaryQuery.data.myRank ? `#${rewardSummaryQuery.data.myRank}` : '—'} />
-            <Button variant="contained" onClick={() => navigate('/rewards')}>{t('rewards.viewRewards')}</Button>
-          </Stack>
-        </Paper>
-      )}
-      {rewardSummaryQuery.data && <Paper variant="outlined" sx={{ mb: 3, p: 3, borderRadius: 4 }}>
-        <Typography variant="h5" fontWeight={850}>{t('feature.seasonTopThree')}</Typography>
-        <Grid container spacing={2} alignItems="end" mt={0}>
-          {[rewardSummaryQuery.data.leaderboard[1], rewardSummaryQuery.data.leaderboard[0], rewardSummaryQuery.data.leaderboard[2]].map((entry, index) => entry && (
-            <Grid key={entry.userId} size={{ xs: 12, sm: 4 }} sx={{ order: { xs: index === 1 ? 1 : index === 0 ? 2 : 3, sm: index + 1 } }}>
-              <Paper sx={{ p: 2, minHeight: index === 1 ? 210 : 180, textAlign: 'center', borderRadius: 4, display: 'grid', placeContent: 'center', background: index === 1 ? 'radial-gradient(circle at top,#fff5bf,#fff 65%)' : 'background.paper' }}>
-                <Typography fontSize={38}>{index === 1 ? '🥇' : index === 0 ? '🥈' : '🥉'}</Typography>
-                <Typography fontWeight={900}>{entry.userName} {entry.userLastName}</Typography>
-                <Typography color="text.secondary">{rewardSummaryQuery.data.season.seasonKey}</Typography>
-                <Typography variant="h5" color="primary.main" fontWeight={850}>#{index === 1 ? 1 : index === 0 ? 2 : 3} · {t('feature.pointsShort', { score: entry.score })}</Typography>
-              </Paper>
-            </Grid>
-          ))}
-        </Grid>
-        {myAchievementEntry && <Box mt={2}>
-          <Stack direction={{ xs: 'column', sm: 'row' }} gap={1} mb={2} alignItems={{ sm: 'center' }}>
-            <ToggleButtonGroup exclusive value={shareFormat} onChange={(_, value) => value && setShareFormat(value)} size="small">
-              <ToggleButton value="square">{t('feature.square')}</ToggleButton>
-              <ToggleButton value="story">{t('feature.story')}</ToggleButton>
-            </ToggleButtonGroup>
-            <Button variant="contained" disabled={isSharingAchievement} onClick={() => void shareAchievement()}>
-              {isSharingAchievement ? <CircularProgress size={20} color="inherit" /> : t('feature.shareAchievement')}
-            </Button>
-          </Stack>
-          <Box sx={{ width: '100%', maxWidth: shareFormat === 'story' ? 360 : 540, mx: 'auto', aspectRatio: shareFormat === 'story' ? '9 / 16' : '1 / 1', overflow: 'hidden', borderRadius: 4, bgcolor: 'action.hover', position: 'relative' }}>
-            <Box sx={{ position: 'absolute', inset: 0, transformOrigin: 'top left', transform: shareFormat === 'story' ? 'scale(0.6666667)' : 'scale(min(1, calc((100vw - 64px) / 540)))', '@media (max-width: 603px)': { transform: `scale(calc((100vw - 64px) / 540))` } }}>
-              <AchievementShareCard ref={achievementRef} entry={myAchievementEntry} seasonLabel={rewardSummaryQuery.data.season.seasonKey} format={shareFormat} pointsLabel={t('feature.pointsShort', { score: myAchievementEntry.score })} brandLabel={t('feature.followMeeAchievement')} recognitionLabel={t('feature.recognizedWithFollowMee')} />
-            </Box>
+      <Paper variant="outlined" sx={{ mb: 3, p: { xs: 2, md: 2.5 }, borderRadius: 3, boxShadow: 'none' }}>
+        <Typography variant="overline" color="primary.main">{t('feature.latestAchievement')}</Typography>
+        {latestAchievementEntry ? <Stack direction={{ xs: 'column', md: 'row' }} alignItems={{ md: 'center' }} gap={2.5}>
+          <AchievementArtwork artworkKey={latestAchievementEntry.artworkKey} rarity={latestAchievementEntry.rarity} size={96} />
+          <Box flex={1} minWidth={0}>
+            <Stack direction="row" gap={1} alignItems="center" flexWrap="wrap">
+              <Typography variant="h5" fontWeight={900}>{latestAchievementEntry.title}</Typography>
+              <Chip size="small" label={latestAchievementEntry.rarity.toUpperCase()} />
+            </Stack>
+            <Typography color="text.secondary" mt={0.5}>{latestAchievementEntry.description}</Typography>
+            <Typography variant="caption" color="text.secondary">{latestAchievementEntry.earnedDate}</Typography>
           </Box>
-        </Box>}
-      </Paper>}
+          <Stack direction={{ xs: 'column', sm: 'row' }} gap={1} width={{ xs: '100%', md: 'auto' }}>
+            <Button variant="contained" disabled={isSharingAchievement} onClick={() => void exportAchievement('square', true)}>{t('achievement.share')}</Button>
+            <Button variant="outlined" disabled={isSharingAchievement} onClick={() => void exportAchievement('story')}>{t('achievement.saveStory')}</Button>
+            <Button variant="text" disabled={isSharingAchievement} onClick={() => void exportAchievement('square')}>{t('achievement.saveSquare')}</Button>
+            <Button variant="text" onClick={() => navigate('/rewards?tab=achievements')}>{t('achievement.viewCollection')}</Button>
+          </Stack>
+          <Box sx={{ position: 'fixed', left: -10000, top: 0, pointerEvents: 'none' }} aria-hidden>
+            <AchievementShareCard ref={achievementRef} entry={latestAchievementEntry} format={shareFormat} brandLabel={t('feature.followMeeAchievement')} achievementLabel={t('feature.followMeeAchievement')} />
+          </Box>
+        </Stack> : <Stack direction={{ xs: 'column', sm: 'row' }} alignItems={{ sm: 'center' }} gap={2}>
+          <Typography color="text.secondary" flex={1}>{t('feature.noAchievement')}</Typography>
+          <Button variant="outlined" onClick={() => navigate('/rewards?tab=missions')}>{t('rewards.openMyWork')}</Button>
+        </Stack>}
+      </Paper>
 
       {/* Liquid Glass Search Section */}
       <Box sx={{ mb: 3 }}>

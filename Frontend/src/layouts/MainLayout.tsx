@@ -833,6 +833,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
         {[
           { label: t('nav.activity'), path: '/posts', icon: <PostAdd fontSize="small" /> },
           { label: t('nav.rewards'), path: '/rewards', icon: <Redeem fontSize="small" /> },
+          { label: t('profile.user.title'), path: '/profile', icon: <AccountCircle fontSize="small" /> },
           { label: t('nav.profiles'), path: '/customer-profile', icon: <AccountCircle fontSize="small" /> },
           { label: t('nav.analytics'), path: '/analytics', icon: <Analytics fontSize="small" /> },
           ...(canManageUsers ? [{ label: t('nav.users'), path: '/users', icon: <PeopleAlt fontSize="small" /> }] : []),
@@ -856,6 +857,10 @@ const MainLayout = ({ children }: MainLayoutProps) => {
 
       {/* Profile Menu */}
       <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleMenuClose}>
+        <MenuItem onClick={() => { handleMenuClose(); navigate('/profile'); }}>
+          <AccountCircle fontSize="small" sx={{ mr: 1 }} />
+          {t('profile.user.title')}
+        </MenuItem>
         <MenuItem onClick={handleProfileModalOpen}>
           <EditIcon fontSize="small" sx={{ mr: 1 }} />
           {t('account.editProfile')}

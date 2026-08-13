@@ -1,5 +1,5 @@
 -- FollowMee clean schema
--- Schema version: 2026-08-10 / Productivity, invitations, profiles and season results
+-- Schema version: 2026-08-13 / User profiles and achievement showcase
 -- MySQL 8.0+ / MariaDB 10.6+
 --
 -- WARNING: This script drops every FollowMee table and all data in it.
@@ -59,6 +59,7 @@ DROP TABLE IF EXISTS `user_audit_logs`;
 DROP TABLE IF EXISTS `public_profile_events`;
 DROP TABLE IF EXISTS `public_profile_links`;
 DROP TABLE IF EXISTS `public_profiles`;
+DROP TABLE IF EXISTS `user_profiles`;
 DROP TABLE IF EXISTS `customers`;
 DROP TABLE IF EXISTS `users`;
 DROP TABLE IF EXISTS `migrations`;
@@ -91,6 +92,25 @@ CREATE TABLE `users` (
   KEY `idx_users_active_deleted` (`isActive`, `deletedAt`),
   KEY `idx_users_locked_until` (`lockedUntil`),
   CONSTRAINT `chk_users_login_attempts` CHECK (`loginAttempts` >= 0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `user_profiles` (
+  `userProfileId` BIGINT NOT NULL AUTO_INCREMENT,
+  `userId` INT NOT NULL,
+  `handle` VARCHAR(32) NOT NULL,
+  `headline` VARCHAR(140) NULL,
+  `bio` VARCHAR(500) NULL,
+  `themeConfig` JSON NULL,
+  `visibility` ENUM('public','unlisted','private') NOT NULL DEFAULT 'private',
+  `status` ENUM('draft','published') NOT NULL DEFAULT 'draft',
+  `publishedAt` DATETIME NULL,
+  `createdAt` TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updatedAt` TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (`userProfileId`),
+  UNIQUE KEY `uq_user_profiles_user` (`userId`),
+  UNIQUE KEY `uq_user_profiles_handle` (`handle`),
+  KEY `idx_user_profiles_public` (`handle`,`status`,`visibility`),
+  CONSTRAINT `fk_user_profiles_user` FOREIGN KEY (`userId`) REFERENCES `users` (`userId`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `customers` (
@@ -812,14 +832,19 @@ CREATE TABLE `reward_point_ledger` (
 
 CREATE TABLE `reward_badges` (
   `badgeId` INT NOT NULL AUTO_INCREMENT, `badgeKey` VARCHAR(60) NOT NULL, `nameKey` VARCHAR(120) NOT NULL,
-  `descriptionKey` VARCHAR(120) NOT NULL, `icon` VARCHAR(40) NOT NULL, `auraKey` VARCHAR(60) NULL, `rankValue` TINYINT NULL, `isActive` TINYINT(1) NOT NULL DEFAULT 1,
+  `descriptionKey` VARCHAR(120) NOT NULL, `requirementKey` VARCHAR(120) NULL, `icon` VARCHAR(40) NOT NULL,
+  `category` VARCHAR(40) NOT NULL DEFAULT 'milestone', `rarity` ENUM('common','rare','epic','legendary') NOT NULL DEFAULT 'common',
+  `target` INT NULL, `artworkKey` VARCHAR(60) NOT NULL DEFAULT 'milestone',
+  `auraKey` VARCHAR(60) NULL, `rankValue` TINYINT NULL, `isActive` TINYINT(1) NOT NULL DEFAULT 1,
   PRIMARY KEY (`badgeId`), UNIQUE KEY `uq_reward_badge_key` (`badgeKey`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `user_badges` (
   `userBadgeId` BIGINT NOT NULL AUTO_INCREMENT, `userId` INT NOT NULL, `badgeId` INT NOT NULL, `seasonId` INT NULL,
   `sourceId` VARCHAR(100) NOT NULL, `awardedAt` TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `isPinned` TINYINT(1) NOT NULL DEFAULT 0, `isPublic` TINYINT(1) NOT NULL DEFAULT 0, `sortOrder` INT NOT NULL DEFAULT 0,
   PRIMARY KEY (`userBadgeId`), UNIQUE KEY `uq_user_badge_source` (`userId`, `badgeId`, `sourceId`),
+  KEY `idx_user_badges_showcase` (`userId`,`isPinned`,`isPublic`,`sortOrder`),
   CONSTRAINT `fk_user_badge_user` FOREIGN KEY (`userId`) REFERENCES `users` (`userId`) ON DELETE CASCADE,
   CONSTRAINT `fk_user_badge_badge` FOREIGN KEY (`badgeId`) REFERENCES `reward_badges` (`badgeId`) ON DELETE CASCADE,
   CONSTRAINT `fk_user_badge_season` FOREIGN KEY (`seasonId`) REFERENCES `reward_seasons` (`seasonId`) ON DELETE SET NULL
@@ -934,7 +959,8 @@ INSERT INTO `migrations` (`timestamp`, `name`) VALUES
   (1800000000000, 'SingleOrganizationOwnership1800000000000'),
   (1810000000000, 'ProductivityEngagementFoundation1810000000000'),
   (1820000000000, 'OptimizeWorkLists1820000000000'),
-  (1830000000000, 'ReliableDeliveryWorkers1830000000000');
+  (1830000000000, 'ReliableDeliveryWorkers1830000000000'),
+  (1840000000000, 'UserProfilesAndAchievements1840000000000');
 
 INSERT INTO `roles` (`roleName`, `description`, `roleLevel`) VALUES
   ('Owner', 'System owner with full access and ownership transfer authority', 999),

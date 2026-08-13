@@ -1,6 +1,8 @@
 import api from '../services/api';
 
 export interface RewardWallet { availablePoints: number; reservedPoints: number; lifetimeEarned: number }
+export type AchievementRarity = 'common' | 'rare' | 'epic' | 'legendary';
+export interface Achievement { badgeKey: string; nameKey: string; descriptionKey: string; requirementKey: string; icon: string; artworkKey: string; category: string; rarity: AchievementRarity; target: number; progress: number; progressPercent: number; unlocked: boolean; userBadgeId: number | null; awardedAt: string | null; isPinned: boolean; isPublic: boolean; sortOrder: number }
 export interface RewardMission {
   missionId: number; templateKey: string; cadence: 'weekly' | 'monthly'; scope: 'shared' | 'personal';
   titleKey: string; descriptionKey: string; progress: number; target: number; rewardPoints: number; endsAt: string;
@@ -24,17 +26,20 @@ export interface RewardSummary {
   wallet: RewardWallet; seasonScore: number; completedTasks: number; myRank: number | null;
   leaderboard: Array<{ userId: number; userName: string; userLastName: string; userImageUrl?: string; score: number; completedTasks: number }>;
   missions: RewardMission[];
-  badges: Array<{ badgeKey: string; nameKey: string; descriptionKey: string; icon: string; auraKey?: string; rankValue?: number; seasonId?: number; awardedAt: string }>;
-  latestAchievement?: { badgeKey: string; nameKey: string; auraKey?: string; awardedAt: string } | null;
+  badges: Array<Partial<Achievement> & { badgeKey:string; nameKey:string; descriptionKey:string; icon:string; auraKey?:string; rankValue?:number; seasonId?:number; awardedAt:string }>;
+  latestAchievement?: (Partial<Achievement> & { badgeKey:string; nameKey:string; descriptionKey?:string; auraKey?:string; awardedAt:string }) | null;
   seasonPodium?: RewardSummary['leaderboard'];
   availableAuras?: string[];
   redemptions: RewardRedemption[];
+  capabilities: { canManageRewards: boolean };
 }
 
 const unwrap = <T>(response: { data: { data: T } }) => response.data.data;
 
 export const rewardApi = {
   summary: async () => unwrap<RewardSummary>(await api.get('/rewards/summary')),
+  achievements: async () => unwrap<Achievement[]>(await api.get('/rewards/achievements')),
+  updateAchievement: async (badgeKey: string, input: Partial<Pick<Achievement, 'isPinned' | 'isPublic' | 'sortOrder'>>) => unwrap<Achievement>(await api.patch(`/rewards/achievements/${encodeURIComponent(badgeKey)}`, input)),
   seasons: async () => unwrap<Array<{ seasonId: number; seasonKey: string; name: string; startsAt: string; endsAt: string; status: string; participantCount: number }>>(await api.get('/rewards/seasons')),
   season: async (id: number) => unwrap<{ season: RewardSummary['season'] & { status: string }; results: Array<{ userId: number; rankValue: number; score: number; userName: string; userLastName: string; userImageUrl?: string; badgeKey?: string; auraKey?: string }> }>(await api.get(`/rewards/seasons/${id}`)),
   closeSeason: async (id: number) => unwrap(await api.post(`/admin/rewards/seasons/${id}/close`)),

@@ -42,6 +42,7 @@ import rewardRoutes from './routes/reward.routes';
 import adminRewardRoutes from './routes/admin-reward.routes';
 import productivityRoutes from './routes/productivity.routes';
 import analyticsRoutes from './routes/analytics.routes';
+import userProfileRoutes from './routes/user-profile.routes';
 import { rewardService } from './services/reward.service';
 import { outboxService } from './services/outbox.service';
 import { productivityService } from './services/productivity.service';
@@ -184,7 +185,7 @@ class App {
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
       allowedHeaders: ['Content-Type', 'Authorization', 'x-application-name', 'x-user-locale'],
-      exposedHeaders: ['set-cookie']
+      exposedHeaders: ['set-cookie', 'x-request-id']
     }));
 
     // Parse JSON request body
@@ -274,6 +275,7 @@ class App {
     // User routes
     this.app.use('/api/users', userRoutes);
     this.app.use('/api/user-preferences', userPreferenceRoutes);
+    this.app.use('/api/user-profiles', userProfileRoutes);
     this.app.use('/api/rewards', rewardRoutes);
     this.app.use('/api/admin/rewards', adminRewardRoutes);
     this.app.use('/api/productivity', productivityRoutes);

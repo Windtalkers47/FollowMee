@@ -73,6 +73,7 @@ export class CustomerController {
    * - 'canceled': show canceled customers (isActive = false)
    */
   async getCustomers(req: Request, res: Response) {
+    const startedAt = Date.now();
     try {
       const page = parseInt(req.query.page as string) || 1;
       const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 25));
@@ -82,6 +83,16 @@ export class CustomerController {
       const createdBy = Number(req.query.createdBy) || undefined;
       
       const result = await this.customerService.findPage({ page, limit, status, search, assignedTo, createdBy }, req.user!.userId);
+      console.info(JSON.stringify({
+        event: 'customer.list.completed',
+        requestId: res.locals.requestId,
+        status: 200,
+        durationMs: Date.now() - startedAt,
+        page: result.page,
+        limit: result.limit,
+        resultCount: result.items.length,
+        total: result.total,
+      }));
       
       return res.json({ 
         success: true, 
@@ -94,12 +105,20 @@ export class CustomerController {
         }
       });
     } catch (error: unknown) {
-      console.error('Error getting customers:', error);
+      const requestId = res.locals.requestId;
       const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+      console.error(JSON.stringify({
+        event: 'customer.list.failed',
+        requestId,
+        status: 500,
+        durationMs: Date.now() - startedAt,
+        error: errorMessage,
+      }));
       return res.status(500).json({ 
         success: false, 
         message: 'Failed to fetch customers',
-        error: errorMessage
+        error: errorMessage,
+        requestId,
       });
     }
   }

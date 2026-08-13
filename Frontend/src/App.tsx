@@ -32,6 +32,8 @@ const SettingsPage = React.lazy(() => import('./pages/Settings'));
 const AnalyticsPage = React.lazy(() => import('./pages/Analytics'));
 const NotificationsPage = React.lazy(() => import('./pages/Notifications'));
 const RewardsPage = React.lazy(() => import('./pages/Rewards'));
+const UserProfilePage = React.lazy(() => import('./pages/UserProfile'));
+const PublicUserProfilePage = React.lazy(() => import('./pages/UserProfile/PublicUserProfilePage'));
 const MainLayout = React.lazy(() => import('./layouts/MainLayout'));
 
 const LoadingSpinner = () => (
@@ -335,6 +337,7 @@ const App = () => {
                   element={<ResetPasswordPage />}
                 />
                 <Route path="/p/:slug" element={<PublicProfilePage />} />
+                <Route path="/u/:handle" element={<PublicUserProfilePage />} />
 
                 {/* Protected */}
                 <Route element={<ProtectedRoute />}>
@@ -354,6 +357,7 @@ const App = () => {
                   <Route path="/notification-analytics" element={<Navigate to="/analytics?tab=notifications" replace />} />
                   <Route path="/notifications" element={<NotificationsPage />} />
                   <Route path="/rewards" element={<RewardsPage />} />
+                  <Route path="/profile" element={<UserProfilePage />} />
                 </Route>
 
                 {/* Legacy customer links never expose CRM data. */}

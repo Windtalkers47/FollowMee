@@ -4,6 +4,7 @@ import { ApplicationError } from '../errors/application.error';
 import { webSocketService } from './websocket.service';
 import { NotificationHelper } from '../utils/notification.util';
 import { outboxService } from './outbox.service';
+import { UserService } from './user.service';
 
 type MissionCadence = 'weekly' | 'monthly';
 type RedemptionDecision = 'approved' | 'rejected' | 'fulfilled';
@@ -46,6 +47,29 @@ const getPeriods = (now = new Date()) => {
 };
 
 export class RewardService {
+  async getAchievementCollection(userId: number, publicOnly = false) {
+    const [rows, taskStats, missionStats] = await Promise.all([
+      AppDataSource.query(`SELECT rb.badgeKey,rb.nameKey,rb.descriptionKey,rb.requirementKey,rb.icon,rb.artworkKey,rb.category,rb.rarity,rb.target,ub.userBadgeId,ub.awardedAt,ub.isPinned,ub.isPublic,ub.sortOrder FROM reward_badges rb LEFT JOIN user_badges ub ON ub.userBadgeId=(SELECT ub2.userBadgeId FROM user_badges ub2 WHERE ub2.badgeId=rb.badgeId AND ub2.userId=? ORDER BY ub2.awardedAt DESC,ub2.userBadgeId DESC LIMIT 1) WHERE rb.isActive=1 ${publicOnly ? 'AND ub.isPinned=1 AND ub.isPublic=1' : ''} ORDER BY COALESCE(ub.sortOrder,9999),ub.awardedAt DESC,rb.badgeId`, [userId]),
+      AppDataSource.query(`SELECT COUNT(*) completed,SUM(reopenedCount=0) firstPass,SUM(dueDate IS NOT NULL AND completedAt<=dueDate) onTime,SUM(reopenedCount>0) comeback FROM tasks WHERE assignedTo=? AND status='done'`, [userId]),
+      AppDataSource.query('SELECT COUNT(*) completed FROM user_mission_progress WHERE userId=? AND completedAt IS NOT NULL', [userId]),
+    ]);
+    const stats = taskStats[0] || {}; const missions = Number(missionStats[0]?.completed || 0);
+    return rows.map((row: any) => { const target=Number(row.target||1); const progressByKey:Record<string,number>={'first-completion':Number(stats.completed||0),'first-pass-quality':Number(stats.firstPass||0),'on-time-star':Number(stats.onTime||0),comeback:Number(stats.comeback||0),consistency:Number(stats.completed||0),'mission-complete':missions}; const progress=row.userBadgeId?target:Math.min(target,progressByKey[row.badgeKey]||0); return { badgeKey:row.badgeKey,nameKey:row.nameKey,descriptionKey:row.descriptionKey,requirementKey:row.requirementKey||row.descriptionKey,icon:row.icon,artworkKey:row.artworkKey||row.badgeKey,category:row.category,rarity:row.rarity,target,progress,progressPercent:Math.round(progress/target*100),unlocked:Boolean(row.userBadgeId),userBadgeId:row.userBadgeId?Number(row.userBadgeId):null,awardedAt:row.awardedAt||null,isPinned:Boolean(row.isPinned),isPublic:Boolean(row.isPublic),sortOrder:Number(row.sortOrder||0) }; });
+  }
+
+  async getAchievementsForSource(userId: number, sourceId: string) {
+    return AppDataSource.query(`SELECT rb.badgeKey,rb.nameKey,rb.descriptionKey,rb.requirementKey,rb.artworkKey,rb.category,rb.rarity,ub.awardedAt FROM user_badges ub INNER JOIN reward_badges rb ON rb.badgeId=ub.badgeId WHERE ub.userId=? AND ub.sourceId=? ORDER BY ub.awardedAt`, [userId, sourceId]);
+  }
+
+  async getRecentlyEarnedAchievements(userId: number, since: Date) {
+    return AppDataSource.query(`SELECT DISTINCT rb.badgeKey,rb.nameKey,rb.descriptionKey,rb.requirementKey,rb.artworkKey,rb.category,rb.rarity,ub.awardedAt FROM user_badges ub INNER JOIN reward_badges rb ON rb.badgeId=ub.badgeId WHERE ub.userId=? AND ub.awardedAt>=? ORDER BY ub.awardedAt`, [userId, since]);
+  }
+
+  async updateAchievement(userId: number, badgeKey: string, input: { isPinned?: boolean; isPublic?: boolean; sortOrder?: number }) {
+    const result = await AppDataSource.query('UPDATE user_badges ub INNER JOIN reward_badges rb ON rb.badgeId = ub.badgeId SET ub.isPinned = COALESCE(?, ub.isPinned), ub.isPublic = COALESCE(?, ub.isPublic), ub.sortOrder = COALESCE(?, ub.sortOrder) WHERE ub.userId = ? AND rb.badgeKey = ?', [input.isPinned === undefined ? null : input.isPinned ? 1 : 0, input.isPublic === undefined ? null : input.isPublic ? 1 : 0, input.sortOrder === undefined ? null : Math.max(0, Math.floor(input.sortOrder)), userId, badgeKey]);
+    if (!Number(result.affectedRows || 0)) throw new ApplicationError('Achievement not found', 'ACHIEVEMENT_NOT_FOUND', 404);
+    return (await this.getAchievementCollection(userId)).find((item: any) => item.badgeKey === badgeKey);
+  }
   private expiryTimer: NodeJS.Timeout | null = null;
 
   constructor() {
@@ -372,18 +396,24 @@ export class RewardService {
     } finally {
       await queryRunner.release();
     }
+    const badgeResult = await AppDataSource.query(`INSERT IGNORE INTO user_badges (userId,badgeId,seasonId,sourceId) SELECT ?,badgeId,?,? FROM reward_badges WHERE badgeKey='mission-complete'`, [userId, mission.seasonId || null, 'achievement:mission-complete']);
+    if (Number(badgeResult.affectedRows || 0) > 0) await NotificationHelper.notifyAchievementEarned(userId, 'rewards.badge.missionComplete', 'mission-complete').catch(error => console.error('achievement_notification_failed', error));
   }
 
   private async awardTaskBadges(input: TaskRewardInput): Promise<void> {
-    const keys: string[] = [];
+    const keys: string[] = ['first-completion'];
     if (input.reopenedCount === 0) keys.push('first-pass-quality');
     if (input.dueDate && input.completedAt <= new Date(input.dueDate)) keys.push('on-time-star');
     if (input.reopenedCount > 0) keys.push('comeback');
     for (const key of keys) {
-      await AppDataSource.query(`
+      const result = await AppDataSource.query(`
         INSERT IGNORE INTO user_badges (userId, badgeId, sourceId)
         SELECT ?, badgeId, ? FROM reward_badges WHERE badgeKey = ?
-      `, [input.userId, `task:${input.taskId}`, key]);
+      `, [input.userId, `achievement:${key}`, key]);
+      if (Number(result.affectedRows || 0) > 0) {
+        const badge = (await AppDataSource.query('SELECT nameKey FROM reward_badges WHERE badgeKey = ? LIMIT 1', [key]))[0];
+        await NotificationHelper.notifyAchievementEarned(input.userId, badge?.nameKey || key, key).catch(error => console.error('achievement_notification_failed', error));
+      }
     }
   }
 
@@ -413,13 +443,14 @@ export class RewardService {
     await this.ensureUserMissionProgress(userId);
     await AppDataSource.query('INSERT IGNORE INTO reward_wallets (userId) VALUES (?)', [userId]);
     const season = await this.ensureSeason(AppDataSource);
-    const [walletRows, scoreRows, missions, badges, redemptions, leaderboard] = await Promise.all([
+    const [walletRows, scoreRows, missions, badges, redemptions, leaderboard, userWithRoles] = await Promise.all([
       AppDataSource.query('SELECT availablePoints, reservedPoints, lifetimeEarned FROM reward_wallets WHERE userId = ?', [userId]),
       AppDataSource.query(`SELECT COALESCE(SUM(completionScore),0) AS score, COUNT(*) AS completedTasks FROM tasks WHERE assignedTo = ? AND status = 'done' AND completedAt >= ? AND completedAt < ?`, [userId, season.startsAt, season.endsAt]),
       this.getMissions(userId),
-      AppDataSource.query(`SELECT rb.badgeKey, rb.nameKey, rb.descriptionKey, rb.icon, rb.auraKey, rb.rankValue, ub.seasonId, ub.awardedAt FROM user_badges ub INNER JOIN reward_badges rb ON rb.badgeId = ub.badgeId WHERE ub.userId = ? ORDER BY ub.awardedAt DESC`, [userId]),
+      AppDataSource.query(`SELECT rb.badgeKey,rb.nameKey,rb.descriptionKey,rb.requirementKey,rb.icon,rb.artworkKey,rb.category,rb.rarity,rb.target,rb.auraKey,rb.rankValue,ub.seasonId,ub.awardedAt,ub.isPinned,ub.isPublic,ub.sortOrder FROM user_badges ub INNER JOIN reward_badges rb ON rb.badgeId=ub.badgeId WHERE ub.userId=? ORDER BY ub.awardedAt DESC`, [userId]),
       AppDataSource.query(`SELECT rr.*, rci.name AS itemName FROM reward_redemptions rr INNER JOIN reward_catalog_items rci ON rci.itemId = rr.itemId WHERE rr.userId = ? ORDER BY rr.createdAt DESC LIMIT 20`, [userId]),
       this.getLeaderboard(season.seasonId, season.startsAt, season.endsAt),
+      new UserService().getUserWithRoles(userId),
     ]);
     const myRank = leaderboard.findIndex((entry: any) => Number(entry.userId) === userId) + 1;
     return {
@@ -435,6 +466,7 @@ export class RewardService {
       seasonPodium: leaderboard.slice(0, 3),
       availableAuras: badges.filter((badge: any) => badge.auraKey).map((badge: any) => badge.auraKey),
       redemptions,
+      capabilities: { canManageRewards: userWithRoles.permissions.includes('MANAGE_REWARDS') },
     };
   }
 

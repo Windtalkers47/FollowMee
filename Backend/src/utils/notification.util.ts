@@ -31,6 +31,7 @@ export enum NotificationType {
   CUSTOMER_CREATED = 'CUSTOMER_CREATED',
   CUSTOMER_ASSIGNED = 'CUSTOMER_ASSIGNED',
   CUSTOMER_FOLLOW_UP = 'CUSTOMER_FOLLOW_UP',
+  ACHIEVEMENT_EARNED = 'ACHIEVEMENT_EARNED',
 }
 
   /**
@@ -39,7 +40,7 @@ export enum NotificationType {
   export class NotificationHelper {
     private static notificationService: NotificationService | null = null;
 
-    static initialize(service: NotificationService): void {
+  static initialize(service: NotificationService): void {
       this.notificationService = service;
       // Also initialize the queue service
       notificationQueueService.initialize(service);
@@ -69,6 +70,10 @@ export enum NotificationType {
       recipientUserIds,
       skipQueue: true, // Send immediately
     });
+  }
+
+  static async notifyAchievementEarned(userId: number, badgeName: string, badgeKey: string): Promise<void> {
+    await this.createNotification({ notificationType: NotificationType.ACHIEVEMENT_EARNED, entityType: 'achievement', entityId: badgeKey, title: 'Achievement earned', message: `You unlocked ${badgeName}.`, titleKey: 'notification.content.achievementEarned.title', messageKey: 'notification.content.achievementEarned.message', translationParams: { achievementName: badgeName }, actionUrl: `/rewards?tab=achievements&achievement=${encodeURIComponent(badgeKey)}`, recipientUserIds: [userId], skipQueue: true });
   }
 
   static async notifyTaskUpdated(

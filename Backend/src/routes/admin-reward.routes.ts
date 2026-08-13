@@ -1,12 +1,12 @@
 import { Router } from 'express';
 import { isAuthenticated } from '../middleware/auth.middleware';
-import { checkRole } from '../middleware/permission.middleware';
+import { checkPermission } from '../middleware/permission.middleware';
 import { RewardController } from '../controllers/reward.controller';
 
 const router = Router();
 const controller = new RewardController();
 
-router.use(isAuthenticated, checkRole('Owner'));
+router.use(isAuthenticated, checkPermission('MANAGE_REWARDS'));
 router.post('/seasons/:seasonId/close', controller.closeSeason);
 router.get('/redemptions', controller.redemptions);
 router.post('/redemptions/:id/approve', controller.approve);

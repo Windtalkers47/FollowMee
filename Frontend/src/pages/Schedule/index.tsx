@@ -52,6 +52,7 @@ import { useUserPreferences } from '../../contexts/UserPreferencesContext';
 import { isAllowedTaskTransition } from '../../utils/taskWorkflow';
 import { useFocusSession } from '../../hooks/useFocusSession';
 import { resolveScheduleFocus, ScheduleDateFilter } from '../../utils/scheduleFocus';
+import { translateRewardKey } from '../../utils/rewardPresentation';
 
 /* ================== Types ================== */
 type TabPanelProps = {
@@ -327,9 +328,12 @@ const SchedulePage = () => {
 
   const markTaskUndoneMutation = useMutation({
     mutationFn: (taskId: string) => taskApi.markTaskAsUndone(taskId),
-    onSuccess: () => {
+    onSuccess: (response) => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['rewards'] });
       refetch();
+      const achievement = response.earnedAchievements?.[0];
+      if (achievement) void feedback.success({ title: translateRewardKey(t, achievement.nameKey), message: t('achievement.unlockedMessage'), importance: 'milestone', nextAction: { label: t('achievement.viewCollection'), onClick: () => navigate(`/rewards?tab=achievements&achievement=${achievement.badgeKey}`) } });
     },
   });
 

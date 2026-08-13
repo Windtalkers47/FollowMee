@@ -16,6 +16,7 @@ import {
   IconButton,
   TextField,
   Stack,
+  ToggleButton,
   Typography,
 } from '@mui/material';
 import { ArrowForward, Block, ContentCopy, FactCheck, MoreVert, PlayArrow, RateReview, Save, Schedule as ScheduleIcon } from '@mui/icons-material';
@@ -228,16 +229,39 @@ const MyWorkPage = () => {
       {focusFilter && <Alert severity="info" sx={{ mb: 2 }} action={<Stack direction="row" gap={1}><Button size="small" onClick={restorePreviousView}>{t('feature.backToPreviousView')}</Button><Button size="small" onClick={() => applyNormalFilter('all')}>{t('feature.showAllTasks')}</Button></Stack>}>
         {t('feature.focusModeActive', { filter: focusTargetLabel })}
       </Alert>}
-      <Stack direction={{ xs: 'column', sm: 'row' }} gap={1.5} mb={2}>
-        <TextField select size="small" label={t('feature.savedViews')} value="" sx={{ minWidth: 220 }} onChange={(event) => {
+      <Stack
+        direction={{ xs: 'column', sm: 'row' }}
+        gap={1}
+        mb={2}
+        alignItems={{ sm: 'stretch' }}
+        aria-label={t('feature.viewControls')}
+      >
+        <TextField select size="small" label={t('feature.savedViews')} value="" sx={{ minWidth: 220, flex: { xs: 1, sm: '0 1 275px' } }} onChange={(event) => {
           const view = savedViews.data?.find(item => String(item.savedViewId) === event.target.value);
           const savedFilter = view?.filters?.filter;
           if (typeof savedFilter === 'string') applyNormalFilter(savedFilter as WorkFilter);
         }}>
           {(savedViews.data || []).map(view => <MenuItem key={view.savedViewId} value={String(view.savedViewId)}>{view.name}</MenuItem>)}
         </TextField>
-        <Button startIcon={<Save />} onClick={() => saveViewMutation.mutate()} disabled={saveViewMutation.isPending}>{t('feature.saveCurrentView')}</Button>
-        <Chip clickable label={t('feature.blocked')} color={effectiveFilter === 'blocked' ? 'error' : 'default'} onClick={() => applyNormalFilter(filter === 'blocked' ? 'all' : 'blocked')} />
+        <Button
+          variant="outlined"
+          startIcon={<Save />}
+          onClick={() => saveViewMutation.mutate()}
+          disabled={saveViewMutation.isPending}
+          sx={{ minHeight: 40, px: 2, borderRadius: 2.5, whiteSpace: 'nowrap' }}
+        >
+          {t('feature.saveCurrentView')}
+        </Button>
+        <ToggleButton
+          value="blocked"
+          selected={effectiveFilter === 'blocked'}
+          onChange={() => applyNormalFilter(filter === 'blocked' ? 'all' : 'blocked')}
+          aria-label={t('feature.blocked')}
+          sx={{ minHeight: 40, px: 2, py: 0.75, borderRadius: '10px !important', textTransform: 'none', fontWeight: 700 }}
+        >
+          <Block fontSize="small" sx={{ mr: 1 }} />
+          {t('feature.blocked')}
+        </ToggleButton>
       </Stack>
       {data?.focus && !data.focus.primary && (
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5 }}>

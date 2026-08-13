@@ -14,6 +14,12 @@ const customerController = new CustomerController(customerService);
 
 // Protected routes (require authentication)
 router.use(isAuthenticated);
+// Customer records are authenticated, user-specific data. Prevent browser/proxy
+// validators from turning a JSON response into an empty 304 body.
+router.use((_req, res, next) => {
+  res.setHeader('Cache-Control', 'no-cache, no-store');
+  next();
+});
 
 // Legacy path retained for compatibility, but CRM customer records are not public.
 router.get('/public/:id', (req, res) => customerController.getPublicCustomerProfile(req, res));

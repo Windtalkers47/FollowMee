@@ -30,6 +30,7 @@ import {
 import { ArrowBack, Block, CheckCircle, ContentCopy, Replay, Save, Repeat } from '@mui/icons-material';
 import { commentApi, taskApi, Task } from '../../api/task.api';
 import { useUserPreferences } from '../../contexts/UserPreferencesContext';
+import { translateRewardKey } from '../../utils/rewardPresentation';
 import feedback from '../../services/feedback.service';
 import { getOptimizedImageUrl } from '../../utils/imageUtils';
 import SmartAvatar from '../../components/SmartAvatar';
@@ -77,14 +78,16 @@ const TaskDetailPage = () => {
 
   const approveMutation = useMutation({
     mutationFn: () => taskApi.approveTask(taskId),
-    onSuccess: ({ task }) => {
+    onSuccess: ({ task, earnedAchievements }) => {
       syncTask(task);
+      const achievement = earnedAchievements?.[0];
       feedback.success({
-        title: t('taskDetail.approved'),
-        message: t('taskDetail.approvedHint'),
+        title: achievement ? translateRewardKey(t, achievement.nameKey) : t('taskDetail.approved'),
+        message: achievement ? t('achievement.unlockedMessage') : t('taskDetail.approvedHint'),
         importance: 'milestone',
-        nextAction: { label: t('nav.activity'), onClick: () => navigate('/posts') },
+        nextAction: achievement ? { label: t('achievement.viewCollection'), onClick: () => navigate(`/rewards?tab=achievements&achievement=${achievement.badgeKey}`) } : { label: t('nav.activity'), onClick: () => navigate('/posts') },
       });
+      queryClient.invalidateQueries({ queryKey: ['rewards'] });
     },
     onError: () => feedback.error(t('feedback.failed'), t('feedback.tryAgain')),
   });

@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useRef } from 'react';
+import { useCallback, useRef } from 'react';
 import { useAppDispatch, useAppSelector } from '../store/store';
 import {
   fetchCustomers,
@@ -33,8 +33,6 @@ export const useCustomers = () => {
     return request;
   }, [dispatch]);
 
-  useEffect(() => () => activeFetch.current?.abort?.(), []);
-
   const {
     items: customers,
     status,
@@ -44,6 +42,7 @@ export const useCustomers = () => {
     total,
     filter,
     statusStats,
+    lastSuccessfulAt,
   } = useAppSelector((state) => state.customer);
 
   // ===============================
@@ -229,6 +228,7 @@ export const useCustomers = () => {
     total,
     filter,
     statusStats,
+    lastSuccessfulAt,
     handlePageChange,
     handlePageSizeChange,
     handleFilterChange,

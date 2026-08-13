@@ -1,4 +1,4 @@
-import { resolveAnalyticsDateRange } from '../../services/analytics.service';
+import { resolveAnalyticsDateRange, resolvePreviousAnalyticsRange } from '../../services/analytics.service';
 
 describe('resolveAnalyticsDateRange', () => {
   const now = new Date('2026-08-10T12:00:00+07:00');
@@ -15,5 +15,12 @@ describe('resolveAnalyticsDateRange', () => {
     expect(() => resolveAnalyticsDateRange('2026-08-10', '2026-08-01', now)).toThrow('Start date');
     expect(() => resolveAnalyticsDateRange('2026-08-01', '2026-08-11', now)).toThrow('future');
     expect(() => resolveAnalyticsDateRange('2025-01-01', '2026-08-10', now)).toThrow('366');
+  });
+
+  it('builds a non-overlapping previous period with the same duration', () => {
+    const current = resolveAnalyticsDateRange('2026-08-01', '2026-08-10', now);
+    const previous = resolvePreviousAnalyticsRange(current.start, current.rangeDays);
+    expect(previous.end.toISOString()).toBe(current.start.toISOString());
+    expect((previous.end.getTime() - previous.start.getTime()) / 86_400_000).toBe(10);
   });
 });

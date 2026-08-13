@@ -309,6 +309,14 @@ export interface UserRank {
 export interface MarkTaskDoneResponse {
   task: Task;
   userRank: UserRank;
+  earnedAchievements?: Array<{
+    badgeKey: string;
+    nameKey: string;
+    descriptionKey?: string;
+    artworkKey?: string;
+    rarity?: 'common' | 'rare' | 'epic' | 'legendary';
+    awardedAt: string;
+  }>;
 }
 
 export interface CreateLikeData {

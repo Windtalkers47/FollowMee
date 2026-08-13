@@ -20,6 +20,8 @@ import {
 import { LockOutlined, Visibility, VisibilityOff } from '@mui/icons-material';
 import feedback from '../../services/feedback.service';
 import { useUserPreferences } from '../../contexts/UserPreferencesContext';
+import { env } from '../../utils/env';
+import { canUsePublicRegistration } from '../../utils/registrationPolicy';
 
 interface FormErrors {
   userName: string;
@@ -40,6 +42,7 @@ interface FormTouched {
 const Register = () => {
   const [searchParams] = useSearchParams();
   const invitationToken = searchParams.get('invite') || '';
+  const publicRegistrationAllowed = canUsePublicRegistration(env.isDev, env.features.registration);
   const [invitationState, setInvitationState] = useState<'loading' | 'valid' | 'invalid' | 'public'>(invitationToken ? 'loading' : 'public');
   const [formData, setFormData] = useState({
     userName: '',
@@ -389,7 +392,11 @@ const Register = () => {
           boxShadow: 'none',
         }}>
           
-          <Box component="form" onSubmit={handleSubmit} noValidate>
+          {!invitationToken && !publicRegistrationAllowed ? <Box>
+            <Alert severity="info" sx={{ mb: 2 }}>{t('auth.register.inviteOnly')}</Alert>
+            <Typography color="text.secondary" mb={3}>{t('auth.register.inviteOnlyHelp')}</Typography>
+            <Button component={RouterLink} to="/login" fullWidth variant="contained">{t('auth.login.signIn')}</Button>
+          </Box> : <Box component="form" onSubmit={handleSubmit} noValidate>
             {invitationState === 'loading' && <Alert severity="info" sx={{ mb: 2 }}>{t('feature.inviteValidating')}</Alert>}
             {invitationState === 'invalid' && <Alert severity="error" sx={{ mb: 2 }}>{t('feature.inviteInvalid')}</Alert>}
             <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
@@ -547,7 +554,7 @@ const Register = () => {
                 </Link>
               </Typography>
             </Box>
-          </Box>
+          </Box>}
         </Paper>
       </Box>
     </Container>

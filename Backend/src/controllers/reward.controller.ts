@@ -12,6 +12,14 @@ export class RewardController {
     try { return res.json({ success: true, data: await rewardService.getSummary(this.userId(req)) }); }
     catch (error) { return next(error); }
   };
+  achievements = async (req: Request, res: Response, next: NextFunction) => {
+    try { return res.json({ success: true, data: await rewardService.getAchievementCollection(this.userId(req)) }); }
+    catch (error) { return next(error); }
+  };
+  updateAchievement = async (req: Request, res: Response, next: NextFunction) => {
+    try { return res.json({ success: true, data: await rewardService.updateAchievement(this.userId(req), req.params.badgeKey, req.body || {}) }); }
+    catch (error) { return next(error); }
+  };
   missions = async (req: Request, res: Response, next: NextFunction) => {
     try { return res.json({ success: true, data: await rewardService.getMissions(this.userId(req)) }); }
     catch (error) { return next(error); }

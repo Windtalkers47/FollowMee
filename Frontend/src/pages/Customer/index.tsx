@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { 
   Box, 
   Button, 
@@ -22,6 +22,7 @@ import {
   useTheme,
   TextField,
   Paper,
+  Alert,
 } from '@mui/material';
 import feedback from '../../services/feedback.service';
 import { alpha, styled } from '@mui/material/styles';
@@ -184,7 +185,6 @@ const CustomerPage = () => {
   const DEFAULT_PAGE_SIZE = 25;
 
   const [searchInput, setSearchInput] = useState(filter.search || '');
-  const initialFilterSignature = useRef('');
   const [tabValue, setTabValue] = useState(0);
   const [selected, setSelected] = useState<string[]>([]);
   const [actionMenuAnchorEl, setActionMenuAnchorEl] = useState<null | HTMLElement>(null);
@@ -201,9 +201,6 @@ const CustomerPage = () => {
   useEffect(() => {
     const statusMap = { 0: 'all', 1: 'active', 2: 'inactive', 3: 'canceled' } as const;
     const status = statusMap[tabValue as keyof typeof statusMap] as CustomerStatus | 'all';
-    const signature = `${status}|${filter.search}|${filter.assignedTo || ''}|${filter.createdBy || ''}`;
-    if (initialFilterSignature.current === signature) return;
-    initialFilterSignature.current = signature;
     handleFilterChange({ status, search: filter.search });
   }, [tabValue]);
 
@@ -212,6 +209,21 @@ const CustomerPage = () => {
     const timer = window.setTimeout(() => handleFilterChange({ search: searchInput.trim() }), 300);
     return () => window.clearTimeout(timer);
   }, [searchInput, filter.search, handleFilterChange]);
+
+  // Keep all hooks above this branch so the initial loading transition cannot
+  // change the hook order when the first customer request is in flight.
+  if (loading && customers.length === 0) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
+        <Box textAlign="center">
+          <CircularProgress size={60} thickness={4} color="primary" />
+          <Typography variant="body1" color="text.secondary" mt={2} fontWeight={500}>
+            {t('customers.loading')}
+          </Typography>
+        </Box>
+      </Box>
+    );
+  }
 
   // ใช้ customers โดยตรงจาก API แทนการ filter ใน frontend
   // เพราะ API ส่งข้อมูลที่มี pagination มาแล้ว
@@ -384,29 +396,6 @@ const CustomerPage = () => {
   
   const isSelected = (id: string) => selected.includes(id);
 
-  useEffect(() => {
-    if (error) {
-      const showError = async () => {
-        await feedback.fire({ icon: 'error', title: t('common.error'), text: error });
-      };
-      showError();
-    }
-  }, [error]);
-
-  // Loading state
-  if (loading && customers.length === 0) {
-    return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
-        <Box textAlign="center">
-          <CircularProgress size={60} thickness={4} color="primary" />
-          <Typography variant="body1" color="text.secondary" mt={2} fontWeight={500}>
-            {t('customers.loading')}
-          </Typography>
-        </Box>
-      </Box>
-    );
-  }
-
   return (
     <Box sx={{ 
       width: '100%',
@@ -511,6 +500,22 @@ const CustomerPage = () => {
             </Box>
           </Box>
         </Box>
+
+        {error && (
+          <Alert
+            severity={customers.length ? 'warning' : 'error'}
+            sx={{ mb: 3 }}
+            action={<Button color="inherit" size="small" onClick={refetch}>{t('feedback.retry')}</Button>}
+          >
+            <Typography fontWeight={700}>
+              {customers.length ? t('customers.staleDataTitle') : t('customers.loadFailedTitle')}
+            </Typography>
+            <Typography variant="body2">
+              {customers.length ? t('customers.staleDataText') : error.message}
+              {error.requestId ? ` · ${t('customers.requestId', { id: error.requestId })}` : ''}
+            </Typography>
+          </Alert>
+        )}
 
         {/* Stats Dashboard - 4 Cards Grid */}
         <Box 

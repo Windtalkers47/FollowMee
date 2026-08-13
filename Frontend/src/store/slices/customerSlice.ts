@@ -1,6 +1,6 @@
 import { createAsyncThunk, createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { Customer, CustomerData, CustomerStatus } from '../../types/customer.types';
-import customerApi from '../../services/api/customerApi';
+import customerApi, { CustomerRequestError } from '../../services/api/customerApi';
 import type { RootState } from '../store';
 
 /* ============================
@@ -21,18 +21,25 @@ interface CustomerState {
   items: Customer[];
   currentItem: Customer | null;
   status: 'idle' | 'loading' | 'succeeded' | 'failed';
-  error: string | null;
+  error: CustomerListError | null;
   total: number;
   page: number;
   pageSize: number;
   statusStats: StatusStats | null;
   activeListRequestId: string | null;
+  lastSuccessfulAt: string | null;
   filter: {
     status: CustomerStatus | 'all';
     search: string;
     assignedTo?: number;
     createdBy?: number;
   };
+}
+
+export interface CustomerListError {
+  message: string;
+  requestId?: string;
+  kind: 'transient' | 'http';
 }
 
 const initialState: CustomerState = {
@@ -45,6 +52,7 @@ const initialState: CustomerState = {
   pageSize: 25,
   statusStats: null,
   activeListRequestId: null,
+  lastSuccessfulAt: null,
   filter: {
     status: 'all',
     search: '',
@@ -130,7 +138,13 @@ export const fetchCustomers = createAsyncThunk(
         pageSize: response.meta.limit,
       };
     } catch (err: any) {
-      return rejectWithValue(err.message || 'Failed to fetch customers');
+      if (err instanceof CustomerRequestError && err.kind === 'aborted') throw err;
+      const failure = err instanceof CustomerRequestError ? err : null;
+      return rejectWithValue({
+        message: err.message || 'Failed to fetch customers',
+        requestId: failure?.requestId,
+        kind: failure?.kind === 'http' ? 'http' : 'transient',
+      } satisfies CustomerListError);
     }
   }
 );
@@ -220,6 +234,7 @@ const customerSlice = createSlice({
     builder
       .addCase(fetchCustomers.pending, (state, action) => {
         state.status = 'loading';
+        state.error = null;
         state.activeListRequestId = action.meta.requestId;
       })
       .addCase(fetchCustomers.fulfilled, (state, action) => {
@@ -230,26 +245,24 @@ const customerSlice = createSlice({
         state.total = action.payload.total;
         state.page = action.payload.page;
         state.pageSize = action.payload.pageSize;
+        state.error = null;
+        state.lastSuccessfulAt = new Date().toISOString();
       })
       .addCase(fetchCustomers.rejected, (state, action) => {
         if (state.activeListRequestId !== action.meta.requestId) return;
+        if (action.meta.aborted || action.error.name === 'AbortError' || action.error.message === 'Request cancelled') {
+          state.status = state.lastSuccessfulAt ? 'succeeded' : 'idle';
+          state.activeListRequestId = null;
+          return;
+        }
         state.status = 'failed';
         state.activeListRequestId = null;
-        state.error = action.payload as string;
+        state.error = action.payload as CustomerListError;
       })
       .addCase(fetchStatusStats.fulfilled, (state, action) => {
         state.statusStats = action.payload;
       })
-      .addCase(fetchStatusStats.rejected, (state, _action) => {
-        state.statusStats = {
-          statuses: [
-            { status: 'active', count: 0 },
-            { status: 'inactive', count: 0 },
-            { status: 'canceled', count: 0 },
-          ],
-          totalStatus: 0,
-        };
-      })
+      .addCase(fetchStatusStats.rejected, () => undefined)
       .addCase(fetchCustomerById.fulfilled, (state, action) => {
         state.status = 'succeeded';
         state.currentItem = action.payload;

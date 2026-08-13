@@ -10,6 +10,20 @@ import { getAccessToken } from '../../utils/auth';
 type RequestPayload = Record<string, unknown>;
 type ApiCustomer = Partial<CustomerData>;
 
+export type CustomerRequestFailureKind = 'aborted' | 'transient' | 'http';
+
+export class CustomerRequestError extends Error {
+  constructor(
+    message: string,
+    readonly kind: CustomerRequestFailureKind,
+    readonly status?: number,
+    readonly requestId?: string,
+  ) {
+    super(message);
+    this.name = 'CustomerRequestError';
+  }
+}
+
 const toApiFormat = (data: RequestPayload): RequestPayload => {
   const result: RequestPayload = { ...data };
 
@@ -84,6 +98,7 @@ const apiRequest = async <T>(
   data?: RequestPayload | FormData,
   isFormData: boolean = false,
   signal?: AbortSignal,
+  retryTransient = false,
 ): Promise<T> => {
   const headers: HeadersInit = {
     'X-Application-Name': apiConfig.headers['X-Application-Name'],
@@ -100,28 +115,52 @@ const apiRequest = async <T>(
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${apiConfig.baseURL}${endpoint}`, {
-    method,
-    headers,
-    credentials: 'include',
-    body: isFormData ? data as FormData : (data ? JSON.stringify(toApiFormat(data as RequestPayload)) : undefined),
-    signal,
-  });
+  const attempts = retryTransient ? 2 : 1;
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    try {
+      const response = await fetch(`${apiConfig.baseURL}${endpoint}`, {
+        method,
+        headers,
+        credentials: 'include',
+        cache: method.toUpperCase() === 'GET' ? 'no-store' : undefined,
+        body: isFormData ? data as FormData : (data ? JSON.stringify(toApiFormat(data as RequestPayload)) : undefined),
+        signal,
+      });
+      const requestId = response.headers.get('x-request-id') || undefined;
+      let json: unknown = null;
+      try { json = await response.json(); } catch { /* response may not contain JSON */ }
 
-  let json: unknown = null;
-  try {
-    json = await response.json();
-  } catch {
-    /* no-op */
+      if (response.ok) return json as T;
+      const errorPayload = json && typeof json === 'object'
+        ? json as { error?: string; message?: string; requestId?: string }
+        : {};
+      // A stale conditional request can still surface as 304 in older browser
+      // sessions. There is no JSON body to consume, so retry once with the
+      // no-store request policy instead of replacing the list with an empty UI.
+      const transient = [304, 502, 503, 504].includes(response.status);
+      if (transient && attempt + 1 < attempts) {
+        await new Promise(resolve => window.setTimeout(resolve, 180));
+        continue;
+      }
+      throw new CustomerRequestError(
+        errorPayload.error || errorPayload.message || response.statusText,
+        transient ? 'transient' : 'http',
+        response.status,
+        errorPayload.requestId || requestId,
+      );
+    } catch (error) {
+      if (signal?.aborted || (error as Error)?.name === 'AbortError') {
+        throw new CustomerRequestError('Request cancelled', 'aborted');
+      }
+      if (error instanceof CustomerRequestError) throw error;
+      if (attempt + 1 < attempts) {
+        await new Promise(resolve => window.setTimeout(resolve, 180));
+        continue;
+      }
+      throw new CustomerRequestError(error instanceof Error ? error.message : 'Network request failed', 'transient');
+    }
   }
-
-  if (!response.ok) {
-    // Use the specific error message if available, otherwise fall back to message or statusText
-    const errorPayload = json && typeof json === 'object' ? json as { error?: string; message?: string } : {};
-    throw new Error(errorPayload.error || errorPayload.message || response.statusText);
-  }
-
-  return json as T;
+  throw new CustomerRequestError('Network request failed', 'transient');
 };
 
 /* ============================
@@ -175,7 +214,7 @@ export const customerApi = {
     const result = await apiRequest<{
       data: ApiCustomer[];
       meta: PaginatedCustomers['meta'];
-    }>(`/customers?${params}`, 'GET', undefined, false, signal);
+    }>(`/customers?${params}`, 'GET', undefined, false, signal, true);
 
     return {
       data: result.data.map(fromApiFormat),

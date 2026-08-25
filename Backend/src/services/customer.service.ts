@@ -6,10 +6,13 @@ import { CustomerResponseDto } from '../dtos/customer-response.dto';
 import { StatusCountsResponse } from '../types/status.types';
 import { CloudinaryUtil } from '../utils/cloudinary.util';
 import dataSource from '../config/database';
-import { In } from 'typeorm';
+import { In, IsNull } from 'typeorm';
 import { customerAccessService, CustomerAccessContext } from './customer-access.service';
 import { User } from '../entities/User';
 import { ApplicationError } from '../errors/application.error';
+import { PublicProfile } from '../entities/PublicProfile';
+import { CustomerMergeSnapshot } from '../entities/CustomerMergeSnapshot';
+import auditService from './audit.service';
 
 export class CustomerService {
   private customerRepository: CustomerRepository;
@@ -389,6 +392,45 @@ export class CustomerService {
       })
       .filter(Boolean);
     return { emailConflict: matches.some(match => match?.hardBlock), matches };
+  }
+
+  async mergePreview(sourceCustomerId: string, targetCustomerId: string, actorUserId: number) {
+    if (!sourceCustomerId || !targetCustomerId || sourceCustomerId === targetCustomerId) throw new ApplicationError('Choose two different customers', 'CUSTOMER_MERGE_INVALID', 400);
+    const [source, target] = await Promise.all([this.customerRepository.findById(sourceCustomerId), this.customerRepository.findById(targetCustomerId)]);
+    if (!source || !target) throw new ApplicationError('Customer not found', 'CUSTOMER_NOT_FOUND', 404);
+    const access = await customerAccessService.context(actorUserId); customerAccessService.assertDelete(source, access); customerAccessService.assertEdit(target, access);
+    const [sourceProfile, targetProfile] = await Promise.all([
+      dataSource.getRepository(PublicProfile).findOne({ where: { customerId: sourceCustomerId, deletedAt: IsNull() } }),
+      dataSource.getRepository(PublicProfile).findOne({ where: { customerId: targetCustomerId, deletedAt: IsNull() } }),
+    ]);
+    const fields = ['customerName','customerLastName','customerEmail','customerPhone1','customerPhone2','customerFacebook','customerInstagram','customerTikTok','customerLine','customerX','customerAddress','customerImageUrl','status'] as const;
+    return { source: this.present(source, access), target: this.present(target, access), fields: fields.map(field => ({ field, source: source[field], target: target[field], recommended: target[field] ? 'target' : 'source' })), profiles: [sourceProfile, targetProfile].filter(Boolean).map(profile => ({ profileId: profile!.profileId, customerId: profile!.customerId, displayName: profile!.displayName, status: profile!.status })) };
+  }
+
+  async merge(sourceCustomerId: string, targetCustomerId: string, actorUserId: number, input: { values?: Record<string, unknown>; keepProfileId?: string }) {
+    const preview = await this.mergePreview(sourceCustomerId, targetCustomerId, actorUserId);
+    const source = await dataSource.getRepository(Customer).findOneByOrFail({ customerId: sourceCustomerId });
+    const target = await dataSource.getRepository(Customer).findOneByOrFail({ customerId: targetCustomerId });
+    const allowed = ['customerName','customerLastName','customerEmail','customerPhone1','customerPhone2','customerFacebook','customerInstagram','customerTikTok','customerLine','customerX','customerAddress','customerImageUrl','status'];
+    await dataSource.transaction(async manager => {
+      await manager.getRepository(CustomerMergeSnapshot).save(manager.getRepository(CustomerMergeSnapshot).create({ sourceCustomerId, targetCustomerId, sourceSnapshot: { ...source }, targetSnapshot: { ...target }, actorUserId }));
+      const selectedEmail = String(input.values?.customerEmail ?? target.customerEmail).trim().toLowerCase();
+      if (selectedEmail === source.customerEmail.toLowerCase()) source.customerEmail = `merged+${source.customerId}@invalid.followmee.local`;
+      source.deletedAt = new Date(); source.isActive = false; source.status = 'canceled'; source.updatedBy = actorUserId;
+      await manager.getRepository(Customer).save(source);
+      allowed.forEach(field => { if (field in (input.values || {})) (target as any)[field] = input.values![field]; }); target.updatedBy = actorUserId;
+      await manager.getRepository(Customer).save(target);
+      await manager.query('UPDATE customer_activities SET customerId = ? WHERE customerId = ?', [targetCustomerId, sourceCustomerId]);
+      const profiles = await manager.getRepository(PublicProfile).find({ where: [{ customerId: sourceCustomerId }, { customerId: targetCustomerId }] });
+      const keep = profiles.find(profile => profile.profileId === input.keepProfileId) || profiles.find(profile => profile.customerId === targetCustomerId) || profiles[0];
+      for (const profile of profiles) {
+        if (profile.profileId === keep?.profileId) { profile.customerId = targetCustomerId; }
+        else { profile.customerId = null; profile.status = 'draft'; profile.visibility = 'private'; }
+        profile.updatedBy = actorUserId; await manager.getRepository(PublicProfile).save(profile);
+      }
+    });
+    this.invalidateStatusCache(); await auditService.logEvent({ userId: actorUserId, action: 'CUSTOMER_MERGED', status: 'SUCCESS', details: { sourceCustomerId, targetCustomerId, keepProfileId: input.keepProfileId } });
+    return { target: await this.findOne(targetCustomerId, actorUserId), mergedSourceId: sourceCustomerId, preview };
   }
 
   async getTimeline(customerId: string, viewerUserId: number) {

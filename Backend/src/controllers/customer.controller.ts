@@ -530,6 +530,16 @@ export class CustomerController {
     }
   }
 
+  async mergePreview(req: Request, res: Response) {
+    try { return res.json({ success: true, data: await this.customerService.mergePreview(req.body?.sourceCustomerId, req.body?.targetCustomerId, req.user!.userId) }); }
+    catch (error) { return this.sendError(res, error, 'Unable to preview customer merge'); }
+  }
+
+  async merge(req: Request, res: Response) {
+    try { return res.json({ success: true, data: await this.customerService.merge(req.body?.sourceCustomerId, req.body?.targetCustomerId, req.user!.userId, req.body || {}) }); }
+    catch (error) { return this.sendError(res, error, 'Unable to merge customers'); }
+  }
+
   async getTimeline(req: Request, res: Response) {
     try {
       const data = await this.customerService.getTimeline(req.params.id, req.user!.userId);

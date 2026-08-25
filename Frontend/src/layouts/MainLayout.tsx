@@ -63,6 +63,7 @@ import {
   MoreHoriz,
   WorkOutline,
   Redeem,
+  ContactMail,
 } from '@mui/icons-material';
 import ProductTour from '../components/ProductTour/ProductTour';
 import { useUserPreferences } from '../contexts/UserPreferencesContext';
@@ -82,6 +83,7 @@ const menuItems = [
   { text: 'Tasks & Schedule', icon: <Schedule />, path: '/schedule', exact: true, group: 'Workspace' },
   { text: 'Customers', icon: <Group />, path: '/customer', exact: true, group: 'Workspace' },
   { text: 'Profile Cards', icon: <AccountCircle />, path: '/customer-profile', exact: false, group: 'Workspace' },
+  { text: 'Lead Inbox', icon: <ContactMail />, path: '/customer-profile/leads', exact: true, group: 'Workspace' },
   { text: 'Analytics', icon: <Analytics />, path: '/analytics', exact: true, group: 'Insights' },
   { text: 'Completed Work', icon: <PostAdd />, path: '/posts', exact: true, group: 'Insights' },
   { text: 'Rewards', icon: <Redeem />, path: '/rewards', exact: true, group: 'Insights' },
@@ -94,6 +96,7 @@ const compactMenuLabels: Record<string, string> = {
   '/schedule': 'Schedule',
   '/customer': 'Customers',
   '/customer-profile': 'Profiles',
+  '/customer-profile/leads': 'Leads',
   '/analytics': 'Analytics',
   '/posts': 'Completed',
   '/rewards': 'Rewards',
@@ -143,6 +146,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
     '/schedule': t('nav.tasks'),
     '/customer': t('nav.customers'),
     '/customer-profile': t('nav.profiles'),
+    '/customer-profile/leads': t('nav.leads'),
     '/analytics': t('nav.analytics'),
     '/posts': t('nav.activity'),
     '/rewards': t('nav.rewards'),

@@ -16,6 +16,9 @@ database are:
 - `RepairSchemaDrift1790000000000`
 - `CreatePublicProfiles1791000000000`
 - `RepairUserIdentity1792000000000`
+- `ProfileConversionPlatform1850000000000` (Phase 1: analytics and Lead Inbox)
+- `ProfileTrustCampaign1851000000000` (Phase 2: revisions, link health, merge recovery and scheduling)
+- `ProfileCustomDomains1852000000000` (Phase 3: domain verification state; deploy before enabling its flag)
 
 Before the public-profile migration on 26 July 2026, a SQL backup was written
 to `C:\PAom\data_backup_20260726\followmee_before_public_profiles.sql`.
@@ -29,6 +32,15 @@ public content:
 - `public_profile_links` owns ordered public destinations.
 - `public_profile_events` stores privacy-preserving engagement events; IP and
   user-agent values are hashed before storage.
+- `public_profile_leads` is an append-first staging inbox. Non-converted lead
+  PII is anonymized after 12 months while aggregate events remain.
+- `public_profile_revisions`, `public_profile_link_checks` and
+  `customer_merge_snapshots` provide recovery/audit boundaries.
+- `public_profile_domains` stores verification state only. Vercel tokens stay
+  in backend environment variables and the feature flag defaults to disabled.
+- The clean schema mirrors the MariaDB runtime collation (`utf8mb4_unicode_ci`)
+  and UUID columns used by the TypeORM entities; use it only for an empty
+  disposable/schema-verification database, never for an existing `followmee`.
 
 ### Customer image filter invariant
 
@@ -60,6 +72,29 @@ TypeORM that the clean schema already represents the final state.
 Do not combine this schema with `synchronize: true`. The application
 configuration should keep TypeORM `synchronize: false` and use explicit
 migrations for future changes.
+
+### Create a clean database from the SQL file
+
+The script creates/selects `followmee`, recreates all current tables, and adds
+the indexes and foreign-key relations. Run it only against an empty or
+disposable target:
+
+PowerShell:
+
+```powershell
+Get-Content -Raw .\database\followmee-clean-schema.sql |
+  mariadb --host=localhost --port=3306 --user=root --password
+```
+
+Command Prompt, macOS, or Linux:
+
+```text
+mariadb --host=localhost --port=3306 --user=root --password < database/followmee-clean-schema.sql
+```
+
+To create `followmee_e2e` instead, change both `CREATE DATABASE` and `USE`
+identifiers at the top of the SQL file before running it. Never run this clean
+schema against an existing production or data-bearing `followmee` database.
 
 ## Verify the clean schema safely
 

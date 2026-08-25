@@ -125,6 +125,12 @@ export class PublicProfile {
   publishedAt!: Date | null;
 
   @Column({ type: 'datetime', nullable: true })
+  publishStartAt!: Date | null;
+
+  @Column({ type: 'datetime', nullable: true })
+  publishEndAt!: Date | null;
+
+  @Column({ type: 'datetime', nullable: true })
   deletedAt!: Date | null;
 
   @CreateDateColumn({ type: 'datetime' })

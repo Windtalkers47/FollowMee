@@ -1,0 +1,9 @@
+type RequestLike = { query?: Record<string, string | string[]> };
+type ResponseLike = { status(code: number): ResponseLike; setHeader(name: string, value: string): void; send(body: string): void };
+const xml = (value: unknown) => String(value ?? '').replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' }[character]!));
+export default async function handler(request: RequestLike, response: ResponseLike) {
+  const slug = String(Array.isArray(request.query?.slug) ? request.query?.slug[0] : request.query?.slug || ''); const apiBase = String(process.env.VITE_API_URL || process.env.PROFILE_API_URL || '').replace(/\/$/, ''); let data: any = null;
+  if (apiBase) { const result = await fetch(`${apiBase}/public-profiles/public/${encodeURIComponent(slug)}/meta`); if (result.ok) data = (await result.json() as any).data; }
+  const name = xml(data?.displayName || 'FollowMee'); const headline = xml(data?.headline || 'A profile worth sharing');
+  response.status(data ? 200 : 404); response.setHeader('Content-Type', 'image/svg+xml'); response.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=3600'); response.send(`<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630"><defs><linearGradient id="g" x2="1" y2="1"><stop stop-color="#E6F8EC"/><stop offset=".55" stop-color="#F9F5EC"/><stop offset="1" stop-color="#EEF1FF"/></linearGradient></defs><rect width="1200" height="630" rx="42" fill="url(#g)"/><circle cx="160" cy="150" r="78" fill="#34C759" opacity=".2"/><text x="100" y="320" font-family="Arial,sans-serif" font-size="72" font-weight="800" fill="#17211A">${name}</text><text x="104" y="390" font-family="Arial,sans-serif" font-size="34" fill="#607067">${headline}</text><text x="104" y="535" font-family="Arial,sans-serif" font-size="24" fill="#607067">MADE WITH FOLLOWMEE</text></svg>`);
+}

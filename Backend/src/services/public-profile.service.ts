@@ -15,6 +15,8 @@ import {
   PublicProfileEventType,
 } from '../entities/PublicProfileEvent';
 import { PublicProfileLink } from '../entities/PublicProfileLink';
+import { profilePlatformService } from './profile-platform.service';
+import { PublicProfileDomain } from '../entities/PublicProfileDomain';
 
 export interface PublicProfileLinkInput {
   platform: string;
@@ -44,6 +46,9 @@ export interface PublicProfileInput {
   showAddress?: boolean;
   seoTitle?: string | null;
   seoDescription?: string | null;
+  publishStartAt?: string | Date | null;
+  publishEndAt?: string | Date | null;
+  revisionReason?: 'autosave' | 'manual';
   links?: PublicProfileLinkInput[];
 }
 
@@ -51,6 +56,10 @@ interface EventContext {
   ip?: string | null;
   userAgent?: string | null;
   referrer?: string | null;
+  sessionId?: string | null;
+  utmSource?: string | null;
+  utmMedium?: string | null;
+  utmCampaign?: string | null;
 }
 
 const editableFields: Array<keyof Omit<PublicProfileInput, 'links' | 'customerId'>> = [
@@ -72,6 +81,8 @@ const editableFields: Array<keyof Omit<PublicProfileInput, 'links' | 'customerId
   'showAddress',
   'seoTitle',
   'seoDescription',
+  'publishStartAt',
+  'publishEndAt',
 ];
 
 export const getPublicProfilePublishingChecklist = (profile: Pick<PublicProfile, 'displayName' | 'slug' | 'primaryCtaLabel' | 'primaryCtaUrl' | 'links'>) => {
@@ -104,6 +115,9 @@ export class PublicProfileService {
       canPublish: customerCapabilities.canPublish,
       canUnpublish: customerCapabilities.canPublish,
       canDelete: customerCapabilities.canDelete,
+      canManageLeads: customerCapabilities.canEdit,
+      canMergeCustomers: access.isOwner || customerCapabilities.canDelete,
+      canManageDomain: access.isOwner,
     };
   }
 
@@ -273,6 +287,7 @@ export class PublicProfileService {
     if (!(profile as PublicProfile & { capabilities: { canEdit: boolean } }).capabilities.canEdit) {
       throw new ApplicationError('Only the customer creator, assignee, or Owner can edit this profile', 'PROFILE_EDIT_FORBIDDEN', 403);
     }
+    await profilePlatformService.recordRevision(profileId, userId, input.revisionReason === 'manual' ? 'manual' : 'autosave');
     profile.updatedBy = userId;
 
     for (const field of editableFields) {
@@ -297,10 +312,17 @@ export class PublicProfileService {
         const displayName = value.trim().slice(0, 100);
         if (!displayName) throw new Error('Display name is required');
         profile.displayName = displayName;
+      } else if (field === 'publishStartAt' || field === 'publishEndAt') {
+        (profile as any)[field] = value ? new Date(value as string | Date) : null;
       } else {
         (profile as unknown as Record<string, unknown>)[field] = value ?? null;
       }
     }
+
+    if (profile.publishStartAt && Number.isNaN(profile.publishStartAt.getTime())) throw new ApplicationError('Publish start is invalid', 'PROFILE_SCHEDULE_INVALID', 400);
+    if (profile.publishEndAt && Number.isNaN(profile.publishEndAt.getTime())) throw new ApplicationError('Publish end is invalid', 'PROFILE_SCHEDULE_INVALID', 400);
+    if (profile.publishStartAt && profile.publishEndAt && profile.publishStartAt >= profile.publishEndAt) throw new ApplicationError('Publish end must be after publish start', 'PROFILE_SCHEDULE_INVALID', 400);
+    if (profile.publishEndAt && profile.publishEndAt <= new Date()) throw new ApplicationError('Publish end must be in the future', 'PROFILE_SCHEDULE_INVALID', 400);
 
     await dataSource.transaction(async (manager) => {
       await manager.getRepository(PublicProfile).save(profile);
@@ -341,6 +363,7 @@ export class PublicProfileService {
     }
     profile.status = status;
     await this.profileRepository.save(profile);
+    await profilePlatformService.recordRevision(profileId, userId, status === 'published' ? 'publish' : 'unpublish');
     return this.getOwned(profileId, userId);
   }
 
@@ -366,7 +389,8 @@ export class PublicProfileService {
       relations: ['links', 'customer'],
       order: { links: { sortOrder: 'ASC' } },
     });
-    if (!profile || profile.visibility === 'private') return null;
+    const now = new Date();
+    if (!profile || profile.visibility === 'private' || (profile.publishStartAt && profile.publishStartAt > now) || (profile.publishEndAt && profile.publishEndAt <= now)) return null;
 
     const customer = profile.customer;
     return {
@@ -398,7 +422,29 @@ export class PublicProfileService {
       seoTitle: profile.seoTitle || profile.displayName,
       seoDescription: profile.seoDescription || profile.headline || profile.bio,
       publishedAt: profile.publishedAt,
+      publishStartAt: profile.publishStartAt,
+      publishEndAt: profile.publishEndAt,
+      effectiveStatus: profile.publishStartAt && profile.publishStartAt > now ? 'scheduled' : profile.publishEndAt && profile.publishEndAt <= now ? 'expired' : 'live',
     };
+  }
+
+  async getPublicMeta(slug: string) {
+    const data = await this.getPublic(slug);
+    if (!data) return null;
+    const profile = await this.profileRepository.findOne({ where: { profileId: data.profileId } });
+    const canonicalDomain = await dataSource.getRepository(PublicProfileDomain).findOne({ where: { profileId: data.profileId, status: 'active', isCanonical: true } });
+    return {
+      ...data,
+      robots: profile?.visibility === 'public' ? 'index,follow' : 'noindex,follow',
+      cacheRevision: crypto.createHash('sha1').update(`${data.profileId}:${profile?.updatedAt?.toISOString() || ''}`).digest('hex').slice(0, 12),
+      canonicalUrl: canonicalDomain ? `https://${canonicalDomain.hostname}/p/${data.slug}` : null,
+    };
+  }
+
+  async getPublicMetaByHostname(hostname: string) {
+    const domain = await dataSource.getRepository(PublicProfileDomain).findOne({ where: { hostname: hostname.toLowerCase(), status: 'active' }, relations: ['profile'] });
+    if (!domain?.profile) return null;
+    return this.getPublicMeta(domain.profile.slug);
   }
 
   async recordEvent(
@@ -438,6 +484,11 @@ export class PublicProfileService {
         ipHash: hash(context.ip),
         userAgentHash: hash(userAgent),
         referrer: context.referrer?.slice(0, 512) || null,
+        visitorHash: hash(`${context.ip || ''}|${userAgent}|${new Date().toISOString().slice(0, 10)}`),
+        sessionId: context.sessionId?.slice(0, 64) || null,
+        utmSource: context.utmSource?.slice(0, 120) || null,
+        utmMedium: context.utmMedium?.slice(0, 120) || null,
+        utmCampaign: context.utmCampaign?.slice(0, 120) || null,
       })
     );
     if (eventType === 'view') {
@@ -475,18 +526,31 @@ export class PublicProfileService {
       .orderBy('COUNT(*)', 'DESC')
       .limit(5)
       .getRawMany<{ target: string; count: string }>();
+    const [uniqueRow, sessionRow, campaignRows, referrerRows] = await Promise.all([
+      this.eventRepository.createQueryBuilder('event').select('COUNT(DISTINCT event.visitorHash)', 'count').where('event.profileId = :profileId', { profileId }).andWhere("event.eventType = 'view'").getRawOne<{ count: string }>(),
+      this.eventRepository.createQueryBuilder('event').select('COUNT(DISTINCT event.sessionId)', 'count').where('event.profileId = :profileId', { profileId }).andWhere('event.sessionId IS NOT NULL').getRawOne<{ count: string }>(),
+      this.eventRepository.createQueryBuilder('event').select('event.utmSource', 'source').addSelect('COUNT(*)', 'count').where('event.profileId = :profileId', { profileId }).andWhere('event.utmSource IS NOT NULL').groupBy('event.utmSource').orderBy('COUNT(*)', 'DESC').limit(10).getRawMany<{ source: string; count: string }>(),
+      this.eventRepository.createQueryBuilder('event').select('event.referrer', 'referrer').addSelect('COUNT(*)', 'count').where('event.profileId = :profileId', { profileId }).andWhere('event.referrer IS NOT NULL').groupBy('event.referrer').orderBy('COUNT(*)', 'DESC').limit(10).getRawMany<{ referrer: string; count: string }>(),
+    ]);
 
     const totals = eventRows.reduce<Record<string, number>>((result, row) => {
       result[row.eventType] = Number(row.count);
       return result;
     }, {});
 
+    const views = totals.view || Number(profile.viewCount || 0); const leads = totals.lead_submit || 0; const converted = totals.lead_converted || 0;
     return {
       profileId: profile.profileId,
       viewCount: Number(profile.viewCount || 0),
       totals,
       dailyViews: dailyViews.map((row) => ({ date: row.date, count: Number(row.count) })),
       topTargets: topTargets.map((row) => ({ target: row.target, count: Number(row.count) })),
+      uniqueVisitors: Number(uniqueRow?.count || 0),
+      sessions: Number(sessionRow?.count || 0),
+      conversionRate: views ? converted / views : 0,
+      funnel: { views, clicks: (totals.link_click || 0) + (totals.cta_click || 0), leads, qualified: totals.lead_qualified || 0, converted },
+      campaigns: campaignRows.map(row => ({ source: row.source, count: Number(row.count) })),
+      referrers: referrerRows.map(row => ({ referrer: row.referrer, count: Number(row.count) })),
     };
   }
 }

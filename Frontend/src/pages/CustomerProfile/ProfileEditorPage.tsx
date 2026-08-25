@@ -42,6 +42,7 @@ import type {
 import { useUserPreferences } from '../../contexts/UserPreferencesContext';
 import { formatLocalizedNumber } from '../../utils/localeFormat';
 import { getMissingPublishingFields } from '../../utils/profilePublishing';
+import ProfileOperationsPanel from '../../components/PublicProfile/ProfileOperationsPanel';
 import type { MessageKey } from '../../i18n/messages';
 import { PageActionBar, PageError, PageHeader, PageLoading, PageShell } from '../../components/PageState';
 
@@ -52,6 +53,14 @@ const emptyLink = (sortOrder: number): ProfileLink => ({
   sortOrder,
   isVisible: true,
 });
+
+const toBangkokDateTimeInput = (value?: string | null) => {
+  if (!value) return '';
+  const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(new Date(value));
+  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find(item => item.type === type)?.value || '';
+  return `${part('year')}-${part('month')}-${part('day')}T${part('hour')}:${part('minute')}`;
+};
+const fromBangkokDateTimeInput = (value: string) => value ? new Date(`${value}:00+07:00`).toISOString() : null;
 
 const ProfileEditorPage = () => {
   const { profileId = '' } = useParams();
@@ -165,7 +174,10 @@ const ProfileEditorPage = () => {
         showAddress: candidate.showAddress,
         seoTitle: candidate.seoTitle,
         seoDescription: candidate.seoDescription,
+        publishStartAt: candidate.publishStartAt,
+        publishEndAt: candidate.publishEndAt,
         links: candidate.links.map((link, index) => ({ ...link, sortOrder: index })),
+        revisionReason: silent ? 'autosave' : 'manual',
       });
       setProfile(saved);
       setLastSavedSnapshot(JSON.stringify(saved));
@@ -248,9 +260,16 @@ const ProfileEditorPage = () => {
     if (!saved) return;
     setSaving(true);
     try {
-      const updated = saved.status === 'published'
-        ? await publicProfileApi.unpublish(saved.profileId)
-        : await publicProfileApi.publish(saved.profileId);
+      let updated: PublicProfileRecord;
+      if (saved.status === 'published') updated = await publicProfileApi.unpublish(saved.profileId);
+      else {
+        try {
+          updated = await publicProfileApi.publish(saved.profileId);
+        } catch (publishWarning) {
+          if (!(publishWarning instanceof PublicProfileApiError) || publishWarning.code !== 'PROFILE_PUBLISH_LINK_WARNINGS' || !window.confirm(t('profile.links.publishWarningConfirm'))) throw publishWarning;
+          updated = await publicProfileApi.publish(saved.profileId, true);
+        }
+      }
       setProfile(updated);
       setLastSavedSnapshot(JSON.stringify(updated));
       setNotice(autoUnlisted && updated.status === 'published'
@@ -600,6 +619,20 @@ const ProfileEditorPage = () => {
                 multiline
                 inputProps={{ maxLength: 160 }}
               />
+              <TextField
+                type="datetime-local"
+                label={t('profile.schedule.start')}
+                value={toBangkokDateTimeInput(profile.publishStartAt)}
+                onChange={(event) => setField('publishStartAt', fromBangkokDateTimeInput(event.target.value))}
+                InputLabelProps={{ shrink: true }}
+              />
+              <TextField
+                type="datetime-local"
+                label={t('profile.schedule.end')}
+                value={toBangkokDateTimeInput(profile.publishEndAt)}
+                onChange={(event) => setField('publishEndAt', fromBangkokDateTimeInput(event.target.value))}
+                InputLabelProps={{ shrink: true }}
+              />
             </Stack>
           </Paper>
           <Stack direction="row" justifyContent="space-between" sx={{ display: { xs: 'flex', lg: 'none' } }}>
@@ -635,14 +668,15 @@ const ProfileEditorPage = () => {
                 sx={{
                   mt: 1.25,
                   display: 'grid',
-                  gridTemplateColumns: 'repeat(3, 1fr)',
+                  gridTemplateColumns: 'repeat(2, 1fr)',
                   gap: 1,
                 }}
               >
                 {[
                   [t('profile.editor.views'), analytics?.viewCount || Number(profile.viewCount || 0)],
                   [t('profile.editor.linkClicks'), analytics?.totals.link_click || 0],
-                  [t('profile.editor.shares'), analytics?.totals.share || 0],
+                  [t('profile.analytics.leads'), analytics?.funnel?.leads || 0],
+                  [t('profile.analytics.conversionRate'), `${analytics?.conversionRate || 0}%`],
                 ].map(([label, value]) => (
                   <Box key={label} sx={{ p: 1.25, borderRadius: 2.5, bgcolor: 'action.hover' }}>
                     <Typography variant="h6" fontWeight={850}>{value}</Typography>
@@ -650,7 +684,9 @@ const ProfileEditorPage = () => {
                   </Box>
                 ))}
               </Box>
+              {!!analytics?.funnel?.views && analytics.funnel.clicks / analytics.funnel.views < 0.05 && <Alert severity="info" sx={{ mt: 1.5 }}>{t('profile.analytics.lowCtrInsight')}</Alert>}
           </Paper>
+          <ProfileOperationsPanel profile={profile} onUpdated={(updated) => { setProfile(updated); setLastSavedSnapshot(JSON.stringify(updated)); }} />
         </Box>
       </Box>
 

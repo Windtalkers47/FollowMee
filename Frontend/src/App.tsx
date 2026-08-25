@@ -37,6 +37,10 @@ const CustomerPage = React.lazy(primaryRouteLoaders['/customer']);
 const ProfileLibraryPage = React.lazy(() => import('./pages/CustomerProfile/ProfileLibraryPage'));
 const ProfileEditorPage = React.lazy(() => import('./pages/CustomerProfile/ProfileEditorPage'));
 const PublicProfilePage = React.lazy(() => import('./pages/CustomerProfile/PublicProfilePage'));
+const LandingPage = React.lazy(() => import('./pages/Landing'));
+const DemoProfilePage = React.lazy(() => import('./pages/CustomerProfile/DemoProfilePage'));
+const QuickCreatePage = React.lazy(() => import('./pages/CustomerProfile/QuickCreatePage'));
+const LeadInboxPage = React.lazy(() => import('./pages/CustomerProfile/LeadInboxPage'));
 const UsersPage = React.lazy(() => import('./pages/UsersManagement'));
 const SettingsPage = React.lazy(() => import('./pages/Settings'));
 const AnalyticsPage = React.lazy(() => import('./pages/Analytics'));
@@ -301,16 +305,7 @@ const App = () => {
             <ErrorBoundary>
               <Routes location={location}>
                 {/* Public */}
-                <Route
-                  index
-                  element={
-                    isAuthenticated ? (
-                      <Navigate to={landingPath} replace />
-                    ) : (
-                      <Navigate to="/login" replace />
-                    )
-                  }
-                />
+                <Route index element={<LandingPage />} />
                 <Route
                   path="/login"
                   element={
@@ -348,6 +343,7 @@ const App = () => {
                   element={<ResetPasswordPage />}
                 />
                 <Route path="/p/:slug" element={<PublicProfilePage />} />
+                <Route path="/demo/profile" element={<DemoProfilePage />} />
                 <Route path="/u/:handle" element={<PublicUserProfilePage />} />
 
                 {/* Protected */}
@@ -362,6 +358,8 @@ const App = () => {
                   <Route path="/users" element={<UsersPage />} />
                   <Route path="/settings" element={<SettingsPage />} />
                   <Route path="/customer-profile" element={<ProfileLibraryPage />} />
+                  <Route path="/customer-profile/new" element={<QuickCreatePage />} />
+                  <Route path="/customer-profile/leads" element={<LeadInboxPage />} />
                   <Route path="/customer-profile/:profileId/edit" element={<ProfileEditorPage />} />
                   <Route path="/customer/:customerId/profile" element={<Navigate to="/customer-profile" replace />} />
                   <Route path="/analytics" element={<AnalyticsPage />} />

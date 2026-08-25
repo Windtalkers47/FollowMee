@@ -21,11 +21,11 @@ FollowMee เป็น full-stack workspace สำหรับจัดการ
 
 ### Current checkpoint — 25 สิงหาคม 2026
 
-- งาน cleanup/documentation/tooling จากรอบล่าสุดยังเป็น uncommitted work บน branch `develop`
+- cleanup/documentation/tooling และ P1/M1 เดิมถูก checkpoint บน branch `develop` แล้ว (`a4c514f` และ commit ก่อนหน้า); งาน Profile Conversion รอบนี้เริ่มจาก clean tree และต้องรักษา checkpoint เหล่านั้น
 - generated artifacts 407 ไฟล์ถูกถอนออกจาก Git index และไฟล์จริงถูกเก็บแบบ recoverable ใต้ `.local/`
 - เอกสารปัจจุบันอยู่ที่ Handbook นี้; review, handoff และ validation รุ่นเก่าอยู่ใน `docs/archive/`
-- `followmee-clean-schema.sql` และ `Backend/src/migrations/` ไม่ได้เปลี่ยน
-- P1/M1 และ Customer/Schedule code changes เดิมยังอยู่ใน working tree; ห้ามใช้ `reset`, `checkout`, `clean` หรือการลบกว้างเพื่อทำให้ tree สะอาด
+- Profile Conversion เพิ่ม ordered additive migrations `1850000000000`, `1851000000000`, `1852000000000` แยก Phase 1/2/3; ห้ามรัน migration เหล่านี้บน `followmee` ระหว่าง development/testing
+- ยังคงห้ามใช้ `reset`, `checkout`, `clean` หรือการลบกว้างที่อาจย้อน checkpoint P1/M1
 - verification ล่าสุดผ่าน: Backend 57 tests, Frontend 366 tests, typecheck, critical lint, build, bundle budget, docs check และ hygiene check
 
 ## 1.1 สิ่งที่ยังเหลือและลำดับที่แนะนำ
@@ -172,6 +172,8 @@ npm start
 | Email | `SENDGRID_API_KEY`, `SENDGRID_FROM_EMAIL`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` | `SMTP_PASS` คือชื่อ runtime ที่ถูกต้อง |
 | Push | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_CONTACT_EMAIL` | private key เป็น server secret |
 | Privacy | `PROFILE_ANALYTICS_SALT` | ต้องตั้งใน production |
+| Profile conversion | `PROFILE_LEAD_RATE_LIMIT` | จำกัด lead ต่อ IP/profile window; ค่าเริ่มต้น 8 |
+| Custom domains | `PROFILE_CUSTOM_DOMAINS_ENABLED`, `VERCEL_ACCESS_TOKEN`, `VERCEL_PROJECT_ID`, `VERCEL_TEAM_ID` | ปิด flag ไว้จน deploy Phase 3; token เป็น server secret |
 | Safety | `REWARD_DEV_SEED`, `ENABLE_API_DOCS`, rate/body/retry variables | production ใช้ `REWARD_DEV_SEED=false` |
 
 ### Frontend
@@ -245,9 +247,18 @@ CI ติดตั้ง root/Backend/Frontend dependencies แล้วเร�
 - PR branches ใช้ preview deployment
 - build: `npm run build`
 - output: `dist`
-- SPA rewrite อยู่ใน `Frontend/vercel.json`
+- `/p/:slug` rewrite ไป Vercel Function `api/profile.ts` เพื่อ inject metadata/initial payload โดย URL ไม่เปลี่ยน; route อื่นใช้ SPA fallback
+- Function ต้องอ่าน `dist/index.html`; metadata fetch ไม่สร้าง view event และ OG image ใช้ `api/profile-og.ts`
 
 หลัง Vercel URL เปลี่ยน ต้องอัปเดต Render `FRONTEND_URL`, `CORS_ORIGIN` และ preview allowlist ตามความจำเป็น ดู [deployment guide](../DEPLOYMENT_GUIDE.md)
+
+### Profile Conversion rollout
+
+1. deploy additive migration ก่อนเปิด UI/capability ที่พึ่ง schema ใหม่
+2. Phase 1 เปิด landing, quick-create, metadata และ Lead Inbox; lead ที่ไม่ convert ถูก anonymize หลัง 12 เดือนโดย retention worker
+3. Phase 2 ใช้ link checker แบบ SSRF-safe, revision/restore, scheduling, merge และ CSV preview; network warning ต้อง acknowledge ก่อน publish
+4. Phase 3 ตั้ง Vercel server secrets แล้วจึงเปลี่ยน `PROFILE_CUSTOM_DOMAINS_ENABLED=true`; Owner เท่านั้นที่เพิ่ม/verify/canonical/remove domain
+5. mutation/integration/E2E ทั้งหมดใช้ `followmee_e2e` เท่านั้น; metadata/unit tests ต้องไม่แตะฐานข้อมูล
 
 ## 10. Standard verification
 

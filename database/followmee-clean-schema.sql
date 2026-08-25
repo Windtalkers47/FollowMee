@@ -4,6 +4,15 @@
 --
 -- WARNING: This script drops every FollowMee table and all data in it.
 -- Export the current database before running this file.
+--
+-- PowerShell (MariaDB client):
+--   Get-Content -Raw .\database\followmee-clean-schema.sql | mariadb --host=localhost --port=3306 --user=root --password
+-- Command Prompt / macOS / Linux:
+--   mariadb --host=localhost --port=3306 --user=root --password < database/followmee-clean-schema.sql
+--
+-- The script creates/selects `followmee` and recreates every table plus its
+-- indexes, constraints and foreign-key relations. Change both `followmee`
+-- identifiers below when using a disposable database such as `followmee_e2e`.
 
 CREATE DATABASE IF NOT EXISTS `followmee`
   CHARACTER SET utf8mb4
@@ -922,6 +931,60 @@ CREATE TABLE `reward_redemptions` (
   CONSTRAINT `chk_reward_redemption_cost` CHECK (`pointsCost` > 0), CONSTRAINT `chk_reward_redemption_quantity` CHECK (`quantity` > 0)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+ALTER TABLE `public_profiles`
+  ADD COLUMN `publishStartAt` DATETIME NULL AFTER `publishedAt`,
+  ADD COLUMN `publishEndAt` DATETIME NULL AFTER `publishStartAt`;
+
+ALTER TABLE `public_profile_events`
+  ADD COLUMN `visitorHash` CHAR(64) NULL AFTER `referrer`,
+  ADD COLUMN `sessionId` VARCHAR(64) NULL AFTER `visitorHash`,
+  ADD COLUMN `utmSource` VARCHAR(120) NULL AFTER `sessionId`,
+  ADD COLUMN `utmMedium` VARCHAR(120) NULL AFTER `utmSource`,
+  ADD COLUMN `utmCampaign` VARCHAR(120) NULL AFTER `utmMedium`;
+
+CREATE TABLE `public_profile_leads` (
+  `leadId` VARCHAR(36) NOT NULL, `profileId` VARCHAR(36) NOT NULL, `name` VARCHAR(120) NOT NULL,
+  `email` VARCHAR(160) NULL, `phone` VARCHAR(32) NULL, `message` VARCHAR(1000) NULL,
+  `status` VARCHAR(20) NOT NULL DEFAULT 'new', `consentAt` DATETIME NOT NULL, `consentVersion` VARCHAR(24) NOT NULL DEFAULT '2026-08',
+  `assignedTo` INT NULL, `convertedCustomerId` VARCHAR(36) NULL, `convertedAt` DATETIME NULL,
+  `visitorHash` CHAR(64) NULL, `ipHash` CHAR(64) NULL, `userAgentHash` CHAR(64) NULL, `deviceType` VARCHAR(20) NOT NULL DEFAULT 'unknown',
+  `referrer` VARCHAR(512) NULL, `utmSource` VARCHAR(120) NULL, `utmMedium` VARCHAR(120) NULL, `utmCampaign` VARCHAR(120) NULL,
+  `anonymizedAt` DATETIME NULL, `createdAt` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, `updatedAt` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`leadId`), KEY `IDX_profile_leads_profile_status_created` (`profileId`,`status`,`createdAt`), KEY `IDX_profile_leads_retention` (`status`,`createdAt`),
+  CONSTRAINT `FK_profile_leads_profile` FOREIGN KEY (`profileId`) REFERENCES `public_profiles` (`profileId`) ON DELETE CASCADE,
+  CONSTRAINT `FK_profile_leads_customer` FOREIGN KEY (`convertedCustomerId`) REFERENCES `customers` (`customerId`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `public_profile_revisions` (
+  `revisionId` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT, `profileId` VARCHAR(36) NOT NULL, `version` INT UNSIGNED NOT NULL,
+  `snapshot` JSON NOT NULL, `actorUserId` INT NULL, `reason` VARCHAR(24) NOT NULL, `createdAt` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`revisionId`), UNIQUE KEY `UQ_profile_revision_version` (`profileId`,`version`),
+  CONSTRAINT `FK_profile_revisions_profile` FOREIGN KEY (`profileId`) REFERENCES `public_profiles` (`profileId`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `public_profile_link_checks` (
+  `checkId` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT, `profileId` VARCHAR(36) NOT NULL, `targetKey` VARCHAR(64) NOT NULL,
+  `url` VARCHAR(512) NOT NULL, `status` VARCHAR(16) NOT NULL DEFAULT 'unchecked', `httpStatus` SMALLINT UNSIGNED NULL,
+  `detail` VARCHAR(255) NULL, `checkedAt` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (`checkId`),
+  KEY `IDX_profile_link_checks_profile_target` (`profileId`,`targetKey`,`checkedAt`),
+  CONSTRAINT `FK_profile_link_checks_profile` FOREIGN KEY (`profileId`) REFERENCES `public_profiles` (`profileId`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `public_profile_domains` (
+  `domainId` VARCHAR(36) NOT NULL, `profileId` VARCHAR(36) NOT NULL, `hostname` VARCHAR(253) NOT NULL,
+  `status` VARCHAR(16) NOT NULL DEFAULT 'pending', `verification` JSON NULL, `isCanonical` TINYINT(1) NOT NULL DEFAULT 0,
+  `verifiedAt` DATETIME NULL, `lastCheckedAt` DATETIME NULL, `lastError` VARCHAR(500) NULL,
+  `createdAt` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, `updatedAt` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`domainId`), UNIQUE KEY `UQ_profile_domain_hostname` (`hostname`), KEY `IDX_profile_domain_profile` (`profileId`),
+  CONSTRAINT `FK_profile_domains_profile` FOREIGN KEY (`profileId`) REFERENCES `public_profiles` (`profileId`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `customer_merge_snapshots` (
+  `snapshotId` VARCHAR(36) NOT NULL, `sourceCustomerId` VARCHAR(36) NOT NULL, `targetCustomerId` VARCHAR(36) NOT NULL,
+  `sourceSnapshot` JSON NOT NULL, `targetSnapshot` JSON NOT NULL, `actorUserId` INT NOT NULL, `createdAt` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`snapshotId`), KEY `IDX_customer_merge_pair` (`sourceCustomerId`,`targetCustomerId`,`createdAt`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE `migrations` (
   `id` INT NOT NULL AUTO_INCREMENT,
   `timestamp` BIGINT NOT NULL,
@@ -960,7 +1023,10 @@ INSERT INTO `migrations` (`timestamp`, `name`) VALUES
   (1810000000000, 'ProductivityEngagementFoundation1810000000000'),
   (1820000000000, 'OptimizeWorkLists1820000000000'),
   (1830000000000, 'ReliableDeliveryWorkers1830000000000'),
-  (1840000000000, 'UserProfilesAndAchievements1840000000000');
+  (1840000000000, 'UserProfilesAndAchievements1840000000000'),
+  (1850000000000, 'ProfileConversionPlatform1850000000000'),
+  (1851000000000, 'ProfileTrustCampaign1851000000000'),
+  (1852000000000, 'ProfileCustomDomains1852000000000');
 
 INSERT INTO `roles` (`roleName`, `description`, `roleLevel`) VALUES
   ('Owner', 'System owner with full access and ownership transfer authority', 999),

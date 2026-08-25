@@ -1,0 +1,21 @@
+import { useEffect, useState } from 'react';
+import { Alert, Box, Button, Chip, FormControl, InputLabel, MenuItem, Paper, Select, Stack, TextField, Typography } from '@mui/material';
+import { publicProfileApi } from '../../api/publicProfile.api';
+import type { ProfileLead, ProfileLeadStatus } from '../../types/publicProfile.types';
+import { useUserPreferences } from '../../contexts/UserPreferencesContext';
+
+const statuses: ProfileLeadStatus[] = ['new','contacted','qualified','converted','spam','archived'];
+export default function LeadInboxPage() {
+  const { t } = useUserPreferences(); const [items, setItems] = useState<ProfileLead[]>([]); const [status, setStatus] = useState<ProfileLeadStatus | ''>(''); const [unread, setUnread] = useState(0); const [error, setError] = useState(''); const [email, setEmail] = useState<Record<string,string>>({});
+  const load = async () => { try { const data = await publicProfileApi.leads(status ? `status=${status}` : ''); setItems(data.items); setUnread(data.unread); } catch (e) { setError(e instanceof Error ? e.message : t('profile.leads.loadError')); } };
+  useEffect(() => { void load(); }, [status]);
+  const update = async (leadId: string, next: ProfileLeadStatus) => { await publicProfileApi.updateLeadStatus(leadId, next); await load(); };
+  const convert = async (lead: ProfileLead) => { try {
+    const preview = await publicProfileApi.leadDuplicates(lead.leadId) as { matches?: Array<{ customerId: string; displayName: string; reasons: string[] }> };
+    const candidate = preview.matches?.[0];
+    const useExisting = candidate ? window.confirm(t('profile.leads.useExisting', { name: candidate.displayName })) : false;
+    await publicProfileApi.convertLead(lead.leadId, useExisting ? { existingCustomerId: candidate!.customerId } : { customerEmail: email[lead.leadId] || lead.email || undefined }); await load();
+  } catch (e) { setError(e instanceof Error ? e.message : t('profile.leads.convertError')); } };
+  return <Box maxWidth={1100} mx="auto" p={{ xs: 2, md: 3 }}><Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" gap={2} mb={3}><Box><Typography variant="h4" fontWeight={900}>{t('profile.leads.title')}</Typography><Typography color="text.secondary">{t('profile.leads.subtitle', { count: unread })}</Typography></Box><FormControl sx={{ minWidth: 200 }}><InputLabel>{t('profile.leads.status')}</InputLabel><Select label={t('profile.leads.status')} value={status} onChange={e => setStatus(e.target.value as ProfileLeadStatus | '')}><MenuItem value="">{t('common.all')}</MenuItem>{statuses.map(item => <MenuItem key={item} value={item}>{t(`profile.leads.status.${item}` as any)}</MenuItem>)}</Select></FormControl></Stack>
+    {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}<Stack spacing={1.5}>{items.map(lead => <Paper key={lead.leadId} variant="outlined" sx={{ p: 2.5, borderRadius: 3 }}><Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" gap={2}><Box><Stack direction="row" spacing={1} alignItems="center"><Typography variant="h6" fontWeight={800}>{lead.name}</Typography><Chip size="small" label={t(`profile.leads.status.${lead.status}` as any)}/></Stack><Typography color="text.secondary">{lead.email || lead.phone} · {lead.profile?.displayName}</Typography>{lead.message && <Typography mt={1}>{lead.message}</Typography>}</Box><Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems="center">{lead.status !== 'converted' && <><FormControl size="small" sx={{ minWidth: 140 }}><Select value={lead.status} onChange={e => void update(lead.leadId, e.target.value as ProfileLeadStatus)}>{statuses.filter(item => item !== 'converted').map(item => <MenuItem key={item} value={item}>{t(`profile.leads.status.${item}` as any)}</MenuItem>)}</Select></FormControl>{!lead.email && <TextField size="small" type="email" label={t('common.email')} value={email[lead.leadId] || ''} onChange={e => setEmail({ ...email, [lead.leadId]: e.target.value })}/>}<Button variant="contained" onClick={() => void convert(lead)}>{t('profile.leads.convert')}</Button></>}</Stack></Stack></Paper>)}{!items.length && <Paper variant="outlined" sx={{ p: 5, textAlign: 'center' }}><Typography>{t('profile.leads.empty')}</Typography></Paper>}</Stack></Box>;
+}

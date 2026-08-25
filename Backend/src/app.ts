@@ -46,6 +46,7 @@ import userProfileRoutes from './routes/user-profile.routes';
 import { rewardService } from './services/reward.service';
 import { outboxService } from './services/outbox.service';
 import { productivityService } from './services/productivity.service';
+import { profileLeadRetentionService } from './services/profile-lead-retention.service';
 
 // Load environment variables
 dotenv.config();
@@ -81,6 +82,7 @@ class App {
       rewardService.startExpiryWorker();
       outboxService.start();
       productivityService.startRecurrenceWorker();
+      profileLeadRetentionService.start();
 
       // Then set up other middleware and routes
       this.initializeMiddlewares();
@@ -123,6 +125,7 @@ class App {
       rewardService.stopExpiryWorker();
       outboxService.stop();
       productivityService.stopRecurrenceWorker();
+      profileLeadRetentionService.stop();
 
       // Stop cleanup service
       notificationCleanupService.stop();

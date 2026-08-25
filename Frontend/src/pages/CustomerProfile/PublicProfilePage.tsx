@@ -23,12 +23,14 @@ import ProfileLandingCard from '../../components/PublicProfile/ProfileLandingCar
 import ProfileShareCenter, { type ProfileShareMode } from '../../components/PublicProfile/ProfileShareCenter';
 import type { ProfileEventType, PublicProfileLanding } from '../../types/publicProfile.types';
 import { useUserPreferences } from '../../contexts/UserPreferencesContext';
+import ProfileLeadForm from '../../components/PublicProfile/ProfileLeadForm';
 
 const PublicProfilePage = () => {
   const { slug = '' } = useParams();
   const { t } = useUserPreferences();
-  const [profile, setProfile] = useState<PublicProfileLanding | null>(null);
-  const [loading, setLoading] = useState(true);
+  const initialProfile = (window as Window & { __FOLLOWMEE_PROFILE__?: PublicProfileLanding | null }).__FOLLOWMEE_PROFILE__;
+  const [profile, setProfile] = useState<PublicProfileLanding | null>(initialProfile || null);
+  const [loading, setLoading] = useState(!initialProfile);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
@@ -42,8 +44,9 @@ const PublicProfilePage = () => {
   useEffect(() => {
     const load = async () => {
       try {
-        const data = await publicProfileApi.getPublic(slug);
+        const data = initialProfile || await publicProfileApi.getPublic(slug);
         setProfile(data);
+        if (initialProfile) record('view', 'page');
         const title = data.seoTitle || `${data.displayName} · FollowMee`;
         const descriptionText = data.seoDescription || data.headline || t('profile.public.viewOnFollowMee', { name: data.displayName });
         const image = data.avatarUrl || '';
@@ -76,7 +79,7 @@ const PublicProfilePage = () => {
       }
     };
     void load();
-  }, [slug, t]);
+  }, [slug, t, initialProfile]);
 
   const copy = async () => {
     await navigator.clipboard.writeText(profileUrl);
@@ -138,6 +141,7 @@ const PublicProfilePage = () => {
     >
       <Box sx={{ width: '100%', maxWidth: 680, mx: 'auto' }}>
         <ProfileLandingCard profile={profile} onEvent={record} />
+        <ProfileLeadForm slug={slug} />
       </Box>
 
       <Stack

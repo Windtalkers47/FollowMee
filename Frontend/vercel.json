@@ -1,6 +1,10 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "rewrites": [
+    { "source": "/p/:slug", "destination": "/api/profile?slug=:slug" },
     { "source": "/(.*)", "destination": "/index.html" }
-  ]
+  ],
+  "functions": {
+    "api/profile.ts": { "includeFiles": "dist/index.html" }
+  }
 }

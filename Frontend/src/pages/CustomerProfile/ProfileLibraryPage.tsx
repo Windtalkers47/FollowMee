@@ -154,14 +154,11 @@ const ProfileLibraryPage = () => {
             {t('profile.library.subtitle')}
           </Typography>
         </Box>
-        <Button
-          variant="contained"
-          startIcon={<AddRounded />}
-          onClick={() => setDialogOpen(true)}
-          sx={{ minHeight: 46, borderRadius: 3 }}
-        >
-          {t('profile.create')}
-        </Button>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+          <Button variant="outlined" onClick={() => navigate('/customer-profile/leads')} sx={{ minHeight: 46, borderRadius: 3 }}>{t('nav.leads')}</Button>
+          <Button variant="contained" startIcon={<AddRounded />} onClick={() => navigate('/customer-profile/new')} sx={{ minHeight: 46, borderRadius: 3 }}>{t('profile.quick.create')}</Button>
+          <Button onClick={() => setDialogOpen(true)} sx={{ minHeight: 46 }}>{t('profile.createAdvanced')}</Button>
+        </Stack>
       </Stack>
 
       {engagementFocus && <Alert severity="info" sx={{ mt: 3 }} action={<Button color="inherit" onClick={() => setSearchParams(current => { const next = new URLSearchParams(current); next.delete('focus'); return next; }, { replace: true })}>{t('profile.showAll')}</Button>}>{t('profile.engagementFocus')}</Alert>}

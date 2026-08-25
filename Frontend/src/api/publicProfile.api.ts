@@ -5,6 +5,11 @@ import type {
   ProfileEventType,
   PublicProfileLanding,
   PublicProfileRecord,
+  ProfileLead,
+  ProfileLeadStatus,
+  ProfileRevision,
+  ProfileLinkCheck,
+  ProfileDomain,
 } from '../types/publicProfile.types';
 
 export class PublicProfileApiError extends Error {
@@ -56,7 +61,9 @@ export const publicProfileApi = {
       body: JSON.stringify(input),
     }),
 
-  update: (profileId: string, input: Partial<ProfileDraft>) =>
+  quickCreate: (input: Record<string, unknown>) => request<PublicProfileRecord>('/public-profiles/quick-create', { method: 'POST', body: JSON.stringify(input) }),
+
+  update: (profileId: string, input: Partial<ProfileDraft> & { revisionReason?: 'autosave' | 'manual' }) =>
     request<PublicProfileRecord>(`/public-profiles/${profileId}`, {
       method: 'PATCH',
       body: JSON.stringify(input),
@@ -68,9 +75,10 @@ export const publicProfileApi = {
       body: JSON.stringify({ image }),
     }),
 
-  publish: (profileId: string) =>
+  publish: (profileId: string, acknowledgeLinkWarnings = false) =>
     request<PublicProfileRecord>(`/public-profiles/${profileId}/publish`, {
       method: 'POST',
+      body: JSON.stringify({ acknowledgeLinkWarnings }),
     }),
 
   unpublish: (profileId: string) =>
@@ -87,15 +95,32 @@ export const publicProfileApi = {
   getPublic: (slug: string) =>
     request<PublicProfileLanding>(`/public-profiles/public/${slug}`),
 
+  submitLead: (slug: string, input: Record<string, unknown>) => request<{ accepted: boolean; duplicate: boolean; leadId?: string }>(`/public-profiles/public/${slug}/leads`, { method: 'POST', body: JSON.stringify(input) }),
+  leads: (query = '') => request<{ items: ProfileLead[]; total: number; unread: number; page: number; limit: number }>(`/public-profiles/leads/inbox${query ? `?${query}` : ''}`),
+  updateLeadStatus: (leadId: string, status: ProfileLeadStatus) => request<ProfileLead>(`/public-profiles/leads/${leadId}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
+  leadDuplicates: (leadId: string) => request<Record<string, unknown>>(`/public-profiles/leads/${leadId}/duplicates`),
+  convertLead: (leadId: string, input: { existingCustomerId?: string; customerEmail?: string }) => request<{ lead: ProfileLead; customerId: string; idempotent: boolean }>(`/public-profiles/leads/${leadId}/convert`, { method: 'POST', body: JSON.stringify(input) }),
+  revisions: (profileId: string) => request<ProfileRevision[]>(`/public-profiles/${profileId}/revisions`),
+  restoreRevision: (profileId: string, revisionId: string, slug?: string) => request<PublicProfileRecord>(`/public-profiles/${profileId}/revisions/${revisionId}/restore`, { method: 'POST', body: JSON.stringify({ slug }) }),
+  checkLinks: (profileId: string) => request<ProfileLinkCheck[]>(`/public-profiles/${profileId}/link-checks`, { method: 'POST' }),
+  domains: (profileId: string) => request<ProfileDomain[]>(`/public-profiles/${profileId}/domains`),
+  addDomain: (profileId: string, hostname: string) => request<ProfileDomain>(`/public-profiles/${profileId}/domains`, { method: 'POST', body: JSON.stringify({ hostname }) }),
+  verifyDomain: (profileId: string, domainId: string) => request<ProfileDomain>(`/public-profiles/${profileId}/domains/${domainId}/verify`, { method: 'POST' }),
+  setCanonicalDomain: (profileId: string, domainId: string) => request<ProfileDomain>(`/public-profiles/${profileId}/domains/${domainId}/canonical`, { method: 'PATCH' }),
+  removeDomain: (profileId: string, domainId: string) => request<void>(`/public-profiles/${profileId}/domains/${domainId}`, { method: 'DELETE' }),
+
   recordEvent: async (
     slug: string,
     eventType: ProfileEventType,
     target?: string
   ) => {
+    const params = new URLSearchParams(window.location.search);
+    const sessionId = sessionStorage.getItem('followmee:profile-session') || crypto.randomUUID();
+    sessionStorage.setItem('followmee:profile-session', sessionId);
     await fetch(`${apiConfig.baseURL}/public-profiles/public/${slug}/events`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ eventType, target }),
+      body: JSON.stringify({ eventType, target, sessionId, utmSource: params.get('utm_source'), utmMedium: params.get('utm_medium'), utmCampaign: params.get('utm_campaign') }),
       keepalive: true,
     }).catch(() => undefined);
   },

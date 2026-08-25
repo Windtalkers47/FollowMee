@@ -27,6 +27,11 @@ import { PushSubscription } from '../entities/PushSubscription';
 import { UserPreference } from '../entities/UserPreference';
 import { TaskWatcher } from '../entities/TaskWatcher';
 import { TaskActivity } from '../entities/TaskActivity';
+import { PublicProfileLead } from '../entities/PublicProfileLead';
+import { PublicProfileRevision } from '../entities/PublicProfileRevision';
+import { PublicProfileLinkCheck } from '../entities/PublicProfileLinkCheck';
+import { PublicProfileDomain } from '../entities/PublicProfileDomain';
+import { CustomerMergeSnapshot } from '../entities/CustomerMergeSnapshot';
 
 dotenv.config();
 
@@ -84,6 +89,11 @@ const dataSourceOptions: DataSourceOptions = {
     UserPreference,
     TaskWatcher,
     TaskActivity,
+    PublicProfileLead,
+    PublicProfileRevision,
+    PublicProfileLinkCheck,
+    PublicProfileDomain,
+    CustomerMergeSnapshot,
     // Other entities will be loaded automatically by the glob pattern
     path.join(__dirname, '../entities/**/*.entity{.ts,.js}')
   ],

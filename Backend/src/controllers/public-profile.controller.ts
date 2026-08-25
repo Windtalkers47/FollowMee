@@ -8,6 +8,8 @@ import {
 } from '../services/public-profile.service';
 import { uploadBase64Image } from '../config/cloudinary.config';
 import auditService from '../services/audit.service';
+import { profilePlatformService } from '../services/profile-platform.service';
+import { ApplicationError } from '../errors/application.error';
 
 export class PublicProfileController {
   constructor(private readonly service = new PublicProfileService()) {}
@@ -36,7 +38,8 @@ export class PublicProfileController {
 
   private sendError(res: Response, error: unknown) {
     const message = error instanceof Error ? error.message : 'Unexpected error';
-    return res.status(this.errorStatus(error)).json({ success: false, message });
+    const item = error as { code?: string; details?: unknown; messageKey?: string };
+    return res.status(this.errorStatus(error)).json({ success: false, message, code: item.code, details: item.details, messageKey: item.messageKey });
   }
 
   private eventContext(req: Request) {
@@ -48,6 +51,10 @@ export class PublicProfileController {
       ip,
       userAgent: req.get('user-agent') || null,
       referrer: req.get('referer') || null,
+      sessionId: typeof req.body?.sessionId === 'string' ? req.body.sessionId : null,
+      utmSource: typeof req.body?.utmSource === 'string' ? req.body.utmSource : null,
+      utmMedium: typeof req.body?.utmMedium === 'string' ? req.body.utmMedium : null,
+      utmCampaign: typeof req.body?.utmCampaign === 'string' ? req.body.utmCampaign : null,
     };
   }
 
@@ -80,6 +87,14 @@ export class PublicProfileController {
     } catch (error) {
       return this.sendError(res, error);
     }
+  };
+
+  quickCreate = async (req: Request, res: Response) => {
+    try {
+      const data = await profilePlatformService.quickCreate(this.userId(req), req.body || {});
+      await auditService.logEvent({ userId: this.userId(req), action: 'PUBLIC_PROFILE_QUICK_CREATED', status: 'SUCCESS', details: { profileId: data.profileId } });
+      return res.status(201).json({ success: true, data: this.presentForUser(data, req) });
+    } catch (error) { return this.sendError(res, error); }
   };
 
   update = async (req: Request, res: Response) => {
@@ -119,6 +134,11 @@ export class PublicProfileController {
 
   publish = async (req: Request, res: Response) => {
     try {
+      const linkChecks = await profilePlatformService.checkLinks(req.params.profileId, this.userId(req));
+      const unsafe = linkChecks.filter(check => check.status === 'invalid');
+      if (unsafe.length) throw new ApplicationError('One or more links are malformed or unsafe', 'PROFILE_PUBLISH_LINKS_INVALID', 409, { linkChecks: unsafe });
+      const warnings = linkChecks.filter(check => check.status === 'warning');
+      if (warnings.length && req.body?.acknowledgeLinkWarnings !== true) throw new ApplicationError('Some links could not be verified', 'PROFILE_PUBLISH_LINK_WARNINGS', 409, { linkChecks: warnings });
       const data = await this.service.setPublishState(
         req.params.profileId,
         this.userId(req),
@@ -167,6 +187,15 @@ export class PublicProfileController {
     }
   };
 
+  revisions = async (req: Request, res: Response) => { try { return res.json({ success: true, data: await profilePlatformService.revisions(req.params.profileId, this.userId(req)) }); } catch (error) { return this.sendError(res, error); } };
+  restoreRevision = async (req: Request, res: Response) => { try { return res.json({ success: true, data: await profilePlatformService.restore(req.params.profileId, req.params.revisionId, this.userId(req), req.body?.slug) }); } catch (error) { return this.sendError(res, error); } };
+  checkLinks = async (req: Request, res: Response) => { try { return res.json({ success: true, data: await profilePlatformService.checkLinks(req.params.profileId, this.userId(req)) }); } catch (error) { return this.sendError(res, error); } };
+  domains = async (req: Request, res: Response) => { try { return res.json({ success: true, data: await profilePlatformService.domains(req.params.profileId, this.userId(req)) }); } catch (error) { return this.sendError(res, error); } };
+  addDomain = async (req: Request, res: Response) => { try { return res.status(201).json({ success: true, data: await profilePlatformService.addDomain(req.params.profileId, this.userId(req), String(req.body?.hostname || '')) }); } catch (error) { return this.sendError(res, error); } };
+  verifyDomain = async (req: Request, res: Response) => { try { return res.json({ success: true, data: await profilePlatformService.verifyDomain(req.params.profileId, req.params.domainId, this.userId(req)) }); } catch (error) { return this.sendError(res, error); } };
+  setCanonicalDomain = async (req: Request, res: Response) => { try { return res.json({ success: true, data: await profilePlatformService.setCanonicalDomain(req.params.profileId, req.params.domainId, this.userId(req)) }); } catch (error) { return this.sendError(res, error); } };
+  removeDomain = async (req: Request, res: Response) => { try { await profilePlatformService.removeDomain(req.params.profileId, req.params.domainId, this.userId(req)); return res.json({ success: true }); } catch (error) { return this.sendError(res, error); } };
+
   publicBySlug = async (req: Request, res: Response) => {
     try {
       const data = await this.service.getPublic(req.params.slug);
@@ -178,6 +207,19 @@ export class PublicProfileController {
     } catch (error) {
       return this.sendError(res, error);
     }
+  };
+
+  publicMeta = async (req: Request, res: Response) => {
+    try {
+      const data = await this.service.getPublicMeta(req.params.slug);
+      if (!data) return res.status(404).set('Cache-Control', 'public, s-maxage=30').json({ success: false, message: 'Profile not found' });
+      return res.set('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300').json({ success: true, data });
+    } catch (error) { return this.sendError(res, error); }
+  };
+
+  publicDomainMeta = async (req: Request, res: Response) => {
+    try { const data = await this.service.getPublicMetaByHostname(req.params.hostname); if (!data) return res.status(404).json({ success: false, message: 'Profile not found' }); return res.set('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300').json({ success: true, data }); }
+    catch (error) { return this.sendError(res, error); }
   };
 
   recordEvent = async (req: Request, res: Response) => {

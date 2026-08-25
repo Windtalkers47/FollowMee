@@ -56,12 +56,16 @@ JWT_SECRET=<server-secret>
 JWT_EXPIRES_IN=24h
 INVITATION_SECRET=<server-secret>
 PROFILE_ANALYTICS_SALT=<server-secret>
+PROFILE_LEAD_RATE_LIMIT=8
+PROFILE_CUSTOM_DOMAINS_ENABLED=false
 FRONTEND_URL=https://<production-vercel-domain>
 CORS_ORIGIN=https://<production-vercel-domain>
 CORS_PREVIEW_ORIGINS=https://<approved-preview-domain-1>,https://<approved-preview-domain-2>
 ```
 
 เพิ่ม Cloudinary, email และ VAPID variables ตาม feature ที่เปิดใช้ โดยใช้ชื่อจาก `Backend/.env.example`; SMTP password ใช้ชื่อ `SMTP_PASS`
+
+Custom domain เปิดหลัง migration และ Phase 3 verification เท่านั้น โดยตั้ง `VERCEL_ACCESS_TOKEN`, `VERCEL_PROJECT_ID`, `VERCEL_TEAM_ID` เป็น Render server secrets แล้วเปลี่ยน `PROFILE_CUSTOM_DOMAINS_ENABLED=true` ห้ามนำ token ไปไว้ในตัวแปร `VITE_*`
 
 `migration:run:prod` เป็น data-preserving migration command แต่ยังต้องปฏิบัติตาม runbook ทุกครั้งที่ release มี pending migration ห้ามให้หลาย instance แข่งกัน run migration
 
@@ -89,14 +93,14 @@ VITE_ENCRYPTION_KEY=<non-secret-compatibility-value>
 
 ค่าที่ขึ้นต้น `VITE_` เป็นข้อมูลสาธารณะที่ bundle ใน browser `VITE_ENCRYPTION_KEY` ไม่ใช่ secret และไม่แทน TLS/server authentication
 
-`Frontend/vercel.json` มี SPA rewrite ไป `index.html` อยู่แล้ว PR deployment ใช้เป็น preview ได้ แต่ backend ต้อง allow เฉพาะ origin ที่อนุมัติ
+`Frontend/vercel.json` rewrite `/p/:slug` ไป `api/profile.ts` เพื่อสร้าง server-rendered title/canonical/OG/Twitter/robots และใช้ SPA fallback สำหรับ route อื่น Function ต้อง include `dist/index.html` และเข้าถึง `VITE_API_URL` ตอน deploy; PR deployment ใช้เป็น preview ได้ แต่ backend ต้อง allow เฉพาะ origin ที่อนุมัติ
 
 ## 4. Release flow
 
 1. รวม feature PR เข้า `develop`
 2. รัน `npm run verify` และตรวจ CI
 3. สร้าง release PR จาก `develop` ไป `main`
-4. หากมี migration ให้ทำ backup/restore drill และ maintenance coordination ก่อน merge
+4. หากมี migration ให้ทำ backup/restore drill และ maintenance coordination ก่อน merge; deploy ordered migration ของ Phase 1 (`1850000000000`), Phase 2 (`1851000000000`) และ Phase 3 (`1852000000000`) ก่อนเปิด capability/flag ของเฟสนั้น
 5. Merge เมื่อ CI และ operational checklist ผ่าน
 6. Render และ Vercel deploy จาก `main`
 7. ตรวจ Render migration/start logs และ `GET /health`

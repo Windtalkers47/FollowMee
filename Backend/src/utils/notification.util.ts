@@ -31,6 +31,7 @@ export enum NotificationType {
   CUSTOMER_CREATED = 'CUSTOMER_CREATED',
   CUSTOMER_ASSIGNED = 'CUSTOMER_ASSIGNED',
   CUSTOMER_FOLLOW_UP = 'CUSTOMER_FOLLOW_UP',
+  PUBLIC_PROFILE_LEAD = 'PUBLIC_PROFILE_LEAD',
   ACHIEVEMENT_EARNED = 'ACHIEVEMENT_EARNED',
 }
 
@@ -397,6 +398,22 @@ export enum NotificationType {
       actionUrl: customerUrl,
       recipientUserIds,
       skipQueue: true, // Send immediately
+    });
+  }
+
+  static async notifyPublicProfileLead(profileName: string, leadId: string, recipientUserIds: number[]): Promise<void> {
+    await this.createNotification({
+      notificationType: NotificationType.PUBLIC_PROFILE_LEAD,
+      entityType: 'public_profile_lead',
+      entityId: leadId,
+      title: 'New profile lead',
+      message: `${profileName} received a new lead`,
+      titleKey: 'notification.content.profileLead.title',
+      messageKey: 'notification.content.profileLead.message',
+      translationParams: { profileName },
+      actionUrl: `/customer-profile/leads?leadId=${encodeURIComponent(leadId)}`,
+      recipientUserIds: [...new Set(recipientUserIds)],
+      skipQueue: true,
     });
   }
 

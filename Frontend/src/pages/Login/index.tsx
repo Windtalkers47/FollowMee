@@ -29,7 +29,7 @@ import {
   selectIsAuthenticated,
   selectCurrentUser,
 } from '../../store/slices/authSlice';
-import { useNavigate, Link as RouterLink } from 'react-router-dom';
+import { useNavigate, Link as RouterLink, useSearchParams } from 'react-router-dom';
 import { useUserPreferences } from '../../contexts/UserPreferencesContext';
 import { env } from '../../utils/env';
 import { canUsePublicRegistration } from '../../utils/registrationPolicy';
@@ -40,6 +40,7 @@ const MAX_ATTEMPTS = 5;
 export default function LoginPage() {
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const theme = useTheme();
   const { t } = useUserPreferences();
   const accessibleAccent = theme.palette.mode === 'dark' ? theme.palette.primary.light : '#17692D';
@@ -65,7 +66,8 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (isAuthenticated) {
-      navigate(currentUser?.roles?.some((role) => ['Admin', 'Owner', 'Superadmin'].includes(role)) ? '/dashboard' : '/my-work');
+      const requested = searchParams.get('returnTo');
+      navigate(requested?.startsWith('/') && !requested.startsWith('//') ? requested : currentUser?.roles?.some((role) => ['Admin', 'Owner', 'Superadmin'].includes(role)) ? '/dashboard' : '/my-work');
     }
   }, [isAuthenticated, navigate, currentUser]);
 
@@ -136,7 +138,7 @@ export default function LoginPage() {
             <Box sx={{ width: 64, height: 64, borderRadius: '50%', bgcolor: 'rgba(52,199,89,.16)', mb: 3 }} />
             <Typography variant="h5" fontWeight={800}>{t('auth.login.previewName')}</Typography>
             <Typography color="text.secondary" sx={{ mt: 0.5 }}>{t('auth.login.previewBody')}</Typography>
-            <Button fullWidth variant="contained" sx={{ mt: 3, pointerEvents: 'none' }}>{t('auth.login.viewProfile')}</Button>
+            <Button component={RouterLink} to="/demo/profile" fullWidth variant="contained" sx={{ mt: 3 }}>{t('auth.login.viewProfile')}</Button>
           </Box>
         </Box>
         <Box>

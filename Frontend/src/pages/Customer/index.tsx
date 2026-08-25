@@ -1,4 +1,5 @@
 import type React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   Box, 
   Button, 
@@ -63,6 +64,7 @@ import { PageLoading, PageShell } from '../../components/PageState';
 // Main Component
 // ============================================
 const CustomerPage = () => {
+  const navigate = useNavigate();
   const { t, locale } = useUserPreferences();
   const theme = useTheme();
   const isDarkMode = theme.palette.mode === 'dark';
@@ -185,14 +187,19 @@ const CustomerPage = () => {
         return;
       }
   
-      await feedback.fire({
+      const savedFeedback = await feedback.fire({
         icon: 'success',
         title: t('common.success'),
         text: t('customers.saved'),
         timer: 2000,
         timerProgressBar: true,
-        showConfirmButton: false,
+        showConfirmButton: !editingCustomer,
+        showCancelButton: !editingCustomer,
+        confirmButtonText: t('customers.createProfileNow'),
+        cancelButtonText: t('common.later'),
       });
+      const createdCustomerId = (result as { data?: { customerId?: string } })?.data?.customerId;
+      if (!editingCustomer && savedFeedback.isConfirmed && createdCustomerId) navigate(`/customer-profile/new?customerId=${createdCustomerId}`);
       setIsFormOpen(false);
       setEditingCustomer(null);
       refetch();

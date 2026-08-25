@@ -48,6 +48,16 @@ services:
         generateValue: true
       - key: PROFILE_ANALYTICS_SALT
         generateValue: true
+      - key: PROFILE_LEAD_RATE_LIMIT
+        value: 8
+      - key: PROFILE_CUSTOM_DOMAINS_ENABLED
+        value: "false"
+      - key: VERCEL_ACCESS_TOKEN
+        sync: false
+      - key: VERCEL_PROJECT_ID
+        sync: false
+      - key: VERCEL_TEAM_ID
+        sync: false
       - key: FRONTEND_URL
         sync: false
       - key: CORS_ORIGIN

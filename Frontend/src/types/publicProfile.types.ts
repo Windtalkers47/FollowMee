@@ -8,7 +8,10 @@ export type ProfileEventType =
   | 'cta_click'
   | 'share'
   | 'image_export'
-  | 'qr_open';
+  | 'qr_open'
+  | 'lead_submit'
+  | 'lead_qualified'
+  | 'lead_converted';
 
 export interface ProfileTheme {
   accentColor?: string;
@@ -52,6 +55,9 @@ export interface PublicProfileRecord {
   seoDescription: string | null;
   viewCount: string | number;
   publishedAt: string | null;
+  publishStartAt?: string | null;
+  publishEndAt?: string | null;
+  effectiveStatus?: 'scheduled' | 'live' | 'expired';
   createdAt: string;
   updatedAt: string;
   createdBy?: number | null;
@@ -61,6 +67,9 @@ export interface PublicProfileRecord {
     canPublish: boolean;
     canUnpublish: boolean;
     canDelete: boolean;
+    canManageLeads?: boolean;
+    canMergeCustomers?: boolean;
+    canManageDomain?: boolean;
   };
   publishingChecklist?: Array<{ key: string; complete: boolean }>;
   shareStatus?: 'draft' | 'needs_attention' | 'ready_to_share';
@@ -89,6 +98,9 @@ export interface PublicProfileLanding {
   seoTitle: string;
   seoDescription: string | null;
   publishedAt: string | null;
+  publishStartAt?: string | null;
+  publishEndAt?: string | null;
+  effectiveStatus?: 'scheduled' | 'live' | 'expired';
 }
 
 export type ProfileDraft = Pick<
@@ -111,8 +123,12 @@ export type ProfileDraft = Pick<
   | 'showAddress'
   | 'seoTitle'
   | 'seoDescription'
+  | 'publishStartAt'
+  | 'publishEndAt'
   | 'links'
 >;
+
+export type ProfileDraftUpdate = ProfileDraft & { revisionReason?: 'autosave' | 'manual' };
 
 export interface ProfileAnalytics {
   profileId: string;
@@ -120,4 +136,20 @@ export interface ProfileAnalytics {
   totals: Partial<Record<ProfileEventType, number>>;
   dailyViews: Array<{ date: string; count: number }>;
   topTargets: Array<{ target: string; count: number }>;
+  uniqueVisitors?: number;
+  sessions?: number;
+  conversionRate?: number;
+  funnel?: { views: number; clicks: number; leads: number; qualified: number; converted: number };
+  campaigns?: Array<{ source: string; count: number }>;
+  referrers?: Array<{ referrer: string; count: number }>;
 }
+
+export type ProfileLeadStatus = 'new' | 'contacted' | 'qualified' | 'converted' | 'spam' | 'archived';
+export interface ProfileLead {
+  leadId: string; profileId: string; name: string; email: string | null; phone: string | null;
+  message: string | null; status: ProfileLeadStatus; createdAt: string; convertedCustomerId: string | null;
+  profile?: Pick<PublicProfileRecord, 'profileId' | 'displayName' | 'slug'>;
+}
+export interface ProfileRevision { revisionId: string; profileId: string; version: number; reason: string; createdAt: string; snapshot: Partial<PublicProfileRecord>; }
+export interface ProfileLinkCheck { checkId: string; targetKey: string; url: string; status: 'ok' | 'warning' | 'invalid' | 'unchecked'; httpStatus: number | null; detail: string | null; checkedAt: string; }
+export interface ProfileDomain { domainId: string; hostname: string; status: 'pending' | 'verifying' | 'active' | 'failed' | 'disabled'; verification: Record<string, unknown> | null; isCanonical: boolean; verifiedAt: string | null; }

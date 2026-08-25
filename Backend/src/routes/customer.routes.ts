@@ -46,6 +46,8 @@ router.get('/status-stats', (req, res) =>
 router.patch('/bulk/status', (req, res) => customerController.bulkUpdateStatus(req, res));
 router.post('/bulk/delete', (req, res) => customerController.bulkDelete(req, res));
 router.post('/duplicate-check', (req, res) => customerController.duplicateCheck(req, res));
+router.post('/merge-preview', (req, res) => customerController.mergePreview(req, res));
+router.post('/merge', (req, res) => customerController.merge(req, res));
 router.get('/:id/activities', (req, res) => customerController.getTimeline(req, res));
 
 router.get('/:id', (req, res) =>

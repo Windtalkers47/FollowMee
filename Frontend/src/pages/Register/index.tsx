@@ -41,6 +41,7 @@ interface FormTouched {
 const Register = () => {
   const [searchParams] = useSearchParams();
   const invitationToken = searchParams.get('invite') || '';
+  const returnTo = searchParams.get('returnTo');
   const publicRegistrationAllowed = canUsePublicRegistration(env.isDev, env.features.registration);
   const [invitationState, setInvitationState] = useState<'loading' | 'valid' | 'invalid' | 'public'>(invitationToken ? 'loading' : 'public');
   const [formData, setFormData] = useState({
@@ -280,7 +281,7 @@ const Register = () => {
       // Check if login was successful
       if (loginUser.fulfilled.match(resultAction)) {
         // Redirect to dashboard on successful registration and login
-        navigate('/my-work');
+        navigate(returnTo?.startsWith('/') && !returnTo.startsWith('//') ? returnTo : '/my-work');
       }
     } catch (error: unknown) {
       console.error('Registration error:', error);

@@ -15,7 +15,10 @@ export type PublicProfileEventType =
   | 'cta_click'
   | 'share'
   | 'image_export'
-  | 'qr_open';
+  | 'qr_open'
+  | 'lead_submit'
+  | 'lead_qualified'
+  | 'lead_converted';
 
 @Entity('public_profile_events')
 @Index('IDX_public_profile_events_profile_date', ['profileId', 'occurredAt'])
@@ -50,6 +53,21 @@ export class PublicProfileEvent {
 
   @Column({ type: 'varchar', length: 512, nullable: true })
   referrer!: string | null;
+
+  @Column({ type: 'char', length: 64, nullable: true })
+  visitorHash!: string | null;
+
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  sessionId!: string | null;
+
+  @Column({ type: 'varchar', length: 120, nullable: true })
+  utmSource!: string | null;
+
+  @Column({ type: 'varchar', length: 120, nullable: true })
+  utmMedium!: string | null;
+
+  @Column({ type: 'varchar', length: 120, nullable: true })
+  utmCampaign!: string | null;
 
   @CreateDateColumn({ type: 'datetime', name: 'occurredAt' })
   occurredAt!: Date;

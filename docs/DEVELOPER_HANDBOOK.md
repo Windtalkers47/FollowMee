@@ -24,7 +24,7 @@ FollowMee เป็น full-stack workspace สำหรับจัดการ
 - cleanup/documentation/tooling และ P1/M1 เดิมถูก checkpoint บน branch `develop` แล้ว (`a4c514f` และ commit ก่อนหน้า); งาน Profile Conversion รอบนี้เริ่มจาก clean tree และต้องรักษา checkpoint เหล่านั้น
 - generated artifacts 407 ไฟล์ถูกถอนออกจาก Git index และไฟล์จริงถูกเก็บแบบ recoverable ใต้ `.local/`
 - เอกสารปัจจุบันอยู่ที่ Handbook นี้; review, handoff และ validation รุ่นเก่าอยู่ใน `docs/archive/`
-- Profile Conversion เพิ่ม ordered additive migrations `1850000000000`, `1851000000000`, `1852000000000` แยก Phase 1/2/3; ห้ามรัน migration เหล่านี้บน `followmee` ระหว่าง development/testing
+- Profile Conversion ใช้ ordered additive migrations `1850000000000`, `1851000000000`, `1852000000000` และ `1853000000000` (custom-domain redirect preference); migration ใหม่ต้อง verify กับ temporary schema ก่อนและห้ามนำ mutation testไปใช้กับ `followmee`
 - ยังคงห้ามใช้ `reset`, `checkout`, `clean` หรือการลบกว้างที่อาจย้อน checkpoint P1/M1
 - verification ล่าสุดผ่าน: Backend 57 tests, Frontend 366 tests, typecheck, critical lint, build, bundle budget, docs check และ hygiene check
 
@@ -155,6 +155,8 @@ npm start
 - Backend: `http://localhost:5000`
 - Health: `http://localhost:5000/health`
 
+`localhost:5173` เป็น Vite SPA และใช้ตรวจ dynamic SEO/social HTML ไม่ได้ เมื่อต้องทดสอบ Vercel Function, rewrite และ raw metadata ให้ build frontendแล้วใช้ `npm run start:ssr` หรือ Vercel preview จากนั้นตรวจ source โดยไม่รัน JavaScript
+
 `npm start` เรียก DB doctor ก่อน หากพบ pending migration ให้หยุด ตรวจ backup/runbook และอย่ารัน migration โดยเดา
 
 ## 7. Environment matrix
@@ -201,9 +203,8 @@ npm start
 | Database | Allowed operations |
 |---|---|
 | `followmee` local/real | read-only diagnosis, application use, reviewed additive migration หลัง backup |
-| `followmee_e2e` | reset, seed, integration และ mutation browser tests |
+| `followmee_e2e` | reset, seed, integration, mutation browser tests และ clean-schema verification |
 | TiDB production | controlled additive migration ตาม production runbook เท่านั้น |
-| `followmee_schema_verify` | temporary clean-schema verification เท่านั้น |
 
 กฎถาวร:
 
@@ -248,7 +249,7 @@ CI ติดตั้ง root/Backend/Frontend dependencies แล้วเร�
 - build: `npm run build`
 - output: `dist`
 - `/p/:slug` rewrite ไป Vercel Function `api/profile.ts` เพื่อ inject metadata/initial payload โดย URL ไม่เปลี่ยน; route อื่นใช้ SPA fallback
-- Function ต้องอ่าน `dist/index.html`; metadata fetch ไม่สร้าง view event และ OG image ใช้ `api/profile-og.ts`
+- Function ต้องอ่าน `dist/index.html`; metadata fetch ไม่สร้าง view event และ OG image ใช้ `api/profile-og.ts` ส่ง PNG 1200×630 ผ่าน `@vercel/og`
 
 หลัง Vercel URL เปลี่ยน ต้องอัปเดต Render `FRONTEND_URL`, `CORS_ORIGIN` และ preview allowlist ตามความจำเป็น ดู [deployment guide](../DEPLOYMENT_GUIDE.md)
 

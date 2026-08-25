@@ -1,4 +1,4 @@
-import type React from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Box, 
@@ -59,11 +59,13 @@ import { getCustomerEngagementScore } from '../../utils/customerEngagement';
 import { userFacingMutationError } from '../../utils/userFacingError';
 import { useCustomerPageController } from '../../hooks/useCustomerPageController';
 import { PageLoading, PageShell } from '../../components/PageState';
+import CustomerMergeDialog from '../../components/customers/CustomerMergeDialog';
 
 // ============================================
 // Main Component
 // ============================================
 const CustomerPage = () => {
+  const [mergeOpen, setMergeOpen] = React.useState(false);
   const navigate = useNavigate();
   const { t, locale } = useUserPreferences();
   const theme = useTheme();
@@ -220,6 +222,7 @@ const CustomerPage = () => {
       minHeight: '100vh',
       pb: { xs: 'calc(88px + env(safe-area-inset-bottom, 0px))', md: 6 },
     }}>
+      <CustomerMergeDialog open={mergeOpen} customers={displayCustomers.filter(customer => selected.includes(customer.customerId))} onClose={() => setMergeOpen(false)} onMerged={() => { setSelected([]); refetch(); }} />
       <CustomerForm
         open={isFormOpen}
         onClose={closeForm}
@@ -468,6 +471,7 @@ const CustomerPage = () => {
               {t('customers.selectedCount', { count: selected.length })}
             </Typography>
             <Box display="flex" gap={1} flexWrap="wrap">
+              {selected.length === 2 && <Button size="small" variant="outlined" disabled={!canDeleteSelected} onClick={() => setMergeOpen(true)}>{t('customers.merge.action')}</Button>}
               <Button 
                 size="small" 
                 variant="contained"

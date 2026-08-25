@@ -4,6 +4,8 @@ describe('public profile link safety', () => {
   it.each([
     ['http://127.0.0.1/admin', 'invalid'],
     ['http://10.0.0.1/private', 'invalid'],
+    ['http://[::1]/private', 'invalid'],
+    ['http://[fc00::1]/private', 'invalid'],
     ['javascript:alert(1)', 'invalid'],
     ['file:///etc/passwd', 'invalid'],
     ['mailto:not-an-email', 'invalid'],

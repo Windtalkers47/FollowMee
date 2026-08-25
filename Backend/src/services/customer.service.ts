@@ -11,6 +11,7 @@ import { customerAccessService, CustomerAccessContext } from './customer-access.
 import { User } from '../entities/User';
 import { ApplicationError } from '../errors/application.error';
 import { PublicProfile } from '../entities/PublicProfile';
+import { PublicProfileRevision } from '../entities/PublicProfileRevision';
 import { CustomerMergeSnapshot } from '../entities/CustomerMergeSnapshot';
 import auditService from './audit.service';
 
@@ -421,9 +422,12 @@ export class CustomerService {
       allowed.forEach(field => { if (field in (input.values || {})) (target as any)[field] = input.values![field]; }); target.updatedBy = actorUserId;
       await manager.getRepository(Customer).save(target);
       await manager.query('UPDATE customer_activities SET customerId = ? WHERE customerId = ?', [targetCustomerId, sourceCustomerId]);
+      await manager.query('UPDATE public_profile_leads SET convertedCustomerId = ? WHERE convertedCustomerId = ?', [targetCustomerId, sourceCustomerId]);
       const profiles = await manager.getRepository(PublicProfile).find({ where: [{ customerId: sourceCustomerId }, { customerId: targetCustomerId }] });
       const keep = profiles.find(profile => profile.profileId === input.keepProfileId) || profiles.find(profile => profile.customerId === targetCustomerId) || profiles[0];
       for (const profile of profiles) {
+        const latest = await manager.getRepository(PublicProfileRevision).findOne({ where: { profileId: profile.profileId }, order: { version: 'DESC' } });
+        await manager.getRepository(PublicProfileRevision).save(manager.getRepository(PublicProfileRevision).create({ profileId: profile.profileId, version: (latest?.version || 0) + 1, snapshot: { ...profile }, actorUserId, reason: 'merge' }));
         if (profile.profileId === keep?.profileId) { profile.customerId = targetCustomerId; }
         else { profile.customerId = null; profile.status = 'draft'; profile.visibility = 'private'; }
         profile.updatedBy = actorUserId; await manager.getRepository(PublicProfile).save(profile);

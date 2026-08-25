@@ -1,9 +1,15 @@
+import React from 'react';
+import { ImageResponse } from '@vercel/og';
+
 type RequestLike = { query?: Record<string, string | string[]> };
-type ResponseLike = { status(code: number): ResponseLike; setHeader(name: string, value: string): void; send(body: string): void };
-const xml = (value: unknown) => String(value ?? '').replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' }[character]!));
-export default async function handler(request: RequestLike, response: ResponseLike) {
+export default async function handler(request: RequestLike) {
   const slug = String(Array.isArray(request.query?.slug) ? request.query?.slug[0] : request.query?.slug || ''); const apiBase = String(process.env.VITE_API_URL || process.env.PROFILE_API_URL || '').replace(/\/$/, ''); let data: any = null;
-  if (apiBase) { const result = await fetch(`${apiBase}/public-profiles/public/${encodeURIComponent(slug)}/meta`); if (result.ok) data = (await result.json() as any).data; }
-  const name = xml(data?.displayName || 'FollowMee'); const headline = xml(data?.headline || 'A profile worth sharing');
-  response.status(data ? 200 : 404); response.setHeader('Content-Type', 'image/svg+xml'); response.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=3600'); response.send(`<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630"><defs><linearGradient id="g" x2="1" y2="1"><stop stop-color="#E6F8EC"/><stop offset=".55" stop-color="#F9F5EC"/><stop offset="1" stop-color="#EEF1FF"/></linearGradient></defs><rect width="1200" height="630" rx="42" fill="url(#g)"/><circle cx="160" cy="150" r="78" fill="#34C759" opacity=".2"/><text x="100" y="320" font-family="Arial,sans-serif" font-size="72" font-weight="800" fill="#17211A">${name}</text><text x="104" y="390" font-family="Arial,sans-serif" font-size="34" fill="#607067">${headline}</text><text x="104" y="535" font-family="Arial,sans-serif" font-size="24" fill="#607067">MADE WITH FOLLOWMEE</text></svg>`);
+  if (apiBase) { try { const result = await fetch(`${apiBase}/public-profiles/public/${encodeURIComponent(slug)}/meta`, { signal: AbortSignal.timeout(3500) }); if (result.ok) data = (await result.json() as any).data; } catch { data = null; } }
+  const name = data?.displayName || 'FollowMee'; const headline = data?.headline || 'A profile worth sharing';
+  return new ImageResponse(React.createElement('div', { style: { width: '100%', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '86px 96px', background: 'linear-gradient(135deg,#E6F8EC,#F9F5EC 56%,#EEF1FF)', color: '#17211A', fontFamily: 'sans-serif' } },
+    React.createElement('div', { style: { display: 'flex', width: 122, height: 122, borderRadius: 61, alignItems: 'center', justifyContent: 'center', background: 'rgba(52,199,89,.18)', fontSize: 42, fontWeight: 800 } }, String(name).slice(0, 2).toUpperCase()),
+    React.createElement('div', { style: { display: 'flex', marginTop: 38, fontSize: 72, lineHeight: 1.05, fontWeight: 800, letterSpacing: '-2px' } }, String(name).slice(0, 100)),
+    React.createElement('div', { style: { display: 'flex', marginTop: 20, fontSize: 34, color: '#607067' } }, String(headline).slice(0, 160)),
+    React.createElement('div', { style: { display: 'flex', marginTop: 'auto', fontSize: 24, letterSpacing: '3px', color: '#607067' } }, 'MADE WITH FOLLOWMEE')
+  ), { width: 1200, height: 630, status: data ? 200 : 404, headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=3600' } });
 }

@@ -2,6 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { parseProfileLinksCsv } from '../../utils/profileLinkImport';
 
 describe('profile social link CSV import', () => {
+  it('supports quoted labels containing commas', () => {
+    const result = parseProfileLinksCsv('platform,label,url,visible,sortOrder\nwebsite,"Shop, Bangkok",https://example.com,true,0');
+    expect(result.errors).toHaveLength(0);
+    expect(result.links[0].label).toBe('Shop, Bangkok');
+  });
   it('parses, normalizes visibility and reorders links', () => {
     const result = parseProfileLinksCsv('platform,label,url,visible,sortOrder\ninstagram,IG,https://instagram.com/example,false,9\nwebsite,Site,https://example.com,true,1');
     expect(result.errors).toEqual([]);

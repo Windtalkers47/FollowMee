@@ -13,6 +13,7 @@ export class PublicProfileDomain {
   @Column({ type: 'varchar', length: 16, default: 'pending' }) status!: ProfileDomainStatus;
   @Column({ type: 'json', nullable: true }) verification!: Record<string, unknown> | null;
   @Column({ type: 'boolean', default: false }) isCanonical!: boolean;
+  @Column({ type: 'boolean', default: true }) redirectToCanonical!: boolean;
   @Column({ type: 'datetime', nullable: true }) verifiedAt!: Date | null;
   @Column({ type: 'datetime', nullable: true }) lastCheckedAt!: Date | null;
   @Column({ type: 'varchar', length: 500, nullable: true }) lastError!: string | null;

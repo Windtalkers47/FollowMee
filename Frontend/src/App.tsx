@@ -4,6 +4,7 @@ import { Box, CircularProgress } from '@mui/material';
 import { useAppDispatch, useAppSelector } from './store/store';
 import { restoreSession, clearAuth, updateUser } from './store/slices/authSlice';
 import { connectWebSocket, disconnectWebSocket, fetchNotifications, fetchUnreadCount } from './store/slices/notificationSlice';
+import NotificationRealtimeBridge from './components/NotificationRealtimeBridge';
 import { API_BASE_URL } from './api/config';
 import { ErrorBoundary } from './components/ErrorBoundary/ErrorBoundary';
 import { AsyncErrorBoundary } from './components/ErrorBoundary/AsyncErrorBoundary';
@@ -78,11 +79,13 @@ const ProtectedRoute = () => {
   }
 
   return (
+    <><NotificationRealtimeBridge />
     <Suspense fallback={<LoadingSpinner />}>
       <MainLayout>
         <Outlet />
       </MainLayout>
     </Suspense>
+    </>
   );
 };
 

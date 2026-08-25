@@ -65,6 +65,11 @@ DROP TABLE IF EXISTS `permissions`;
 DROP TABLE IF EXISTS `roles`;
 DROP TABLE IF EXISTS `user_sessions`;
 DROP TABLE IF EXISTS `user_audit_logs`;
+DROP TABLE IF EXISTS `customer_merge_snapshots`;
+DROP TABLE IF EXISTS `public_profile_domains`;
+DROP TABLE IF EXISTS `public_profile_link_checks`;
+DROP TABLE IF EXISTS `public_profile_revisions`;
+DROP TABLE IF EXISTS `public_profile_leads`;
 DROP TABLE IF EXISTS `public_profile_events`;
 DROP TABLE IF EXISTS `public_profile_links`;
 DROP TABLE IF EXISTS `public_profiles`;
@@ -972,7 +977,7 @@ CREATE TABLE `public_profile_link_checks` (
 
 CREATE TABLE `public_profile_domains` (
   `domainId` VARCHAR(36) NOT NULL, `profileId` VARCHAR(36) NOT NULL, `hostname` VARCHAR(253) NOT NULL,
-  `status` VARCHAR(16) NOT NULL DEFAULT 'pending', `verification` JSON NULL, `isCanonical` TINYINT(1) NOT NULL DEFAULT 0,
+  `status` VARCHAR(16) NOT NULL DEFAULT 'pending', `verification` JSON NULL, `isCanonical` TINYINT(1) NOT NULL DEFAULT 0, `redirectToCanonical` TINYINT(1) NOT NULL DEFAULT 1,
   `verifiedAt` DATETIME NULL, `lastCheckedAt` DATETIME NULL, `lastError` VARCHAR(500) NULL,
   `createdAt` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, `updatedAt` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`domainId`), UNIQUE KEY `UQ_profile_domain_hostname` (`hostname`), KEY `IDX_profile_domain_profile` (`profileId`),
@@ -1026,7 +1031,8 @@ INSERT INTO `migrations` (`timestamp`, `name`) VALUES
   (1840000000000, 'UserProfilesAndAchievements1840000000000'),
   (1850000000000, 'ProfileConversionPlatform1850000000000'),
   (1851000000000, 'ProfileTrustCampaign1851000000000'),
-  (1852000000000, 'ProfileCustomDomains1852000000000');
+  (1852000000000, 'ProfileCustomDomains1852000000000'),
+  (1853000000000, 'ProfileDomainRedirectPreference1853000000000');
 
 INSERT INTO `roles` (`roleName`, `description`, `roleLevel`) VALUES
   ('Owner', 'System owner with full access and ownership transfer authority', 999),

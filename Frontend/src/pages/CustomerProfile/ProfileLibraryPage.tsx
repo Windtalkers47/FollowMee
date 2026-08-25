@@ -295,9 +295,10 @@ const ProfileLibraryPage = () => {
                   label={t(`profile.visibility.${profile.visibility}`)}
                   variant="outlined"
                 />
+                {profile.effectiveStatus && <Chip size="small" label={t(`profile.effective.${profile.effectiveStatus}` as any)} color={profile.effectiveStatus === 'live' ? 'success' : profile.effectiveStatus === 'scheduled' ? 'info' : 'warning'} />}
                 <Chip
                   size="small"
-                  label={profile.shareStatus === 'ready_to_share' ? 'Ready to share' : profile.shareStatus === 'needs_attention' ? 'Needs attention' : 'Draft'}
+                  label={profile.shareStatus === 'ready_to_share' ? t('profile.shareStatus.ready_to_share') : profile.shareStatus === 'needs_attention' ? t('profile.shareStatus.needs_attention') : t('profile.shareStatus.draft')}
                   color={profile.shareStatus === 'ready_to_share' ? 'success' : profile.shareStatus === 'needs_attention' ? 'warning' : 'default'}
                   variant={profile.shareStatus === 'ready_to_share' ? 'filled' : 'outlined'}
                 />

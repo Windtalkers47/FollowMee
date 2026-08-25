@@ -179,7 +179,8 @@ export class PublicProfileController {
     try {
       const data = await this.service.getAnalytics(
         req.params.profileId,
-        this.userId(req)
+        this.userId(req),
+        { from: req.query.from as string | undefined, to: req.query.to as string | undefined, compare: req.query.compare === 'previous' }
       );
       return res.json({ success: true, data });
     } catch (error) {
@@ -188,12 +189,15 @@ export class PublicProfileController {
   };
 
   revisions = async (req: Request, res: Response) => { try { return res.json({ success: true, data: await profilePlatformService.revisions(req.params.profileId, this.userId(req)) }); } catch (error) { return this.sendError(res, error); } };
+  revisionDiff = async (req: Request, res: Response) => { try { return res.json({ success: true, data: await profilePlatformService.revisionDiff(req.params.profileId, req.params.revisionId, this.userId(req), req.query.againstRevisionId as string | undefined) }); } catch (error) { return this.sendError(res, error); } };
   restoreRevision = async (req: Request, res: Response) => { try { return res.json({ success: true, data: await profilePlatformService.restore(req.params.profileId, req.params.revisionId, this.userId(req), req.body?.slug) }); } catch (error) { return this.sendError(res, error); } };
   checkLinks = async (req: Request, res: Response) => { try { return res.json({ success: true, data: await profilePlatformService.checkLinks(req.params.profileId, this.userId(req)) }); } catch (error) { return this.sendError(res, error); } };
+  previewLinkImport = async (req: Request, res: Response) => { try { return res.json({ success: true, data: await profilePlatformService.previewLinkImport(req.params.profileId, this.userId(req), req.body || {}) }); } catch (error) { return this.sendError(res, error); } };
+  applyLinkImport = async (req: Request, res: Response) => { try { return res.json({ success: true, data: await profilePlatformService.applyLinkImport(req.params.profileId, this.userId(req), req.body || {}) }); } catch (error) { return this.sendError(res, error); } };
   domains = async (req: Request, res: Response) => { try { return res.json({ success: true, data: await profilePlatformService.domains(req.params.profileId, this.userId(req)) }); } catch (error) { return this.sendError(res, error); } };
   addDomain = async (req: Request, res: Response) => { try { return res.status(201).json({ success: true, data: await profilePlatformService.addDomain(req.params.profileId, this.userId(req), String(req.body?.hostname || '')) }); } catch (error) { return this.sendError(res, error); } };
   verifyDomain = async (req: Request, res: Response) => { try { return res.json({ success: true, data: await profilePlatformService.verifyDomain(req.params.profileId, req.params.domainId, this.userId(req)) }); } catch (error) { return this.sendError(res, error); } };
-  setCanonicalDomain = async (req: Request, res: Response) => { try { return res.json({ success: true, data: await profilePlatformService.setCanonicalDomain(req.params.profileId, req.params.domainId, this.userId(req)) }); } catch (error) { return this.sendError(res, error); } };
+  setCanonicalDomain = async (req: Request, res: Response) => { try { return res.json({ success: true, data: await profilePlatformService.setCanonicalDomain(req.params.profileId, req.params.domainId, this.userId(req), req.body?.redirectToCanonical !== false) }); } catch (error) { return this.sendError(res, error); } };
   removeDomain = async (req: Request, res: Response) => { try { await profilePlatformService.removeDomain(req.params.profileId, req.params.domainId, this.userId(req)); return res.json({ success: true }); } catch (error) { return this.sendError(res, error); } };
 
   publicBySlug = async (req: Request, res: Response) => {

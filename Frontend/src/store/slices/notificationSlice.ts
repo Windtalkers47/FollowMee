@@ -20,6 +20,7 @@ interface NotificationState {
   settingsLoading: boolean;
   settingsError: string | null;
   dropdownOpen: boolean;
+  latestIncoming: NotificationRecipient | null;
   lastOffset?: number; // Track last offset for pagination (U2-PAGINATION FIX)
 }
 
@@ -33,6 +34,7 @@ const initialState: NotificationState = {
   settingsLoading: false,
   settingsError: null,
   dropdownOpen: false,
+  latestIncoming: null,
   lastOffset: 0,
 };
 
@@ -158,6 +160,7 @@ const notificationSlice = createSlice({
         return;
       }
       state.notifications.unshift(action.payload);
+      state.latestIncoming = action.payload;
       state.total += 1;
       if (!action.payload.isRead) {
         state.unreadCount += 1;
@@ -352,6 +355,8 @@ export const selectNotificationError = (state: { notifications: NotificationStat
   state.notifications.error;
 export const selectDropdownOpen = (state: { notifications: NotificationState }) =>
   state.notifications.dropdownOpen;
+export const selectLatestIncomingNotification = (state: { notifications: NotificationState }) =>
+  state.notifications.latestIncoming;
 export const selectSettings = (state: { notifications: NotificationState }) =>
   state.notifications.settings;
 export const selectSettingsLoading = (state: { notifications: NotificationState }) =>

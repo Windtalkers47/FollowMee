@@ -45,6 +45,7 @@ import { getMissingPublishingFields } from '../../utils/profilePublishing';
 import ProfileOperationsPanel from '../../components/PublicProfile/ProfileOperationsPanel';
 import type { MessageKey } from '../../i18n/messages';
 import { PageActionBar, PageError, PageHeader, PageLoading, PageShell } from '../../components/PageState';
+import { feedback } from '../../services/feedback.service';
 
 const emptyLink = (sortOrder: number): ProfileLink => ({
   platform: 'website',
@@ -152,6 +153,12 @@ const ProfileEditorPage = () => {
 
   const save = useCallback(async (silent = false, candidate = profile) => {
     if (!candidate) return null;
+    const scheduleStart = candidate.publishStartAt ? new Date(candidate.publishStartAt) : null;
+    const scheduleEnd = candidate.publishEndAt ? new Date(candidate.publishEndAt) : null;
+    if ((scheduleStart && scheduleEnd && scheduleStart >= scheduleEnd) || (scheduleEnd && scheduleEnd <= new Date())) {
+      if (!silent) setError(t('profile.schedule.invalid'));
+      return null;
+    }
     setSaving(true);
     setError('');
     try {
@@ -266,7 +273,9 @@ const ProfileEditorPage = () => {
         try {
           updated = await publicProfileApi.publish(saved.profileId);
         } catch (publishWarning) {
-          if (!(publishWarning instanceof PublicProfileApiError) || publishWarning.code !== 'PROFILE_PUBLISH_LINK_WARNINGS' || !window.confirm(t('profile.links.publishWarningConfirm'))) throw publishWarning;
+          if (!(publishWarning instanceof PublicProfileApiError) || publishWarning.code !== 'PROFILE_PUBLISH_LINK_WARNINGS') throw publishWarning;
+          const confirmation = await feedback.confirm({ title: t('profile.links.publishWarningTitle'), message: t('profile.links.publishWarningConfirm'), consequence: (publishWarning.details?.linkChecks as Array<{ url?: string }> | undefined)?.map(item => item.url).filter(Boolean).join('\n'), confirmLabel: t('profile.editor.publish'), cancelLabel: t('common.cancel') });
+          if (!confirmation.isConfirmed) throw publishWarning;
           updated = await publicProfileApi.publish(saved.profileId, true);
         }
       }
@@ -676,7 +685,12 @@ const ProfileEditorPage = () => {
                   [t('profile.editor.views'), analytics?.viewCount || Number(profile.viewCount || 0)],
                   [t('profile.editor.linkClicks'), analytics?.totals.link_click || 0],
                   [t('profile.analytics.leads'), analytics?.funnel?.leads || 0],
-                  [t('profile.analytics.conversionRate'), `${analytics?.conversionRate || 0}%`],
+                  [t('profile.analytics.conversionRate'), `${((analytics?.conversionRate || 0) * 100).toFixed(1)}%`],
+                  [t('profile.analytics.viewToLead'), `${((analytics?.viewToLeadRate || 0) * 100).toFixed(1)}%`],
+                  [t('profile.analytics.ctr'), `${((analytics?.clickThroughRate || 0) * 100).toFixed(1)}%`],
+                  [t('profile.analytics.sessions'), analytics?.sessions || 0],
+                  [t('profile.analytics.visitors'), analytics?.uniqueVisitors || 0],
+                  [t('profile.analytics.timeToConversion'), analytics?.timeToConversionSeconds == null ? '—' : t('profile.analytics.minutes', { count: Math.round(analytics.timeToConversionSeconds / 60) })],
                 ].map(([label, value]) => (
                   <Box key={label} sx={{ p: 1.25, borderRadius: 2.5, bgcolor: 'action.hover' }}>
                     <Typography variant="h6" fontWeight={850}>{value}</Typography>
@@ -685,6 +699,8 @@ const ProfileEditorPage = () => {
                 ))}
               </Box>
               {!!analytics?.funnel?.views && analytics.funnel.clicks / analytics.funnel.views < 0.05 && <Alert severity="info" sx={{ mt: 1.5 }}>{t('profile.analytics.lowCtrInsight')}</Alert>}
+              {!!analytics?.devices?.length && <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5 }}>{analytics.devices.map(item => `${item.device}: ${item.count}`).join(' · ')}</Typography>}
+              {analytics && <Button size="small" sx={{ mt: 1.5 }} onClick={() => { const rows = [['metric','value'],['views',analytics.funnel?.views || 0],['clicks',analytics.funnel?.clicks || 0],['leads',analytics.funnel?.leads || 0],['qualified',analytics.funnel?.qualified || 0],['converted',analytics.funnel?.converted || 0],['uniqueVisitors',analytics.uniqueVisitors || 0],['sessions',analytics.sessions || 0]]; const blob = new Blob([rows.map(row => row.join(',')).join('\n')], { type: 'text/csv;charset=utf-8' }); const href = URL.createObjectURL(blob); const anchor = document.createElement('a'); anchor.href = href; anchor.download = `${profile.slug}-analytics.csv`; anchor.click(); URL.revokeObjectURL(href); }}>{t('profile.analytics.export')}</Button>}
           </Paper>
           <ProfileOperationsPanel profile={profile} onUpdated={(updated) => { setProfile(updated); setLastSavedSnapshot(JSON.stringify(updated)); }} />
         </Box>

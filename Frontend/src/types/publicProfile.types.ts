@@ -139,17 +139,24 @@ export interface ProfileAnalytics {
   uniqueVisitors?: number;
   sessions?: number;
   conversionRate?: number;
+  viewToLeadRate?: number;
+  clickThroughRate?: number;
+  period?: { from: string; to: string };
   funnel?: { views: number; clicks: number; leads: number; qualified: number; converted: number };
-  campaigns?: Array<{ source: string; count: number }>;
+  previous?: { totals: Partial<Record<ProfileEventType, number>>; funnel: { views: number; clicks: number; leads: number; qualified: number; converted: number } } | null;
+  targetCtr?: Array<{ target: string; clicks: number; rate: number }>;
+  devices?: Array<{ device: string; count: number }>;
+  timeToConversionSeconds?: number | null;
+  campaigns?: Array<{ source: string; medium?: string | null; campaign?: string | null; count: number }>;
   referrers?: Array<{ referrer: string; count: number }>;
 }
 
 export type ProfileLeadStatus = 'new' | 'contacted' | 'qualified' | 'converted' | 'spam' | 'archived';
 export interface ProfileLead {
   leadId: string; profileId: string; name: string; email: string | null; phone: string | null;
-  message: string | null; status: ProfileLeadStatus; createdAt: string; convertedCustomerId: string | null;
+  message: string | null; status: ProfileLeadStatus; createdAt: string; convertedCustomerId: string | null; assignedTo?: number | null;
   profile?: Pick<PublicProfileRecord, 'profileId' | 'displayName' | 'slug'>;
 }
 export interface ProfileRevision { revisionId: string; profileId: string; version: number; reason: string; createdAt: string; snapshot: Partial<PublicProfileRecord>; }
 export interface ProfileLinkCheck { checkId: string; targetKey: string; url: string; status: 'ok' | 'warning' | 'invalid' | 'unchecked'; httpStatus: number | null; detail: string | null; checkedAt: string; }
-export interface ProfileDomain { domainId: string; hostname: string; status: 'pending' | 'verifying' | 'active' | 'failed' | 'disabled'; verification: Record<string, unknown> | null; isCanonical: boolean; verifiedAt: string | null; }
+export interface ProfileDomain { domainId: string; hostname: string; status: 'pending' | 'verifying' | 'active' | 'failed' | 'disabled'; verification: Record<string, unknown> | null; isCanonical: boolean; redirectToCanonical: boolean; verifiedAt: string | null; lastCheckedAt?: string | null; lastError?: string | null; }

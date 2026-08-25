@@ -32,7 +32,9 @@ type LandingCardProfile = PublicProfileLanding | PublicProfileRecord;
 interface ProfileLandingCardProps {
   profile: LandingCardProfile;
   preview?: boolean;
+  interactionMode?: 'live' | 'editor-preview' | 'demo';
   onEvent?: (eventType: ProfileEventType, target?: string) => void;
+  onDemoAction?: (eventType: ProfileEventType, target?: string) => void;
   disableMotion?: boolean;
 }
 
@@ -60,25 +62,30 @@ const getContact = (profile: LandingCardProfile) => {
 const ProfileLandingCard = ({
   profile,
   preview = false,
+  interactionMode,
   onEvent,
+  onDemoAction,
   disableMotion = false,
 }: ProfileLandingCardProps) => {
   const { t, profileCardMotion } = useUserPreferences();
   const [tilt, setTilt] = useState({ x: 0, y: 0 });
   const colors = resolveProfileAppearance(profile);
   const contact = getContact(profile);
+  const mode = interactionMode || (preview ? 'editor-preview' : 'live');
+  const isPreview = mode === 'editor-preview';
 
   const track =
     (eventType: ProfileEventType, target?: string) =>
     (event: MouseEvent<HTMLElement>) => {
-      if (preview) event.preventDefault();
-      onEvent?.(eventType, target);
+      if (isPreview || mode === 'demo') event.preventDefault();
+      if (mode === 'demo') onDemoAction?.(eventType, target);
+      else onEvent?.(eventType, target);
     };
 
   return (
     <Box
       onPointerMove={(event) => {
-        if (!preview || disableMotion || profileCardMotion === 'off' || event.pointerType === 'touch' || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+        if (mode === 'live' || disableMotion || profileCardMotion === 'off' || event.pointerType === 'touch' || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
         const rect = event.currentTarget.getBoundingClientRect();
         const strength = profileCardMotion === 'full' ? 10 : 5;
         setTilt({ x: ((event.clientY - rect.top) / rect.height - .5) * -strength, y: ((event.clientX - rect.left) / rect.width - .5) * strength });
@@ -95,7 +102,7 @@ const ProfileLandingCard = ({
         position: 'relative',
         overflow: 'hidden',
         isolation: 'isolate',
-        transform: preview && !disableMotion ? `perspective(1200px) rotateX(${tilt.x}deg) rotateY(${tilt.y}deg)` : 'none',
+        transform: mode !== 'live' && !disableMotion ? `perspective(1200px) rotateX(${tilt.x}deg) rotateY(${tilt.y}deg)` : 'none',
         transformStyle: 'preserve-3d',
         transition: 'transform 180ms ease, box-shadow 180ms ease',
         '@media (pointer: coarse), (prefers-reduced-motion: reduce)': { transform: 'none !important', transition: 'none' },
@@ -129,7 +136,7 @@ const ProfileLandingCard = ({
       }}
     >
       <Stack alignItems="center" spacing={2.25} sx={{ maxWidth: 520, mx: 'auto' }}>
-        {preview && (
+        {mode !== 'live' && (
           <Chip
             label={t('profile.preview.live')}
             size="small"

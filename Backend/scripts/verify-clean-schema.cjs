@@ -27,6 +27,14 @@ async function verify() {
   const expectedTables = [
     ...sourceSql.matchAll(/CREATE TABLE `([^`]+)`/g),
   ].map((match) => match[1]).sort();
+  const migrationDirectory = path.resolve(__dirname, '..', 'src', 'migrations');
+  const expectedMigrations = fs.readdirSync(migrationDirectory)
+    .filter((file) => /^\d+-.+\.ts$/.test(file))
+    .map((file) => {
+      const match = file.match(/^(\d+)-(.+)\.ts$/);
+      return `${match[2]}${match[1]}`;
+    })
+    .sort();
   const verificationSql = sourceSql.replace(
     /`followmee`/g,
     `\`${VERIFY_DATABASE}\``
@@ -58,9 +66,11 @@ async function verify() {
       [VERIFY_DATABASE]
     );
     const [migrationRows] = await connection.query(
-      `SELECT COUNT(*) AS count
-       FROM \`${VERIFY_DATABASE}\`.\`migrations\``
+      `SELECT name
+       FROM \`${VERIFY_DATABASE}\`.\`migrations\`
+       ORDER BY name`
     );
+    const actualMigrations = migrationRows.map((row) => row.name).sort();
     const [indexRows] = await connection.query(
       `SELECT COUNT(DISTINCT TABLE_NAME, INDEX_NAME) AS count
        FROM information_schema.STATISTICS
@@ -105,7 +115,10 @@ async function verify() {
       foreignKeys: Number(foreignKeyRows[0].count),
       secondaryIndexes: Number(indexRows[0].count),
       tablesMissingPrimaryKey: missingPrimaryKeyRows.map((row) => row.TABLE_NAME),
-      migrations: Number(migrationRows[0].count),
+      migrations: actualMigrations.length,
+      expectedMigrations: expectedMigrations.length,
+      missingMigrations: expectedMigrations.filter((name) => !actualMigrations.includes(name)),
+      unexpectedMigrations: actualMigrations.filter((name) => !expectedMigrations.includes(name)),
       userIdAutoIncrement: String(userIdentityRows[0]?.EXTRA || '')
         .toLowerCase()
         .includes('auto_increment'),
@@ -116,7 +129,8 @@ async function verify() {
       missingTables.length ||
       unexpectedTables.length ||
       result.tablesMissingPrimaryKey.length ||
-      result.migrations !== 22 ||
+      result.missingMigrations.length ||
+      result.unexpectedMigrations.length ||
       !result.userIdAutoIncrement
     ) {
       throw new Error(`Clean schema verification failed: ${JSON.stringify(result)}`);

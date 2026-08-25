@@ -12,6 +12,7 @@ import auditService from './audit.service';
 import { UserRole } from '../entities/UserRole';
 import { NotificationHelper } from '../utils/notification.util';
 import { isOwnerRole } from '../utils/role.util';
+import { User } from '../entities/User';
 
 export interface PublicLeadInput {
   name?: string;
@@ -81,7 +82,7 @@ export class ProfileLeadService {
         utmCampaign: clean(input.utmCampaign, 120) || null, anonymizedAt: null,
       }));
       await manager.getRepository(PublicProfileEvent).save(manager.getRepository(PublicProfileEvent).create({
-        profileId: profile.profileId, eventType: 'lead_submit', target: 'lead_form', deviceType: saved.deviceType,
+        profileId: profile.profileId, eventType: 'lead_submit', target: saved.leadId, deviceType: saved.deviceType,
         ipHash: saved.ipHash, userAgentHash: saved.userAgentHash, referrer: saved.referrer,
         visitorHash: saved.visitorHash, sessionId: clean(input.sessionId, 64) || null,
         utmSource: saved.utmSource, utmMedium: saved.utmMedium, utmCampaign: saved.utmCampaign,
@@ -131,6 +132,18 @@ export class ProfileLeadService {
     await this.leadRepository.save(lead);
     if (status === 'qualified') await dataSource.getRepository(PublicProfileEvent).save({ profileId: lead.profileId, eventType: 'lead_qualified', target: lead.leadId, deviceType: lead.deviceType });
     return lead;
+  }
+
+  async assign(leadId: string, userId: number, assignedToInput: unknown) {
+    const lead = await this.get(leadId, userId);
+    const assignedTo = Number(assignedToInput);
+    if (!Number.isInteger(assignedTo) || assignedTo <= 0) throw new ApplicationError('Choose a valid assignee', 'PROFILE_LEAD_ASSIGNEE_INVALID', 400);
+    const user = await dataSource.getRepository(User).findOne({ where: { userId: assignedTo, isActive: true } });
+    if (!user) throw new ApplicationError('Assignee not found', 'PROFILE_LEAD_ASSIGNEE_NOT_FOUND', 404);
+    lead.assignedTo = assignedTo;
+    const saved = await this.leadRepository.save(lead);
+    await auditService.logEvent({ userId, action: 'PUBLIC_PROFILE_LEAD_ASSIGNED', status: 'SUCCESS', details: { leadId, assignedTo } });
+    return saved;
   }
 
   async duplicatePreview(leadId: string, userId: number) {

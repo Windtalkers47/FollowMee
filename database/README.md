@@ -19,6 +19,7 @@ database are:
 - `ProfileConversionPlatform1850000000000` (Phase 1: analytics and Lead Inbox)
 - `ProfileTrustCampaign1851000000000` (Phase 2: revisions, link health, merge recovery and scheduling)
 - `ProfileCustomDomains1852000000000` (Phase 3: domain verification state; deploy before enabling its flag)
+- `ProfileDomainRedirectPreference1853000000000` (Phase 3: additive canonical-domain redirect preference)
 
 Before the public-profile migration on 26 July 2026, a SQL backup was written
 to `C:\PAom\data_backup_20260726\followmee_before_public_profiles.sql`.
@@ -98,9 +99,10 @@ schema against an existing production or data-bearing `followmee` database.
 
 ## Verify the clean schema safely
 
-The verifier creates only a temporary `followmee_schema_verify` database,
-runs the complete clean schema, checks tables, foreign keys, migration ledger,
-identity columns and seed rows, then drops the temporary database:
+The verifier recreates only the disposable `followmee_e2e` database, runs the
+complete clean schema, checks tables, foreign keys, migration ledger against
+the migration source files, identity columns and seed rows, then drops the
+disposable database. Never point this command at `followmee`:
 
 ```powershell
 cd C:\PAom\FollowMee\Backend

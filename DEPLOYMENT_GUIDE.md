@@ -1,6 +1,6 @@
 # FollowMee Deployment Guide
 
-อัปเดตล่าสุด: 17 สิงหาคม 2026
+อัปเดตล่าสุด: 25 สิงหาคม 2026
 Production flow: **GitHub `main` → Render Backend + Vercel Frontend → TiDB Cloud**
 
 อ่าน [Developer Handbook](docs/DEVELOPER_HANDBOOK.md) และ [production migration runbook](docs/PRODUCTION_MIGRATION_RUNBOOK.md) ก่อน deployment ที่มี migration
@@ -93,14 +93,16 @@ VITE_ENCRYPTION_KEY=<non-secret-compatibility-value>
 
 ค่าที่ขึ้นต้น `VITE_` เป็นข้อมูลสาธารณะที่ bundle ใน browser `VITE_ENCRYPTION_KEY` ไม่ใช่ secret และไม่แทน TLS/server authentication
 
-`Frontend/vercel.json` rewrite `/p/:slug` ไป `api/profile.ts` เพื่อสร้าง server-rendered title/canonical/OG/Twitter/robots และใช้ SPA fallback สำหรับ route อื่น Function ต้อง include `dist/index.html` และเข้าถึง `VITE_API_URL` ตอน deploy; PR deployment ใช้เป็น preview ได้ แต่ backend ต้อง allow เฉพาะ origin ที่อนุมัติ
+`Frontend/vercel.json` rewrite `/p/:slug` ไป `api/profile.ts` เพื่อสร้าง server-rendered title/canonical/OG/Twitter/robots และใช้ SPA fallback สำหรับ route อื่น Function ต้อง include `dist/index.html` และเข้าถึง `VITE_API_URL` ตอน deploy; `api/profile-og.ts` สร้างภาพ PNG 1200×630 ด้วย `@vercel/og` สำหรับ social crawler ส่วน PR deployment ใช้เป็น preview ได้ แต่ backend ต้อง allow เฉพาะ origin ที่อนุมัติ
+
+ทดสอบ local SSR ด้วย `npm run start:ssr` จาก project root แล้วตรวจ raw response ของ `/p/:slug` โดยไม่รัน JavaScript ห้ามใช้ Vite `localhost:5173` เป็นหลักฐาน SEO เพราะเป็น SPA development server
 
 ## 4. Release flow
 
 1. รวม feature PR เข้า `develop`
 2. รัน `npm run verify` และตรวจ CI
 3. สร้าง release PR จาก `develop` ไป `main`
-4. หากมี migration ให้ทำ backup/restore drill และ maintenance coordination ก่อน merge; deploy ordered migration ของ Phase 1 (`1850000000000`), Phase 2 (`1851000000000`) และ Phase 3 (`1852000000000`) ก่อนเปิด capability/flag ของเฟสนั้น
+4. หากมี migration ให้ทำ backup/restore drill และ maintenance coordination ก่อน merge; deploy ordered migration ของ Phase 1 (`1850000000000`), Phase 2 (`1851000000000`), Phase 3 (`1852000000000`) และ custom-domain redirect preference (`1853000000000`) ก่อนเปิด capability/flag ของเฟสนั้น
 5. Merge เมื่อ CI และ operational checklist ผ่าน
 6. Render และ Vercel deploy จาก `main`
 7. ตรวจ Render migration/start logs และ `GET /health`
@@ -121,6 +123,7 @@ git diff --check
 - CORS ยอมรับ production origin และ reject lookalike origins
 - Socket.IO แสดง Connected และ reconnect ได้
 - migration ledger ไม่มี pending migration ที่ไม่ตั้งใจ
+- raw HTML ของ public profile มี title/canonical/robots/OG/Twitter เพียงชุดเดียว, OG endpoint ตอบ `image/png` ขนาด 1200×630 และ metadata request ไม่เพิ่ม view
 - logs ไม่มี secrets หรือ customer data
 
 ## Troubleshooting

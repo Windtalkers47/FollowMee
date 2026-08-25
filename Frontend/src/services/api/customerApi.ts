@@ -315,6 +315,24 @@ export const customerApi = {
     return response.data;
   },
 
+  async mergePreview(sourceCustomerId: string, targetCustomerId: string): Promise<{
+    source: CustomerData; target: CustomerData;
+    fields: Array<{ field: string; source: unknown; target: unknown; recommended: 'source' | 'target' }>;
+    profiles: Array<{ profileId: string; customerId: string | null; displayName: string; status: string }>;
+  }> {
+    type MergePreviewData = {
+      source: CustomerData; target: CustomerData;
+      fields: Array<{ field: string; source: unknown; target: unknown; recommended: 'source' | 'target' }>;
+      profiles: Array<{ profileId: string; customerId: string | null; displayName: string; status: string }>;
+    };
+    const response = await apiRequest<{ data: MergePreviewData }>('/customers/merge-preview', 'POST', { sourceCustomerId, targetCustomerId });
+    return response.data;
+  },
+
+  async mergeCustomers(input: { sourceCustomerId: string; targetCustomerId: string; values: Record<string, unknown>; keepProfileId?: string }): Promise<void> {
+    await apiRequest('/customers/merge', 'POST', input);
+  },
+
   async getTimeline(customerId: string): Promise<Array<{
     activityId: number; activityType: string; metadata: Record<string, unknown> | null; createdAt: string;
     actorUserId?: number; actorUserName?: string; actorUserLastName?: string; actorUserImageUrl?: string;

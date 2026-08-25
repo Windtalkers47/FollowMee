@@ -11,6 +11,7 @@ export class ProfileLeadController {
   list = async (req: Request, res: Response) => { try { return res.json({ success: true, data: await profileLeadService.list(this.userId(req), { status: req.query.status as PublicProfileLeadStatus, profileId: req.query.profileId as string, page: Number(req.query.page), limit: Number(req.query.limit) }) }); } catch (e) { return this.sendError(res, e); } };
   get = async (req: Request, res: Response) => { try { return res.json({ success: true, data: await profileLeadService.get(req.params.leadId, this.userId(req)) }); } catch (e) { return this.sendError(res, e); } };
   status = async (req: Request, res: Response) => { try { return res.json({ success: true, data: await profileLeadService.updateStatus(req.params.leadId, this.userId(req), req.body?.status) }); } catch (e) { return this.sendError(res, e); } };
+  assign = async (req: Request, res: Response) => { try { return res.json({ success: true, data: await profileLeadService.assign(req.params.leadId, this.userId(req), req.body?.assignedTo) }); } catch (e) { return this.sendError(res, e); } };
   duplicatePreview = async (req: Request, res: Response) => { try { return res.json({ success: true, data: await profileLeadService.duplicatePreview(req.params.leadId, this.userId(req)) }); } catch (e) { return this.sendError(res, e); } };
   convert = async (req: Request, res: Response) => { try { return res.json({ success: true, data: await profileLeadService.convert(req.params.leadId, this.userId(req), req.body || {}) }); } catch (e) { return this.sendError(res, e); } };
 }

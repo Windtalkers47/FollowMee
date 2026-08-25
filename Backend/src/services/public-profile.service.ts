@@ -117,7 +117,7 @@ export class PublicProfileService {
       canDelete: customerCapabilities.canDelete,
       canManageLeads: customerCapabilities.canEdit,
       canMergeCustomers: access.isOwner || customerCapabilities.canDelete,
-      canManageDomain: access.isOwner,
+      canManageDomain: access.isOwner && process.env.PROFILE_CUSTOM_DOMAINS_ENABLED === 'true',
     };
   }
 
@@ -287,7 +287,6 @@ export class PublicProfileService {
     if (!(profile as PublicProfile & { capabilities: { canEdit: boolean } }).capabilities.canEdit) {
       throw new ApplicationError('Only the customer creator, assignee, or Owner can edit this profile', 'PROFILE_EDIT_FORBIDDEN', 403);
     }
-    await profilePlatformService.recordRevision(profileId, userId, input.revisionReason === 'manual' ? 'manual' : 'autosave');
     profile.updatedBy = userId;
 
     for (const field of editableFields) {
@@ -334,6 +333,7 @@ export class PublicProfileService {
         if (links.length) await manager.getRepository(PublicProfileLink).save(links);
       }
     });
+    await profilePlatformService.recordRevision(profileId, userId, input.revisionReason === 'manual' ? 'manual' : 'autosave');
     return this.getOwned(profileId, userId);
   }
 
@@ -438,6 +438,7 @@ export class PublicProfileService {
       robots: profile?.visibility === 'public' ? 'index,follow' : 'noindex,follow',
       cacheRevision: crypto.createHash('sha1').update(`${data.profileId}:${profile?.updatedAt?.toISOString() || ''}`).digest('hex').slice(0, 12),
       canonicalUrl: canonicalDomain ? `https://${canonicalDomain.hostname}/p/${data.slug}` : null,
+      redirectToCanonical: canonicalDomain?.redirectToCanonical ?? false,
     };
   }
 
@@ -462,6 +463,7 @@ export class PublicProfileService {
       'qr_open',
     ];
     if (!allowedEvents.includes(eventType)) throw new Error('Unsupported event type');
+    if (/bot|crawler|spider|preview|facebookexternalhit|twitterbot|linkedinbot|line-poker/i.test(context.userAgent || '')) return;
 
     const salt = process.env.PROFILE_ANALYTICS_SALT || process.env.JWT_SECRET || 'followmee';
     const hash = (value?: string | null) =>
@@ -496,13 +498,19 @@ export class PublicProfileService {
     }
   }
 
-  async getAnalytics(profileId: string, userId: number) {
+  async getAnalytics(profileId: string, userId: number, filters: { from?: string; to?: string; compare?: boolean } = {}) {
     const profile = await this.getOwned(profileId, userId);
+    const to = filters.to && !Number.isNaN(Date.parse(filters.to)) ? new Date(filters.to) : new Date();
+    const from = filters.from && !Number.isNaN(Date.parse(filters.from)) ? new Date(filters.from) : new Date(to.getTime() - 30 * 24 * 60 * 60_000);
+    if (from >= to) throw new ApplicationError('Analytics start must be before end', 'PROFILE_ANALYTICS_RANGE_INVALID', 400);
+    const boundedFrom = new Date(Math.max(from.getTime(), to.getTime() - 366 * 24 * 60 * 60_000));
+    const duration = to.getTime() - boundedFrom.getTime(); const previousFrom = new Date(boundedFrom.getTime() - duration); const previousTo = boundedFrom;
     const eventRows = await this.eventRepository
       .createQueryBuilder('event')
       .select('event.eventType', 'eventType')
       .addSelect('COUNT(*)', 'count')
       .where('event.profileId = :profileId', { profileId })
+      .andWhere('event.occurredAt >= :from AND event.occurredAt < :to', { from: boundedFrom, to })
       .groupBy('event.eventType')
       .getRawMany<{ eventType: PublicProfileEventType; count: string }>();
     const dailyViews = await this.eventRepository
@@ -511,7 +519,7 @@ export class PublicProfileService {
       .addSelect('COUNT(*)', 'count')
       .where('event.profileId = :profileId', { profileId })
       .andWhere("event.eventType = 'view'")
-      .andWhere('event.occurredAt >= DATE_SUB(NOW(), INTERVAL 30 DAY)')
+      .andWhere('event.occurredAt >= :from AND event.occurredAt < :to', { from: boundedFrom, to })
       .groupBy('DATE(event.occurredAt)')
       .orderBy('DATE(event.occurredAt)', 'ASC')
       .getRawMany<{ date: string; count: string }>();
@@ -520,17 +528,21 @@ export class PublicProfileService {
       .select('event.target', 'target')
       .addSelect('COUNT(*)', 'count')
       .where('event.profileId = :profileId', { profileId })
+      .andWhere('event.occurredAt >= :from AND event.occurredAt < :to', { from: boundedFrom, to })
       .andWhere("event.eventType IN ('link_click', 'cta_click')")
       .andWhere('event.target IS NOT NULL')
       .groupBy('event.target')
       .orderBy('COUNT(*)', 'DESC')
       .limit(5)
       .getRawMany<{ target: string; count: string }>();
-    const [uniqueRow, sessionRow, campaignRows, referrerRows] = await Promise.all([
-      this.eventRepository.createQueryBuilder('event').select('COUNT(DISTINCT event.visitorHash)', 'count').where('event.profileId = :profileId', { profileId }).andWhere("event.eventType = 'view'").getRawOne<{ count: string }>(),
-      this.eventRepository.createQueryBuilder('event').select('COUNT(DISTINCT event.sessionId)', 'count').where('event.profileId = :profileId', { profileId }).andWhere('event.sessionId IS NOT NULL').getRawOne<{ count: string }>(),
-      this.eventRepository.createQueryBuilder('event').select('event.utmSource', 'source').addSelect('COUNT(*)', 'count').where('event.profileId = :profileId', { profileId }).andWhere('event.utmSource IS NOT NULL').groupBy('event.utmSource').orderBy('COUNT(*)', 'DESC').limit(10).getRawMany<{ source: string; count: string }>(),
-      this.eventRepository.createQueryBuilder('event').select('event.referrer', 'referrer').addSelect('COUNT(*)', 'count').where('event.profileId = :profileId', { profileId }).andWhere('event.referrer IS NOT NULL').groupBy('event.referrer').orderBy('COUNT(*)', 'DESC').limit(10).getRawMany<{ referrer: string; count: string }>(),
+    const [uniqueRow, sessionRow, campaignRows, referrerRows, deviceRows, previousRows, timeRows] = await Promise.all([
+      this.eventRepository.createQueryBuilder('event').select('COUNT(DISTINCT event.visitorHash)', 'count').where('event.profileId = :profileId', { profileId }).andWhere("event.eventType = 'view'").andWhere('event.occurredAt >= :from AND event.occurredAt < :to', { from: boundedFrom, to }).getRawOne<{ count: string }>(),
+      this.eventRepository.createQueryBuilder('event').select('COUNT(DISTINCT event.sessionId)', 'count').where('event.profileId = :profileId', { profileId }).andWhere('event.sessionId IS NOT NULL').andWhere('event.occurredAt >= :from AND event.occurredAt < :to', { from: boundedFrom, to }).getRawOne<{ count: string }>(),
+      this.eventRepository.createQueryBuilder('event').select("COALESCE(event.utmSource, '(direct)')", 'source').addSelect('event.utmMedium', 'medium').addSelect('event.utmCampaign', 'campaign').addSelect('COUNT(*)', 'count').where('event.profileId = :profileId', { profileId }).andWhere('event.occurredAt >= :from AND event.occurredAt < :to', { from: boundedFrom, to }).groupBy('event.utmSource').addGroupBy('event.utmMedium').addGroupBy('event.utmCampaign').orderBy('COUNT(*)', 'DESC').limit(10).getRawMany<{ source: string; medium: string | null; campaign: string | null; count: string }>(),
+      this.eventRepository.createQueryBuilder('event').select('event.referrer', 'referrer').addSelect('COUNT(*)', 'count').where('event.profileId = :profileId', { profileId }).andWhere('event.referrer IS NOT NULL').andWhere('event.occurredAt >= :from AND event.occurredAt < :to', { from: boundedFrom, to }).groupBy('event.referrer').orderBy('COUNT(*)', 'DESC').limit(10).getRawMany<{ referrer: string; count: string }>(),
+      this.eventRepository.createQueryBuilder('event').select("COALESCE(event.deviceType, 'unknown')", 'device').addSelect('COUNT(*)', 'count').where('event.profileId = :profileId', { profileId }).andWhere('event.occurredAt >= :from AND event.occurredAt < :to', { from: boundedFrom, to }).groupBy('event.deviceType').getRawMany<{ device: string; count: string }>(),
+      filters.compare ? this.eventRepository.createQueryBuilder('event').select('event.eventType', 'eventType').addSelect('COUNT(*)', 'count').where('event.profileId = :profileId', { profileId }).andWhere('event.occurredAt >= :from AND event.occurredAt < :to', { from: previousFrom, to: previousTo }).groupBy('event.eventType').getRawMany<{ eventType: PublicProfileEventType; count: string }>() : Promise.resolve([]),
+      dataSource.query("SELECT AVG(TIMESTAMPDIFF(SECOND, submitted.occurredAt, converted.occurredAt)) AS avgSeconds FROM public_profile_events submitted JOIN public_profile_events converted ON converted.profileId = submitted.profileId AND converted.target = submitted.target AND converted.eventType = 'lead_converted' WHERE submitted.profileId = ? AND submitted.eventType = 'lead_submit' AND submitted.occurredAt >= ? AND submitted.occurredAt < ?", [profileId, boundedFrom, to]) as Promise<Array<{ avgSeconds: string | null }>>,
     ]);
 
     const totals = eventRows.reduce<Record<string, number>>((result, row) => {
@@ -538,7 +550,9 @@ export class PublicProfileService {
       return result;
     }, {});
 
-    const views = totals.view || Number(profile.viewCount || 0); const leads = totals.lead_submit || 0; const converted = totals.lead_converted || 0;
+    const previous = previousRows.reduce<Record<string, number>>((result, row) => { result[row.eventType] = Number(row.count); return result; }, {});
+    const views = totals.view || 0; const leads = totals.lead_submit || 0; const converted = totals.lead_converted || 0;
+    const clicks = (totals.link_click || 0) + (totals.cta_click || 0);
     return {
       profileId: profile.profileId,
       viewCount: Number(profile.viewCount || 0),
@@ -547,9 +561,16 @@ export class PublicProfileService {
       topTargets: topTargets.map((row) => ({ target: row.target, count: Number(row.count) })),
       uniqueVisitors: Number(uniqueRow?.count || 0),
       sessions: Number(sessionRow?.count || 0),
-      conversionRate: views ? converted / views : 0,
-      funnel: { views, clicks: (totals.link_click || 0) + (totals.cta_click || 0), leads, qualified: totals.lead_qualified || 0, converted },
-      campaigns: campaignRows.map(row => ({ source: row.source, count: Number(row.count) })),
+      period: { from: boundedFrom.toISOString(), to: to.toISOString() },
+      conversionRate: leads ? converted / leads : 0,
+      viewToLeadRate: views ? leads / views : 0,
+      clickThroughRate: views ? clicks / views : 0,
+      funnel: { views, clicks, leads, qualified: totals.lead_qualified || 0, converted },
+      previous: filters.compare ? { totals: previous, funnel: { views: previous.view || 0, clicks: (previous.link_click || 0) + (previous.cta_click || 0), leads: previous.lead_submit || 0, qualified: previous.lead_qualified || 0, converted: previous.lead_converted || 0 } } : null,
+      targetCtr: topTargets.map(row => ({ target: row.target, clicks: Number(row.count), rate: views ? Number(row.count) / views : 0 })),
+      devices: deviceRows.map(row => ({ device: row.device, count: Number(row.count) })),
+      timeToConversionSeconds: timeRows[0]?.avgSeconds == null ? null : Number(timeRows[0].avgSeconds),
+      campaigns: campaignRows.map(row => ({ source: row.source, medium: row.medium, campaign: row.campaign, count: Number(row.count) })),
       referrers: referrerRows.map(row => ({ referrer: row.referrer, count: Number(row.count) })),
     };
   }

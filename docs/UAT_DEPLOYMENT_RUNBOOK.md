@@ -43,6 +43,9 @@ npm run verify:preview -- https://<preview-host> <published-slug> index
 
 Inspect raw HTML with JavaScript disabled. Confirm exactly one title, canonical, robots, Open Graph/Twitter fields and a PNG OG image. Then test Facebook, LinkedIn, LINE and X/Twitter using their real sharing/debug tools. If deployment protection blocks crawlers, use a temporary approved UAT URL; do not weaken production access controls.
 
+The Vite SPA fallback must exclude `/api/`; otherwise the catch-all rewrite
+serves `index.html` instead of the profile metadata and OG-image Functions.
+
 ## 4. UAT script and exit gate
 
 Each tester completes without guidance:

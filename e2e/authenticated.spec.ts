@@ -40,8 +40,10 @@ test.describe('authenticated navigation and notification smoke', () => {
     await expect(page.getByText(/Assigned to QA/i)).toBeVisible();
     await expect(page.getByText(/Due in 2 days|Due in 1 day/i)).toBeVisible();
     await page.getByRole('button', { name: 'Select tasks' }).click();
-    await expect(page.getByRole('toolbar', { name: 'Selection mode toolbar' })).toContainText('Select tasks');
-    await expect(page.getByRole('checkbox', { name: /Select E2E seeded task/i })).toBeVisible();
+    const taskCheckbox = page.getByRole('checkbox', { name: /Select E2E seeded task/i });
+    await expect(taskCheckbox).toBeVisible();
+    await taskCheckbox.check();
+    await expect(page.getByRole('toolbar', { name: 'Selection mode toolbar' })).toBeVisible();
     await page.getByRole('button', { name: 'Exit selection mode' }).click();
     await expect(page.getByRole('button', { name: 'Select tasks' })).toBeVisible();
   });

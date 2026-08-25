@@ -28,6 +28,7 @@
     "db:schema:verify": "node scripts/verify-clean-schema.cjs",
     "db:explain-work-lists": "node scripts/explain-work-lists.cjs",
     "prod": "npm run build && npm run start"
+    ,"start:uat": "node dist/scripts/check-uat-config.js && npm run migration:run:prod && npm run start"
   },
   "keywords": [],
   "author": "",

@@ -1,5 +1,12 @@
 import { test as base, expect, Browser, BrowserContext, Page } from '@playwright/test';
 
+const test = base.extend<{ consentDefaults: void }>({
+  consentDefaults: [async ({ page }, use) => {
+    await page.addInitScript(() => localStorage.setItem('followmee:consent', JSON.stringify({ version: '2026-08', essential: true, preferences: false, analytics: false, decidedAt: new Date().toISOString() })));
+    await use();
+  }, { auto: true }],
+});
+
 type Credentials = { email: string; password: string };
 
 const credentials = {
@@ -50,6 +57,9 @@ export async function createLoggedInContext(
   role: 'creator' | 'assignee' | 'reviewer' | 'unrelated',
 ): Promise<BrowserContext> {
   const context = await browser.newContext();
+  await context.addInitScript(() => localStorage.setItem('followmee:consent', JSON.stringify({
+    version: '2026-08', essential: true, preferences: false, analytics: false, decidedAt: new Date().toISOString(),
+  })));
   const page = await context.newPage();
   await loginAs(page, role);
   const accessToken = await page.evaluate(() => localStorage.getItem('access_token') || sessionStorage.getItem('access_token'));
@@ -58,4 +68,4 @@ export async function createLoggedInContext(
   return context;
 }
 
-export { base as test, expect };
+export { test, expect };

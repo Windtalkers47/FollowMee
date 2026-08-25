@@ -690,6 +690,24 @@ class EmailService {
 
     return { sent, failed };
   }
+
+  async sendRegistrationVerificationEmail(email: string, verificationUrl: string): Promise<boolean> {
+    const safeUrl = this.escapeHtml(verificationUrl);
+    return this.sendEmail({
+      to: { email }, subject: 'Verify your FollowMee UAT registration',
+      html: `<p>Please confirm your email address before the Owner reviews your request.</p><p><a href="${safeUrl}">Verify email</a></p><p>This link expires in 24 hours.</p>`,
+      text: `Verify your FollowMee registration: ${verificationUrl}\nThis link expires in 24 hours.`,
+    });
+  }
+
+  async sendRegistrationDecisionEmail(email: string, approved: boolean): Promise<boolean> {
+    const baseUrl = (process.env.FRONTEND_URL || 'http://localhost:5173').replace(/\/$/, '');
+    return this.sendEmail({
+      to: { email }, subject: approved ? 'Your FollowMee access is ready' : 'FollowMee registration update',
+      html: approved ? `<p>Your UAT access was approved.</p><p><a href="${this.escapeHtml(`${baseUrl}/login`)}">Sign in to FollowMee</a></p>` : '<p>Your UAT registration request was not approved. Contact the workspace Owner if you need help.</p>',
+      text: approved ? `Your UAT access was approved. Sign in: ${baseUrl}/login` : 'Your UAT registration request was not approved.',
+    });
+  }
 }
 
 // Singleton instance

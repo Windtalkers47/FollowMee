@@ -12,6 +12,8 @@ import {
   Link,
   Divider,
   Alert,
+  Checkbox,
+  FormControlLabel,
   IconButton,
   InputAdornment,
 } from '@mui/material';
@@ -21,6 +23,9 @@ import { useUserPreferences } from '../../contexts/UserPreferencesContext';
 import { env } from '../../utils/env';
 import { canUsePublicRegistration } from '../../utils/registrationPolicy';
 import AuthShell from '../../components/AuthShell';
+import TurnstileWidget from '../../components/TurnstileWidget';
+import { CONSENT_VERSION } from '../../utils/consentPreferences';
+import { productFunnelSessionId, recordProductFunnel } from '../../utils/productFunnel';
 
 interface FormErrors {
   userName: string;
@@ -69,6 +74,11 @@ const Register = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [privacyAccepted, setPrivacyAccepted] = useState(false);
+  const [preferencesConsent, setPreferencesConsent] = useState(false);
+  const [analyticsConsent, setAnalyticsConsent] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState('');
   
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
@@ -231,6 +241,10 @@ const Register = () => {
     if (!validateForm()) {
       return;
     }
+    if (!termsAccepted || !privacyAccepted) {
+      await feedback.warning({ title: t('auth.register.policyRequired'), message: t('auth.register.policyRequiredHelp') });
+      return;
+    }
 
     try {
       setIsLoading(true);
@@ -246,6 +260,15 @@ const Register = () => {
         userPassword: formData.password,
         userPhone1: formData.userPhone1 || undefined,
         invitationToken: invitationToken || undefined,
+        termsAccepted,
+        privacyAccepted,
+        termsVersion: CONSENT_VERSION,
+        privacyVersion: CONSENT_VERSION,
+        preferencesConsent,
+        analyticsConsent,
+        website: '',
+        turnstileToken: turnstileToken || undefined,
+        funnelSessionId: productFunnelSessionId(),
       };
       
       const response = await authApi.register(registrationData);
@@ -253,6 +276,13 @@ const Register = () => {
       // Hide loading
       feedback.hideLoading();
       
+      if (!invitationToken && response.data?.status?.startsWith('pending')) {
+        recordProductFunnel('registration_submitted');
+        await feedback.success({ title: t('auth.register.verifyEmailTitle'), message: t('auth.register.verifyEmailText'), importance: 'milestone' });
+        navigate('/login?registration=pending-email', { replace: true });
+        return;
+      }
+
       // Check if it was a reactivation or new registration
       const isReactivation = response.success && response.message === 'Account reactivated successfully';
       
@@ -466,6 +496,15 @@ const Register = () => {
               onChange={handleChange}
               disabled={isLoading}
             />
+
+            <Box sx={{ mt: 2 }}>
+              <FormControlLabel control={<Checkbox checked={termsAccepted} onChange={(_, value) => setTermsAccepted(value)} />} label={<Typography variant="body2">{t('auth.register.acceptTerms')} <Link component={RouterLink} to="/terms" target="_blank">{t('privacy.terms')}</Link></Typography>} />
+              <FormControlLabel control={<Checkbox checked={privacyAccepted} onChange={(_, value) => setPrivacyAccepted(value)} />} label={<Typography variant="body2">{t('auth.register.acceptPrivacy')} <Link component={RouterLink} to="/privacy" target="_blank">{t('privacy.notice')}</Link></Typography>} />
+              <FormControlLabel control={<Checkbox checked={preferencesConsent} onChange={(_, value) => setPreferencesConsent(value)} />} label={t('privacy.cookies.preferencesOptional')} />
+              <FormControlLabel control={<Checkbox checked={analyticsConsent} onChange={(_, value) => setAnalyticsConsent(value)} />} label={t('privacy.cookies.analyticsOptional')} />
+            </Box>
+            <Box sx={{ position: 'absolute', left: -10000, width: 1, height: 1, overflow: 'hidden' }} aria-hidden><TextField name="website" tabIndex={-1} autoComplete="off" /></Box>
+            <TurnstileWidget siteKey={import.meta.env.VITE_TURNSTILE_SITE_KEY || ''} onToken={setTurnstileToken} />
             
             <Button
               type="submit"

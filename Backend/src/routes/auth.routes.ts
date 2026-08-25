@@ -4,20 +4,29 @@ import { decryptRequestMiddleware } from '../middleware/requestDecryption.middle
 import AuthController from '../controllers/auth.controller';
 import { body } from 'express-validator';
 import { InvitationController } from '../controllers/invitation.controller';
+import { RegistrationRequestController } from '../controllers/registration-request.controller';
+import rateLimit from 'express-rate-limit';
 
 const router = Router();
 const invitationController = new InvitationController();
+const registrationRequestController = new RegistrationRequestController();
+const registrationLimiter = rateLimit({ windowMs: 60 * 60 * 1000, limit: 5, standardHeaders: true, legacyHeaders: false });
 
 // Public routes
 router.get('/invitations/:token', invitationController.validate);
+router.get('/registration-requests/verify', registrationRequestController.verify);
+router.post('/registration-requests/resend-verification', registrationLimiter, registrationRequestController.resend);
 router.post(
   '/register',
+  registrationLimiter,
   decryptRequestMiddleware,
   [
     body('email').isEmail().withMessage('Please provide a valid email'),
     body('userPassword').isLength({ min: 6 }).withMessage('Password must be at least 6 characters long'),
     body('userName').notEmpty().withMessage('Username is required'),
     body('userLastName').notEmpty().withMessage('Last name is required')
+    ,body('termsAccepted').custom(value => value === true).withMessage('Terms acceptance is required')
+    ,body('privacyAccepted').custom(value => value === true).withMessage('Privacy acceptance is required')
   ],
   AuthController.register
 );

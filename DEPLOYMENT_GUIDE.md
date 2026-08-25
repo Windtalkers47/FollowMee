@@ -5,6 +5,8 @@ Production flow: **GitHub `main` → Render Backend + Vercel Frontend → TiDB C
 
 อ่าน [Developer Handbook](docs/DEVELOPER_HANDBOOK.md) และ [production migration runbook](docs/PRODUCTION_MIGRATION_RUNBOOK.md) ก่อน deployment ที่มี migration
 
+สำหรับ Preview/UAT ฟรีแบบวงปิด ให้อ่าน [UAT deployment runbook](docs/UAT_DEPLOYMENT_RUNBOOK.md) และใช้ `render.uat.yaml`; ห้าม reuse production backend/database
+
 ## Safety rules
 
 - `main` เป็น production branch; งานพัฒนาเข้า `develop` ผ่าน feature PR ก่อน แล้วใช้ release PR ไป `main`
@@ -125,6 +127,8 @@ git diff --check
 - migration ledger ไม่มี pending migration ที่ไม่ตั้งใจ
 - raw HTML ของ public profile มี title/canonical/robots/OG/Twitter เพียงชุดเดียว, OG endpoint ตอบ `image/png` ขนาด 1200×630 และ metadata request ไม่เพิ่ม view
 - logs ไม่มี secrets หรือ customer data
+- UAT self-signup ต้องตอบ pending email, Owner approval เท่านั้นที่สร้าง Member และ Custom Domain ต้องยังปิด
+- `GET /api/system/capacity` ต้องแยก exact metrics ออกจาก provider-dashboard-only metrics
 
 ## Troubleshooting
 

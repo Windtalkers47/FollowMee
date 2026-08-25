@@ -1,8 +1,12 @@
 import { Router } from 'express';
 import { isAuthenticated } from '../middleware/auth.middleware';
 import { AnalyticsController } from '../controllers/analytics.controller';
+import { ProductFunnelController } from '../controllers/product-funnel.controller';
+import { checkPermission } from '../middleware/permission.middleware';
 const router = Router();
 const controller = new AnalyticsController();
+const funnelController = new ProductFunnelController();
 router.use(isAuthenticated);
 router.get('/overview', controller.overview);
+router.get('/product-funnel', checkPermission('VIEW_ORGANIZATION_ANALYTICS'), funnelController.report);
 export default router;

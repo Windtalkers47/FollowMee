@@ -64,6 +64,9 @@ import {
   WorkOutline,
   Redeem,
   ContactMail,
+  Storage,
+  HowToReg,
+  PrivacyTip,
 } from '@mui/icons-material';
 import ProductTour from '../components/ProductTour/ProductTour';
 import { useUserPreferences } from '../contexts/UserPreferencesContext';
@@ -83,11 +86,13 @@ const menuItems = [
   { text: 'Tasks & Schedule', icon: <Schedule />, path: '/schedule', exact: true, group: 'Workspace' },
   { text: 'Customers', icon: <Group />, path: '/customer', exact: true, group: 'Workspace' },
   { text: 'Profile Cards', icon: <AccountCircle />, path: '/customer-profile', exact: false, group: 'Workspace' },
-  { text: 'Lead Inbox', icon: <ContactMail />, path: '/customer-profile/leads', exact: true, group: 'Workspace' },
   { text: 'Analytics', icon: <Analytics />, path: '/analytics', exact: true, group: 'Insights' },
   { text: 'Completed Work', icon: <PostAdd />, path: '/posts', exact: true, group: 'Insights' },
   { text: 'Rewards', icon: <Redeem />, path: '/rewards', exact: true, group: 'Insights' },
   { text: 'User Management', icon: <PeopleAlt />, path: '/users', exact: true, group: 'Administration' },
+  { text: 'Registration Requests', icon: <HowToReg />, path: '/users/registration-requests', exact: true, group: 'Administration' },
+  { text: 'System Capacity', icon: <Storage />, path: '/system-capacity', exact: true, group: 'Administration' },
+  { text: 'Privacy Requests', icon: <PrivacyTip />, path: '/privacy-requests', exact: true, group: 'Administration' },
 ];
 
 const compactMenuLabels: Record<string, string> = {
@@ -101,6 +106,9 @@ const compactMenuLabels: Record<string, string> = {
   '/posts': 'Completed',
   '/rewards': 'Rewards',
   '/users': 'Users',
+  '/users/registration-requests': 'Approvals',
+  '/system-capacity': 'Capacity',
+  '/privacy-requests': 'Privacy',
 };
 
 const MainLayout = ({ children }: MainLayoutProps) => {
@@ -135,11 +143,14 @@ const MainLayout = ({ children }: MainLayoutProps) => {
   // Filter menu items based on user role
   const filteredMenuItems = useMemo(() => menuItems.filter((item) => {
     // Admins can manage users; only the Owner can transfer ownership.
-    if (item.path === '/users' && !canManageUsers) {
+    if ((item.path === '/users' || item.path === '/users/registration-requests') && !canManageUsers) {
       return false;
     }
+    if (item.path === '/users/registration-requests' && !isOwner) return false;
+    if (item.path === '/privacy-requests' && !isOwner) return false;
+    if (item.path === '/system-capacity' && !(isOwner || currentUser?.roles?.some(role => ['Admin','Moderator'].includes(role)))) return false;
     return true;
-  }), [canManageUsers]);
+  }), [canManageUsers, currentUser?.roles, isOwner]);
   const menuLabels = useMemo<Record<string, string>>(() => ({
     '/dashboard': t('nav.dashboard'),
     '/my-work': t('nav.myWork'),
@@ -151,6 +162,9 @@ const MainLayout = ({ children }: MainLayoutProps) => {
     '/posts': t('nav.activity'),
     '/rewards': t('nav.rewards'),
     '/users': t('nav.users'),
+    '/users/registration-requests': 'คำขอเข้า UAT',
+    '/system-capacity': 'System Capacity',
+    '/privacy-requests': 'คำขอความเป็นส่วนตัว',
   }), [t]);
   const groupLabels = useMemo<Record<string, string>>(() => ({
     Workspace: t('nav.workspace'),
@@ -492,6 +506,10 @@ const MainLayout = ({ children }: MainLayoutProps) => {
           const startsGroup = index > 0 && item.group !== filteredMenuItems[index - 1].group;
           const label = menuLabels[item.path] || item.text;
 
+          const isProfileSection = item.path === '/customer-profile';
+          const profileLibraryActive = isProfileSection && location.pathname !== '/customer-profile/leads' && location.pathname.startsWith('/customer-profile');
+          const profileLeadsActive = location.pathname === '/customer-profile/leads';
+
           return (
             <React.Fragment key={item.text}>
               {!showDrawerLabels && startsGroup && <Divider sx={{ my: 0.75, mx: 1 }} />}
@@ -569,6 +587,40 @@ const MainLayout = ({ children }: MainLayoutProps) => {
                   </ListItemButton>
                 </Tooltip>
               </ListItem>
+              {isProfileSection && showDrawerLabels && (
+                <Box sx={{ ml: 2.5, pl: 1.5, borderLeft: '1px solid', borderColor: 'divider' }}>
+                  <ListItem disablePadding>
+                    <ListItemButton
+                      selected={profileLibraryActive}
+                      aria-label={t('nav.profiles')}
+                      onMouseEnter={() => prefetchPrimaryRoute('/customer-profile')}
+                      onFocus={() => prefetchPrimaryRoute('/customer-profile')}
+                      onClick={() => { navigate('/customer-profile'); if (isMobile) setMobileOpen(false); }}
+                      sx={{ minHeight: 38, my: 0.25, px: 1.5, borderRadius: 2, '&.Mui-selected': { bgcolor: 'action.selected' } }}
+                    >
+                      <ListItemIcon sx={{ minWidth: 26, mr: 1, color: profileLibraryActive ? 'primary.main' : 'text.secondary' }}>
+                        <AccountCircle fontSize="small" />
+                      </ListItemIcon>
+                      <ListItemText primary={t('nav.profiles')} primaryTypographyProps={{ fontSize: '0.9rem', fontWeight: profileLibraryActive ? 700 : 550 }} />
+                    </ListItemButton>
+                  </ListItem>
+                  <ListItem disablePadding>
+                    <ListItemButton
+                      selected={profileLeadsActive}
+                      aria-label={t('nav.leads')}
+                      onMouseEnter={() => prefetchPrimaryRoute('/customer-profile/leads')}
+                      onFocus={() => prefetchPrimaryRoute('/customer-profile/leads')}
+                      onClick={() => { navigate('/customer-profile/leads'); if (isMobile) setMobileOpen(false); }}
+                      sx={{ minHeight: 38, my: 0.25, px: 1.5, borderRadius: 2, '&.Mui-selected': { bgcolor: 'action.selected' } }}
+                    >
+                      <ListItemIcon sx={{ minWidth: 26, mr: 1, color: profileLeadsActive ? 'primary.main' : 'text.secondary' }}>
+                        <ContactMail fontSize="small" />
+                      </ListItemIcon>
+                      <ListItemText primary={t('nav.leads')} primaryTypographyProps={{ fontSize: '0.9rem', fontWeight: profileLeadsActive ? 700 : 550 }} />
+                    </ListItemButton>
+                  </ListItem>
+                </Box>
+              )}
             </React.Fragment>
           );
         })}

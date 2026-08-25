@@ -11,6 +11,7 @@ async function apiFor(email: string): Promise<APIRequestContext> {
 
 test.describe('single-organization resource authorization', () => {
   test('enforces Customer creator, assignee, unrelated Admin/Member, and Owner capabilities through the API', async () => {
+    const runId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const [ownerApi, adminApi, assigneeApi, unrelatedApi] = await Promise.all([
       apiFor('qa-creator@example.test'),
       apiFor('qa-reviewer@example.test'),
@@ -33,9 +34,9 @@ test.describe('single-organization resource authorization', () => {
 
       const createResponse = await adminApi.post('/api/customers', {
         data: {
-          customerName: 'Matrix',
+          customerName: `Matrix ${runId}`,
           customerLastName: 'Customer',
-          customerEmail: 'matrix-customer@example.test',
+          customerEmail: `matrix-${runId}@example.test`,
         },
       });
       expect(createResponse.status()).toBe(201);

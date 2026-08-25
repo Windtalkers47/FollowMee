@@ -13,6 +13,7 @@ import { In } from 'typeorm';
 import rateLimit from 'express-rate-limit';
 import * as jwt from 'jsonwebtoken';
 import { invitationService } from '../services/invitation.service';
+import { registrationRequestService, validateRegistrationPolicy } from '../services/registration-request.service';
 
 // Rate limiting for login attempts
 const loginLimiter = rateLimit({
@@ -62,16 +63,24 @@ class AuthController {
       }
 
       const { email, userPassword, userName, userLastName, userPhone1, invitationToken } = req.body;
-      const publicRegistrationAllowed = process.env.NODE_ENV !== 'production'
-        && process.env.ALLOW_PUBLIC_REGISTRATION !== 'false';
+      const publicRegistrationAllowed = process.env.ALLOW_PUBLIC_REGISTRATION === 'true';
       const invitation = invitationToken
         ? await invitationService.validate(String(invitationToken))
         : null;
       if (!invitation && !publicRegistrationAllowed) {
         return res.status(403).json({ success: false, message: 'An invitation is required', code: 'INVITATION_REQUIRED' });
       }
+      if (!invitation) {
+        const pending = await registrationRequestService.submit(req.body, { ip: req.ip, userAgent: req.headers['user-agent'] });
+        return res.status(202).json({ success: true, data: pending, code: 'REGISTRATION_PENDING_EMAIL', message: 'Check your email to continue registration' });
+      }
       if (invitation && invitation.email.toLowerCase() !== String(email).trim().toLowerCase()) {
         return res.status(400).json({ success: false, message: 'Email must match the invitation', code: 'INVITATION_EMAIL_MISMATCH' });
+      }
+      if (invitation) {
+        const policy = validateRegistrationPolicy(req.body);
+        if (policy === 'required') return res.status(400).json({ success: false, message: 'Policy acceptance is required', code: 'POLICY_ACCEPTANCE_REQUIRED' });
+        if (policy === 'outdated') return res.status(409).json({ success: false, message: 'Policy version is outdated', code: 'POLICY_VERSION_OUTDATED' });
       }
 
       // Check if user already exists (active or inactive)
@@ -184,7 +193,10 @@ class AuthController {
           roleId: role.roleId
         });
         await this.userRoleRepository.save(userRole);
-        if (invitation) await invitationService.accept(invitation.invitationId);
+        if (invitation) {
+          await registrationRequestService.recordAcceptedPolicy(savedUser.userId, req.body, 'registration_invite');
+          await invitationService.accept(invitation.invitationId);
+        }
       } catch (roleError) {
         throw roleError;
       }
@@ -204,9 +216,10 @@ class AuthController {
       });
     } catch (error: any) {
       console.error('Registration error:', error);
-      return res.status(500).json({
+      return res.status(Number(error?.statusCode) || 500).json({
         success: false,
         message: 'Registration failed',
+        ...(error?.code ? { code: error.code } : {}),
         error: process.env.NODE_ENV === 'development' ? error.message : undefined
       });
     }

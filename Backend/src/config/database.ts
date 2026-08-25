@@ -32,6 +32,11 @@ import { PublicProfileRevision } from '../entities/PublicProfileRevision';
 import { PublicProfileLinkCheck } from '../entities/PublicProfileLinkCheck';
 import { PublicProfileDomain } from '../entities/PublicProfileDomain';
 import { CustomerMergeSnapshot } from '../entities/CustomerMergeSnapshot';
+import { RegistrationRequest } from '../entities/RegistrationRequest';
+import { PrivacyRequest } from '../entities/PrivacyRequest';
+import { ConsentRecord } from '../entities/ConsentRecord';
+import { SystemCapacityAlert } from '../entities/SystemCapacityAlert';
+import { ProductFunnelEvent } from '../entities/ProductFunnelEvent';
 
 dotenv.config();
 
@@ -94,6 +99,11 @@ const dataSourceOptions: DataSourceOptions = {
     PublicProfileLinkCheck,
     PublicProfileDomain,
     CustomerMergeSnapshot,
+    RegistrationRequest,
+    PrivacyRequest,
+    ConsentRecord,
+    SystemCapacityAlert,
+    ProductFunnelEvent,
     // Other entities will be loaded automatically by the glob pattern
     path.join(__dirname, '../entities/**/*.entity{.ts,.js}')
   ],

@@ -43,10 +43,15 @@ import adminRewardRoutes from './routes/admin-reward.routes';
 import productivityRoutes from './routes/productivity.routes';
 import analyticsRoutes from './routes/analytics.routes';
 import userProfileRoutes from './routes/user-profile.routes';
+import systemRoutes from './routes/system.routes';
+import privacyRoutes from './routes/privacy.routes';
+import productAnalyticsRoutes from './routes/product-analytics.routes';
 import { rewardService } from './services/reward.service';
 import { outboxService } from './services/outbox.service';
 import { productivityService } from './services/productivity.service';
 import { profileLeadRetentionService } from './services/profile-lead-retention.service';
+import { systemCapacityService } from './services/system-capacity.service';
+import { validateUatRuntimeConfig } from './config/uat.config';
 
 // Load environment variables
 dotenv.config();
@@ -69,6 +74,7 @@ class App {
   // Initialize the application
   public async initialize() {
     try {
+      validateUatRuntimeConfig(process.env);
       // Initialize database first
       await this.initializeDatabase();
 
@@ -83,6 +89,7 @@ class App {
       outboxService.start();
       productivityService.startRecurrenceWorker();
       profileLeadRetentionService.start();
+      systemCapacityService.start();
 
       // Then set up other middleware and routes
       this.initializeMiddlewares();
@@ -126,6 +133,7 @@ class App {
       outboxService.stop();
       productivityService.stopRecurrenceWorker();
       profileLeadRetentionService.stop();
+      systemCapacityService.stop();
 
       // Stop cleanup service
       notificationCleanupService.stop();
@@ -283,6 +291,9 @@ class App {
     this.app.use('/api/admin/rewards', adminRewardRoutes);
     this.app.use('/api/productivity', productivityRoutes);
     this.app.use('/api/analytics', analyticsRoutes);
+    this.app.use('/api/system', systemRoutes);
+    this.app.use('/api/privacy', privacyRoutes);
+    this.app.use('/api/product-analytics', productAnalyticsRoutes);
 
     // Task routes
     this.app.use('/api/tasks', taskRoutes);

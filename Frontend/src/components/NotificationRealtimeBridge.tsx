@@ -12,10 +12,12 @@ export default function NotificationRealtimeBridge() {
   const navigate = useNavigate();
   const { t } = useUserPreferences();
   useEffect(() => {
-    if (!incoming || seen.current === incoming.recipientId || incoming.notification.notificationType !== 'PUBLIC_PROFILE_LEAD') return;
+    if (!incoming || seen.current === incoming.recipientId || !['PUBLIC_PROFILE_LEAD','REGISTRATION_APPROVAL_REQUIRED','SYSTEM_CAPACITY_ALERT','PRIVACY_REQUEST_RECEIVED'].includes(incoming.notification.notificationType)) return;
     seen.current = incoming.recipientId;
     const presentation = getNotificationPresentation(incoming.notification, t);
-    void feedback.info({ title: presentation.title, message: presentation.message, dedupeKey: `profile-lead:${incoming.recipientId}`, duration: 6500, nextAction: { label: t('profile.leads.openInbox'), onClick: () => navigate(incoming.notification.actionUrl || '/customer-profile/leads') } });
+    const isCapacity = incoming.notification.notificationType === 'SYSTEM_CAPACITY_ALERT';
+    const fallbackPath = incoming.notification.notificationType === 'PUBLIC_PROFILE_LEAD' ? '/customer-profile/leads' : incoming.notification.notificationType === 'REGISTRATION_APPROVAL_REQUIRED' ? '/users/registration-requests' : incoming.notification.notificationType === 'PRIVACY_REQUEST_RECEIVED' ? '/privacy-requests' : '/system-capacity';
+    void (isCapacity ? feedback.warning : feedback.info)({ title: presentation.title, message: presentation.message, dedupeKey: `${incoming.notification.notificationType}:${incoming.recipientId}`, duration: isCapacity ? 10000 : 6500, nextAction: { label: t('common.open'), onClick: () => navigate(incoming.notification.actionUrl || fallbackPath) } });
   }, [incoming, navigate, t]);
   return null;
 }

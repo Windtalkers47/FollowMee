@@ -1,6 +1,6 @@
 # FollowMee Developer Handbook
 
-อัปเดตล่าสุด: 25 สิงหาคม 2026 (Asia/Bangkok)
+อัปเดตล่าสุด: 25 สิงหาคม 2026 (Asia/Bangkok) — closed-UAT readiness
 สถานะ: **เอกสารหลักสำหรับเริ่มพัฒนาและส่งต่องาน**
 
 อ่านไฟล์นี้ก่อนเริ่มงานทุกครั้ง แล้วเปิด runbook เฉพาะเมื่อกำลังทำ deployment หรือ database operation เท่านั้น เอกสารใน `docs/archive/` เป็นประวัติ ไม่ใช่ source of truth ปัจจุบัน
@@ -24,7 +24,8 @@ FollowMee เป็น full-stack workspace สำหรับจัดการ
 - cleanup/documentation/tooling และ P1/M1 เดิมถูก checkpoint บน branch `develop` แล้ว (`a4c514f` และ commit ก่อนหน้า); งาน Profile Conversion รอบนี้เริ่มจาก clean tree และต้องรักษา checkpoint เหล่านั้น
 - generated artifacts 407 ไฟล์ถูกถอนออกจาก Git index และไฟล์จริงถูกเก็บแบบ recoverable ใต้ `.local/`
 - เอกสารปัจจุบันอยู่ที่ Handbook นี้; review, handoff และ validation รุ่นเก่าอยู่ใน `docs/archive/`
-- Profile Conversion ใช้ ordered additive migrations `1850000000000`, `1851000000000`, `1852000000000` และ `1853000000000` (custom-domain redirect preference); migration ใหม่ต้อง verify กับ temporary schema ก่อนและห้ามนำ mutation testไปใช้กับ `followmee`
+- Profile Conversion ใช้ ordered additive migrations `1850000000000`, `1851000000000`, `1852000000000`, `1853000000000` (custom-domain redirect preference) และ `1854000000000` (UAT access, privacy, capacity และ funnel); migration ใหม่ต้อง verify กับ temporary schema ก่อนและห้ามนำ mutation testไปใช้กับ `followmee`
+- Closed UAT เพิ่ม migration `1854000000000` สำหรับ pending registration approval, versioned consent/privacy requests, product funnel และ capacity-alert dedupe; UAT startup ปฏิเสธ `DB_NAME=followmee`
 - ยังคงห้ามใช้ `reset`, `checkout`, `clean` หรือการลบกว้างที่อาจย้อน checkpoint P1/M1
 - verification ล่าสุดผ่าน: Backend 57 tests, Frontend 366 tests, typecheck, critical lint, build, bundle budget, docs check และ hygiene check
 
@@ -176,6 +177,8 @@ npm start
 | Privacy | `PROFILE_ANALYTICS_SALT` | ต้องตั้งใน production |
 | Profile conversion | `PROFILE_LEAD_RATE_LIMIT` | จำกัด lead ต่อ IP/profile window; ค่าเริ่มต้น 8 |
 | Custom domains | `PROFILE_CUSTOM_DOMAINS_ENABLED`, `VERCEL_ACCESS_TOKEN`, `VERCEL_PROJECT_ID`, `VERCEL_TEAM_ID` | ปิด flag ไว้จน deploy Phase 3; token เป็น server secret |
+| Closed UAT | `PRIVACY_POLICY_VERSION`, `PRIVACY_CONTROLLER_*`, `TURNSTILE_SECRET_KEY` | จำเป็นเมื่อ production runtime เปิด self-signup; signup ต้อง verify email และรอ Owner |
+| Capacity | `TIDB_STORAGE_LIMIT_BYTES`, provider dashboard URLs, `CAPACITY_CHECK_INTERVAL_MS` | แจ้งเฉพาะ metric ที่วัดได้จริง; provider-only quota ไม่สร้างเปอร์เซ็นต์ |
 | Safety | `REWARD_DEV_SEED`, `ENABLE_API_DOCS`, rate/body/retry variables | production ใช้ `REWARD_DEV_SEED=false` |
 
 ### Frontend
@@ -189,6 +192,8 @@ npm start
 | `VITE_DEFAULT_LOGIN_REDIRECT` | post-login route |
 | `VITE_DEFAULT_LOGOUT_REDIRECT` | post-logout route |
 | `VITE_ENCRYPTION_KEY` | request-obfuscation compatibility value ไม่ใช่ secret |
+| `VITE_FEATURE_REGISTRATION`, `VITE_TURNSTILE_SITE_KEY` | เปิด UAT self-signup และ human verification |
+| `VITE_PRIVACY_CONTROLLER_*` | ข้อมูลผู้ควบคุมข้อมูลที่เปิดเผยบน Privacy Notice |
 
 ค่าที่ขึ้นต้น `VITE_` ถูก bundle และผู้ใช้ browser อ่านได้ ห้ามใส่ database password, JWT secret, Cloudinary secret, SMTP password หรือ TiDB connection string
 
@@ -252,6 +257,8 @@ CI ติดตั้ง root/Backend/Frontend dependencies แล้วเร�
 - Function ต้องอ่าน `dist/index.html`; metadata fetch ไม่สร้าง view event และ OG image ใช้ `api/profile-og.ts` ส่ง PNG 1200×630 ผ่าน `@vercel/og`
 
 หลัง Vercel URL เปลี่ยน ต้องอัปเดต Render `FRONTEND_URL`, `CORS_ORIGIN` และ preview allowlist ตามความจำเป็น ดู [deployment guide](../DEPLOYMENT_GUIDE.md)
+
+UAT แบบแยก environment ใช้ [closed-UAT runbook](UAT_DEPLOYMENT_RUNBOOK.md), `render.uat.yaml` และฐาน TiDB disposable เท่านั้น `npm run start:uat` ตรวจ database/feature/config ก่อน migration และปฏิเสธฐานชื่อ `followmee`
 
 ### Profile Conversion rollout
 

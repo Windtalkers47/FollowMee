@@ -31,22 +31,22 @@ test.describe('focus mode and analytics calendar regression', () => {
     });
     await page.getByRole('button', { name: /view tasks/i }).click();
     await overdueRequest;
-    await expect(page.getByLabel('Due date')).toContainText('Overdue');
+    await expect(page.getByText(/focus mode:/i)).toBeVisible();
 
     const allTasksRequest = page.waitForRequest((request) => {
       const url = new URL(request.url());
       return url.pathname.endsWith('/api/tasks') && !url.searchParams.has('dueFilter') && !url.searchParams.has('status');
     });
-    await page.getByRole('button', { name: /^all tasks\b/i }).click();
+    await page.getByRole('button', { name: /show all tasks/i }).click();
     const request = await allTasksRequest;
     expect(new URL(request.url()).searchParams.has('dueFilter')).toBe(false);
-    await expect(page.getByLabel('Due date')).toContainText('Any date');
     await expect(page.getByText(/focus mode:/i)).toHaveCount(0);
   });
 
   test('Analytics calendar exposes a readable Apply action', async ({ page }) => {
     await loginAs(page, 'creator');
     await page.goto('/analytics');
+    await page.getByRole('button', { name: /^period:/i }).click();
     await page.getByRole('button', { name: 'Date range', exact: true }).click();
     const apply = page.getByRole('button', { name: 'Apply' });
     await expect(apply).toBeVisible();

@@ -33,6 +33,9 @@ export enum NotificationType {
   CUSTOMER_FOLLOW_UP = 'CUSTOMER_FOLLOW_UP',
   PUBLIC_PROFILE_LEAD = 'PUBLIC_PROFILE_LEAD',
   ACHIEVEMENT_EARNED = 'ACHIEVEMENT_EARNED',
+  REGISTRATION_APPROVAL_REQUIRED = 'REGISTRATION_APPROVAL_REQUIRED',
+  SYSTEM_CAPACITY_ALERT = 'SYSTEM_CAPACITY_ALERT',
+  PRIVACY_REQUEST_RECEIVED = 'PRIVACY_REQUEST_RECEIVED',
 }
 
   /**
@@ -415,6 +418,21 @@ export enum NotificationType {
       recipientUserIds: [...new Set(recipientUserIds)],
       skipQueue: true,
     });
+  }
+
+  static async notifyRegistrationApproval(requestId: string, recipientUserIds: number[]): Promise<void> {
+    if (!recipientUserIds.length) return;
+    await this.createNotification({ notificationType: NotificationType.REGISTRATION_APPROVAL_REQUIRED, entityType: 'registration_request', entityId: requestId, title: 'Registration approval required', message: 'A verified UAT registration is waiting for Owner approval.', actionUrl: `/users/registration-requests?requestId=${encodeURIComponent(requestId)}`, recipientUserIds, skipQueue: true });
+  }
+
+  static async notifySystemCapacity(provider: string, resource: string, threshold: number, recipientUserIds: number[]): Promise<void> {
+    if (!recipientUserIds.length) return;
+    await this.createNotification({ notificationType: NotificationType.SYSTEM_CAPACITY_ALERT, entityType: 'system_capacity', entityId: `${provider}:${resource}:${threshold}`, title: 'Free-tier capacity alert', message: `${provider} ${resource} reached ${threshold}% of its verified limit.`, actionUrl: '/system-capacity', recipientUserIds, skipQueue: true });
+  }
+
+  static async notifyPrivacyRequest(requestId: string, requestType: string, recipientUserIds: number[]): Promise<void> {
+    if (!recipientUserIds.length) return;
+    await this.createNotification({ notificationType: NotificationType.PRIVACY_REQUEST_RECEIVED, entityType: 'privacy_request', entityId: requestId, title: 'Verified privacy request', message: `A verified ${requestType} request is waiting for review.`, actionUrl: `/privacy-requests?requestId=${encodeURIComponent(requestId)}`, recipientUserIds, skipQueue: true });
   }
 
   /**

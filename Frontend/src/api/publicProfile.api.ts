@@ -12,6 +12,8 @@ import type {
   ProfileLinkCheck,
   ProfileDomain,
 } from '../types/publicProfile.types';
+import { allowsAnalytics } from '../utils/consentPreferences';
+import { productFunnelSessionId } from '../utils/productFunnel';
 
 export class PublicProfileApiError extends Error {
   constructor(
@@ -62,7 +64,7 @@ export const publicProfileApi = {
       body: JSON.stringify(input),
     }),
 
-  quickCreate: (input: Record<string, unknown>) => request<PublicProfileRecord>('/public-profiles/quick-create', { method: 'POST', body: JSON.stringify(input) }),
+  quickCreate: (input: Record<string, unknown>) => request<PublicProfileRecord>('/public-profiles/quick-create', { method: 'POST', body: JSON.stringify({ ...input, funnelSessionId: productFunnelSessionId() }) }),
 
   update: (profileId: string, input: Partial<ProfileDraft> & { revisionReason?: 'autosave' | 'manual' }) =>
     request<PublicProfileRecord>(`/public-profiles/${profileId}`, {
@@ -79,7 +81,7 @@ export const publicProfileApi = {
   publish: (profileId: string, acknowledgeLinkWarnings = false) =>
     request<PublicProfileRecord>(`/public-profiles/${profileId}/publish`, {
       method: 'POST',
-      body: JSON.stringify({ acknowledgeLinkWarnings }),
+      body: JSON.stringify({ acknowledgeLinkWarnings, funnelSessionId: productFunnelSessionId() }),
     }),
 
   unpublish: (profileId: string) =>
@@ -121,6 +123,7 @@ export const publicProfileApi = {
     eventType: ProfileEventType,
     target?: string
   ) => {
+    if (!allowsAnalytics()) return;
     const params = new URLSearchParams(window.location.search);
     const sessionId = sessionStorage.getItem('followmee:profile-session') || crypto.randomUUID();
     sessionStorage.setItem('followmee:profile-session', sessionId);

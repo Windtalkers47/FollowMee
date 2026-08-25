@@ -13,8 +13,8 @@
     "start:frontend": "npm --prefix Frontend run dev",
     "start:ssr": "npm --prefix Frontend run dev:ssr",
     "start:e2e": "concurrently -n \"E2E-BACKEND,E2E-FRONTEND\" -c \"bgBlue.bold,bgGreen.bold\" \"npm run start:e2e:backend\" \"npm run start:e2e:frontend\"",
-    "start:e2e:backend": "cross-env PORT=5110 DB_NAME=followmee_e2e JWT_SECRET=followmee-e2e-jwt-secret-2026 CORS_ORIGIN=http://localhost:5175 FRONTEND_URL=http://localhost:5175 DOTENV_CONFIG_PATH=Backend/.env TS_NODE_PROJECT=Backend/tsconfig.json node -r ./Backend/node_modules/dotenv/config -r ./Backend/node_modules/ts-node/register Backend/src/server.ts",
-    "start:e2e:frontend": "cross-env VITE_API_URL=http://localhost:5110/api VITE_WS_URL=http://localhost:5110 npm --prefix Frontend run dev -- --port 5175 --strictPort",
+    "start:e2e:backend": "cross-env NODE_ENV=test PORT=5110 DB_NAME=followmee_e2e JWT_SECRET=followmee-e2e-jwt-secret-2026 CORS_ORIGIN=http://localhost:5175 FRONTEND_URL=http://localhost:5175 ALLOW_PUBLIC_REGISTRATION=true PRIVACY_POLICY_VERSION=2026-08 DOTENV_CONFIG_PATH=Backend/.env TS_NODE_PROJECT=Backend/tsconfig.json node -r ./Backend/node_modules/dotenv/config -r ./Backend/node_modules/ts-node/register Backend/src/server.ts",
+    "start:e2e:frontend": "cross-env VITE_API_URL=http://localhost:5110/api VITE_WS_URL=http://localhost:5110 VITE_FEATURE_REGISTRATION=true VITE_PRIVACY_POLICY_VERSION=2026-08 npm --prefix Frontend run dev -- --port 5175 --strictPort",
     "build:backend": "npm --prefix Backend run build",
     "build:frontend": "npm --prefix Frontend run build",
     "build": "npm run build:backend && npm run build:frontend",
@@ -35,6 +35,7 @@
     "docs:check": "node scripts/check-doc-links.cjs",
     "hygiene:check": "node scripts/check-repository-hygiene.cjs",
     "verify": "npm run hygiene:check && npm run docs:check && npm run test:backend && npm run test:frontend && npm run typecheck && npm run lint && npm run build && npm run test:bundle"
+    ,"verify:preview": "node scripts/verify-preview-metadata.cjs"
   },
   "keywords": [],
   "author": "",

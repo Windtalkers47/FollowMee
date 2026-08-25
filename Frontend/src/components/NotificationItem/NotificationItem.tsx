@@ -104,7 +104,7 @@ const NotificationItem = ({
       }}
     >
       {!recipient.isRead && (
-        <Box aria-label={t('notification.unread')} sx={{ position: 'absolute', left: 6, top: 20, width: 7, height: 7, borderRadius: '50%', bgcolor: color }} />
+        <Box role="img" aria-label={t('notification.unread')} sx={{ position: 'absolute', left: 6, top: 20, width: 7, height: 7, borderRadius: '50%', bgcolor: color }} />
       )}
       {notification.actorUser ? (
         <SmartAvatar user={notification.actorUser} sx={{ width: 40, height: 40 }} />

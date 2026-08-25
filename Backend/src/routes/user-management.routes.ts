@@ -5,12 +5,14 @@ import { UserManagementController } from '../controllers/user-management.control
 import { UserService } from '../services/user.service';
 import { OwnerController } from '../controllers/owner.controller';
 import { InvitationController } from '../controllers/invitation.controller';
+import { RegistrationRequestController } from '../controllers/registration-request.controller';
 
 // Manual dependency injection
 const userService = new UserService();
 const userManagementController = new UserManagementController(userService);
 const ownerController = new OwnerController();
 const invitationController = new InvitationController();
+const registrationRequestController = new RegistrationRequestController();
 
 const router = Router();
 
@@ -28,6 +30,9 @@ router.get('/invitations', checkPermission('CREATE_USERS'), invitationController
 router.post('/invitations', checkPermission('CREATE_USERS'), invitationController.create);
 router.post('/invitations/:id/resend', checkPermission('CREATE_USERS'), invitationController.resend);
 router.post('/invitations/:id/revoke', checkPermission('CREATE_USERS'), invitationController.revoke);
+router.get('/registration-requests', checkRole('Owner'), registrationRequestController.list);
+router.post('/registration-requests/:id/approve', checkRole('Owner'), registrationRequestController.approve);
+router.post('/registration-requests/:id/reject', checkRole('Owner'), registrationRequestController.reject);
 
 // User role assignment - require MANAGE_ROLES or UPDATE_USERS permission
 router.post('/users/assign-role', checkAnyPermission(['MANAGE_ROLES', 'UPDATE_USERS']), (req, res) => userManagementController.assignRoleToUser(req, res));

@@ -1,0 +1,67 @@
+version: "1"
+services:
+  - type: web
+    name: followmee-backend-uat
+    env: node
+    region: oregon
+    plan: free
+    branch: develop
+    rootDir: Backend
+    buildCommand: npm ci && npm run build
+    startCommand: npm run start:uat
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: 22
+      - key: REWARD_DEV_SEED
+        value: "false"
+      - key: ALLOW_PUBLIC_REGISTRATION
+        value: "true"
+      - key: PROFILE_CUSTOM_DOMAINS_ENABLED
+        value: "false"
+      - key: DB_SSL
+        value: "true"
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        sync: false
+      - key: DB_USERNAME
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: DB_NAME
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: INVITATION_SECRET
+        generateValue: true
+      - key: PROFILE_ANALYTICS_SALT
+        generateValue: true
+      - key: PRIVACY_POLICY_VERSION
+        value: 2026-08
+      - key: PRIVACY_CONTROLLER_NAME
+        sync: false
+      - key: PRIVACY_CONTROLLER_EMAIL
+        sync: false
+      - key: PRIVACY_CONTROLLER_ADDRESS
+        sync: false
+      - key: PRIVACY_POLICY_EFFECTIVE_DATE
+        sync: false
+      - key: TURNSTILE_SECRET_KEY
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+      - key: CORS_ORIGIN
+        sync: false
+      - key: CORS_PREVIEW_ORIGINS
+        sync: false
+      - key: SENDGRID_API_KEY
+        sync: false
+      - key: SENDGRID_FROM_EMAIL
+        sync: false
+      - key: TIDB_STORAGE_LIMIT_BYTES
+        value: "5368709120"
+      - key: TIDB_STORAGE_USAGE_CONFIRMED
+        value: "false"

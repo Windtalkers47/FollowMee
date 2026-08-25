@@ -10,6 +10,7 @@ import { uploadBase64Image } from '../config/cloudinary.config';
 import auditService from '../services/audit.service';
 import { profilePlatformService } from '../services/profile-platform.service';
 import { ApplicationError } from '../errors/application.error';
+import { productFunnelService } from '../services/product-funnel.service';
 
 export class PublicProfileController {
   constructor(private readonly service = new PublicProfileService()) {}
@@ -93,6 +94,7 @@ export class PublicProfileController {
     try {
       const data = await profilePlatformService.quickCreate(this.userId(req), req.body || {});
       await auditService.logEvent({ userId: this.userId(req), action: 'PUBLIC_PROFILE_QUICK_CREATED', status: 'SUCCESS', details: { profileId: data.profileId } });
+      if (req.body?.funnelSessionId) await productFunnelService.record('draft_created', String(req.body.funnelSessionId), this.userId(req));
       return res.status(201).json({ success: true, data: this.presentForUser(data, req) });
     } catch (error) { return this.sendError(res, error); }
   };
@@ -145,6 +147,7 @@ export class PublicProfileController {
         'published'
       );
       await auditService.logEvent({ userId: this.userId(req), action: 'PUBLIC_PROFILE_PUBLISHED', status: 'SUCCESS', details: { profileId: data.profileId } });
+      if (req.body?.funnelSessionId) await productFunnelService.record('published', String(req.body.funnelSessionId), this.userId(req));
       return res.json({ success: true, data: this.presentForUser(data, req) });
     } catch (error) {
       return this.sendError(res, error);

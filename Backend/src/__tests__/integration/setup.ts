@@ -7,7 +7,13 @@ if (!process.env.DB_NAME.endsWith('_e2e')) {
 }
 
 jest.mock('../../services/email.service', () => ({
-  emailService: { sendNotificationEmail: jest.fn().mockResolvedValue(undefined) },
+  emailService: {
+    sendNotificationEmail: jest.fn().mockResolvedValue(undefined),
+    sendRegistrationVerificationEmail: jest.fn().mockResolvedValue(true),
+    sendRegistrationDecisionEmail: jest.fn().mockResolvedValue(true),
+    sendEmail: jest.fn().mockResolvedValue(true),
+    getEmailUsage: jest.fn().mockReturnValue({ sent: 0, limit: 100, remaining: 100 }),
+  },
 }));
 
 jest.mock('../../services/push-notification.service', () => ({

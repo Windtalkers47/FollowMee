@@ -1,0 +1,13 @@
+import { Router } from 'express';
+import rateLimit from 'express-rate-limit';
+import { PrivacyController } from '../controllers/privacy.controller';
+import { isAuthenticated } from '../middleware/auth.middleware';
+import { checkRole } from '../middleware/permission.middleware';
+const router = Router(); const controller = new PrivacyController();
+const publicLimiter = rateLimit({ windowMs: 60 * 60 * 1000, limit: 5, standardHeaders: true, legacyHeaders: false });
+router.post('/requests', publicLimiter, controller.create);
+router.get('/requests/verify', publicLimiter, controller.verify);
+router.post('/consents', controller.consent);
+router.get('/requests', isAuthenticated, checkRole('Owner'), controller.list);
+router.patch('/requests/:id', isAuthenticated, checkRole('Owner'), controller.update);
+export default router;

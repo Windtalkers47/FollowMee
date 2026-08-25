@@ -1,8 +1,8 @@
 import { canUsePublicRegistration } from '../../utils/registrationPolicy';
 
 describe('registration policy', () => {
-  it('always keeps production invite-only', () => {
-    expect(canUsePublicRegistration(false, true)).toBe(false);
+  it('allows production requests only behind the registration feature flag', () => {
+    expect(canUsePublicRegistration(false, true)).toBe(true);
     expect(canUsePublicRegistration(false, false)).toBe(false);
   });
 

@@ -23,6 +23,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import type { UserProfileUpdatedEvent } from './types/profile-event.types';
 import { patchUserInCache } from './utils/patchUserInCache';
 import { primaryRouteLoaders } from './utils/routePrefetch';
+import CookieConsentBanner from './components/CookieConsentBanner';
+import CapacityCriticalBanner from './components/CapacityCriticalBanner';
 
 // Lazy load pages
 const LoginPage = React.lazy(() => import('./pages/Login'));
@@ -50,6 +52,13 @@ const RewardsPage = React.lazy(() => import('./pages/Rewards'));
 const UserProfilePage = React.lazy(() => import('./pages/UserProfile'));
 const PublicUserProfilePage = React.lazy(() => import('./pages/UserProfile/PublicUserProfilePage'));
 const MainLayout = React.lazy(() => import('./layouts/MainLayout'));
+const LegalPage = React.lazy(() => import('./pages/Legal/LegalPage'));
+const PrivacyRequestPage = React.lazy(() => import('./pages/Legal/PrivacyRequestPage'));
+const VerifyPrivacyRequestPage = React.lazy(() => import('./pages/Legal/VerifyPrivacyRequestPage'));
+const VerifyRegistrationPage = React.lazy(() => import('./pages/VerifyRegistration'));
+const RegistrationRequestsPage = React.lazy(() => import('./pages/RegistrationRequests'));
+const SystemCapacityPage = React.lazy(() => import('./pages/SystemCapacity'));
+const PrivacyRequestsPage = React.lazy(() => import('./pages/PrivacyRequests'));
 
 const LoadingSpinner = () => (
   <Box
@@ -79,7 +88,7 @@ const ProtectedRoute = () => {
   }
 
   return (
-    <><NotificationRealtimeBridge />
+    <><NotificationRealtimeBridge /><CapacityCriticalBanner />
     <Suspense fallback={<LoadingSpinner />}>
       <MainLayout>
         <Outlet />
@@ -304,6 +313,7 @@ const App = () => {
           `}
         </style>
         <Box sx={{ minHeight: '100vh' }}>
+          <CookieConsentBanner />
           <Suspense fallback={<LoadingSpinner />}>
             <ErrorBoundary>
               <Routes location={location}>
@@ -348,6 +358,11 @@ const App = () => {
                 <Route path="/p/:slug" element={<PublicProfilePage />} />
                 <Route path="/demo/profile" element={<DemoProfilePage />} />
                 <Route path="/u/:handle" element={<PublicUserProfilePage />} />
+                <Route path="/privacy" element={<LegalPage />} />
+                <Route path="/terms" element={<LegalPage />} />
+                <Route path="/privacy/request" element={<PrivacyRequestPage />} />
+                <Route path="/privacy/request/verify" element={<VerifyPrivacyRequestPage />} />
+                <Route path="/verify-registration" element={<VerifyRegistrationPage />} />
 
                 {/* Protected */}
                 <Route element={<ProtectedRoute />}>
@@ -359,6 +374,9 @@ const App = () => {
                   <Route path="/schedule" element={<SchedulePageWithSelection />} />
                   <Route path="/customer" element={<CustomerPage />} />
                   <Route path="/users" element={<UsersPage />} />
+                  <Route path="/users/registration-requests" element={<RegistrationRequestsPage />} />
+                  <Route path="/system-capacity" element={<SystemCapacityPage />} />
+                  <Route path="/privacy-requests" element={<PrivacyRequestsPage />} />
                   <Route path="/settings" element={<SettingsPage />} />
                   <Route path="/customer-profile" element={<ProfileLibraryPage />} />
                   <Route path="/customer-profile/new" element={<QuickCreatePage />} />

@@ -126,3 +126,14 @@ export const checkRole = (requiredRole: string) => {
     }
   };
 };
+
+export const checkAnyRole = (requiredRoles: string[]) => {
+  return async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.user) return res.status(401).json({ success: false, message: 'Authentication required' });
+      const userWithRoles = await new UserService().getUserWithRoles(req.user.userId);
+      if (!requiredRoles.some(role => userWithRoles.roles.includes(role))) return res.status(403).json({ success: false, message: 'Insufficient role', code: 'INSUFFICIENT_ROLE' });
+      next();
+    } catch { return res.status(500).json({ success: false, message: 'Error checking role' }); }
+  };
+};

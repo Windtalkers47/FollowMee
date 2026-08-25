@@ -20,6 +20,7 @@ database are:
 - `ProfileTrustCampaign1851000000000` (Phase 2: revisions, link health, merge recovery and scheduling)
 - `ProfileCustomDomains1852000000000` (Phase 3: domain verification state; deploy before enabling its flag)
 - `ProfileDomainRedirectPreference1853000000000` (Phase 3: additive canonical-domain redirect preference)
+- `UatAccessPrivacyCapacity1854000000000` (closed-UAT signup approval, consent/privacy requests, product funnel and capacity alerts)
 
 Before the public-profile migration on 26 July 2026, a SQL backup was written
 to `C:\PAom\data_backup_20260726\followmee_before_public_profiles.sql`.
@@ -39,6 +40,8 @@ public content:
   `customer_merge_snapshots` provide recovery/audit boundaries.
 - `public_profile_domains` stores verification state only. Vercel tokens stay
   in backend environment variables and the feature flag defaults to disabled.
+- `registration_requests` keeps password hashes inaccessible while email verification and Owner approval are pending; no User/role is created before approval.
+- `consent_records`, `privacy_requests`, `product_funnel_events` and `system_capacity_alerts` provide versioned privacy evidence, verified rights workflow, opt-in business funnel and deduplicated exact-capacity alerts.
 - The clean schema mirrors the MariaDB runtime collation (`utf8mb4_unicode_ci`)
   and UUID columns used by the TypeORM entities; use it only for an empty
   disposable/schema-verification database, never for an existing `followmee`.

@@ -12,7 +12,18 @@ export interface RegisterCredentials {
   userPassword: string;
   userPhone1?: string;
   invitationToken?: string;
+  termsAccepted?: boolean;
+  privacyAccepted?: boolean;
+  termsVersion?: string;
+  privacyVersion?: string;
+  preferencesConsent?: boolean;
+  analyticsConsent?: boolean;
+  website?: string;
+  turnstileToken?: string;
+  funnelSessionId?: string;
 }
+
+export interface RegistrationResult { requestId?: string; status?: 'pending_email' | 'pending_approval' | 'approved'; userId?: number }
 
 export interface InvitationPreview {
   email: string;
@@ -54,7 +65,7 @@ const authApi = {
   /**
    * Register a new user
    */
-  register: async (credentials: RegisterCredentials): Promise<ApiResponse<{ success: boolean; data?: any }>> => {
+  register: async (credentials: RegisterCredentials): Promise<ApiResponse<RegistrationResult>> => {
     // Encrypt sensitive data for development
     const encryptedData = encryptRequestData(credentials);
     
@@ -67,7 +78,7 @@ const authApi = {
       body: JSON.stringify(encryptedData),
     });
 
-    const result = handleResponse<ApiResponse<{ success: boolean; data?: any }>>(response);
+    const result = handleResponse<ApiResponse<RegistrationResult>>(response);
     
     // Decrypt response if it was encrypted
     return decryptResponseData(result);

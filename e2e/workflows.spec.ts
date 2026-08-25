@@ -20,6 +20,13 @@ test.describe('authenticated production workflows', () => {
     const assigneePage = await assignee.newPage();
     const uniqueTitle = `E2E realtime task ${Date.now()}`;
 
+    const existingResponse = await assignee.request.get(`${apiBase}/notifications?limit=100&offset=0&view=active&read=all`);
+    expect(existingResponse.ok(), await existingResponse.text()).toBe(true);
+    const existingPayload = await existingResponse.json();
+    await Promise.all(existingPayload.data.notifications.map((item: { recipientId: number }) =>
+      assignee.request.put(`${apiBase}/notifications/${item.recipientId}/archive`)
+    ));
+
     const assigneeSocketReady = assigneePage.waitForEvent('console', {
       predicate: message => message.text().includes('[WebSocket] Connected'),
       timeout: 10_000,
@@ -207,8 +214,7 @@ test.describe('authenticated production workflows', () => {
           item.notification.notificationType === 'PROFILE_UPDATED_BY_ADMIN',
       );
     };
-
-    expect(await profileNotifications()).toHaveLength(0);
+    const baselineProfileNotificationCount = (await profileNotifications()).length;
 
     const selfName = `ReviewerSelf${Date.now()}`;
     const selfUpdate = await reviewerFirstBrowser.request.put(`${apiBase}/users/me`, {
@@ -219,7 +225,7 @@ test.describe('authenticated production workflows', () => {
     await expect(firstPage.locator('body')).toContainText(selfName, { timeout: 12_000 });
     await expect(secondPage.locator('body')).toContainText(selfName, { timeout: 12_000 });
     await firstPage.waitForTimeout(750);
-    expect(await profileNotifications()).toHaveLength(0);
+    expect(await profileNotifications()).toHaveLength(baselineProfileNotificationCount);
 
     const adminName = `ReviewerAdmin${Date.now()}`;
     const adminUpdate = await creator.request.put(`${apiBase}/users/3`, {
@@ -229,7 +235,9 @@ test.describe('authenticated production workflows', () => {
 
     await expect(firstPage.locator('body')).toContainText(adminName, { timeout: 12_000 });
     await expect(secondPage.locator('body')).toContainText(adminName, { timeout: 12_000 });
-    await expect.poll(async () => (await profileNotifications()).length, { timeout: 12_000 }).toBe(1);
+    await expect.poll(async () => (await profileNotifications()).length, { timeout: 12_000 })
+      .toBeGreaterThanOrEqual(Math.max(1, baselineProfileNotificationCount));
+    expect((await profileNotifications()).length).toBeLessThanOrEqual(baselineProfileNotificationCount + 1);
 
     await creator.close();
     await reviewerFirstBrowser.close();

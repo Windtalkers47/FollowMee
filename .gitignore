@@ -7,6 +7,7 @@ node_modules/
 .env
 .env.*
 !.env.example
+!Frontend/.env.uat.example
 
 # Build directories
 /dist

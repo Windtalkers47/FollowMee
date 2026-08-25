@@ -46,8 +46,10 @@ Inspect raw HTML with JavaScript disabled. Confirm exactly one title, canonical,
 The Vite SPA fallback must exclude `/api/`; otherwise the catch-all rewrite
 serves `index.html` instead of the profile metadata and OG-image Functions.
 The metadata Function first reads a packaged `dist/index.html`; when Vercel
-keeps static output outside the Function filesystem, it fetches the deployment's
-own `/index.html` with the same bounded timeout before injecting metadata.
+preserves the repository root in the Function bundle, it also checks
+`Frontend/dist/index.html`. Only when neither packaged location exists does it
+fetch the deployment's own `/index.html` with the same bounded timeout before
+injecting metadata.
 
 ## 4. UAT script and exit gate
 

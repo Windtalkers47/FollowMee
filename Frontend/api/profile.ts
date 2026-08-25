@@ -12,13 +12,17 @@ const timedFetch = async (url: string) => {
   finally { clearTimeout(timer); }
 };
 const loadBuiltShell = async (protocol: string, host: string) => {
-  try {
-    return await fs.readFile(path.join(process.cwd(), 'dist', 'index.html'), 'utf8');
-  } catch {
-    const result = await timedFetch(`${protocol}://${host}/index.html`);
-    if (!result.ok) throw new Error(`Unable to load built application shell (${result.status})`);
-    return result.text();
+  const candidates = [
+    path.join(process.cwd(), 'dist', 'index.html'),
+    path.join(process.cwd(), 'Frontend', 'dist', 'index.html'),
+  ];
+  for (const candidate of candidates) {
+    try { return await fs.readFile(candidate, 'utf8'); }
+    catch { /* Vercel can preserve the repository root inside the function bundle. */ }
   }
+  const result = await timedFetch(`${protocol}://${host}/index.html`);
+  if (!result.ok) throw new Error(`Unable to load built application shell (${result.status})`);
+  return result.text();
 };
 
 export default async function handler(request: RequestLike, response: ResponseLike) {

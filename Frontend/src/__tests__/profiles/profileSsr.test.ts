@@ -6,6 +6,7 @@ import handler from '../../../api/profile';
 
 describe('profile SSR metadata function', () => {
   beforeEach(() => {
+    vi.mocked(fs.readFile).mockReset().mockResolvedValue('<html><head><title>FollowMee</title></head><body><div id="root"></div></body></html>');
     process.env.PROFILE_API_URL = 'https://api.example.test/api';
     vi.stubGlobal('fetch', vi.fn(async (input: string | URL) => {
       const url = String(input);
@@ -33,7 +34,7 @@ describe('profile SSR metadata function', () => {
   });
 
   it('loads the built deployment shell when it is not packaged with the function', async () => {
-    vi.mocked(fs.readFile).mockRejectedValueOnce(new Error('missing packaged shell'));
+    vi.mocked(fs.readFile).mockRejectedValue(new Error('missing packaged shell'));
     vi.mocked(fetch).mockImplementation(async (input: string | URL) => {
       const url = String(input);
       if (url.endsWith('/index.html')) return new Response('<html><head><title>FollowMee</title></head><body><div id="root"></div></body></html>');
@@ -47,5 +48,19 @@ describe('profile SSR metadata function', () => {
     expect(status).toBe(404);
     expect(body).toContain('<div id="root"></div>');
     expect(fetch).toHaveBeenCalledWith('https://profiles.example.test/index.html', expect.anything());
+  });
+
+  it('loads a shell preserved under the repository root in the function bundle', async () => {
+    vi.mocked(fs.readFile)
+      .mockRejectedValueOnce(new Error('missing root shell'))
+      .mockResolvedValueOnce('<html><head><title>FollowMee</title></head><body><div id="root"></div></body></html>');
+    vi.mocked(fetch).mockResolvedValue(new Response('{}', { status: 404 }));
+    let status = 0;
+    const response = { status(code: number) { status = code; return this; }, setHeader() {}, send() {} };
+
+    await handler({ query: { slug: 'missing-profile' }, headers: { host: 'profiles.example.test' } }, response);
+
+    expect(status).toBe(404);
+    expect(fs.readFile).toHaveBeenCalledTimes(2);
   });
 });

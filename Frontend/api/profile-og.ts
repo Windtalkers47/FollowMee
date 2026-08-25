@@ -1,9 +1,13 @@
 import React from 'react';
 import { ImageResponse } from '@vercel/og';
 
-type RequestLike = { query?: Record<string, string | string[]> };
+export const config = { runtime: 'edge' };
+
+type RequestLike = { query?: Record<string, string | string[]>; url?: string };
 export default async function handler(request: RequestLike) {
-  const slug = String(Array.isArray(request.query?.slug) ? request.query?.slug[0] : request.query?.slug || ''); const apiBase = String(process.env.VITE_API_URL || process.env.PROFILE_API_URL || '').replace(/\/$/, ''); let data: any = null;
+  const querySlug = Array.isArray(request.query?.slug) ? request.query.slug[0] : request.query?.slug;
+  const urlSlug = request.url ? new URL(request.url).searchParams.get('slug') : '';
+  const slug = String(querySlug || urlSlug || ''); const apiBase = String(process.env.VITE_API_URL || process.env.PROFILE_API_URL || '').replace(/\/$/, ''); let data: any = null;
   if (apiBase) { try { const result = await fetch(`${apiBase}/public-profiles/public/${encodeURIComponent(slug)}/meta`, { signal: AbortSignal.timeout(3500) }); if (result.ok) data = (await result.json() as any).data; } catch { data = null; } }
   const name = data?.displayName || 'FollowMee'; const headline = data?.headline || 'A profile worth sharing';
   return new ImageResponse(React.createElement('div', { style: { width: '100%', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '86px 96px', background: 'linear-gradient(135deg,#E6F8EC,#F9F5EC 56%,#EEF1FF)', color: '#17211A', fontFamily: 'sans-serif' } },

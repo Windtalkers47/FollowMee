@@ -50,6 +50,8 @@ preserves the repository root in the Function bundle, it also checks
 `Frontend/dist/index.html`. Only when neither packaged location exists does it
 fetch the deployment's own `/index.html` with the same bounded timeout before
 injecting metadata.
+The `/api/profile-og` Function uses Vercel's Edge runtime so `@vercel/og` can
+return a 1200×630 PNG without relying on Node-only WASM packaging.
 
 ## 4. UAT script and exit gate
 

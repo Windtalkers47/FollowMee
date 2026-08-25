@@ -11,6 +11,15 @@ const timedFetch = async (url: string) => {
   try { return await fetch(url, { headers: { accept: 'application/json' }, signal: controller.signal }); }
   finally { clearTimeout(timer); }
 };
+const loadBuiltShell = async (protocol: string, host: string) => {
+  try {
+    return await fs.readFile(path.join(process.cwd(), 'dist', 'index.html'), 'utf8');
+  } catch {
+    const result = await timedFetch(`${protocol}://${host}/index.html`);
+    if (!result.ok) throw new Error(`Unable to load built application shell (${result.status})`);
+    return result.text();
+  }
+};
 
 export default async function handler(request: RequestLike, response: ResponseLike) {
   const slug = String(Array.isArray(request.query?.slug) ? request.query?.slug[0] : request.query?.slug || '');
@@ -26,7 +35,7 @@ export default async function handler(request: RequestLike, response: ResponseLi
       if (result.ok) data = (await result.json() as any).data;
     } catch { data = null; }
   }
-  const shell = await fs.readFile(path.join(process.cwd(), 'dist', 'index.html'), 'utf8');
+  const shell = await loadBuiltShell(protocol, host);
   const canonical = data?.canonicalUrl || requestCanonical;
   if (data?.canonicalUrl && data.redirectToCanonical && data.canonicalUrl !== requestCanonical) {
     response.status(308); response.setHeader('Location', data.canonicalUrl); response.setHeader('Cache-Control', 'public, s-maxage=60'); response.send(''); return;

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('node:fs/promises', () => ({ default: { readFile: vi.fn(async () => '<html><head><title>FollowMee</title></head><body><div id="root"></div></body></html>') } }));
+import fs from 'node:fs/promises';
 import handler from '../../../api/profile';
 
 describe('profile SSR metadata function', () => {
@@ -29,5 +30,22 @@ describe('profile SSR metadata function', () => {
     const response = { status(code: number) { status = code; return this; }, setHeader() {}, send(value: string) { body = value; } };
     await handler({ query: { slug: 'missing-profile' }, headers: { host: 'profiles.example.test' } }, response);
     expect(status).toBe(404); expect(body).toContain('name="robots" content="noindex,follow"');
+  });
+
+  it('loads the built deployment shell when it is not packaged with the function', async () => {
+    vi.mocked(fs.readFile).mockRejectedValueOnce(new Error('missing packaged shell'));
+    vi.mocked(fetch).mockImplementation(async (input: string | URL) => {
+      const url = String(input);
+      if (url.endsWith('/index.html')) return new Response('<html><head><title>FollowMee</title></head><body><div id="root"></div></body></html>');
+      return new Response('{}', { status: 404 });
+    });
+    let status = 0; let body = '';
+    const response = { status(code: number) { status = code; return this; }, setHeader() {}, send(value: string) { body = value; } };
+
+    await handler({ query: { slug: 'missing-profile' }, headers: { host: 'profiles.example.test' } }, response);
+
+    expect(status).toBe(404);
+    expect(body).toContain('<div id="root"></div>');
+    expect(fetch).toHaveBeenCalledWith('https://profiles.example.test/index.html', expect.anything());
   });
 });

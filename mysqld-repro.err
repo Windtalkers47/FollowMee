@@ -1,8 +1,0 @@
-2026-08-05  9:39:05 0 [Note] Using unique option prefix 'key_buffer' is error-prone and can break in the future. Please use the full name 'key_buffer_size' instead.
-2026-08-05  9:39:05 0 [Note] Starting MariaDB 10.4.32-MariaDB source revision c4143f909528e3fab0677a28631d10389354c491 as process 40100
-2026-08-05  9:39:05 0 [ERROR] InnoDB: The innodb_system data file 'ibdata1' must be writable
-2026-08-05  9:39:05 0 [ERROR] InnoDB: The innodb_system data file 'ibdata1' must be writable
-2026-08-05  9:39:05 0 [ERROR] Plugin 'InnoDB' registration as a STORAGE ENGINE failed.
-2026-08-05  9:39:05 0 [Note] Plugin 'FEEDBACK' is disabled.
-2026-08-05  9:39:05 0 [ERROR] Unknown/unsupported storage engine: InnoDB
-2026-08-05  9:39:05 0 [ERROR] Aborting

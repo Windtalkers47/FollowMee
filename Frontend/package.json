@@ -6,8 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "typecheck": "tsc -b --pretty false",
     "lint": "eslint .",
-    "lint:critical": "eslint src/api/config.ts src/services/api/customerApi.ts src/types/organization.types.ts src/components/TaskForm/TaskForm.tsx src/components/TaskForm/TaskFormFields.tsx",
+    "lint:critical": "eslint src/lib/api/client.ts src/api/config.ts src/services/api/customerApi.ts src/types/organization.types.ts src/components/TaskForm/TaskForm.tsx src/components/TaskForm/TaskFormFields.tsx",
     "preview": "vite preview",
     "test": "vitest",
     "test:ui": "vitest --ui",

@@ -1,10 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
-  Container,
   Box,
-  Paper,
-  Typography,
   TextField,
   Button,
   CircularProgress,
@@ -15,6 +12,7 @@ import { Visibility, VisibilityOff } from '@mui/icons-material';
 import feedback from '../../services/feedback.service';
 import { useUserPreferences } from '../../contexts/UserPreferencesContext';
 import { API_URL } from '../../utils/runtimeEnv';
+import AuthShell from '../../components/AuthShell';
 
 // Hide browser's built-in password reveal button
 const styles = `
@@ -127,12 +125,12 @@ const handleSubmit = async (e: React.FormEvent) => {
     });
     
     navigate('/login');
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Reset password error:', error);
     await feedback.fire({
       icon: 'error',
       title: t('auth.reset.failedTitle'),
-      text: error.message || t('auth.reset.failedText'),
+      text: t('auth.reset.failedText'),
     });
   } finally {
     setIsLoading(false);
@@ -144,27 +142,7 @@ const handleSubmit = async (e: React.FormEvent) => {
   }
 
   return (
-    <Container component="main" maxWidth="xs">
-      <Box
-        sx={{
-          marginTop: 8,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-        }}
-      >
-        <Typography component="h1" variant="h5">
-          {t('auth.reset.title')}
-        </Typography>
-        <Paper variant="outlined" sx={{
-          p: 4, 
-          mt: 3, 
-          width: '100%',
-          backgroundColor: 'background.paper',
-          borderColor: 'divider',
-          borderRadius: 3,
-          boxShadow: 'none',
-        }}>
+    <AuthShell title={t('auth.reset.title')}>
           <Box component="form" onSubmit={handleSubmit} noValidate>
             <TextField
               margin="normal"
@@ -231,9 +209,7 @@ const handleSubmit = async (e: React.FormEvent) => {
               {isLoading ? t('auth.reset.resetting') : t('auth.reset.submit')}
             </Button>
           </Box>
-        </Paper>
-      </Box>
-    </Container>
+    </AuthShell>
   );
 };
 

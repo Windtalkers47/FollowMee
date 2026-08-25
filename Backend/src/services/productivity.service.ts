@@ -7,6 +7,7 @@ import { taskAccessService } from './task-access.service';
 import { outboxService } from './outbox.service';
 import { CloudinaryUtil } from '../utils/cloudinary.util';
 import { webSocketService } from './websocket.service';
+import { cloneTaskRealtimeProjection, taskRealtimeChange, taskRealtimePayload } from '../types/task-realtime-event';
 
 type ChecklistInput = { label: string; isRequired?: boolean };
 
@@ -123,9 +124,17 @@ export class ProductivityService {
     if (!taskAccessService.canManage(task, access) && task.assignedTo !== userId) throw new ApplicationError('Blocked state is not allowed', 'TASK_ACTION_FORBIDDEN', 403);
     if (expectedVersion !== undefined && task.version !== expectedVersion) throw Object.assign(new Error('This task was changed by another user'), { statusCode: 409, code: 'TASK_VERSION_CONFLICT', currentVersion: task.version });
     if (blocked && !reason.trim()) throw new ApplicationError('A blocked reason is required', 'TASK_BLOCK_REASON_REQUIRED', 400);
-    await AppDataSource.query(`UPDATE tasks SET blockedReason=?,blockedAt=?,blockedBy=?,version=version+1 WHERE taskId=?`, [blocked ? reason.trim().slice(0, 500) : null, blocked ? new Date() : null, blocked ? userId : null, taskId]);
+    const beforeRealtime = cloneTaskRealtimeProjection(task);
+    await AppDataSource.query(`UPDATE tasks SET blockedReason=?,blockedAt=?,blockedBy=?,version=version+1,updatedAt=CURRENT_TIMESTAMP WHERE taskId=?`, [blocked ? reason.trim().slice(0, 500) : null, blocked ? new Date() : null, blocked ? userId : null, taskId]);
     await AppDataSource.query(`INSERT INTO task_activities(taskId,actorUserId,action,metadata) VALUES (?,?,?,?)`, [taskId, userId, blocked ? 'blocked' : 'unblocked', JSON.stringify(blocked ? { reason: reason.trim() } : {})]);
-    webSocketService.emitDomainEvent('task:updated', { taskId, actorUserId: userId, blocked, revision: new Date().toISOString() }, [task.createdBy, task.assignedTo, userId].filter((id): id is number => Boolean(id)));
+    const updatedTask = await AppDataSource.getRepository(Task).findOne({ where: { taskId, isActive: true } });
+    if (!updatedTask) throw new ApplicationError('Task not found after blocked state update', 'TASK_NOT_FOUND', 404);
+    webSocketService.emitDomainEvent(
+      'task:updated',
+      taskRealtimePayload(userId, [taskRealtimeChange(beforeRealtime, updatedTask, ['blockedAt', 'blockedReason', 'blockedBy'])]),
+      [task.createdBy, task.assignedTo, userId].filter((id): id is number => Boolean(id)),
+    );
+    return updatedTask;
   }
 
   async savedViews(userId: number, pageKey?: string) {

@@ -30,6 +30,13 @@ public content:
 - `public_profile_events` stores privacy-preserving engagement events; IP and
   user-agent values are hashed before storage.
 
+### Customer image filter invariant
+
+`customers.customerImageUrl` is intentionally nullable (`VARCHAR(512) NULL`).
+The application's missing-image filter means only `customerImageUrl IS NULL` or
+`customerImageUrl = ''`; it does not classify a non-empty URL that fails to load
+as missing. This invariant requires no schema change or migration.
+
 ## Empty database / full reset only
 
 `followmee-clean-schema.sql` is the canonical clean schema for MySQL 8+ or

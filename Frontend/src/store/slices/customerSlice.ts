@@ -2,6 +2,14 @@ import { createAsyncThunk, createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { Customer, CustomerData, CustomerStatus } from '../../types/customer.types';
 import customerApi, { CustomerRequestError } from '../../services/api/customerApi';
 import type { RootState } from '../store';
+import {
+  buildCustomerListRequest,
+  initialCustomerListFilter,
+  type CustomerListFilter,
+} from '../../utils/customerListFilter';
+
+const getErrorMessage = (error: unknown, fallback: string): string =>
+  error instanceof Error ? error.message : fallback;
 
 /* ============================
    State
@@ -28,12 +36,7 @@ interface CustomerState {
   statusStats: StatusStats | null;
   activeListRequestId: string | null;
   lastSuccessfulAt: string | null;
-  filter: {
-    status: CustomerStatus | 'all';
-    search: string;
-    assignedTo?: number;
-    createdBy?: number;
-  };
+  filter: CustomerListFilter;
 }
 
 export interface CustomerListError {
@@ -53,12 +56,7 @@ const initialState: CustomerState = {
   statusStats: null,
   activeListRequestId: null,
   lastSuccessfulAt: null,
-  filter: {
-    status: 'all',
-    search: '',
-    assignedTo: undefined,
-    createdBy: undefined,
-  },
+  filter: initialCustomerListFilter,
 };
 
 /* ============================
@@ -83,13 +81,9 @@ const toCustomer = (data: CustomerData): Customer => {
    Thunks
 ============================ */
 
-interface FetchCustomersParams {
+interface FetchCustomersParams extends Partial<CustomerListFilter> {
   page?: number;
   limit?: number;
-  search?: string;
-  status?: CustomerStatus;
-  assignedTo?: number;
-  createdBy?: number;
 }
 
 export const fetchStatusStats = createAsyncThunk<StatusStats, void, { rejectValue: string }>(
@@ -98,8 +92,8 @@ export const fetchStatusStats = createAsyncThunk<StatusStats, void, { rejectValu
     try {
       const statusStats = await customerApi.getStatusStats();
       return statusStats;
-    } catch (err: any) {
-      return rejectWithValue(err.message || 'Failed to fetch status stats');
+    } catch (err: unknown) {
+      return rejectWithValue(getErrorMessage(err, 'Failed to fetch status stats'));
     }
   }
 );
@@ -113,21 +107,15 @@ export const fetchCustomers = createAsyncThunk(
 
       const page = params.page ?? customer.page;
       const limit = params.limit ?? customer.pageSize;
-      const search = params.search ?? customer.filter.search;
-
-      // Convert 'all' to undefined for backend (backend doesn't recognize 'all')
-      const status =
-        params.status && params.status !== 'all'
-          ? params.status
-          : undefined;
-
+      const request = buildCustomerListRequest({ ...customer.filter, ...params }, page, limit);
       const response = await customerApi.getCustomers(
-        page,
-        limit,
-        search,
-        status,
-        params.assignedTo ?? customer.filter.assignedTo,
-        params.createdBy ?? customer.filter.createdBy,
+        request.page,
+        request.limit,
+        request.search,
+        request.status,
+        request.assignedTo,
+        request.createdBy,
+        request.missingImage,
         signal,
       );
 
@@ -137,11 +125,11 @@ export const fetchCustomers = createAsyncThunk(
         page: response.meta.page,
         pageSize: response.meta.limit,
       };
-    } catch (err: any) {
+    } catch (err: unknown) {
       if (err instanceof CustomerRequestError && err.kind === 'aborted') throw err;
       const failure = err instanceof CustomerRequestError ? err : null;
       return rejectWithValue({
-        message: err.message || 'Failed to fetch customers',
+        message: getErrorMessage(err, 'Failed to fetch customers'),
         requestId: failure?.requestId,
         kind: failure?.kind === 'http' ? 'http' : 'transient',
       } satisfies CustomerListError);
@@ -155,20 +143,20 @@ export const fetchCustomerById = createAsyncThunk(
     try {
       const data = await customerApi.getCustomerById(id);
       return toCustomer(data);
-    } catch (err: any) {
-      return rejectWithValue(err.message || 'Failed to fetch customer');
+    } catch (err: unknown) {
+      return rejectWithValue(getErrorMessage(err, 'Failed to fetch customer'));
     }
   }
 );
 
 export const createCustomer = createAsyncThunk(
   'customers/createCustomer',
-  async (data: Omit<CustomerData, 'customerId'>, { rejectWithValue }) => {
+  async (data: Omit<CustomerData, 'customerId' | 'capabilities'>, { rejectWithValue }) => {
     try {
       const result = await customerApi.createCustomer(data);
       return toCustomer(result);
-    } catch (err: any) {
-      return rejectWithValue(err.message || 'Failed to create customer');
+    } catch (err: unknown) {
+      return rejectWithValue(getErrorMessage(err, 'Failed to create customer'));
     }
   }
 );
@@ -182,8 +170,8 @@ export const updateCustomer = createAsyncThunk(
     try {
       const result = await customerApi.updateCustomer(id, data);
       return toCustomer(result);
-    } catch (err: any) {
-      return rejectWithValue(err.message || 'Failed to update customer');
+    } catch (err: unknown) {
+      return rejectWithValue(getErrorMessage(err, 'Failed to update customer'));
     }
   }
 );
@@ -194,8 +182,8 @@ export const deleteCustomer = createAsyncThunk(
     try {
       await customerApi.deleteCustomer(id);
       return id;
-    } catch (err: any) {
-      return rejectWithValue(err.message || 'Failed to delete customer');
+    } catch (err: unknown) {
+      return rejectWithValue(getErrorMessage(err, 'Failed to delete customer'));
     }
   }
 );
@@ -215,10 +203,7 @@ const customerSlice = createSlice({
       state.pageSize = action.payload;
       state.page = 1;
     },
-    setFilter(
-      state,
-      action: PayloadAction<{ status?: CustomerStatus | 'all'; search?: string }>
-    ) {
+    setFilter(state, action: PayloadAction<Partial<CustomerListFilter>>) {
       state.filter = {
         ...state.filter,
         ...action.payload,

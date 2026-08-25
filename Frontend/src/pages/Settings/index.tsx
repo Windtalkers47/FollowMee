@@ -19,6 +19,7 @@ import {
   ToggleButton,
   ToggleButtonGroup,
   TextField,
+  Chip,
 } from '@mui/material';
 import {
   Settings as SettingsIcon,
@@ -41,12 +42,14 @@ import {
   fetchSettings,
   updateSettings,
 } from '../../store/slices/notificationSlice';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { gradientPresets, GradientPresetKey } from '../../styles/liquidGlassStyles';
 import { useLiquidGlass } from '../../contexts/LiquidGlassContext';
 import { REPLAY_TOUR_EVENT } from '../../components/ProductTour/ProductTour';
 import { useUserPreferences } from '../../contexts/UserPreferencesContext';
+import { formatLocalizedWeekday } from '../../utils/localeFormat';
 import feedback from '../../services/feedback.service';
+import { PageHeader, PageShell } from '../../components/PageState';
 
 // Default settings for fallback
 const defaultLiquidGlassSettings = {
@@ -79,11 +82,24 @@ const SettingsPage = () => {
     t,
   } = useUserPreferences();
 
-  const savePreference = async (action: () => Promise<void>) => {
+  type SettingsSection = 'language' | 'appearance' | 'profile' | 'notifications';
+  type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
+  const [saveStatus, setSaveStatus] = useState<Record<SettingsSection, SaveStatus>>({ language: 'idle', appearance: 'idle', profile: 'idle', notifications: 'idle' });
+  const statusChip = (section: SettingsSection) => saveStatus[section] === 'idle' ? null : <Chip
+    size="small"
+    color={saveStatus[section] === 'error' ? 'error' : saveStatus[section] === 'saved' ? 'success' : 'default'}
+    label={saveStatus[section] === 'saving' ? t('settings.saving') : saveStatus[section] === 'saved' ? t('settings.saved') : t('settings.saveFailed')}
+    aria-live="polite"
+  />;
+
+  const savePreference = async (section: SettingsSection, action: () => Promise<void>) => {
+    setSaveStatus(current => ({ ...current, [section]: 'saving' }));
     try {
       await action();
+      setSaveStatus(current => ({ ...current, [section]: 'saved' }));
       await feedback.success({ title: t('settings.saved'), duration: 2200, dedupeKey: 'settings-saved' });
     } catch {
+      setSaveStatus(current => ({ ...current, [section]: 'error' }));
       await feedback.error({ title: t('settings.saveError'), duration: 4200, dedupeKey: 'settings-save-error' });
     }
   };
@@ -92,9 +108,15 @@ const SettingsPage = () => {
     dispatch(fetchSettings());
   }, [dispatch]);
 
-  const handleNotificationSettingChange = (setting: string, value: boolean | string | number | null) => {
+  const handleNotificationSettingChange = async (setting: string, value: boolean | string | number | null) => {
     if (notificationSettings) {
-      dispatch(updateSettings({ [setting]: value }));
+      setSaveStatus(current => ({ ...current, notifications: 'saving' }));
+      try {
+        await dispatch(updateSettings({ [setting]: value })).unwrap();
+        setSaveStatus(current => ({ ...current, notifications: 'saved' }));
+      } catch {
+        setSaveStatus(current => ({ ...current, notifications: 'error' }));
+      }
     }
   };
 
@@ -116,29 +138,24 @@ const SettingsPage = () => {
   };
 
   return (
-    <Box sx={{ width: '100%', maxWidth: 1200, mx: 'auto', p: 3 }}>
-      {/* Page Header */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 4 }}>
-        <SettingsIcon sx={{ fontSize: 32, color: 'primary.main' }} />
-        <Typography variant="h4" fontWeight="bold">
-          {t('settings.title')}
-        </Typography>
-      </Box>
+    <PageShell maxWidth={1200}>
+      <PageHeader title={t('settings.title')} eyebrow={<Box display="flex" alignItems="center" gap={1}><SettingsIcon fontSize="small" />{t('nav.administration')}</Box>} />
 
       <Paper sx={{ p: { xs: 2, sm: 3 }, mb: 3 }}>
         <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2, mb: 2 }}>
           <LanguageRoundedIcon color="primary" />
-          <Box>
+          <Box flex={1}>
             <Typography variant="h6">{t('settings.language')}</Typography>
             <Typography variant="body2" color="text.secondary">
               {t('settings.languageHelp')}
             </Typography>
           </Box>
+          {statusChip('language')}
         </Box>
         <ToggleButtonGroup
           exclusive
           value={locale}
-          onChange={(_event, value) => value && savePreference(() => setLocale(value))}
+          onChange={(_event, value) => value && savePreference('language', () => setLocale(value))}
           aria-label={t('settings.language')}
           fullWidth
         >
@@ -148,14 +165,14 @@ const SettingsPage = () => {
       </Paper>
 
       <Paper sx={{ p: { xs: 2, sm: 3 }, mb: 3 }}>
-        <Typography variant="h6">{t('settings.theme')}</Typography>
+        <Box display="flex" justifyContent="space-between" gap={2}><Typography variant="h6">{t('settings.theme')}</Typography>{statusChip('appearance')}</Box>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           {t('settings.themeHelp')}
         </Typography>
         <ToggleButtonGroup
           exclusive
           value={brandTheme}
-          onChange={(_event, value) => value && savePreference(() => setBrandTheme(value))}
+          onChange={(_event, value) => value && savePreference('appearance', () => setBrandTheme(value))}
           aria-label={t('settings.theme')}
           fullWidth
           sx={{ mb: 3 }}
@@ -171,7 +188,7 @@ const SettingsPage = () => {
         <ToggleButtonGroup
           exclusive
           value={colorMode}
-          onChange={(_event, value) => value && savePreference(() => setColorMode(value))}
+          onChange={(_event, value) => value && savePreference('appearance', () => setColorMode(value))}
           aria-label={t('settings.appearance')}
           fullWidth
           sx={{ '& .MuiToggleButton-root': { gap: 1, minWidth: 0 } }}
@@ -352,9 +369,10 @@ const SettingsPage = () => {
         <Typography variant="overline" color="text.secondary">{t('settings.notifications')}</Typography>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
           <NotificationsIcon sx={{ fontSize: 24, color: 'primary.main' }} />
-          <Typography variant="h6" fontWeight={600}>
+          <Typography variant="h6" fontWeight={600} sx={{ flex: 1 }}>
             {t('settings.notificationPreferences')}
           </Typography>
+          {statusChip('notifications')}
         </Box>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
           {t('settings.notificationHelp')}
@@ -498,7 +516,7 @@ const SettingsPage = () => {
               </Select>
             </FormControl>
             {notificationSettings.digestMode !== 'none' && <Box display="grid" gridTemplateColumns={{ xs: '1fr', sm: notificationSettings.digestMode === 'weekly' ? '1fr 1fr' : '1fr' }} gap={2}>
-              {notificationSettings.digestMode === 'weekly' && <FormControl><InputLabel>{t('feature.day')}</InputLabel><Select label={t('feature.day')} value={notificationSettings.digestDay ?? 1} onChange={(event) => handleNotificationSettingChange('digestDay', Number(event.target.value))}>{['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'].map((day, index) => <MenuItem key={day} value={index}>{day}</MenuItem>)}</Select></FormControl>}
+              {notificationSettings.digestMode === 'weekly' && <FormControl><InputLabel>{t('feature.day')}</InputLabel><Select label={t('feature.day')} value={notificationSettings.digestDay ?? 1} onChange={(event) => handleNotificationSettingChange('digestDay', Number(event.target.value))}>{Array.from({ length: 7 }, (_, index) => <MenuItem key={index} value={index}>{formatLocalizedWeekday(index, locale)}</MenuItem>)}</Select></FormControl>}
               <TextField type="time" label={t('feature.deliveryTime')} InputLabelProps={{ shrink: true }} value={notificationSettings.digestTime || '08:00'} onChange={(event) => handleNotificationSettingChange('digestTime', event.target.value)} />
             </Box>}
           </Box>
@@ -511,11 +529,11 @@ const SettingsPage = () => {
 
       <Paper sx={{ p: 3, mb: 3 }}>
         <Typography variant="overline" color="text.secondary">{t('feature.profileSharing')}</Typography>
-        <Typography variant="h6" mb={2}>{t('feature.cardExperience')}</Typography>
-        <FormControl fullWidth sx={{ mb: 2 }}><InputLabel>{t('feature.motion')}</InputLabel><Select label={t('feature.motion')} value={profileCardMotion} onChange={(event) => savePreference(() => setProfileCardMotion(event.target.value as 'full' | 'subtle' | 'off'))}><MenuItem value="full">{t('feature.full')}</MenuItem><MenuItem value="subtle">{t('feature.subtle')}</MenuItem><MenuItem value="off">{t('feature.off')}</MenuItem></Select></FormControl>
-        <FormControlLabel control={<Switch checked={shareDefaults.badge !== false} onChange={(_, checked) => savePreference(() => setShareDefaults({ ...shareDefaults, badge: checked }))} />} label={t('feature.showBadgeShare')} />
-        <FormControlLabel control={<Switch checked={shareDefaults.score !== false} onChange={(_, checked) => savePreference(() => setShareDefaults({ ...shareDefaults, score: checked }))} />} label={t('feature.showScoreShare')} />
-        <FormControl fullWidth sx={{ mt: 2 }}><InputLabel>{t('feature.defaultVisibility')}</InputLabel><Select label={t('feature.defaultVisibility')} value={String(privacyDefaults.visibility || 'private')} onChange={(event) => savePreference(() => setPrivacyDefaults({ ...privacyDefaults, visibility: event.target.value }))}><MenuItem value="private">{t('feature.private')}</MenuItem><MenuItem value="unlisted">{t('feature.unlisted')}</MenuItem><MenuItem value="public">{t('feature.public')}</MenuItem></Select></FormControl>
+        <Box display="flex" justifyContent="space-between" gap={2} mb={2}><Typography variant="h6">{t('feature.cardExperience')}</Typography>{statusChip('profile')}</Box>
+        <FormControl fullWidth sx={{ mb: 2 }}><InputLabel>{t('feature.motion')}</InputLabel><Select label={t('feature.motion')} value={profileCardMotion} onChange={(event) => savePreference('profile', () => setProfileCardMotion(event.target.value as 'full' | 'subtle' | 'off'))}><MenuItem value="full">{t('feature.full')}</MenuItem><MenuItem value="subtle">{t('feature.subtle')}</MenuItem><MenuItem value="off">{t('feature.off')}</MenuItem></Select></FormControl>
+        <FormControlLabel control={<Switch checked={shareDefaults.badge !== false} onChange={(_, checked) => savePreference('profile', () => setShareDefaults({ ...shareDefaults, badge: checked }))} />} label={t('feature.showBadgeShare')} />
+        <FormControlLabel control={<Switch checked={shareDefaults.score !== false} onChange={(_, checked) => savePreference('profile', () => setShareDefaults({ ...shareDefaults, score: checked }))} />} label={t('feature.showScoreShare')} />
+        <FormControl fullWidth sx={{ mt: 2 }}><InputLabel>{t('feature.defaultVisibility')}</InputLabel><Select label={t('feature.defaultVisibility')} value={String(privacyDefaults.visibility || 'private')} onChange={(event) => savePreference('profile', () => setPrivacyDefaults({ ...privacyDefaults, visibility: event.target.value }))}><MenuItem value="private">{t('feature.private')}</MenuItem><MenuItem value="unlisted">{t('feature.unlisted')}</MenuItem><MenuItem value="public">{t('feature.public')}</MenuItem></Select></FormControl>
       </Paper>
 
       <Paper sx={{ p: 3 }}>
@@ -527,7 +545,7 @@ const SettingsPage = () => {
           {t('settings.accountHelp')}
         </Typography>
       </Paper>
-    </Box>
+    </PageShell>
   );
 };
 

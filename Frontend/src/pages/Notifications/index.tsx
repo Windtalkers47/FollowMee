@@ -3,14 +3,13 @@ import {
   Alert,
   Box,
   Button,
-  CircularProgress,
   Paper,
   Stack,
   Tab,
   Tabs,
   Typography,
 } from '@mui/material';
-import { DoneAll, NotificationsNone } from '@mui/icons-material';
+import { DoneAll } from '@mui/icons-material';
 import NotificationItem from '../../components/NotificationItem/NotificationItem';
 import { notificationApi } from '../../api/notification.api';
 import { NotificationRecipient } from '../../types/notification.types';
@@ -18,8 +17,11 @@ import { useAppDispatch, useAppSelector } from '../../store/store';
 import { fetchUnreadCount } from '../../store/slices/notificationSlice';
 import ConfirmDialog from '../../components/ConfirmDialog/ConfirmDialog';
 import { useUserPreferences } from '../../contexts/UserPreferencesContext';
+import { mergeNotificationRecipients } from '../../utils/mergeNotificationRecipients';
+import { PageEmpty, PageError, PageHeader, PageLoading, PageShell } from '../../components/PageState';
 
 type View = 'all' | 'unread' | 'archived';
+const PAGE_SIZE = 25;
 
 const NotificationsPage = () => {
   const { t } = useUserPreferences();
@@ -30,29 +32,37 @@ const NotificationsPage = () => {
   const [items, setItems] = useState<NotificationRecipient[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [error, setError] = useState(false);
+  const [loadMoreError, setLoadMoreError] = useState(false);
+  const [loadedCount, setLoadedCount] = useState(0);
   const [deleteId, setDeleteId] = useState<number | null>(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError('');
+  const load = useCallback(async (offset = 0, append = false) => {
+    if (append) setLoadingMore(true); else setLoading(true);
+    if (append) setLoadMoreError(false); else setError(false);
     try {
       const response = await notificationApi.getNotifications(
-        50,
-        0,
+        PAGE_SIZE,
+        offset,
         view === 'unread',
         view === 'archived' ? 'archived' : 'active'
       );
-      setItems(response.data?.notifications ?? []);
+      const incoming = response.data?.notifications ?? [];
+      setItems(current => append ? mergeNotificationRecipients(current, incoming) : incoming);
+      setLoadedCount(current => append ? current + incoming.length : incoming.length);
       setTotal(response.data?.total ?? 0);
     } catch {
-      setError('Unable to load notifications. Please try again.');
+      if (append) setLoadMoreError(true); else setError(true);
     } finally {
-      setLoading(false);
+      if (append) setLoadingMore(false); else setLoading(false);
     }
   }, [view]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    const timeout = window.setTimeout(() => { void load(0, false); }, 0);
+    return () => window.clearTimeout(timeout);
+  }, [load]);
 
   useEffect(() => {
     if (view === 'archived' || realtimeItems.length === 0) return;
@@ -61,17 +71,20 @@ const NotificationsPage = () => {
       !item.isDeleted &&
       (view !== 'unread' || !item.isRead)
     );
-    setItems(current => {
-      const known = new Set(current.map(item => item.recipientId));
-      const additions = eligible.filter(item => !known.has(item.recipientId));
-      return additions.length > 0 ? [...additions, ...current] : current;
-    });
-    setTotal(current => Math.max(current, realtimeTotal));
+    const timeout = window.setTimeout(() => {
+      setItems(current => {
+        const known = new Set(current.map(item => item.recipientId));
+        const additions = eligible.filter(item => !known.has(item.recipientId));
+        return additions.length > 0 ? [...additions, ...current] : current;
+      });
+      setTotal(current => Math.max(current, realtimeTotal));
+    }, 0);
+    return () => window.clearTimeout(timeout);
   }, [realtimeItems, realtimeTotal, view]);
 
   const run = async (action: () => Promise<unknown>) => {
     await action();
-    await Promise.all([load(), dispatch(fetchUnreadCount())]);
+    await Promise.all([load(0, false), dispatch(fetchUnreadCount())]);
   };
   const groups = useMemo(() => {
     const map = new Map<string, NotificationRecipient[]>();
@@ -85,18 +98,12 @@ const NotificationsPage = () => {
   }, [items]);
 
   return (
-    <Box sx={{ maxWidth: 980, mx: 'auto', px: { xs: 1.5, sm: 3 }, py: { xs: 2, md: 4 } }}>
-      <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" gap={2} alignItems={{ sm: 'center' }}>
-        <Box>
-          <Typography variant="h3" fontWeight={800}>{t('notification.title')}</Typography>
-          <Typography color="text.secondary">{t('notification.subtitle')}</Typography>
-        </Box>
-        {view !== 'archived' && items.some(item => !item.isRead) && (
+    <PageShell maxWidth={980}>
+      <PageHeader title={t('notification.title')} subtitle={t('notification.subtitle')} actions={view !== 'archived' && items.some(item => !item.isRead) ? (
           <Button startIcon={<DoneAll />} variant="outlined" onClick={() => void run(() => notificationApi.markAllAsRead())}>
             {t('notification.markAllRead')}
           </Button>
-        )}
-      </Stack>
+        ) : undefined} />
 
       <Paper variant="outlined" sx={{ mt: 3, overflow: 'hidden' }}>
         <Tabs
@@ -112,15 +119,11 @@ const NotificationsPage = () => {
         </Tabs>
 
         {loading ? (
-          <Box sx={{ minHeight: 260, display: 'grid', placeItems: 'center' }}><CircularProgress /></Box>
+          <Box sx={{ p: 2 }}><PageLoading rows={2} label={t('feedback.loadingPage')} /></Box>
         ) : error ? (
-          <Alert severity="error" action={<Button onClick={() => void load()}>{t('feedback.retry')}</Button>}>{error}</Alert>
+          <Box sx={{ p: 2 }}><PageError title={t('notification.loadError')} message={t('feedback.networkHelp')} retryLabel={t('feedback.retry')} onRetry={() => void load()} /></Box>
         ) : items.length === 0 ? (
-          <Stack alignItems="center" spacing={1} sx={{ py: 8, px: 2, textAlign: 'center' }}>
-            <NotificationsNone sx={{ fontSize: 42, color: 'text.disabled' }} />
-            <Typography fontWeight={750}>{view === 'archived' ? t('notification.noArchived') : t('notification.caughtUp')}</Typography>
-            <Typography variant="body2" color="text.secondary">{t('notification.emptyView')}</Typography>
-          </Stack>
+          <PageEmpty title={view === 'archived' ? t('notification.noArchived') : t('notification.caughtUp')} message={t('notification.emptyView')} />
         ) : (
           groups.map(group => (
             <Box key={group.map(item => item.recipientId).join('-')} sx={{ borderBottom: '1px solid', borderColor: 'divider' }}>
@@ -139,9 +142,11 @@ const NotificationsPage = () => {
           ))
         )}
         {!loading && items.length > 0 && (
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', p: 1.5, textAlign: 'center' }}>
-            {t('notification.showing', { shown: items.length, total })}
-          </Typography>
+          <Stack alignItems="center" gap={1} sx={{ p: 1.5 }}>
+            <Typography variant="caption" color="text.secondary">{t('notification.showing', { shown: items.length, total })}</Typography>
+            {loadMoreError && <Alert severity="error" sx={{ width: '100%' }} action={<Button onClick={() => void load(loadedCount, true)}>{t('feedback.retry')}</Button>}>{t('notification.loadMoreError')}</Alert>}
+            {loadedCount < total && !loadMoreError && <Button variant="outlined" disabled={loadingMore} onClick={() => void load(loadedCount, true)}>{loadingMore ? t('common.loading') : t('notification.loadMore')}</Button>}
+          </Stack>
         )}
       </Paper>
       <ConfirmDialog
@@ -158,7 +163,7 @@ const NotificationsPage = () => {
           void run(() => notificationApi.deleteNotification(id));
         }}
       />
-    </Box>
+    </PageShell>
   );
 };
 

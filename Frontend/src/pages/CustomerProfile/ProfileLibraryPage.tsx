@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   AddRounded,
   AnalyticsRounded,
@@ -49,6 +49,8 @@ import { formatLocalizedNumber } from '../../utils/localeFormat';
 
 const ProfileLibraryPage = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const engagementFocus = searchParams.get('focus') === 'engagement';
   const { locale, t } = useUserPreferences();
   const [profiles, setProfiles] = useState<PublicProfileRecord[]>([]);
   const [customers, setCustomers] = useState<CustomerData[]>([]);
@@ -77,17 +79,17 @@ const ProfileLibraryPage = () => {
         setError(loadError instanceof Error ? loadError.message : t('profile.loadError'));
       })
       .finally(() => setLoading(false));
-  }, []);
+  }, [t]);
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
-    if (!query) return profiles;
-    return profiles.filter((profile) =>
+    const matches = !query ? profiles : profiles.filter((profile) =>
       [profile.displayName, profile.headline, profile.slug]
         .filter(Boolean)
         .some((value) => value!.toLowerCase().includes(query))
     );
-  }, [profiles, search]);
+    return engagementFocus ? [...matches].sort((a, b) => Number(b.viewCount || 0) - Number(a.viewCount || 0)) : matches;
+  }, [engagementFocus, profiles, search]);
 
   const availableCustomers = customers.filter(
     (customer) => customer.capabilities.canEdit && !profiles.some((profile) => profile.customerId === customer.customerId)
@@ -145,7 +147,7 @@ const ProfileLibraryPage = () => {
           <Typography variant="overline" color="primary.main" fontWeight={800}>
             {t('profile.eyebrow')}
           </Typography>
-          <Typography variant="h3" fontWeight={850} letterSpacing="-.045em">
+          <Typography variant="h3" component="h1" fontWeight={850} letterSpacing="-.045em">
             {t('profile.library.title')}
           </Typography>
           <Typography color="text.secondary" sx={{ mt: 0.75 }}>
@@ -161,6 +163,8 @@ const ProfileLibraryPage = () => {
           {t('profile.create')}
         </Button>
       </Stack>
+
+      {engagementFocus && <Alert severity="info" sx={{ mt: 3 }} action={<Button color="inherit" onClick={() => setSearchParams(current => { const next = new URLSearchParams(current); next.delete('focus'); return next; }, { replace: true })}>{t('profile.showAll')}</Button>}>{t('profile.engagementFocus')}</Alert>}
 
       {error && <Alert severity="error" sx={{ mt: 3 }}>{error}</Alert>}
 

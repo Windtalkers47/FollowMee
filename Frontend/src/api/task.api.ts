@@ -344,11 +344,14 @@ export interface BulkActionResult {
   deleted?: number;
   assigned?: number;
   failed: string[];
+  tasks?: Task[];
+  deletedTaskIds?: string[];
 }
 
 export interface BulkTaskUpdateResult {
   updated: number;
   failed: Array<{ taskId: string; reason: string; code?: string }>;
+  tasks?: Task[];
 }
 
 // ==================== Priority Summary Types ====================
@@ -400,8 +403,9 @@ export const taskApi = {
     return response.data.data;
   },
 
-  setBlocked: async (taskId: string, blocked: boolean, reason: string, expectedVersion: number): Promise<void> => {
-    await axios.put(`${API_BASE_URL}/tasks/${taskId}/${blocked ? 'block' : 'unblock'}`, { reason, expectedVersion }, { withCredentials: true });
+  setBlocked: async (taskId: string, blocked: boolean, reason: string, expectedVersion: number): Promise<Task> => {
+    const response = await axios.put(`${API_BASE_URL}/tasks/${taskId}/${blocked ? 'block' : 'unblock'}`, { reason, expectedVersion }, { withCredentials: true });
+    return response.data.data;
   },
   // Create a new task
   createTask: async (data: CreateTaskData): Promise<Task> => {

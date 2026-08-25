@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   formatLocalizedDate,
   formatLocalizedNumber,
+  formatLocalizedWeekday,
   getLocaleTag,
 } from '../../utils/localeFormat';
 
@@ -17,5 +18,7 @@ describe('localized formatting', () => {
 
   it('keeps the English presentation in en-US', () => {
     expect(formatLocalizedDate(date, 'en')).toBe('Sep 30, 2026');
+    expect(formatLocalizedWeekday(0, 'en')).toBe('Sunday');
+    expect(formatLocalizedWeekday(0, 'th')).not.toBe('Sunday');
   });
 });

@@ -42,6 +42,12 @@ services:
         generateValue: true
       - key: JWT_EXPIRES_IN
         value: 24h
+      - key: ALLOW_PUBLIC_REGISTRATION
+        value: "false"
+      - key: INVITATION_SECRET
+        generateValue: true
+      - key: PROFILE_ANALYTICS_SALT
+        generateValue: true
       - key: FRONTEND_URL
         sync: false
       - key: CORS_ORIGIN

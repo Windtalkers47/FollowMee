@@ -21,6 +21,7 @@ import {
   TuneRounded,
 } from '@mui/icons-material';
 import { useUserPreferences } from '../../contexts/UserPreferencesContext';
+import { shouldOpenProductTour } from '../../utils/productTourUat';
 
 export const REPLAY_TOUR_EVENT = 'followmee:replay-onboarding';
 
@@ -39,7 +40,12 @@ const ProductTour = ({ userKey = 'guest' }: ProductTourProps) => {
   ], [t]);
   const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
   const storageKey = useMemo(() => `followmee:onboarding:v1:${userKey}`, [userKey]);
-  const [open, setOpen] = useState(() => !localStorage.getItem(storageKey));
+  const devUat = import.meta.env.DEV
+    && new URLSearchParams(window.location.search).get('__uatPreferences') === '1';
+  const [open, setOpen] = useState(() => shouldOpenProductTour({
+    completed: Boolean(localStorage.getItem(storageKey)),
+    devUat,
+  }));
   const [step, setStep] = useState(0);
 
   useEffect(() => {

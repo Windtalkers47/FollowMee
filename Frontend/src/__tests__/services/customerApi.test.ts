@@ -44,7 +44,7 @@ describe('customer API reliability', () => {
     controller.abort();
     const fetchMock = vi.fn().mockRejectedValue(new DOMException('Aborted', 'AbortError'));
     vi.stubGlobal('fetch', fetchMock);
-    await expect(customerApi.getCustomers(1, 25, undefined, undefined, undefined, undefined, controller.signal)).rejects.toMatchObject({ kind: 'aborted' });
+    await expect(customerApi.getCustomers(1, 25, undefined, undefined, undefined, undefined, undefined, controller.signal)).rejects.toMatchObject({ kind: 'aborted' });
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });

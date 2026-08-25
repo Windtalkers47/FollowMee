@@ -56,8 +56,18 @@ describe('Analytics compact UX', () => {
 
   it('prioritizes blocked work before customer and profile actions', () => {
     const metrics = { work: { blocked: 2 }, customers: { portfolioTotal: 3, profilesReady: 0, missingImage: 3 }, profiles: { views: 10, clicks: 0 } };
+    const onAction = vi.fn();
     expect(resolveAnalyticsFocusKind(metrics)).toBe('blocked');
-    render(<AnalyticsFocusNext metrics={metrics} t={translate} onAction={vi.fn()} />);
+    render(<AnalyticsFocusNext metrics={metrics} t={translate} onAction={onAction} />);
     expect(screen.getByText('Unblock work first')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Review work' }));
+    expect(onAction).toHaveBeenCalledWith('/my-work?focus=blocked');
+  });
+
+  it('deep-links customer attention to the missing-image filter', () => {
+    const onAction = vi.fn();
+    render(<AnalyticsFocusNext metrics={{ work: { blocked: 0 }, customers: { missingImage: 2 }, profiles: { views: 0 } }} t={translate} onAction={onAction} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Review customers' }));
+    expect(onAction).toHaveBeenCalledWith('/customer?focus=missing-image');
   });
 });

@@ -1,9 +1,9 @@
 /* Dynamic server-owned translation keys are narrowed at runtime by the presentation fallback. */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useMemo, useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  Alert, Avatar, Box, Button, Card, CardContent, Chip, CircularProgress, Dialog, DialogActions,
+  Alert, Avatar, Box, Button, Card, CardContent, Chip, Dialog, DialogActions,
   DialogContent, DialogTitle, Grid, LinearProgress, Stack, Switch, Tab, Tabs, TextField, Typography,
 } from '@mui/material';
 import { EmojiEvents, Settings, WorkspacePremium } from '@mui/icons-material';
@@ -14,9 +14,11 @@ import { useUserPreferences } from '../../contexts/UserPreferencesContext';
 import feedback from '../../services/feedback.service';
 import { translateRewardKey } from '../../utils/rewardPresentation';
 import AchievementCollection from '../../components/AchievementCollection';
-import { AxiosError } from 'axios';
+import type { RewardTab } from '../../utils/rewardQueryStrategy';
+import { useRewardsQueries } from '../../hooks/useRewardsQueries';
+import { PageError, PageHeader, PageLoading, PageShell } from '../../components/PageState';
 
-const surface = { borderRadius: 4, border: '1px solid', borderColor: 'divider', boxShadow: '0 12px 32px rgba(50,35,64,.06)' };
+const surface = { borderRadius: 3, border: '1px solid', borderColor: 'divider', boxShadow: 'none' };
 
 export default function RewardsPage() {
   const { t, locale } = useUserPreferences();
@@ -25,7 +27,7 @@ export default function RewardsPage() {
   const queryClient = useQueryClient();
   const [searchParams,setSearchParams]=useSearchParams();
   const tabNames=['missions','redeem','leaderboard','achievements','manage'] as const;
-  const tab=Math.max(0,tabNames.indexOf(searchParams.get('tab') as typeof tabNames[number]));
+  const tab=Math.max(0,tabNames.indexOf(searchParams.get('tab') as typeof tabNames[number])) as RewardTab;
   const setTab=(value:number)=>setSearchParams(current=>{const next=new URLSearchParams(current);next.set('tab',tabNames[value]);return next;},{replace:true});
   const [catalogOpen, setCatalogOpen] = useState(false);
   const emptyItem = { name: '', description: '', imageUrl: '', pointsCost: 40, availableStock: 10, perUserLimit: 1, startsAt: '', endsAt: '', isActive: true };
@@ -33,35 +35,26 @@ export default function RewardsPage() {
   const [itemForm, setItemForm] = useState(emptyItem);
   const number = useMemo(() => new Intl.NumberFormat(locale === 'th' ? 'th-TH-u-nu-latn' : 'en-US'), [locale]);
 
-  const summaryQuery = useQuery({ queryKey: ['rewards', 'summary'], queryFn: rewardApi.summary, staleTime: 20_000 });
-  const achievementsQuery = useQuery({ queryKey: ['rewards', 'achievements'], queryFn: rewardApi.achievements, staleTime: 20_000 });
-  const canManageRewards = Boolean(summaryQuery.data?.capabilities.canManageRewards);
-  const seasonsQuery = useQuery({ queryKey: ['rewards', 'seasons'], queryFn: rewardApi.seasons, staleTime: 20_000 });
-  const catalogQuery = useQuery({ queryKey: ['rewards', 'catalog'], queryFn: rewardApi.catalog, staleTime: 20_000 });
-  const adminQuery = useQuery({ queryKey: ['rewards', 'admin-redemptions'], queryFn: rewardApi.adminRedemptions, enabled: canManageRewards && tab === 4 });
-  const templateQuery = useQuery({ queryKey: ['rewards', 'mission-templates'], queryFn: rewardApi.missionTemplates, enabled: canManageRewards && tab === 4 });
-  const adminCatalogQuery = useQuery({ queryKey: ['rewards', 'admin-catalog'], queryFn: rewardApi.adminCatalog, enabled: canManageRewards && tab === 4 });
-  const refresh = async () => {
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ['rewards'] }),
-      queryClient.invalidateQueries({ queryKey: ['dashboard'] }), queryClient.invalidateQueries({ queryKey: ['rewards', 'achievements'] }),
-    ]);
-  };
+  const { summaryQuery, canManageRewards, achievementsQuery, seasonsQuery, catalogQuery, adminQuery, templateQuery, adminCatalogQuery } = useRewardsQueries(tab);
+  const refreshKeys = (...keys: ReadonlyArray<ReadonlyArray<unknown>>) => Promise.all(
+    keys.map(queryKey => queryClient.invalidateQueries({ queryKey })),
+  );
+  const refreshSummary = () => refreshKeys(['rewards', 'summary'], ['dashboard', 'achievement']);
   const redeemMutation = useMutation({
     mutationFn: (item: RewardCatalogItem) => rewardApi.redeem(item.itemId),
-    onSuccess: async () => { await refresh(); await feedback.success({ title: t('rewards.requested'), message: t('rewards.requestedMessage'), importance: 'milestone' }); },
-    onError: async (error: unknown) => feedback.error({ title: t('rewards.requestFailed'), message: (error as AxiosError<{ message?: string }>).response?.data?.message || t('common.tryAgain') }),
+    onSuccess: async () => { await refreshKeys(['rewards', 'summary'], ['rewards', 'catalog'], ['rewards', 'admin-redemptions'], ['dashboard', 'achievement']); await feedback.success({ title: t('rewards.requested'), message: t('rewards.requestedMessage'), importance: 'milestone' }); },
+    onError: async () => feedback.error({ title: t('rewards.requestFailed'), message: t('common.tryAgain') }),
   });
-  const settingMutation = useMutation({ mutationFn: rewardApi.updateSettings, onSuccess: refresh });
+  const settingMutation = useMutation({ mutationFn: rewardApi.updateSettings, onSuccess: refreshSummary });
   const decisionMutation = useMutation({
     mutationFn: ({ id, action }: { id: number; action: 'approve' | 'reject' | 'fulfill' }) => action === 'approve' ? rewardApi.approve(id) : action === 'reject' ? rewardApi.reject(id) : rewardApi.fulfill(id),
-    onSuccess: refresh,
+    onSuccess: () => refreshKeys(['rewards', 'summary'], ['rewards', 'catalog'], ['rewards', 'admin-redemptions'], ['dashboard', 'achievement']),
   });
   const createMutation = useMutation({
     mutationFn: () => editingItemId ? rewardApi.updateItem(editingItemId, itemForm) : rewardApi.createItem(itemForm),
-    onSuccess: async () => { setCatalogOpen(false); setEditingItemId(null); setItemForm(emptyItem); await refresh(); },
+    onSuccess: async () => { setCatalogOpen(false); setEditingItemId(null); setItemForm(emptyItem); await refreshKeys(['rewards', 'catalog'], ['rewards', 'admin-catalog']); },
   });
-  const deactivateMutation = useMutation({ mutationFn: rewardApi.deactivateItem, onSuccess: refresh });
+  const deactivateMutation = useMutation({ mutationFn: rewardApi.deactivateItem, onSuccess: () => refreshKeys(['rewards', 'catalog'], ['rewards', 'admin-catalog']) });
   const deactivateItem = async (item: RewardCatalogItem) => {
     const result = await feedback.confirm({
       title: t('rewards.deactivateTitle'),
@@ -80,21 +73,34 @@ export default function RewardsPage() {
   };
   const templateMutation = useMutation({
     mutationFn: (template: RewardMissionTemplate) => rewardApi.updateMissionTemplate(template.templateId, template),
-    onSuccess: refresh,
+    onSuccess: () => refreshKeys(['rewards', 'mission-templates']),
   });
-  const closeSeasonMutation = useMutation({ mutationFn: rewardApi.closeSeason, onSuccess: refresh });
+  const closeSeasonMutation = useMutation({ mutationFn: rewardApi.closeSeason, onSuccess: () => refreshKeys(['rewards', 'summary'], ['rewards', 'seasons'], ['rewards', 'achievements'], ['dashboard', 'achievement']) });
 
-  if (summaryQuery.isLoading || catalogQuery.isLoading) return <Box display="grid" minHeight="50vh" sx={{ placeItems: 'center' }}><CircularProgress /></Box>;
-  if (!summaryQuery.data || !catalogQuery.data) return <Alert severity="error">{t('common.loadFailed')}</Alert>;
+  if (summaryQuery.isLoading) return <PageShell maxWidth={1440}><PageLoading label={t('feedback.loadingPage')} /></PageShell>;
+  if (!summaryQuery.data) return <PageShell maxWidth={1440}><PageError title={t('common.loadFailed')} message={t('feedback.networkHelp')} retryLabel={t('feedback.retry')} onRetry={() => void summaryQuery.refetch()} /></PageShell>;
+  const tabLoading = (tab === 1 && catalogQuery.isLoading)
+    || (tab === 2 && seasonsQuery.isLoading)
+    || (tab === 3 && achievementsQuery.isLoading)
+    || (tab === 4 && canManageRewards && [catalogQuery, adminQuery, templateQuery, adminCatalogQuery].some(query => query.isLoading));
+  if (tabLoading) return <PageShell maxWidth={1440}><PageLoading label={t('feedback.loadingPage')} /></PageShell>;
+  const tabError = tab === 1 ? catalogQuery.isError
+    : tab === 2 ? seasonsQuery.isError
+      : tab === 3 ? achievementsQuery.isError
+        : tab === 4 && canManageRewards ? [catalogQuery, adminQuery, templateQuery, adminCatalogQuery].some(query => query.isError)
+          : false;
+  if (tabError) return <PageShell maxWidth={1440}><PageError title={t('common.loadFailed')} message={t('feedback.networkHelp')} retryLabel={t('feedback.retry')} onRetry={() => {
+    if (tab === 1) void catalogQuery.refetch();
+    if (tab === 2) void seasonsQuery.refetch();
+    if (tab === 3) void achievementsQuery.refetch();
+    if (tab === 4) void Promise.all([catalogQuery.refetch(), adminQuery.refetch(), templateQuery.refetch(), adminCatalogQuery.refetch()]);
+  }} /></PageShell>;
   const { wallet, missions, badges, leaderboard, redemptions, seasonScore, myRank, season } = summaryQuery.data;
   const nextMission=[...missions].filter(item=>!item.completedAt).sort((a,b)=>(b.progress/b.target)-(a.progress/a.target))[0];
-  const catalog = catalogQuery.data;
+  const catalog = catalogQuery.data!;
 
-  return <Box sx={{ p: { xs: 2, md: 4 }, maxWidth: 1440, mx: 'auto', ...(tab === 0 && missions.length === 0 ? { '& > .MuiGrid-root': { display: 'none' } } : {}) }}>
-    <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" gap={2} mb={3}>
-      <Box><Typography variant="overline" color="primary.main">{t('rewards.community')}</Typography><Typography variant="h3" fontWeight={800}>{t('rewards.title')}</Typography><Typography color="text.secondary">{t('rewards.subtitle')}</Typography></Box>
-      <Stack direction="row" gap={1} alignItems="center" flexWrap="wrap"><Chip icon={<EmojiEvents/>} label={t('rewards.season',{season:season.seasonKey})} sx={{height:44,px:1,borderRadius:2}}/>{canManageRewards&&<Button startIcon={<Settings/>} variant="outlined" onClick={()=>setTab(4)} sx={{height:44,borderRadius:2}}>{t('rewards.manage')}</Button>}</Stack>
-    </Stack>
+  return <PageShell maxWidth={1440} sx={tab === 0 && missions.length === 0 ? { '& > .MuiGrid-root': { display: 'none' } } : undefined}>
+    <PageHeader eyebrow={t('rewards.community')} title={t('rewards.title')} subtitle={t('rewards.subtitle')} actions={<><Chip icon={<EmojiEvents/>} label={t('rewards.season',{season:season.seasonKey})} sx={{height:44,px:1,borderRadius:2}}/>{canManageRewards&&<Button startIcon={<Settings/>} variant="outlined" onClick={()=>setTab(4)} sx={{height:44,borderRadius:2}}>{t('rewards.manage')}</Button>}</>} />
     <Card variant="outlined" sx={{borderRadius:3,boxShadow:'none',mb:2}}><CardContent sx={{py:2}}><Stack direction={{xs:'column',sm:'row'}} gap={{xs:1.5,sm:3}} alignItems={{sm:'center'}}><Box flex={1}><Typography variant="overline" color="primary.main">{t('rewards.nextMission')}</Typography><Typography variant="h5" fontWeight={850}>{nextMission?translateRewardKey(t,nextMission.titleKey):t('rewards.noMissionsTitle')}</Typography><Typography color="text.secondary">{nextMission?translateRewardKey(t,nextMission.descriptionKey):t('rewards.noMissionsGuide')}</Typography>{nextMission&&<><LinearProgress variant="determinate" value={Math.min(100,nextMission.progress/nextMission.target*100)} sx={{mt:1.5,height:7,borderRadius:4}}/><Typography variant="caption">{number.format(nextMission.progress)} / {number.format(nextMission.target)} · +{number.format(nextMission.rewardPoints)} {t('rewards.points')}</Typography></>}</Box><Stack direction="row" gap={2} flexWrap="wrap"><Box><Typography variant="caption" color="text.secondary">{t('rewards.availablePoints')}</Typography><Typography variant="h5" fontWeight={850}>{number.format(wallet.availablePoints)}</Typography></Box><Box><Typography variant="caption" color="text.secondary">{t('rewards.currentRank')}</Typography><Typography variant="h5" fontWeight={850}>{myRank?`#${myRank}`:'—'}</Typography></Box><Box><Typography variant="caption" color="text.secondary">{t('rewards.seasonScore')}</Typography><Typography variant="h5" fontWeight={850}>{number.format(seasonScore)}</Typography></Box></Stack></Stack></CardContent></Card>
     <Tabs value={canManageRewards ? tab : tab < 4 ? tab : false} onChange={(_, value) => setTab(value)} variant="scrollable" sx={{ mb: 3 }}>
       <Tab label={t('rewards.earn')} /><Tab label={t('rewards.redeemTab')} /><Tab label={t('rewards.leaderboard')} /><Tab label={t('achievement.title')} />{canManageRewards && <Tab label={t('rewards.manage')} />}
@@ -123,5 +129,5 @@ export default function RewardsPage() {
     </Stack>}
 
     <Dialog open={catalogOpen} onClose={() => !createMutation.isPending && setCatalogOpen(false)} fullWidth maxWidth="sm"><DialogTitle>{editingItemId ? t('rewards.editCatalogItem') : t('rewards.addCatalogItem')}</DialogTitle><DialogContent><Stack gap={2} mt={1}><TextField label={t('common.name')} value={itemForm.name} onChange={event => setItemForm({ ...itemForm, name: event.target.value })} /><TextField label={t('common.description')} multiline rows={3} value={itemForm.description} onChange={event => setItemForm({ ...itemForm, description: event.target.value })} /><TextField label={t('rewards.imageUrl')} value={itemForm.imageUrl} onChange={event => setItemForm({ ...itemForm, imageUrl: event.target.value })} /><TextField type="number" label={t('rewards.cost')} value={itemForm.pointsCost} onChange={event => setItemForm({ ...itemForm, pointsCost: Number(event.target.value) })} /><TextField type="number" label={t('rewards.stockLabel')} value={itemForm.availableStock} onChange={event => setItemForm({ ...itemForm, availableStock: Number(event.target.value) })} /><TextField type="number" label={t('rewards.perUserLimit')} value={itemForm.perUserLimit} onChange={event => setItemForm({ ...itemForm, perUserLimit: Number(event.target.value) })} /><TextField type="datetime-local" label={t('rewards.startsAt')} InputLabelProps={{ shrink: true }} value={itemForm.startsAt} onChange={event => setItemForm({ ...itemForm, startsAt: event.target.value })} /><TextField type="datetime-local" label={t('rewards.endsAt')} InputLabelProps={{ shrink: true }} value={itemForm.endsAt} onChange={event => setItemForm({ ...itemForm, endsAt: event.target.value })} />{editingItemId && <Stack direction="row" alignItems="center" justifyContent="space-between"><Typography>{itemForm.isActive ? t('common.active') : t('common.inactive')}</Typography><Switch checked={itemForm.isActive} onChange={(_, checked) => setItemForm({ ...itemForm, isActive: checked })} /></Stack>}</Stack></DialogContent><DialogActions><Button onClick={() => { setCatalogOpen(false); setEditingItemId(null); setItemForm(emptyItem); }}>{t('common.cancel')}</Button><Button variant="contained" disabled={createMutation.isPending} onClick={() => createMutation.mutate()}>{t('common.save')}</Button></DialogActions></Dialog>
-  </Box>;
+  </PageShell>;
 }

@@ -9,11 +9,12 @@ export class UserManagementController {
    */
   async getAllUsers(req: Request, res: Response) {
     try {
-      const usersWithRoles = await this.userService.getAllManagedUsers();
+      const management = await this.userService.getUserManagement(req.user!.userId, req.userPermissions || []);
 
       return res.json({
         success: true,
-        data: usersWithRoles
+        data: management.users,
+        capabilities: management.capabilities,
       });
     } catch (error: unknown) {
       console.error('Error getting all users:', error);

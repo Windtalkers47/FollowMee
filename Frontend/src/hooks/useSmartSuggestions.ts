@@ -1,11 +1,13 @@
 import { useState, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { bulkActionApi, PrioritySummaryResponse, PrioritySuggestion, SuggestionAction } from '../api/task.api';
+import { bulkActionApi, PrioritySuggestion, SuggestionAction, type Task, type TaskListResponse } from '../api/task.api';
 import toast from '../utils/toast';
+import { useAppSelector } from '../store/store';
+import { applyTaskMutationDelete, applyTaskMutationSnapshot } from '../utils/taskMutationCache';
 
 interface UseSmartSuggestionsOptions {
   enabled?: boolean;
-  onSuccess?: (action: string, result: any) => void;
+  onSuccess?: (action: string, result: unknown) => void;
   onError?: (error: Error) => void;
 }
 
@@ -18,6 +20,11 @@ export const useSmartSuggestions = ({
   onError
 }: UseSmartSuggestionsOptions = {}) => {
   const queryClient = useQueryClient();
+  const userId = useAppSelector(state => state.auth.user?.userId);
+  const cachedTask = (taskId: string): Task | undefined => queryClient
+    .getQueriesData<TaskListResponse>({ queryKey: ['tasks'] })
+    .flatMap(([, data]) => data?.tasks || [])
+    .find(task => task.taskId === taskId);
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
 
   // Fetch priority summary
@@ -37,8 +44,9 @@ export const useSmartSuggestions = ({
   // Bulk update status mutation
   const bulkUpdateMutation = useMutation({
     mutationFn: bulkActionApi.bulkUpdateStatus,
-    onSuccess: (data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+    onSuccess: (data) => {
+      if (userId && data.tasks) data.tasks.forEach(task => applyTaskMutationSnapshot(queryClient, task, userId, cachedTask(task.taskId)));
+      if (!data.tasks || data.failed.length) queryClient.invalidateQueries({ queryKey: ['tasks'] });
       queryClient.invalidateQueries({ queryKey: ['prioritySummary'] });
       
       if (data.failed.length > 0) {
@@ -60,8 +68,13 @@ export const useSmartSuggestions = ({
   // Bulk delete mutation
   const bulkDeleteMutation = useMutation({
     mutationFn: bulkActionApi.bulkDelete,
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+    onSuccess: (data, variables) => {
+      const deletedIds = data.deletedTaskIds || variables.taskIds.filter(taskId => !data.failed.includes(taskId));
+      if (userId) deletedIds.forEach(taskId => {
+        const previous = cachedTask(taskId);
+        if (previous) applyTaskMutationDelete(queryClient, previous, userId);
+      });
+      if (data.failed.length) queryClient.invalidateQueries({ queryKey: ['tasks'] });
       queryClient.invalidateQueries({ queryKey: ['prioritySummary'] });
       
       if (data.failed.length > 0) {

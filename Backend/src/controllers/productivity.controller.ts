@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { productivityService } from '../services/productivity.service';
+import taskService from '../services/task.service';
 
 export class ProductivityController {
   duplicate = async (req: Request, res: Response, next: NextFunction) => {
@@ -15,10 +16,10 @@ export class ProductivityController {
     try { res.json({ success: true, data: await productivityService.toggleChecklist(req.params.taskId, Number(req.params.itemId), req.user!.userId, Boolean(req.body.completed)) }); } catch (error) { next(error); }
   };
   block = async (req: Request, res: Response, next: NextFunction) => {
-    try { await productivityService.setBlocked(req.params.taskId, req.user!.userId, true, String(req.body.reason || ''), req.body.expectedVersion); res.json({ success: true }); } catch (error) { next(error); }
+    try { await productivityService.setBlocked(req.params.taskId, req.user!.userId, true, String(req.body.reason || ''), req.body.expectedVersion); res.json({ success: true, data: await taskService.getTaskById(req.params.taskId, req.user!.userId) }); } catch (error) { next(error); }
   };
   unblock = async (req: Request, res: Response, next: NextFunction) => {
-    try { await productivityService.setBlocked(req.params.taskId, req.user!.userId, false, '', req.body.expectedVersion); res.json({ success: true }); } catch (error) { next(error); }
+    try { await productivityService.setBlocked(req.params.taskId, req.user!.userId, false, '', req.body.expectedVersion); res.json({ success: true, data: await taskService.getTaskById(req.params.taskId, req.user!.userId) }); } catch (error) { next(error); }
   };
   savedViews = async (req: Request, res: Response, next: NextFunction) => {
     try { res.json({ success: true, data: await productivityService.savedViews(req.user!.userId, typeof req.query.pageKey === 'string' ? req.query.pageKey : undefined) }); } catch (error) { next(error); }

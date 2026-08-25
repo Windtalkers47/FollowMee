@@ -4,9 +4,7 @@ import { useAppDispatch } from '../../store/store';
 import { loginUser } from '../../store/slices/authSlice';
 import authApi, { LoginCredentials, RegisterCredentials } from '../../api/auth.api';
 import {
-  Container,
   Box,
-  Paper,
   Typography,
   TextField,
   Button,
@@ -22,6 +20,7 @@ import feedback from '../../services/feedback.service';
 import { useUserPreferences } from '../../contexts/UserPreferencesContext';
 import { env } from '../../utils/env';
 import { canUsePublicRegistration } from '../../utils/registrationPolicy';
+import AuthShell from '../../components/AuthShell';
 
 interface FormErrors {
   userName: string;
@@ -283,14 +282,14 @@ const Register = () => {
         // Redirect to dashboard on successful registration and login
         navigate('/my-work');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Registration error:', error);
       
       // Hide loading
       feedback.hideLoading();
       
       // Show detailed error message
-      const errorMessage = error.message || t('auth.register.failedText');
+      const errorMessage = error instanceof Error ? error.message : '';
       const isDuplicateEmail = errorMessage.includes('Duplicate entry') || errorMessage.includes('already in use') || errorMessage.includes('Email already in use');
       
       await feedback.fire({
@@ -298,20 +297,11 @@ const Register = () => {
         title: isDuplicateEmail ? t('auth.register.emailExists') : t('auth.register.failed'),
         text: isDuplicateEmail 
           ? t('auth.register.duplicateText')
-          : errorMessage,
+          : t('auth.register.failedText'),
       });
     } finally {
       setIsLoading(false);
     }
-  };
-
-  // Shake animation style for error fields
-  const shakeAnimation = {
-    '@keyframes shake': {
-      '0%, 100%': { transform: 'translateX(0)' },
-      '10%, 30%, 50%, 70%, 90%': { transform: 'translateX(-4px)' },
-      '20%, 40%, 60%, 80%': { transform: 'translateX(4px)' },
-    },
   };
 
   const getTextFieldSx = (fieldName: keyof FormErrors) => ({
@@ -335,62 +325,7 @@ const Register = () => {
   });
 
   return (
-    <Container component="main" maxWidth="sm">
-      {/* Add shake animation styles */}
-      <style>
-        {`
-          @keyframes shake {
-            0%, 100% { transform: translateX(0); }
-            10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); }
-            20%, 40%, 60%, 80% { transform: translateX(4px); }
-          }
-        `}
-      </style>
-      
-      <Box
-        sx={{
-          marginTop: 8,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-        }}
-      >
-        <Box sx={{ textAlign: 'center', mb: 3 }}>
-          <Box
-            sx={{
-              width: 56,
-              height: 56,
-              borderRadius: 3,
-              backgroundColor: 'primary.main',
-              border: '1px solid',
-              borderColor: 'primary.dark',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              mx: 'auto',
-              mb: 1.5,
-              boxShadow: 'none',
-            }}
-          >
-            <LockOutlined sx={{ color: 'white' }} />
-          </Box>
-          <Typography component="h1" variant="h5">
-            {t('auth.register.title')}
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            {t('auth.register.subtitle')}
-          </Typography>
-        </Box>
-
-        <Paper variant="outlined" sx={{
-          p: 4, 
-          mt: 3, 
-          width: '100%',
-          backgroundColor: 'background.paper',
-          borderColor: 'divider',
-          borderRadius: 3,
-          boxShadow: 'none',
-        }}>
+    <AuthShell maxWidth="sm" title={t('auth.register.title')} subtitle={t('auth.register.subtitle')} icon={<LockOutlined />}>
           
           {!invitationToken && !publicRegistrationAllowed ? <Box>
             <Alert severity="info" sx={{ mb: 2 }}>{t('auth.register.inviteOnly')}</Alert>
@@ -476,6 +411,7 @@ const Register = () => {
                 endAdornment: (
                   <InputAdornment position="end">
                     <IconButton
+                      aria-label={t('auth.reset.togglePassword')}
                       onClick={() => setShowPassword(!showPassword)}
                       edge="end"
                     >
@@ -506,6 +442,7 @@ const Register = () => {
                 endAdornment: (
                   <InputAdornment position="end">
                     <IconButton
+                      aria-label={t('auth.reset.toggleConfirmPassword')}
                       onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                       edge="end"
                     >
@@ -555,9 +492,7 @@ const Register = () => {
               </Typography>
             </Box>
           </Box>}
-        </Paper>
-      </Box>
-    </Container>
+    </AuthShell>
   );
 };
 

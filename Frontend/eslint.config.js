@@ -20,4 +20,17 @@ export default defineConfig([
       globals: globals.browser,
     },
   },
+  {
+    files: ['src/features/**/*.{ts,tsx}'],
+    rules: {
+      // Feature code must use another feature's public entrypoint rather than
+      // reaching into its internal components/hooks/api folders.
+      'no-restricted-imports': ['error', {
+        patterns: [{
+          group: ['@/features/*/*'],
+          message: 'Import another feature through @/features/<feature> only.',
+        }],
+      }],
+    },
+  },
 ])

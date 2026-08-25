@@ -1,294 +1,129 @@
 # FollowMee Deployment Guide
 
-This guide will help you deploy FollowMee v1.0 Alpha for **FREE** using:
-- **Frontend**: Vercel (Free, Unlimited)
-- **Backend**: Render (Free, 750 hours/month)
-- **Database**: TiDB Cloud (Free, 5GB MySQL-compatible)
+อัปเดตล่าสุด: 17 สิงหาคม 2026
+Production flow: **GitHub `main` → Render Backend + Vercel Frontend → TiDB Cloud**
 
----
+อ่าน [Developer Handbook](docs/DEVELOPER_HANDBOOK.md) และ [production migration runbook](docs/PRODUCTION_MIGRATION_RUNBOOK.md) ก่อน deployment ที่มี migration
 
-## 📋 Prerequisites
+## Safety rules
 
-1. **GitHub Account** - Your code should be pushed to GitHub
-2. **Vercel Account** - Sign up at https://vercel.com
-3. **Render Account** - Sign up at https://render.com
-4. **TiDB Cloud Account** - Sign up at https://tidbcloud.com
+- `main` เป็น production branch; งานพัฒนาเข้า `develop` ผ่าน feature PR ก่อน แล้วใช้ release PR ไป `main`
+- ห้ามใส่ credentials, tokens, connection strings หรือค่าจาก `.env` จริงใน Git/เอกสาร
+- ห้ามใช้ local schema export/import เป็น production update workflow ปกติ
+- production schema เปลี่ยนด้วย reviewed additive TypeORM migrations เท่านั้น
+- `database/followmee-clean-schema.sql` ใช้สร้างฐานว่าง ไม่ใช้กับ TiDB/ฐานที่มีข้อมูล
+- ก่อน migration ต้อง backup, checksum และ restore drill ตาม runbook
 
----
+## 1. TiDB Cloud
 
-## Step 1: Set Up TiDB Cloud Database
+สร้าง database/cluster ตามนโยบายของบัญชี production และเลือก region ใกล้ Render จากหน้า Connect ของ TiDB ให้นำค่าต่อไปนี้ไปเก็บเป็น Render secrets:
 
-### 1.1 Create TiDB Cluster
+- `DB_HOST`
+- `DB_PORT` (TiDB Cloud มักใช้ `4000`; ยึดค่าจากหน้า Connect)
+- `DB_USERNAME`
+- `DB_PASSWORD`
+- `DB_NAME`
+- `DB_SSL=true`
+- `DB_SSL_CA_BASE64` เมื่อ connection profile ต้องใช้ CA ที่กำหนด
 
-1. Go to https://tidbcloud.com and sign up
-2. Click **"Create Cluster"**
-3. Choose **"Serverless"** (Free tier)
-4. Configure:
-   - **Region**: Choose closest to your users (e.g., AWS Oregon `us-west-2`)
-   - **Name**: `followmee-production`
-5. Click **"Create"**
+อย่านำค่าเหล่านี้ไปใส่ Vercel หรือ `VITE_*`
 
-### 1.2 Get Connection String
+สำหรับฐานใหม่ให้ใช้กระบวนการ bootstrap ที่ผ่านการตรวจสอบแยกจาก deployment ปกติ หลังฐานมีข้อมูลแล้วให้ใช้ migration เท่านั้น
 
-1. In TiDB dashboard, click your cluster
-2. Click **"Connect"**
-3. Copy the connection details:
-   ```
-   Host: xxx.tidbcloud.com
-   Port: 4000
-   Username: xxx.root
-   Password: (click to reveal)
-   Database: followmee
-   ```
+## 2. Render Backend
 
-### 1.3 Export Local Schema
+ค่าหลักถูกประกาศใน [render.yaml](render.yaml):
 
-```bash
-cd Backend
+- service: `followmee-backend`
+- branch: `main`
+- root directory: `Backend`
+- build: `npm ci && npm run build`
+- start: `npm run migration:run:prod && npm run start`
+- health check: `/health`
 
-# Export your local MySQL schema
-npm run db:migrate:export
+Render environment ต้องมีอย่างน้อย:
+
+```text
+NODE_ENV=production
+REWARD_DEV_SEED=false
+DB_HOST=<tidb-host>
+DB_PORT=<tidb-port>
+DB_USERNAME=<tidb-user>
+DB_PASSWORD=<tidb-password>
+DB_NAME=<production-database>
+DB_SSL=true
+JWT_SECRET=<server-secret>
+JWT_EXPIRES_IN=24h
+INVITATION_SECRET=<server-secret>
+PROFILE_ANALYTICS_SALT=<server-secret>
+FRONTEND_URL=https://<production-vercel-domain>
+CORS_ORIGIN=https://<production-vercel-domain>
+CORS_PREVIEW_ORIGINS=https://<approved-preview-domain-1>,https://<approved-preview-domain-2>
 ```
 
-This creates `Backend/schema-export.sql`
+เพิ่ม Cloudinary, email และ VAPID variables ตาม feature ที่เปิดใช้ โดยใช้ชื่อจาก `Backend/.env.example`; SMTP password ใช้ชื่อ `SMTP_PASS`
 
-### 1.4 Import Schema to TiDB
+`migration:run:prod` เป็น data-preserving migration command แต่ยังต้องปฏิบัติตาม runbook ทุกครั้งที่ release มี pending migration ห้ามให้หลาย instance แข่งกัน run migration
 
-**Option A: Using the migration script**
-```bash
-# First, update Backend/.env.production with your TiDB credentials
-npm run db:migrate:import
-```
+## 3. Vercel Frontend
 
-**Option B: Using TiDB web console**
-1. In TiDB dashboard, click **"SQL Editor"**
-2. Copy and paste the contents of `Backend/schema-export.sql`
-3. Click **"Run"**
+ตั้ง project:
 
----
+- production branch: `main`
+- root directory: `Frontend`
+- framework: Vite
+- build: `npm run build`
+- output: `dist`
 
-## Step 2: Deploy Backend to Render
+Production environment:
 
-### 2.1 Prepare Backend
-
-1. Update `Backend/.env.production`:
-   ```env
-   # Database - Replace with your TiDB credentials
-   DB_HOST=your-host.tidbcloud.com
-   DB_PORT=4000
-   DB_USERNAME=your-username.root
-   DB_PASSWORD=your-password
-   DB_NAME=followmee
-
-   # Update these after deploying frontend
-   FRONTEND_URL=https://your-app.vercel.app
-   CORS_ORIGIN=https://your-app.vercel.app
-   PUBLIC_URL=https://followmee-backend.onrender.com
-   ```
-
-### 2.2 Deploy to Render
-
-1. Go to https://render.com and sign in
-2. Click **"New +"** → **"Web Service"**
-3. Connect your GitHub repository
-4. Configure:
-   - **Name**: `followmee-backend`
-   - **Region**: Same as TiDB (e.g., Oregon)
-   - **Branch**: `main`
-   - **Root Directory**: `Backend`
-   - **Runtime**: `Node`
-   - **Build Command**: `npm install && npm run build`
-   - **Start Command**: `npm run start`
-   - **Plan**: **Free**
-
-5. Click **"Advanced"** and add environment variables:
-   ```
-   NODE_ENV=production
-   PORT=10000
-   DB_HOST=<your-tidb-host>
-   DB_PORT=4000
-   DB_USERNAME=<your-tidb-username>
-   DB_PASSWORD=<your-tidb-password>
-   DB_NAME=followmee
-   JWT_SECRET=<generate-a-random-32-char-string>
-   JWT_EXPIRES_IN=24h
-   FRONTEND_URL=https://your-app.vercel.app
-   CORS_ORIGIN=https://your-app.vercel.app
-   CLOUDINARY_CLOUD_NAME=dgcued3vk
-   CLOUDINARY_API_KEY=751239439928729
-   CLOUDINARY_API_SECRET=<your-secret>
-   SMTP_HOST=smtp.gmail.com
-   SMTP_PORT=587
-   SMTP_USER=windtalkers423@gmail.com
-   SMTP_PASSWORD=<your-app-password>
-   ```
-
-6. Click **"Create Web Service"**
-
-### 2.3 Wait for Deployment
-
-- Build takes ~3-5 minutes
-- Once deployed, note your backend URL: `https://followmee-backend.onrender.com`
-
----
-
-## Step 3: Deploy Frontend to Vercel
-
-### 3.1 Update Frontend Config
-
-Update `Frontend/.env.production`:
-```env
-VITE_API_URL=https://followmee-backend.onrender.com/api
-VITE_WS_URL=https://followmee-backend.onrender.com
+```text
+VITE_APP_NAME=FollowMee
 VITE_NODE_ENV=production
-VITE_ENCRYPTION_KEY=<generate-a-random-32-char-string>
+VITE_API_URL=https://<render-backend-domain>/api
+VITE_WS_URL=https://<render-backend-domain>
+VITE_DEFAULT_LOGIN_REDIRECT=/dashboard
+VITE_DEFAULT_LOGOUT_REDIRECT=/
+VITE_ENCRYPTION_KEY=<non-secret-compatibility-value>
 ```
 
-### 3.2 Deploy to Vercel
+ค่าที่ขึ้นต้น `VITE_` เป็นข้อมูลสาธารณะที่ bundle ใน browser `VITE_ENCRYPTION_KEY` ไม่ใช่ secret และไม่แทน TLS/server authentication
 
-1. Go to https://vercel.com and sign in
-2. Click **"Add New..."** → **"Project"**
-3. Import your GitHub repository
-4. Configure:
-   - **Framework Preset**: `Vite`
-   - **Root Directory**: `Frontend`
-   - **Build Command**: `npm run build`
-   - **Output Directory**: `dist`
+`Frontend/vercel.json` มี SPA rewrite ไป `index.html` อยู่แล้ว PR deployment ใช้เป็น preview ได้ แต่ backend ต้อง allow เฉพาะ origin ที่อนุมัติ
 
-5. Add environment variables:
-   ```
-   VITE_API_URL=https://followmee-backend.onrender.com/api
-   VITE_WS_URL=https://followmee-backend.onrender.com
-   VITE_NODE_ENV=production
-   VITE_ENCRYPTION_KEY=<same-key-as-backend>
-   ```
+## 4. Release flow
 
-6. Click **"Deploy"**
+1. รวม feature PR เข้า `develop`
+2. รัน `npm run verify` และตรวจ CI
+3. สร้าง release PR จาก `develop` ไป `main`
+4. หากมี migration ให้ทำ backup/restore drill และ maintenance coordination ก่อน merge
+5. Merge เมื่อ CI และ operational checklist ผ่าน
+6. Render และ Vercel deploy จาก `main`
+7. ตรวจ Render migration/start logs และ `GET /health`
+8. ตรวจ frontend load, auth, REST, Socket.IO connection และ critical read-only flows
+9. Mutation smoke/UAT ใช้เฉพาะ approved disposable/staging environment; ห้ามทดสอบด้วยข้อมูลจริงโดยไม่มีกระบวนการที่อนุมัติ
 
-### 3.3 Update Backend CORS
+## 5. Verification
 
-After frontend is deployed, you'll get a URL like: `https://followmee-app.vercel.app`
-
-**Update Render backend environment variables:**
-1. Go to Render dashboard
-2. Click your backend service
-3. Click **"Environment"**
-4. Update:
-   ```
-   FRONTEND_URL=https://followmee-app.vercel.app
-   CORS_ORIGIN=https://followmee-app.vercel.app
-   ```
-5. Click **"Save Changes"** (auto-redeploys)
-
----
-
-## Step 4: Verify Deployment
-
-### 4.1 Test Backend
-
-```bash
-# Test health endpoint
-curl https://followmee-backend.onrender.com/health
-
-# Expected: {"status":"UP"}
+```powershell
+npm run verify
+git diff --check
 ```
 
-### 4.2 Test Frontend
+หลัง deploy:
 
-1. Open your Vercel URL in browser
-2. Try to register a new account
-3. Check if you can log in
+- Backend health ตอบสำเร็จ
+- Vercel ใช้ API/WS URL ของ release ปัจจุบัน
+- CORS ยอมรับ production origin และ reject lookalike origins
+- Socket.IO แสดง Connected และ reconnect ได้
+- migration ledger ไม่มี pending migration ที่ไม่ตั้งใจ
+- logs ไม่มี secrets หรือ customer data
 
-### 4.3 Test WebSocket
+## Troubleshooting
 
-1. Log in to the application
-2. Open browser DevTools → Console
-3. You should see: `WebSocket connected`
-
----
-
-## 🔄 Updating Your Application
-
-### For Any Code Changes:
-
-```bash
-# 1. Make your changes locally
-# 2. Test in development
-npm run dev
-
-# 3. Commit and push to GitHub
-git add .
-git commit -m "Fix: your change description"
-git push origin main
-
-# 4. Render and Vercel auto-deploy!
-```
-
-### Auto-Deploy Flow:
-
-```
-Local Changes → Git Commit → Git Push → GitHub
-                                      ↓
-                    ┌─────────────────┴─────────────────┐
-                    ↓                                   ↓
-              Render (Backend)                    Vercel (Frontend)
-              Auto-build & deploy                 Auto-build & deploy
-                    ↓                                   ↓
-              Production Updated!                 Production Updated!
-```
-
----
-
-## 📊 Important Notes
-
-### Free Tier Limitations
-
-| Service | Limitation | Workaround |
-|---------|------------|------------|
-| Render Backend | Sleeps after 15 min inactivity | First request is slow (~30s), subsequent requests are fast |
-| TiDB Cloud | 5GB storage | Enough for ~10,000+ users |
-| Vercel Frontend | None for hobby | Unlimited |
-
-### Monitoring
-
-- **Render Dashboard**: https://dashboard.render.com - View logs, metrics
-- **Vercel Dashboard**: https://vercel.com/dashboard - View analytics, deployments
-- **TiDB Dashboard**: https://tidbcloud.com - View database stats
-
-### Security Checklist
-
-- [ ] Change `JWT_SECRET` to a strong random string
-- [ ] Change `VITE_ENCRYPTION_KEY` to a strong random string
-- [ ] Use app-specific password for SMTP (not regular Gmail password)
-- [ ] Enable 2FA on all accounts
-
----
-
-## 🆘 Troubleshooting
-
-### "CORS Error" in browser console
-- Make sure `FRONTEND_URL` and `CORS_ORIGIN` in Render match your Vercel URL exactly
-
-### "WebSocket connection failed"
-- Check that `VITE_WS_URL` points to your Render backend URL
-- Ensure backend CORS allows the frontend origin
-
-### "Database connection failed"
-- Verify TiDB credentials in Render environment variables
-- Check that TiDB cluster is in the same region as Render
-
-### Backend sleeps too long
-- Use a free uptime monitor like https://uptimerobot.com to ping your backend every 10 minutes
-
----
-
-## 📞 Support
-
-If you encounter issues:
-1. Check Render logs: Dashboard → Your Service → Logs
-2. Check Vercel deployment logs: Dashboard → Your Project → Deployments
-3. Check TiDB connection in SQL Editor
-
----
-
-**Congratulations! Your FollowMee Alpha v1.0 is now live! 🎉**
+- CORS error: ตรวจ exact origin, protocol, trailing slash และ preview allowlist
+- WebSocket error: ตรวจ `VITE_WS_URL`, Render availability, CORS และ auth cookie
+- Database connection error: ตรวจ TiDB host/port/TLS/CA และ Render secrets โดยไม่พิมพ์ค่า secret ลง log
+- Frontend ยังเรียก URL เก่า: Vite env ถูกฝังตอน build ต้อง redeploy
+- Render migration ล้ม: หยุด writes/instances ตาม runbook อย่า reset schema และอย่ารัน clean schema
+- Render cold start: รอ `/health` พร้อมก่อนสรุปว่า frontend/API ผิด

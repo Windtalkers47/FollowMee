@@ -2,9 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import authApi from '../../api/auth.api';
 import {
-  Container,
   Box,
-  Paper,
   Typography,
   TextField,
   Button,
@@ -14,6 +12,7 @@ import {
 import { Link as RouterLink } from 'react-router-dom';
 import feedback from '../../services/feedback.service';
 import { useUserPreferences } from '../../contexts/UserPreferencesContext';
+import AuthShell from '../../components/AuthShell';
 
 const ForgotPassword = () => {
   const [email, setEmail] = useState('');
@@ -54,11 +53,11 @@ const ForgotPassword = () => {
         showConfirmButton: false,
       });
       navigate('/login');
-    } catch (error: any) {
+    } catch {
       await feedback.fire({
         icon: 'error',
         title: t('auth.forgot.sendFailed'),
-        text: error.message || t('auth.forgot.sendFailedText'),
+        text: t('auth.forgot.sendFailedText'),
       });
     } finally {
       setIsLoading(false);
@@ -66,27 +65,7 @@ const ForgotPassword = () => {
   };
 
   return (
-    <Container component="main" maxWidth="xs">
-      <Box
-        sx={{
-          marginTop: 8,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-        }}
-      >
-        <Typography component="h1" variant="h5">
-          {t('auth.forgot.title')}
-        </Typography>
-        <Paper variant="outlined" sx={{
-          p: 4, 
-          mt: 3, 
-          width: '100%',
-          backgroundColor: 'background.paper',
-          borderColor: 'divider',
-          borderRadius: 3,
-          boxShadow: 'none',
-        }}>
+    <AuthShell title={t('auth.forgot.title')}>
           <Typography variant="body1" sx={{ mb: 3 }}>
             {t('auth.forgot.instructions')}
           </Typography>
@@ -121,9 +100,7 @@ const ForgotPassword = () => {
               {t('auth.forgot.backToLogin')}
             </Link>
           </Box>
-        </Paper>
-      </Box>
-    </Container>
+    </AuthShell>
   );
 };
 

@@ -33,6 +33,12 @@ import { taskAccessService } from './task-access.service';
 import type { TaskAccessContext } from './task-access.service';
 import type { TaskScope } from '../types/organization.types';
 import { TaskImage } from '../entities/TaskImage';
+import {
+  cloneTaskRealtimeProjection,
+  taskRealtimeChange,
+  taskRealtimePayload,
+  type TaskRealtimeChange,
+} from '../types/task-realtime-event';
 
 export interface TaskLeaderboardEntry {
   userId: number;
@@ -192,13 +198,11 @@ export class TaskService {
         createdWatcherIds,
       ), { taskId: savedTask.taskId, action: 'watching-created' });
     }
-    webSocketService.emitDomainEvent('task:created', {
-      taskId: savedTask.taskId,
-      actorUserId: userId,
-      assignedTo: savedTask.assignedTo,
-      status: savedTask.status,
-      updatedAt: savedTask.updatedAt,
-    }, savedTask.status === 'draft' ? [savedTask.createdBy] : await this.organizationAudience());
+    webSocketService.emitDomainEvent(
+      'task:created',
+      taskRealtimePayload(userId, [taskRealtimeChange(null, savedTask, ['created'])]),
+      savedTask.status === 'draft' ? [savedTask.createdBy] : await this.organizationAudience(),
+    );
     return response;
   }
 
@@ -310,6 +314,7 @@ export class TaskService {
     if (!task) {
       throw new Error('Task not found');
     }
+    const beforeRealtime = cloneTaskRealtimeProjection(task);
     const previousStatus = task.status;
     const previousAssignedTo = task.assignedTo;
     const access = await taskAccessService.context(userId);
@@ -435,15 +440,13 @@ export class TaskService {
       ), { taskId: savedTask.taskId, action: 'metadata-update' });
     }
     const response = await this.mapToResponseDto(savedTask, userId);
-    webSocketService.emitDomainEvent('task:updated', {
-      taskId: savedTask.taskId,
-      actorUserId: userId,
-      assignedTo: savedTask.assignedTo,
-      status: savedTask.status,
-      updatedAt: savedTask.updatedAt,
-    }, savedTask.status === 'draft' ? [savedTask.createdBy] : await this.organizationAudience());
+    webSocketService.emitDomainEvent(
+      'task:updated',
+      taskRealtimePayload(userId, [taskRealtimeChange(beforeRealtime, savedTask, mutationKeys)]),
+      savedTask.status === 'draft' ? [savedTask.createdBy] : await this.organizationAudience(),
+    );
     if (savedTask.status === 'done' && previousStatus !== 'done') {
-      webSocketService.emitDomainEvent('activity:created', { taskId: savedTask.taskId, status: savedTask.status, updatedAt: savedTask.updatedAt }, await this.organizationAudience());
+      webSocketService.emitDomainEvent('activity:created', { schemaVersion: 2, taskId: savedTask.taskId, status: savedTask.status, updatedAt: savedTask.updatedAt.toISOString() }, await this.organizationAudience());
     }
     return response;
   }
@@ -454,6 +457,7 @@ export class TaskService {
     if (!task) {
       throw new Error('Task not found');
     }
+    const beforeRealtime = cloneTaskRealtimeProjection(task);
 
     const access = await taskAccessService.context(userId);
     taskAccessService.assertManage(task, access);
@@ -467,7 +471,11 @@ export class TaskService {
     task.deletedAt = new Date();
     await this.taskRepository.save(task);
     await this.recordActivity(task.taskId, userId, 'deleted', { ownerOverride: access.isOwner && task.createdBy !== userId });
-    webSocketService.emitDomainEvent('task:deleted', { taskId, actorUserId: userId, updatedAt: task.updatedAt }, task.status === 'draft' ? [task.createdBy] : await this.organizationAudience());
+    webSocketService.emitDomainEvent(
+      'task:deleted',
+      taskRealtimePayload(userId, [taskRealtimeChange(beforeRealtime, null, ['isActive', 'deletedAt'], task.version)]),
+      task.status === 'draft' ? [task.createdBy] : await this.organizationAudience(),
+    );
     for (const image of images) {
       if (!image.imageUrl) continue;
       try {
@@ -565,6 +573,7 @@ export class TaskService {
       throw Object.assign(new Error('Complete all required checklist items before submitting for review'), { statusCode: 409, code: 'TASK_REQUIRED_CHECKLIST_INCOMPLETE', details: { incomplete: Number(incompleteRequired[0].total) } });
     }
 
+    const beforeRealtime = cloneTaskRealtimeProjection(task);
     await this.customTaskRepository.updateTaskStatus(taskId, 'review');
     await this.recordActivity(taskId, userId, 'submitted_for_review');
     await this.safelyNotify(() => NotificationHelper.notifyTaskStatus(
@@ -581,13 +590,11 @@ export class TaskService {
       throw new Error('Failed to retrieve updated task');
     }
 
-    webSocketService.emitDomainEvent('task:updated', {
-      taskId,
-      actorUserId: userId,
-      assignedTo: updatedTask.assignedTo,
-      status: 'review',
-      updatedAt: updatedTask.updatedAt,
-    }, [updatedTask.createdBy, updatedTask.assignedTo, userId].filter((id): id is number => Boolean(id)));
+    webSocketService.emitDomainEvent(
+      'task:updated',
+      taskRealtimePayload(userId, [taskRealtimeChange(beforeRealtime, updatedTask, ['status'])]),
+      [updatedTask.createdBy, updatedTask.assignedTo, userId].filter((id): id is number => Boolean(id)),
+    );
 
     return this.mapToResponseDto(updatedTask, userId);
   }
@@ -619,6 +626,7 @@ export class TaskService {
     if (task.status !== 'review') {
       throw new TaskActionError('Only a task in review can be returned for changes', 'request_changes', 409, task.status as TaskStatus);
     }
+    const beforeRealtime = cloneTaskRealtimeProjection(task);
 
     await AppDataSource.transaction(async (manager) => {
       task.status = 'todo';
@@ -649,13 +657,11 @@ export class TaskService {
       throw new Error('Failed to retrieve updated task');
     }
 
-    webSocketService.emitDomainEvent('task:updated', {
-      taskId,
-      actorUserId: userId,
-      assignedTo: updatedTask.assignedTo,
-      status: 'todo',
-      updatedAt: updatedTask.updatedAt,
-    }, [updatedTask.createdBy, updatedTask.assignedTo, userId].filter((id): id is number => Boolean(id)));
+    webSocketService.emitDomainEvent(
+      'task:updated',
+      taskRealtimePayload(userId, [taskRealtimeChange(beforeRealtime, updatedTask, ['status', 'completedAt', 'completionScore', 'reopenedCount'])]),
+      [updatedTask.createdBy, updatedTask.assignedTo, userId].filter((id): id is number => Boolean(id)),
+    );
 
     return this.mapToResponseDto(updatedTask, userId);
   }
@@ -675,6 +681,7 @@ export class TaskService {
     if (task.status !== 'review') {
       throw new TaskActionError('Only a task in review can be approved', 'approve', 409, task.status as TaskStatus);
     }
+    const beforeRealtime = cloneTaskRealtimeProjection(task);
 
     const completedAt = new Date();
     const onTimeBonus = task.dueDate && completedAt <= new Date(task.dueDate) ? 3 : 0;
@@ -701,17 +708,16 @@ export class TaskService {
       throw new Error('Failed to retrieve updated task');
     }
 
-    webSocketService.emitDomainEvent('task:updated', {
-      taskId,
-      actorUserId: userId,
-      assignedTo: updatedTask.assignedTo,
-      status: 'done',
-      updatedAt: updatedTask.updatedAt,
-    }, [updatedTask.createdBy, updatedTask.assignedTo, userId].filter((id): id is number => Boolean(id)));
+    webSocketService.emitDomainEvent(
+      'task:updated',
+      taskRealtimePayload(userId, [taskRealtimeChange(beforeRealtime, updatedTask, ['status', 'completedAt', 'completedBy', 'approvedBy', 'completionScore'])]),
+      [updatedTask.createdBy, updatedTask.assignedTo, userId].filter((id): id is number => Boolean(id)),
+    );
     webSocketService.emitDomainEvent('activity:created', {
+      schemaVersion: 2,
       taskId,
       status: 'done',
-      updatedAt: updatedTask.updatedAt,
+      updatedAt: updatedTask.updatedAt.toISOString(),
     }, await this.organizationAudience());
 
     return this.mapToResponseDto(updatedTask, userId);
@@ -780,10 +786,12 @@ export class TaskService {
     taskIds: string[], 
     status: 'draft' | 'todo' | 'in_progress' | 'review' | 'done' | 'cancelled',
     userId: number
-  ): Promise<{ updated: number; failed: Array<{ taskId: string; reason: string; code?: string }> }> {
+  ): Promise<{ updated: number; failed: Array<{ taskId: string; reason: string; code?: string }>; tasks: TaskResponseDto[] }> {
     const failed: Array<{ taskId: string; reason: string; code?: string }> = [];
     let updated = 0;
     const affectedUsers = new Set<number>([userId]);
+    const realtimeChanges: TaskRealtimeChange[] = [];
+    const changedTasks: Task[] = [];
 
     for (const taskId of taskIds) {
       try {
@@ -792,6 +800,7 @@ export class TaskService {
           failed.push({ taskId, reason: 'Task not found', code: 'TASK_NOT_FOUND' });
           continue;
         }
+        const beforeRealtime = cloneTaskRealtimeProjection(task);
         affectedUsers.add(task.createdBy);
         if (task.assignedTo) affectedUsers.add(task.assignedTo);
 
@@ -816,8 +825,10 @@ export class TaskService {
           task.status = 'done';
           task.completedAt = completedAt;
           task.completionScore = Math.max(4, 10 + onTimeBonus - reopenPenalty);
-          await this.taskRepository.save(task);
+          const savedTask = await this.taskRepository.save(task);
           await this.safelyAwardTask(task);
+          realtimeChanges.push(taskRealtimeChange(beforeRealtime, savedTask, ['status', 'completedAt', 'completionScore']));
+          changedTasks.push(savedTask);
         } else {
           if (task.status === 'review' && status === 'todo') {
             failed.push({
@@ -836,7 +847,10 @@ export class TaskService {
             continue;
           }
           assertTaskTransition(task, status as TaskStatus, userId, taskAccessService.canManage(task, access));
-          await this.customTaskRepository.updateTaskStatus(taskId, status);
+          const savedTask = await this.customTaskRepository.updateTaskStatus(taskId, status);
+          if (!savedTask) throw new Error('Task update failed');
+          realtimeChanges.push(taskRealtimeChange(beforeRealtime, savedTask, ['status']));
+          changedTasks.push(savedTask);
           if (task.status === 'draft' && status === 'todo' && task.assignedTo && task.assignedTo !== userId) {
             const recipientId = task.assignedTo;
             await this.safelyNotify(() => NotificationHelper.notifyTaskAssigned(
@@ -853,22 +867,25 @@ export class TaskService {
       }
     }
 
-    if (updated > 0) {
-      webSocketService.emitDomainEvent('task:updated', { taskIds, actorUserId: userId, status, updatedAt: new Date() }, [...affectedUsers]);
+    if (realtimeChanges.length > 0) {
+      webSocketService.emitDomainEvent('task:updated', taskRealtimePayload(userId, realtimeChanges), [...affectedUsers]);
       if (status === 'done') {
-        webSocketService.broadcast('activity:created', { taskIds, status, updatedAt: new Date() });
+        webSocketService.broadcast('activity:created', { schemaVersion: 2, taskIds: realtimeChanges.map(change => change.taskId), status, updatedAt: new Date().toISOString() });
       }
     }
-    return { updated, failed };
+    const hydratedTasks = (await Promise.all(changedTasks.map(task => this.customTaskRepository.findWithStats(task.taskId))))
+      .filter((task): task is Task => Boolean(task));
+    return { updated, failed, tasks: await this.mapTasksToResponseDto(hydratedTasks, userId) };
   }
 
   /**
    * Delete multiple tasks at once (soft delete)
    */
-  async bulkDelete(taskIds: string[], userId: number): Promise<{ deleted: number; failed: string[] }> {
+  async bulkDelete(taskIds: string[], userId: number): Promise<{ deleted: number; failed: string[]; deletedTaskIds: string[] }> {
     const failed: string[] = [];
     let deleted = 0;
     const affectedUsers = new Set<number>([userId]);
+    const realtimeChanges: TaskRealtimeChange[] = [];
 
     for (const taskId of taskIds) {
       try {
@@ -877,6 +894,7 @@ export class TaskService {
           failed.push(taskId);
           continue;
         }
+        const beforeRealtime = cloneTaskRealtimeProjection(task);
         affectedUsers.add(task.createdBy);
         if (task.assignedTo) affectedUsers.add(task.assignedTo);
 
@@ -891,25 +909,28 @@ export class TaskService {
         task.deletedAt = new Date();
         await this.taskRepository.save(task);
         await this.recordActivity(taskId, userId, 'deleted', { bulk: true, ownerOverride: access.isOwner && task.createdBy !== userId });
+        realtimeChanges.push(taskRealtimeChange(beforeRealtime, null, ['isActive', 'deletedAt'], task.version));
         deleted++;
       } catch (error) {
         failed.push(taskId);
       }
     }
 
-    if (deleted > 0) {
-      webSocketService.emitDomainEvent('task:deleted', { taskIds, actorUserId: userId, updatedAt: new Date() }, [...affectedUsers]);
+    if (realtimeChanges.length > 0) {
+      webSocketService.emitDomainEvent('task:deleted', taskRealtimePayload(userId, realtimeChanges), [...affectedUsers]);
     }
-    return { deleted, failed };
+    return { deleted, failed, deletedTaskIds: realtimeChanges.map(change => change.taskId) };
   }
 
   /**
    * Assign multiple tasks to a user at once
    */
-  async bulkAssign(taskIds: string[], assignedTo: number | undefined, userId: number): Promise<{ assigned: number; failed: string[] }> {
+  async bulkAssign(taskIds: string[], assignedTo: number | undefined, userId: number): Promise<{ assigned: number; failed: string[]; tasks: TaskResponseDto[] }> {
     const failed: string[] = [];
     let assigned = 0;
     const affectedUsers = new Set<number>([userId]);
+    const realtimeChanges: TaskRealtimeChange[] = [];
+    const changedTasks: Task[] = [];
 
     for (const taskId of taskIds) {
       try {
@@ -918,6 +939,7 @@ export class TaskService {
           failed.push(taskId);
           continue;
         }
+        const beforeRealtime = cloneTaskRealtimeProjection(task);
         affectedUsers.add(task.createdBy);
         if (task.assignedTo) affectedUsers.add(task.assignedTo);
         if (assignedTo) affectedUsers.add(assignedTo);
@@ -942,22 +964,21 @@ export class TaskService {
           ), { taskId: task.taskId, action: 'bulk-reassign', recipientId: assignedTo });
         }
 
-        await this.taskRepository.save(task);
+        const savedTask = await this.taskRepository.save(task);
+        realtimeChanges.push(taskRealtimeChange(beforeRealtime, savedTask, ['assignedTo']));
+        changedTasks.push(savedTask);
         assigned++;
       } catch (error) {
         failed.push(taskId);
       }
     }
 
-    if (assigned > 0) {
-      webSocketService.emitDomainEvent('task:updated', {
-        taskIds,
-        actorUserId: userId,
-        assignedTo,
-        updatedAt: new Date(),
-      }, [...affectedUsers]);
+    if (realtimeChanges.length > 0) {
+      webSocketService.emitDomainEvent('task:updated', taskRealtimePayload(userId, realtimeChanges), [...affectedUsers]);
     }
-    return { assigned, failed };
+    const hydratedTasks = (await Promise.all(changedTasks.map(task => this.customTaskRepository.findWithStats(task.taskId))))
+      .filter((task): task is Task => Boolean(task));
+    return { assigned, failed, tasks: await this.mapTasksToResponseDto(hydratedTasks, userId) };
   }
 
   /**

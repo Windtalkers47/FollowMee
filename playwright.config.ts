@@ -6,6 +6,7 @@ const baseURL = process.env.E2E_BASE_URL || (seeded ? 'http://localhost:5175' : 
 
 export default defineConfig({
   testDir: './e2e',
+  outputDir: './.local/test-artifacts/playwright-results',
   timeout: 45_000,
   expect: {
     timeout: 8_000,
@@ -17,7 +18,7 @@ export default defineConfig({
   workers: seeded ? 1 : undefined,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  reporter: [['list'], ['html', { open: 'never' }]],
+  reporter: [['list'], ['html', { outputFolder: './.local/test-artifacts/playwright-report', open: 'never' }]],
   use: {
     baseURL,
     trace: 'retain-on-failure',

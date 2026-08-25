@@ -20,6 +20,7 @@ export default defineConfig({
     },
     coverage: {
       provider: 'v8',
+      reportsDirectory: '../.local/test-artifacts/frontend-coverage',
       reporter: ['text', 'json', 'html'],
       include: ['src/**/*.{js,jsx,ts,tsx}'],
       exclude: [

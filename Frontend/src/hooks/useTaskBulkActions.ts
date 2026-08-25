@@ -1,9 +1,17 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { bulkActionApi } from '../api/task.api';
+import { bulkActionApi, type Task, type TaskListResponse } from '../api/task.api';
 import toast from '../utils/toast';
+import { useAppSelector } from '../store/store';
+import { applyTaskMutationDelete, applyTaskMutationSnapshot } from '../utils/taskMutationCache';
 
 export const useTaskBulkActions = (onSettled?: () => void) => {
   const queryClient = useQueryClient();
+  const userId = useAppSelector(state => state.auth.user?.userId);
+  const cachedTask = (taskId: string): Task | undefined => {
+    const lists = queryClient.getQueriesData<TaskListResponse>({ queryKey: ['tasks'] });
+    return lists.flatMap(([, data]) => data?.tasks || []).find(task => task.taskId === taskId)
+      || queryClient.getQueryData<Task>(['task-detail', taskId]);
+  };
   const refreshAffectedLists = () => {
     queryClient.invalidateQueries({ queryKey: ['tasks'] });
     queryClient.invalidateQueries({ queryKey: ['my-work'] });
@@ -13,7 +21,11 @@ export const useTaskBulkActions = (onSettled?: () => void) => {
   const update = useMutation({
     mutationFn: bulkActionApi.bulkUpdateStatus,
     onSuccess: (result) => {
-      refreshAffectedLists();
+      if (userId && result.tasks) {
+        result.tasks.forEach(task => applyTaskMutationSnapshot(queryClient, task, userId, cachedTask(task.taskId)));
+        if (result.failed.length) refreshAffectedLists();
+        else onSettled?.();
+      } else refreshAffectedLists();
       if (result.failed.length > 0) {
         toast.warning(`Updated ${result.updated} tasks; ${result.failed.length} could not be updated.`);
       } else {
@@ -25,8 +37,16 @@ export const useTaskBulkActions = (onSettled?: () => void) => {
 
   const remove = useMutation({
     mutationFn: bulkActionApi.bulkDelete,
-    onSuccess: (result) => {
-      refreshAffectedLists();
+    onSuccess: (result, variables) => {
+      const deletedIds = result.deletedTaskIds || variables.taskIds.filter(taskId => !result.failed.includes(taskId));
+      if (userId && deletedIds.length) {
+        deletedIds.forEach(taskId => {
+          const previous = cachedTask(taskId);
+          if (previous) applyTaskMutationDelete(queryClient, previous, userId);
+        });
+        if (result.failed.length) refreshAffectedLists();
+        else onSettled?.();
+      } else refreshAffectedLists();
       if (result.failed.length > 0) {
         toast.warning(`Deleted ${result.deleted} tasks; ${result.failed.length} could not be deleted.`);
       } else {

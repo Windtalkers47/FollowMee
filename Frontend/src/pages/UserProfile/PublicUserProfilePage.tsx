@@ -1,9 +1,11 @@
-import { Alert, Avatar, Box, Card, CardContent, Skeleton, Stack, Typography } from '@mui/material';
+import { Alert, Avatar, Box, Button, Card, CardContent, Skeleton, Stack, Typography } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
 import { useParams } from 'react-router-dom';
 import { userProfileApi } from '../../api/userProfile.api';
 import AchievementCollection from '../../components/AchievementCollection';
 import { useUserPreferences } from '../../contexts/UserPreferencesContext';
+import { AxiosError } from 'axios';
+import { publicProfileErrorState } from '../../utils/publicProfileErrorState';
 
 export default function PublicUserProfilePage() {
   const { handle = '' } = useParams();
@@ -15,7 +17,17 @@ export default function PublicUserProfilePage() {
   });
 
   if (query.isLoading) return <Box maxWidth={900} mx="auto" p={3}><Skeleton height={500} /></Box>;
-  if (!query.data) return <Box minHeight="100svh" display="grid" sx={{ placeItems: 'center', p: 3 }}><Alert severity="info">{t('profile.user.unavailable')}</Alert></Box>;
+  if (query.isError) {
+    const status = (query.error as AxiosError).response?.status;
+    const state = publicProfileErrorState(status);
+    const message = state === 'unavailable'
+      ? t('profile.user.notFoundOrPrivate')
+      : state === 'permission'
+        ? t('profile.user.permissionDenied')
+        : t('profile.user.publicLoadError');
+    return <Box minHeight="100svh" display="grid" sx={{ placeItems: 'center', p: 3 }}><Alert severity={state === 'network' ? 'error' : 'info'} action={state === 'network' ? <Button color="inherit" onClick={() => query.refetch()}>{t('feedback.retry')}</Button> : undefined}>{message}</Alert></Box>;
+  }
+  if (!query.data) return null;
 
   const profile = query.data;
   const configuredAccent = profile.themeConfig?.accentColor;

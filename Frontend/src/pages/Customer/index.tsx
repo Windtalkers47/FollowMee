@@ -1,14 +1,8 @@
-import { useState, useCallback, useEffect } from 'react';
+import type React from 'react';
 import { 
   Box, 
   Button, 
   Tooltip,
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableContainer, 
-  TableHead, 
-  TableRow, 
   TablePagination, 
   Checkbox, 
   Avatar, 
@@ -20,38 +14,32 @@ import {
   CardContent,
   Badge,
   useTheme,
-  TextField,
   Paper,
   Alert,
 } from '@mui/material';
 import feedback from '../../services/feedback.service';
-import { alpha, styled } from '@mui/material/styles';
-import { Link as RouterLink } from 'react-router-dom';
-import { Customer as CustomerType, CustomerStatus } from '../../types/customer.types';
-import { CustomerFormData, ApiError } from '@/components/customers/CustomerForm';
+import { alpha } from '@mui/material/styles';
+import { CustomerStatus } from '../../types/customer.types';
+import { CustomerFormData } from '@/components/customers/CustomerForm';
 import { 
   Group as GroupIcon,
+  PersonAdd as PersonAddIcon,
   CheckCircle as CheckCircleIcon,
   Block as BlockIcon,
   AccessTime as AccessTimeIcon,
   MusicNote as MusicNoteIcon,
   Message as MessageIcon,
-  Refresh as RefreshIcon,
-  PersonAdd as PersonAddIcon,
   Email as EmailIcon,
   Phone as PhoneIcon,
   CalendarToday as CalendarIcon,
   MoreHoriz as MoreHorizIcon,
   Facebook as FacebookIcon,
   Instagram as InstagramIcon,
-  Twitter as TwitterIcon,
-  TrendingUp as TrendingUpIcon,
-  TrendingDown as TrendingDownIcon
+  Twitter as TwitterIcon
 } from '@mui/icons-material';
 
 import { useCustomers } from '../../hooks/useCustomers';
 import FilterMenu from '../../components/customers/FilterMenu';
-import AddCustomerMenu from '../../components/customers/AddCustomerMenu';
 import CustomerForm from '@/components/customers/CustomerForm';
 import ActionMenu from '@/components/ActionMenu';
 import { FilterBar } from '@/components/FilterBar';
@@ -61,99 +49,15 @@ import { formatLocalizedDate } from '../../utils/localeFormat';
 import { normalizeSocialUrl } from '../../utils/socialUrl';
 import { useQuery } from '@tanstack/react-query';
 import { userApi } from '../../api/user.api';
-
-interface Customer extends CustomerType {}
-
-// ============================================
-// Stats Card Component
-// ============================================
-const StatsCard: React.FC<{
-  title: string;
-  value: number | string;
-  subtitle?: string;
-  icon: React.ReactNode;
-  iconBg: string;
-  iconColor: string;
-  trend?: { value: number; direction: 'up' | 'down' };
-}> = ({ title, value, subtitle, icon, iconBg, iconColor, trend }) => {
-  return (
-    <Card sx={{
-      borderRadius: 3,
-      p: { xs: 1.5, md: 3 },
-      position: 'relative',
-      overflow: 'hidden',
-      boxShadow: 'none',
-    }}>
-      <CardContent sx={{ p: '0 !important' }}>
-        <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2}>
-          <Box>
-            <Typography variant="body2" color="text.secondary" fontWeight={500} gutterBottom>
-              {title}
-            </Typography>
-            <Typography variant="h3" fontWeight={700} sx={{ fontSize: { xs: '1.75rem', md: '2.25rem' } }}>
-              {value}
-            </Typography>
-            {subtitle && (
-              <Box display="flex" alignItems="center" gap={0.5} mt={1}>
-                {trend && (
-                  trend.direction === 'up' ? (
-                    <TrendingUpIcon fontSize="small" sx={{ color: 'success.main', fontSize: 16 }} />
-                  ) : (
-                    <TrendingDownIcon fontSize="small" sx={{ color: 'error.main', fontSize: 16 }} />
-                  )
-                )}
-                <Typography variant="caption" color={trend?.direction === 'up' ? 'success.main' : 'text.secondary'} fontWeight={500}>
-                  {subtitle}
-                </Typography>
-              </Box>
-            )}
-          </Box>
-          <Box sx={{
-            width: { xs: 42, sm: 52, md: 64 },
-            height: { xs: 42, sm: 52, md: 64 },
-            borderRadius: '50%',
-            background: iconBg,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: iconColor,
-            boxShadow: 'none',
-          }}>
-            {icon}
-          </Box>
-        </Box>
-      </CardContent>
-    </Card>
-  );
-};
-
-// ============================================
-// Engagement Meter Component
-// ============================================
-const EngagementMeter = styled('div')<{ value: number }>(({ value, theme }) => ({
-  height: 6,
-  borderRadius: 3,
-  background: `linear-gradient(90deg, 
-    ${value > 70 ? theme.palette.success.main : value > 40 ? theme.palette.warning.main : theme.palette.error.main} 0%,
-    ${value > 70 ? theme.palette.success.light : value > 40 ? theme.palette.warning.light : theme.palette.error.light} ${value}%,
-    rgba(0,0,0,0.08) ${value}%)`,
-  width: '100%',
-  marginTop: 6,
-  transition: 'all 0.3s ease',
-}));
-
-// ============================================
-// Helper Functions
-// ============================================
-const getEngagementScore = (customer: Customer): number => {
-  let score = 0;
-  if (customer.customerFacebook) score += 25;
-  if (customer.customerInstagram) score += 25;
-  if (customer.customerTikTok) score += 20;
-  if (customer.customerLine) score += 15;
-  if (customer.customerX) score += 15;
-  return Math.min(100, score);
-};
+import CustomerPageHeader from '../../components/customers/CustomerPageHeader';
+import {
+  CustomerEngagementMeter,
+  CustomerStatCard,
+} from '../../components/customers/CustomerOverview';
+import { getCustomerEngagementScore } from '../../utils/customerEngagement';
+import { userFacingMutationError } from '../../utils/userFacingError';
+import { useCustomerPageController } from '../../hooks/useCustomerPageController';
+import { PageLoading, PageShell } from '../../components/PageState';
 
 // ============================================
 // Main Component
@@ -162,7 +66,6 @@ const CustomerPage = () => {
   const { t, locale } = useUserPreferences();
   const theme = useTheme();
   const isDarkMode = theme.palette.mode === 'dark';
-
   const {
     customers,
     loading,
@@ -170,7 +73,6 @@ const CustomerPage = () => {
     page,
     pageSize,
     total,
-    statusStats,
     filter,
     handlePageChange,
     handlePageSizeChange,
@@ -182,47 +84,24 @@ const CustomerPage = () => {
     getStatusCount,
   } = useCustomers();
 
-  const DEFAULT_PAGE_SIZE = 25;
-
-  const [searchInput, setSearchInput] = useState(filter.search || '');
-  const [tabValue, setTabValue] = useState(0);
-  const [selected, setSelected] = useState<string[]>([]);
-  const [actionMenuAnchorEl, setActionMenuAnchorEl] = useState<null | HTMLElement>(null);
-  const [addMenuAnchorEl, setAddMenuAnchorEl] = useState<null | HTMLElement>(null);
-  const [selectedMember, setSelectedMember] = useState<Customer | null>(null);
-  const [filterAnchorEl, setFilterAnchorEl] = useState<null | HTMLElement>(null);
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
-  const [formApiError, setFormApiError] = useState<ApiError | null>(null);
   const { data: activeUsers = [] } = useQuery({ queryKey: ['assignable-users'], queryFn: userApi.getAssignableUsers });
-  
-  const emptyRows = page > 0 ? Math.max(0, (1 + page) * pageSize - customers.length) : 0;
-
-  useEffect(() => {
-    const statusMap = { 0: 'all', 1: 'active', 2: 'inactive', 3: 'canceled' } as const;
-    const status = statusMap[tabValue as keyof typeof statusMap] as CustomerStatus | 'all';
-    handleFilterChange({ status, search: filter.search });
-  }, [tabValue]);
-
-  useEffect(() => {
-    if (!searchInput.trim() || searchInput === filter.search) return;
-    const timer = window.setTimeout(() => handleFilterChange({ search: searchInput.trim() }), 300);
-    return () => window.clearTimeout(timer);
-  }, [searchInput, filter.search, handleFilterChange]);
+  const {
+    focusMissingImage, clearFocus,
+    searchInput, setSearchInput, tabValue, setTabValue,
+    selected, setSelected, toggleSelected,
+    actionMenuAnchorEl, openActionMenu, closeActionMenu,
+    selectedMember,
+    filterAnchorEl, setFilterAnchorEl,
+    isFormOpen, setIsFormOpen,
+    editingCustomer, setEditingCustomer,
+    formApiError, setFormApiError,
+    openForm, closeForm,
+  } = useCustomerPageController({ customers, filterSearch: filter.search, onFilterChange: handleFilterChange });
 
   // Keep all hooks above this branch so the initial loading transition cannot
   // change the hook order when the first customer request is in flight.
   if (loading && customers.length === 0) {
-    return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
-        <Box textAlign="center">
-          <CircularProgress size={60} thickness={4} color="primary" />
-          <Typography variant="body1" color="text.secondary" mt={2} fontWeight={500}>
-            {t('customers.loading')}
-          </Typography>
-        </Box>
-      </Box>
-    );
+    return <PageShell maxWidth={1600}><PageLoading label={t('customers.loading')} /></PageShell>;
   }
 
   // ใช้ customers โดยตรงจาก API แทนการ filter ใน frontend
@@ -240,76 +119,15 @@ const CustomerPage = () => {
     handlePageSizeChange(parseInt(e.target.value, 10));
   };
 
-  const handleSelectAllClick = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (event.target.checked) {
-      const newSelected = displayCustomers.filter(customer => customer.capabilities.canEdit).map((n) => n.customerId);
-      setSelected(newSelected);
-      return;
-    }
-    setSelected([]);
-  };
-
-  const handleClick = (event: React.MouseEvent, id: string) => {
-    event.preventDefault();
-    event.stopPropagation();
-    
-    const customer = displayCustomers.find(item => item.customerId === id);
-    if (!customer?.capabilities.canEdit) return;
-    const selectedIndex = selected.indexOf(id);
-    let newSelected: string[] = [];
-
-    if (selectedIndex === -1) {
-      newSelected = newSelected.concat(selected, id);
-    } else if (selectedIndex === 0) {
-      newSelected = newSelected.concat(selected.slice(1));
-    } else if (selectedIndex === selected.length - 1) {
-      newSelected = newSelected.concat(selected.slice(0, -1));
-    } else if (selectedIndex > 0) {
-      newSelected = newSelected.concat(
-        selected.slice(0, selectedIndex),
-        selected.slice(selectedIndex + 1),
-      );
-    }
-
-    setSelected(newSelected);
-  };
-
-  const handleActionMenuOpen = (event: React.MouseEvent<HTMLElement>, customer: Customer) => {
-    event.stopPropagation();
-    setActionMenuAnchorEl(event.currentTarget);
-    setSelectedMember(customer);
-  };
-
   const handleFilterClick = (event: React.MouseEvent<HTMLElement>) => {
     setFilterAnchorEl(event.currentTarget);
-  };
-
-  const handleActionMenuClose = () => {
-    setActionMenuAnchorEl(null);
-    setSelectedMember(null);
-  };
-
-  const handleAddMenuClose = () => {
-    setAddMenuAnchorEl(null);
-  };
-
-  const handleOpenForm = (customer: Customer | null = null) => {
-    setFormApiError(null);
-    setEditingCustomer(customer);
-    setIsFormOpen(true);
-  };
-
-  const handleCloseForm = () => {
-    setIsFormOpen(false);
-    setEditingCustomer(null);
-    setFormApiError(null);
   };
 
   const handleFormSubmit = async (formData: CustomerFormData & { base64Image?: string }) => {
     setFormApiError(null);
     
     try {
-      const payload: any = {
+      const payload = {
         assignedTo: formData.assignedTo,
         customerName: formData.customerName || '',
         customerLastName: formData.customerLastName || null,
@@ -323,7 +141,7 @@ const CustomerPage = () => {
         customerX: formData.customerX || null,
         customerAddress: formData.customerAddress || null,
         imageCrop: formData.imageCrop || null,
-        status: formData.isActive ? 'active' : 'inactive',
+        status: (formData.isActive ? 'active' : 'inactive') as CustomerStatus,
         isActive: formData.isActive || false,
         updatedAt: new Date().toISOString(),
         deletedAt: null,
@@ -333,11 +151,11 @@ const CustomerPage = () => {
       };
       const duplicateCheck = await customerApi.checkDuplicates(payload, editingCustomer?.customerId);
       if (duplicateCheck.emailConflict) {
-        setFormApiError({ field: 'customerEmail', message: 'This email is already used by another customer.' });
+        setFormApiError({ field: 'customerEmail', message: t('customers.emailConflict') });
         return;
       }
       if (duplicateCheck.matches.length) {
-        const confirmation = await feedback.confirm({ title: 'Possible duplicate customer', message: duplicateCheck.matches.map(match => `${match.displayName}: ${match.reasons.join(', ')}`).join('\n'), consequence: 'The data will stay separate; FollowMee will not merge records automatically.', confirmLabel: 'Save anyway', cancelLabel: t('common.cancel') });
+        const confirmation = await feedback.confirm({ title: t('customers.duplicatePossible'), message: duplicateCheck.matches.map(match => match.displayName).join(', '), consequence: t('customers.duplicateConsequence'), confirmLabel: t('customers.saveAnyway'), cancelLabel: t('common.cancel') });
         if (!confirmation.isConfirmed) return;
       }
   
@@ -354,14 +172,15 @@ const CustomerPage = () => {
       feedback.close();
   
       if (result && !result.success) {
+        const isEmailError = result.message?.toLowerCase().includes('email');
         await feedback.fire({
           icon: 'error',
           title: t('customers.operationFailed'),
-          text: result.message || 'An error occurred',
+          text: isEmailError ? t('customers.emailConflict') : t('feedback.tryAgain'),
         });
         
-        if (result.message?.toLowerCase().includes('email')) {
-          setFormApiError({ field: 'customerEmail', message: result.message });
+        if (isEmailError) {
+          setFormApiError({ field: 'customerEmail', message: t('customers.emailConflict') });
         }
         return;
       }
@@ -378,34 +197,25 @@ const CustomerPage = () => {
       setEditingCustomer(null);
       refetch();
   
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error saving customer:', error);
-      const message = error?.response?.data?.message || error?.message || 'Failed to save customer';
-      
-      if (message.toLowerCase().includes('email')) {
-        setFormApiError({ field: 'customerEmail', message: message });
-      } else {
-        await feedback.fire({
-          icon: 'error',
-          title: t('common.error'),
-          text: message,
-        });
-      }
+      const message = userFacingMutationError(error, t);
+      await feedback.fire({ icon: 'error', title: message.title, text: message.message });
     }
   };
   
   const isSelected = (id: string) => selected.includes(id);
 
   return (
-    <Box sx={{ 
+    <PageShell maxWidth={1600} sx={{
       width: '100%',
       background: theme.palette.background.default,
       minHeight: '100vh',
-      pb: 6
+      pb: { xs: 'calc(88px + env(safe-area-inset-bottom, 0px))', md: 6 },
     }}>
       <CustomerForm
         open={isFormOpen}
-        onClose={handleCloseForm}
+        onClose={closeForm}
         onSubmit={handleFormSubmit}
         initialData={editingCustomer ? {
           ...editingCustomer,
@@ -426,80 +236,15 @@ const CustomerPage = () => {
         onClearApiError={() => setFormApiError(null)}
       />
 
-      <Box sx={{ maxWidth: 1600, mx: 'auto', px: { xs: 2, md: 4 } }}>
+      <Box sx={{ maxWidth: 1600, mx: 'auto' }}>
         
-        {/* Hero Header Section */}
-        <Box sx={{ pt: { xs: 4, md: 6 }, pb: { xs: 3, md: 4 }, mb: 2 }}>
-          <Box display="flex" justifyContent="space-between" alignItems="flex-start" flexWrap="wrap" gap={3}>
-            <Box>
-              <Box display="flex" alignItems="center" gap={2} mb={2}>
-                <Box
-                  sx={{
-                    width: 56,
-                    height: 56,
-                    borderRadius: 3,
-                    backgroundColor: 'primary.main',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: 'white',
-                    boxShadow: 'none',
-                  }}
-                >
-                  <GroupIcon sx={{ fontSize: 32 }} />
-                </Box>
-                <Box>
-                  <Typography variant="h2" component="h1" fontWeight={800} sx={{ fontSize: { xs: '1.75rem', md: '2.5rem' } }}>
-                    {t('customers.title')}
-                  </Typography>
-                  <Typography variant="body1" color="text.secondary" fontWeight={400}>
-                    {t('customers.subtitle')}
-                  </Typography>
-                </Box>
-              </Box>
-            </Box>
+        <Box sx={{ pt: { xs: 4, md: 6 } }}><CustomerPageHeader loading={loading} t={t} onAdd={() => openForm()} onRefresh={refetch} /></Box>
 
-            <Box display="flex" gap={1} flexWrap="wrap" sx={{ width: { xs: '100%', sm: 'auto' } }}>
-              <Button
-                component={RouterLink}
-                to="/customer-profile"
-                variant="outlined"
-                sx={{ borderRadius: 3, textTransform: 'none', px: 2.5, py: 1.25, fontWeight: 600 }}
-              >
-                {t('customers.profileCards')}
-              </Button>
-              <Button
-                variant="contained"
-                startIcon={<PersonAddIcon />}
-                onClick={() => handleOpenForm()}
-                sx={{
-                  borderRadius: 3,
-                  textTransform: 'none',
-                  px: 2.5,
-                  py: 1.25,
-                  fontWeight: 600,
-                  fontSize: '0.95rem',
-                }}
-              >
-                {t('customers.add')}
-              </Button>
-
-              <Tooltip title={t('customers.refresh')}>
-              <IconButton
-                aria-label={t('customers.refresh')}
-                onClick={refetch}
-                disabled={loading}
-                sx={{
-                  border: '1px solid',
-                  borderColor: 'divider',
-                }}
-              >
-                <RefreshIcon />
-              </IconButton>
-              </Tooltip>
-            </Box>
-          </Box>
-        </Box>
+        {focusMissingImage && (
+          <Alert severity="info" sx={{ mb: 3 }} action={<Button color="inherit" onClick={clearFocus}>{t('customers.showAll')}</Button>}>
+            {t('customers.missingImageFocus')}
+          </Alert>
+        )}
 
         {error && (
           <Alert
@@ -511,7 +256,7 @@ const CustomerPage = () => {
               {customers.length ? t('customers.staleDataTitle') : t('customers.loadFailedTitle')}
             </Typography>
             <Typography variant="body2">
-              {customers.length ? t('customers.staleDataText') : error.message}
+              {customers.length ? t('customers.staleDataText') : t('feedback.networkHelp')}
               {error.requestId ? ` · ${t('customers.requestId', { id: error.requestId })}` : ''}
             </Typography>
           </Alert>
@@ -524,7 +269,7 @@ const CustomerPage = () => {
           gap={{ xs: 1.25, sm: 2, md: 3 }}
           mb={{ xs: 3, md: 5 }}
         >
-          <StatsCard
+          <CustomerStatCard
             title={t('customers.total')}
             value={totalCustomers}
             subtitle={t('customers.activeCount', { count: getStatusCount('active') })}
@@ -532,7 +277,7 @@ const CustomerPage = () => {
             iconBg={alpha(theme.palette.primary.main, 0.12)}
             iconColor={theme.palette.primary.main}
           />
-          <StatsCard
+          <CustomerStatCard
             title={t('customers.activeNow')}
             value={getStatusCount('active')}
             subtitle={t('customers.percentTotal', { percent: totalCustomers > 0 ? Math.round((getStatusCount('active') / totalCustomers) * 100) : 0 })}
@@ -541,7 +286,7 @@ const CustomerPage = () => {
             iconColor={theme.palette.success.main}
             trend={{ value: 5, direction: 'up' }}
           />
-          <StatsCard
+          <CustomerStatCard
             title={t('customers.inactive')}
             value={getStatusCount('inactive')}
             subtitle={t('customers.needsAttention')}
@@ -549,7 +294,7 @@ const CustomerPage = () => {
             iconBg={alpha(theme.palette.warning.main, 0.15)}
             iconColor={theme.palette.warning.main}
           />
-          <StatsCard
+          <CustomerStatCard
             title={t('customers.canceled')}
             value={getStatusCount('canceled')}
             subtitle={t('customers.noLongerActive')}
@@ -606,7 +351,11 @@ const CustomerPage = () => {
                   bgcolor: isDarkMode ? 'rgba(51, 65, 85, 0.5)' : 'rgba(255, 255, 255, 0.8)',
                 },
               }}
-            />
+            >
+              <Button variant="outlined" onClick={handleFilterClick}>
+                {t('schedule.moreFilters')}
+              </Button>
+            </FilterBar>
           </Card>
         </Box>
 
@@ -638,7 +387,11 @@ const CustomerPage = () => {
               return (
                 <Button
                   key={tab.label}
-                  onClick={() => setTabValue(index)}
+                  onClick={() => {
+                    setTabValue(index);
+                    const statuses = ['all', 'active', 'inactive', 'canceled'] as const;
+                    handleFilterChange({ status: statuses[index], search: filter.search });
+                  }}
                   startIcon={<tab.icon fontSize="small" color={isActive ? getIconColor() : 'inherit'} />}
                   endIcon={
                     <Chip
@@ -741,7 +494,7 @@ const CustomerPage = () => {
                       });
                       setSelected([]);
                       refetch();
-                    } catch (error) {
+                    } catch {
                       await feedback.fire({
                         icon: 'error',
                         title: t('common.error'),
@@ -785,7 +538,7 @@ const CustomerPage = () => {
                       });
                       setSelected([]);
                       refetch();
-                    } catch (error) {
+                    } catch {
                       await feedback.fire({
                         icon: 'error',
                         title: t('common.error'),
@@ -831,7 +584,7 @@ const CustomerPage = () => {
                       });
                       setSelected([]);
                       refetch();
-                    } catch (error) {
+                    } catch {
                       await feedback.fire({
                         icon: 'error',
                         title: t('common.error'),
@@ -886,12 +639,14 @@ const CustomerPage = () => {
                 {t('customers.empty')}
               </Typography>
               <Typography variant="body1" color="text.secondary" mb={3}>
-                {searchInput ? 'Try adjusting your search criteria' : 'Get started by adding your first customer'}
+                {focusMissingImage
+                  ? t('customers.missingImageEmptyHint')
+                  : searchInput ? t('customers.searchEmptyHint') : t('customers.addEmptyHint')}
               </Typography>
               <Button
                 variant="contained"
-                startIcon={<PersonAddIcon />}
-                onClick={() => handleOpenForm()}
+                startIcon={focusMissingImage ? undefined : <PersonAddIcon />}
+                onClick={focusMissingImage ? clearFocus : () => openForm()}
                 sx={{
                   borderRadius: 3,
                   textTransform: 'none',
@@ -900,18 +655,18 @@ const CustomerPage = () => {
                   fontWeight: 600,
                 }}
               >
-                {t('customers.addFirst')}
+                {focusMissingImage ? t('customers.showAll') : t('customers.addFirst')}
               </Button>
             </Card>
           ) : (
             displayCustomers.map((customer) => {
-              const engagementScore = getEngagementScore(customer);
+              const engagementScore = getCustomerEngagementScore(customer);
               const isItemSelected = isSelected(customer.customerId);
               
               return (
                 <Card
                   key={customer.customerId}
-                  onClick={(e) => handleClick(e, customer.customerId)}
+                  onClick={(e) => toggleSelected(e, customer.customerId)}
                   sx={{
                     backgroundColor: 'background.paper',
                     boxShadow: 'none',
@@ -938,7 +693,7 @@ const CustomerPage = () => {
                             disabled={!customer.capabilities.canEdit}
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleClick(e, customer.customerId);
+                              toggleSelected(e, customer.customerId);
                             }}
                             sx={{ '&.Mui-checked': { color: theme.palette.primary.main } }}
                           />
@@ -1054,7 +809,7 @@ const CustomerPage = () => {
                               {engagementScore}%
                             </Typography>
                           </Box>
-                          <EngagementMeter value={engagementScore} />
+                          <CustomerEngagementMeter value={engagementScore} />
                         </Box>
                       </Box>
                       
@@ -1274,9 +1029,10 @@ const CustomerPage = () => {
                         <Tooltip title={t('customers.moreActions')}>
                           <IconButton 
                             size="small"
+                            aria-label={t('customers.moreActions')}
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleActionMenuOpen(e, customer);
+                              openActionMenu(e, customer);
                             }}
                             sx={{
                               width: { xs: 30, sm: 32 },
@@ -1308,8 +1064,8 @@ const CustomerPage = () => {
               page={page - 1}
               onPageChange={handlePageChangeEvent}
               onRowsPerPageChange={handleChangeRowsPerPage}
-              labelRowsPerPage="Rows per page:"
-              labelDisplayedRows={({ from, to, count }) => `${from}-${to} of ${count}`}
+              labelRowsPerPage={t('customers.rowsPerPage')}
+              labelDisplayedRows={({ from, to, count }) => t('customers.displayedRows', { from, to, count })}
               sx={{
                 '& .MuiTablePagination-toolbar': {
                   borderRadius: 3,
@@ -1327,12 +1083,6 @@ const CustomerPage = () => {
 
       </Box>
 
-      <AddCustomerMenu
-        anchorEl={addMenuAnchorEl}
-        onClose={handleAddMenuClose}
-        onAddSingleCustomer={handleOpenForm}
-      />
-
       <FilterMenu 
         anchorEl={filterAnchorEl}
         onClose={() => setFilterAnchorEl(null)}
@@ -1344,7 +1094,7 @@ const CustomerPage = () => {
       <ActionMenu
         anchorEl={actionMenuAnchorEl}
         open={Boolean(actionMenuAnchorEl)}
-        onClose={handleActionMenuClose}
+        onClose={closeActionMenu}
         status={selectedMember?.status as 'active' | 'inactive' | 'canceled' | undefined}
         canEdit={selectedMember?.capabilities.canEdit ?? false}
         canDelete={selectedMember?.capabilities.canDelete ?? false}
@@ -1354,7 +1104,7 @@ const CustomerPage = () => {
           try {
             switch (action) {
               case 'update':
-                handleOpenForm(selectedMember);
+                openForm(selectedMember);
                 break;
 
               case 'setActive':
@@ -1445,11 +1195,11 @@ const CustomerPage = () => {
               text: t('customers.actionFailed'),
             });
           } finally {
-            handleActionMenuClose();
+            closeActionMenu();
           }
         }}
       />
-    </Box>
+    </PageShell>
   );
 };
 

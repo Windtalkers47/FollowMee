@@ -1,191 +1,46 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useRef } from 'react';
 import React from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import {
   Box,
   Typography,
   Button,
-  TextField,
-  InputAdornment,
-  IconButton,
   Tabs,
   Tab,
   Grid,
-  CircularProgress,
-  Alert,
   Chip,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Slide,
-  Switch,
-  FormControlLabel,
-  FormGroup,
   Paper,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
   Stack,
 } from '@mui/material';
-import {
-  Settings as SettingsIcon,
-  Palette as PaletteIcon,
-  Contrast as ContrastIcon,
-  BlurOn as BlurIcon,
-  BorderAll as BorderAllIcon,
-  ExpandMore as ExpandMoreIcon,
-  ExpandLess as ExpandLessIcon,
-} from '@mui/icons-material';
-import {
-  Search as SearchIcon,
-  Clear as ClearIcon,
-  EmojiEvents as TrophyIcon,
-  CheckCircle as DoneIcon,
-} from '@mui/icons-material';
-import { TransitionProps } from '@mui/material/transitions';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAppSelector } from '../../store/store';
-import { taskApi, likeApi, commentApi, Task, TaskLikeSummary, UserRank, UpdateTaskData } from '../../api/task.api';
+import { taskApi, likeApi, commentApi, Task, UserRank, UpdateTaskData, CreateTaskData, type TaskListResponse } from '../../api/task.api';
 import { rewardApi } from '../../api/reward.api';
 import { toPng } from 'html-to-image';
 import AchievementShareCard, { type AchievementShareEntry } from '../../components/AchievementShareCard';
 import AchievementArtwork from '../../components/AchievementArtwork';
+import CompletedWorkSearch from '../../components/CompletedWorkSearch';
 import { translateRewardKey } from '../../utils/rewardPresentation';
 import DuplicateTaskDialog from '../../components/DuplicateTaskDialog';
 import { userApi } from '../../api/user.api';
-import TaskCard from '../../components/TaskCard';
-import TaskCardLiquid from '../../components/TaskCard/TaskCardLiquid';
 import { TaskForm } from '../../components/TaskForm/TaskForm';
 import feedback from '../../services/feedback.service';
-import { getTaskPermissions, hasAnyPermission } from '../../permissions/taskPermissions';
 import { getBookedDates } from '../../utils/dateUtils';
-import { useLiquidGlass } from '../../contexts/LiquidGlassContext';
 import { useTheme } from '@mui/material';
 import { useUserPreferences } from '../../contexts/UserPreferencesContext';
-import {
-  gradientPresets,
-  type GradientPresetKey,
-  getGlassCardStyles,
-  getGlassInputStyles,
-  getGlassButtonStyles,
-  getSegmentedControlStyles,
-  getTextColorStyles,
-} from '../../styles/liquidGlassStyles';
-
-/* ================== Types ================== */
-type TabPanelProps = {
-  children: React.ReactNode;
-  index: number;
-  value: number;
-};
-
-// Dialog transition
-const SlideTransition = React.forwardRef(function Transition(
-  props: TransitionProps & {
-    children: React.ReactElement<any, any>;
-  },
-  ref: React.Ref<unknown>,
-) {
-  return <Slide direction="up" ref={ref} {...props} />;
-});
-
-/* ================== TabPanel ================== */
-const TabPanel = ({ children, value, index }: TabPanelProps) => (
-  <div role="tabpanel" hidden={value !== index}>
-    {value === index && <Box sx={{ p: 2 }}>{children}</Box>}
-  </div>
-);
-
-/* ================== Task Feed Card ================== */
-interface TaskFeedCardProps {
-  task: Task;
-  likeSummary?: TaskLikeSummary;
-  onEdit?: (task: Task) => void;
-  onLike?: (taskId: string, likeType: 'like' | 'love' | 'laugh' | 'angry' | 'wow' | 'sad') => void;
-  onUnlike?: (taskId: string) => void;
-  onComment?: (taskId: string, comment: string) => void;
-  onMarkDone?: (taskId: string) => void;
-  onMarkUndone?: (taskId: string) => void;
-  onApproveTask?: (taskId: string) => void;
-  onStartProgress?: (taskId: string) => void;
-  onCancel?: (taskId: string) => void;
-  onUpdateTaskStatus?: (taskId: string, status: Task['status']) => void;
-  onDuplicate?: (task: Task) => void;
-}
-
-const getEmbeddedLikeSummary = (task: Task): TaskLikeSummary | undefined => {
-  if (!task._count) return undefined;
-  const summary = {
-    like: task._count.likes || 0,
-    love: task._count.love || 0,
-    laugh: task._count.laugh || 0,
-    angry: task._count.angry || 0,
-    wow: task._count.wow || 0,
-    sad: task._count.sad || 0,
-    userLike: task._count.userLike,
-  };
-  return { ...summary, total: summary.like + summary.love + summary.laugh + summary.angry + summary.wow + summary.sad };
-};
-
-const TaskFeedCard: React.FC<TaskFeedCardProps> = ({
-  task,
-  likeSummary,
-  onEdit,
-  onLike,
-  onUnlike,
-  onComment,
-  onMarkDone,
-  onMarkUndone,
-  onApproveTask,
-  onStartProgress,
-  onCancel,
-  onUpdateTaskStatus,
-  onDuplicate,
-}) => {
-  const { user } = useAppSelector((state) => state.auth);
-
-  const permissions = getTaskPermissions({
-    userId: user?.userId || 0,
-    task,
-  });
-
-  const showActions = hasAnyPermission(permissions) || Boolean(task.workflow?.canDuplicate);
-
-  // Use Liquid Glass TaskCard for better UI experience
-  return (
-    <TaskCardLiquid
-      task={task}
-      likeSummary={likeSummary}
-      currentUserId={user?.userId || 0}
-      permissions={permissions}
-      onEdit={onEdit}
-      onLike={onLike}
-      onUnlike={onUnlike}
-      onComment={onComment}
-      onMarkDone={onMarkDone}
-      onMarkUndone={onMarkUndone}
-      onApproveTask={onApproveTask}
-      onStartProgress={onStartProgress}
-      onCancel={onCancel}
-      onUpdateTaskStatus={onUpdateTaskStatus}
-      onDuplicate={onDuplicate}
-      showActions={showActions}
-      compact={false} // Use full width for better social media feel
-      showWorkflowActions={false}
-    />
-  );
-};
+import CompletedWorkTaskCard from '../../components/CompletedWorkTaskCard';
+import CompletedWorkOutcomeDialogs from '../../components/CompletedWorkOutcomeDialogs';
+import { getEmbeddedLikeSummary } from '../../utils/taskLikeSummary';
+import { useCompletedWorkFeed } from '../../hooks/useCompletedWorkFeed';
+import { PageEmpty, PageError, PageHeader, PageLoading, PageShell } from '../../components/PageState';
+import { applyTaskMutationSnapshot } from '../../utils/taskMutationCache';
 
 /* ================== Page ================== */
 const PostsPage = () => {
   const { t } = useUserPreferences();
-  const { taskId } = useParams<{ taskId: string }>();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
-  const [taskLikeSummaries, setTaskLikeSummaries] = useState<Record<string, TaskLikeSummary>>({});
   const [isSearching, setIsSearching] = useState(false);
   const [duplicateTask, setDuplicateTask] = useState<Task | null>(null);
   const [doneDialogOpen, setDoneDialogOpen] = useState(false);
@@ -195,42 +50,42 @@ const PostsPage = () => {
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | undefined>();
   
-  // Liquid Glass UI Settings
-  const { isLiquidGlassEnabled, liquidGlassSettings, updateLiquidGlassSettings } = useLiquidGlass();
   const theme = useTheme();
-  
-  // Detect dark mode from theme
-  const isDarkMode = theme.palette.mode === 'dark';
-  
-  // Safe gradient preset access with default fallback
-  const currentGradientPreset = liquidGlassSettings?.gradientPreset || 'classicBluePurple';
-  
-  // Get safe preset with fallback
-  const getCurrentPreset = () => {
-    const preset = gradientPresets[currentGradientPreset as keyof typeof gradientPresets];
-    return preset || gradientPresets.classicBluePurple;
-  };
-  const currentPreset = getCurrentPreset();
-  
-  // Get text colors based on settings
-  const getTextColor = (variant: 'primary' | 'secondary' | 'tertiary' = 'primary') => 
-    getTextColorStyles(isDarkMode, liquidGlassSettings?.increaseContrast || false, variant);
+  const getTextColor = (variant: 'primary' | 'secondary' | 'tertiary' = 'primary') =>
+    variant === 'primary' ? theme.palette.text.primary : theme.palette.text.secondary;
 
   const { user } = useAppSelector((state) => state.auth);
   const queryClient = useQueryClient();
   const rewardSummaryQuery = useQuery({ queryKey: ['rewards', 'summary'], queryFn: rewardApi.summary, staleTime: 30_000 });
+  const incrementCommentCount = (taskId: string) => {
+    const patch = (current: TaskListResponse | undefined) => current ? {
+      ...current,
+      tasks: current.tasks.map(task => task.taskId === taskId ? {
+        ...task,
+        _count: {
+          likes: task._count?.likes || 0,
+          love: task._count?.love || 0,
+          laugh: task._count?.laugh || 0,
+          angry: task._count?.angry || 0,
+          ...task._count,
+          comments: (task._count?.comments || 0) + 1,
+        },
+      } : task),
+    } : current;
+    queryClient.setQueriesData<TaskListResponse>({ queryKey: ['all-tasks'] }, patch);
+    queryClient.setQueriesData<TaskListResponse>({ queryKey: ['search-tasks'] }, patch);
+  };
 
-  // Fetch all completed tasks for the feed
-  const { data: allTasksResponse, isLoading: allTasksLoading, error: allTasksError, refetch: refetchAllTasks } = useQuery({
-    queryKey: ['all-tasks', activeTab, user?.userId],
-    queryFn: () => taskApi.getTasks({
-      status: 'done',
-      assignedTo: activeTab === 1 ? user?.userId : undefined,
-      limit: 30,
-    }),
-    enabled: activeTab === 0 || Boolean(user?.userId),
-    staleTime: 30_000,
-  });
+  const {
+    tasks: completedTasksList,
+    taskLikeSummaries,
+    refreshLikeSummary,
+    runSearch,
+    refetch: refetchAllTasks,
+    loading: allTasksLoading,
+    error: allTasksError,
+    searchLoading,
+  } = useCompletedWorkFeed({ activeTab, userId: user?.userId, searchQuery, isSearching });
 
   // Fetch users for assignment dropdown
   const { data: users = [] } = useQuery({
@@ -239,35 +94,20 @@ const PostsPage = () => {
     enabled: taskDialogOpen,
   });
 
-  // Fetch tasks with search - only when explicitly searching
-  const { data: searchResults, isLoading: searchLoading } = useQuery({
-    queryKey: ['search-tasks', searchQuery, activeTab, user?.userId],
-    queryFn: () => taskApi.getTasks({ 
-      search: searchQuery, 
-      status: 'done', 
-      assignedTo: activeTab === 1 ? user?.userId : undefined,
-      limit: 30 
-    }),
-    enabled: false, // Disabled by default - only enable when search button is clicked
-  });
 
   // Mutations
   const likeMutation = useMutation({
     mutationFn: ({ taskId, likeType }: { taskId: string; likeType: 'like' | 'love' | 'laugh' | 'angry' | 'wow' | 'sad' }) =>
       likeApi.createOrUpdateLike(taskId, { likeType }),
     onSuccess: (_, { taskId }) => {
-      fetchLikeSummary(taskId);
-      queryClient.invalidateQueries({ queryKey: ['all-tasks'] });
-      queryClient.invalidateQueries({ queryKey: ['assigned-tasks'] });
+      void refreshLikeSummary(taskId);
     },
   });
 
   const unlikeMutation = useMutation({
     mutationFn: likeApi.removeLike,
     onSuccess: (_, taskId) => {
-      fetchLikeSummary(taskId);
-      queryClient.invalidateQueries({ queryKey: ['all-tasks'] });
-      queryClient.invalidateQueries({ queryKey: ['assigned-tasks'] });
+      void refreshLikeSummary(taskId);
     },
   });
 
@@ -275,9 +115,8 @@ const PostsPage = () => {
     mutationFn: ({ taskId, data }: { taskId: string; data: { comment: string } }) =>
       commentApi.createComment(taskId, data),
     onSuccess: (_, { taskId }) => {
-      queryClient.invalidateQueries({ queryKey: ['all-tasks'] });
+      incrementCommentCount(taskId);
       queryClient.invalidateQueries({ queryKey: ['task-comments', taskId] });
-      queryClient.invalidateQueries({ queryKey: ['assigned-tasks'] }); // Refresh assigned tasks for comment count
     },
   });
 
@@ -292,8 +131,8 @@ const PostsPage = () => {
         text: t('task.submittedReviewText', { title: response.task.title }),
         confirmButtonText: t('activity.gotIt')
       });
-      queryClient.invalidateQueries({ queryKey: ['all-tasks'] });
-      queryClient.invalidateQueries({ queryKey: ['assigned-tasks'] });
+      const previous = completedTasksList.find(task => task.taskId === response.task.taskId);
+      if (user?.userId) applyTaskMutationSnapshot(queryClient, response.task, user.userId, previous);
     },
   });
 
@@ -303,8 +142,8 @@ const PostsPage = () => {
     onSuccess: (response) => {
       setUndoneTaskData({ task: response.task, newRank: response.userRank });
       setUndoneDialogOpen(true);
-      queryClient.invalidateQueries({ queryKey: ['all-tasks'] });
-      queryClient.invalidateQueries({ queryKey: ['assigned-tasks'] });
+      const previous = completedTasksList.find(task => task.taskId === response.task.taskId);
+      if (user?.userId) applyTaskMutationSnapshot(queryClient, response.task, user.userId, previous);
     },
   });
 
@@ -312,9 +151,9 @@ const PostsPage = () => {
   const updateTaskMutation = useMutation({
     mutationFn: ({ taskId, data }: { taskId: string; data: UpdateTaskData }) =>
       taskApi.updateTask(taskId, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['all-tasks'] });
-      queryClient.invalidateQueries({ queryKey: ['assigned-tasks'] });
+    onSuccess: (task) => {
+      const previous = completedTasksList.find(item => item.taskId === task.taskId);
+      if (user?.userId) applyTaskMutationSnapshot(queryClient, task, user.userId, previous);
     },
   });
 
@@ -330,61 +169,25 @@ const PostsPage = () => {
         setDoneDialogOpen(true);
       }
 
-      // Invalidate queries to refresh data
-      queryClient.invalidateQueries({ queryKey: ['all-tasks'] });
-      queryClient.invalidateQueries({ queryKey: ['assigned-tasks'] });
-      queryClient.invalidateQueries({ queryKey: ['rewards'] });
+      const previous = completedTasksList.find(task => task.taskId === response.task.taskId);
+      if (user?.userId) applyTaskMutationSnapshot(queryClient, response.task, user.userId, previous);
+      queryClient.invalidateQueries({ queryKey: ['rewards', 'summary'] });
     },
   });
 
   // Create task mutation
   const createTaskMutation = useMutation({
-    mutationFn: (data: any) => taskApi.createTask(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['all-tasks'] });
-      queryClient.invalidateQueries({ queryKey: ['assigned-tasks'] });
+    mutationFn: (data: CreateTaskData) => taskApi.createTask(data),
+    onSuccess: (task) => {
+      if (user?.userId) applyTaskMutationSnapshot(queryClient, task, user.userId);
     },
   });
-
-  // Fetch like summaries for tasks
-  const fetchLikeSummary = async (taskId: string) => {
-    try {
-      const summary = await likeApi.getTaskLikeSummary(taskId);
-      setTaskLikeSummaries(prev => ({ ...prev, [taskId]: summary }));
-    } catch (error) {
-      console.error('Error fetching like summary:', error);
-    }
-  };
-
-  useEffect(() => {
-    const handleRealtimeReaction = async (event: Event) => {
-      const taskId = (event as CustomEvent<{ taskId?: string }>).detail?.taskId;
-      if (!taskId) return;
-      try {
-        const summary = await likeApi.getTaskLikeSummary(taskId);
-        setTaskLikeSummaries(prev => ({ ...prev, [taskId]: summary }));
-      } catch (error) {
-        console.error('Unable to refresh reaction summary:', error);
-      }
-    };
-    window.addEventListener('followmee:reaction-updated', handleRealtimeReaction);
-    return () => window.removeEventListener('followmee:reaction-updated', handleRealtimeReaction);
-  }, []);
 
   // Search handlers
   const handleSearch = async () => {
     if (searchQuery.trim()) {
       setIsSearching(true);
-      // Manually trigger the search query
-      await queryClient.fetchQuery({
-        queryKey: ['search-tasks', searchQuery, activeTab, user?.userId],
-        queryFn: () => taskApi.getTasks({ 
-          search: searchQuery, 
-          status: 'done', 
-          assignedTo: activeTab === 1 ? user?.userId : undefined,
-          limit: 30 
-        }),
-      });
+      await runSearch();
     }
   };
 
@@ -392,12 +195,6 @@ const PostsPage = () => {
     setSearchQuery('');
     setIsSearching(false);
     refetchAllTasks();
-  };
-
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      handleSearch();
-    }
   };
 
   const handleLike = async (taskId: string, likeType: 'like' | 'love' | 'laugh' | 'angry' | 'wow' | 'sad') => {
@@ -541,7 +338,7 @@ const PostsPage = () => {
         timer: 2000,
         showConfirmButton: false
       });
-    } catch (error) {
+    } catch {
       await feedback.fire({
         title: t('common.error'),
         text: t('task.statusUpdateFailed'),
@@ -567,9 +364,18 @@ const PostsPage = () => {
     setTaskDialogOpen(true);
   };
 
+  // Keep the existing workflow callbacks available while the feed intentionally
+  // hides workflow actions; extraction must not change permission behaviour.
+  void handleMarkTaskDone;
+  void handleMarkTaskUndone;
+  void handleApproveTask;
+  void handleStartProgress;
+  void handleCancelTask;
+  void handleUpdateTaskStatus;
+  void handleEditTask;
+
   const bookedDates = getBookedDates(editingTask);
 
-  const completedTasksList = isSearching ? (searchResults?.tasks || []) : (allTasksResponse?.tasks || []);
   const achievementRef = useRef<HTMLDivElement | null>(null);
   const [shareFormat, setShareFormat] = useState<'square' | 'story'>('square');
   const [isSharingAchievement, setIsSharingAchievement] = useState(false);
@@ -607,28 +413,11 @@ const PostsPage = () => {
   ];
 
   return (
-    <Box sx={{ width: '100%' }}>
-      {/* Note: Liquid Glass Settings moved to Settings page */}
-
-      {/* Header */}
-      <Box
-        sx={{
-          mb: 4,
-          py: 1,
-        }}
-      >
-        <Typography 
-          variant="h3" 
-          fontWeight="bold" 
-          gutterBottom
-          sx={{ color: getTextColor('primary') }}
-        >
-          {t('activity.title')}
-        </Typography>
-        <Typography color="text.secondary" sx={{ mb: 1.5 }}>
-          {t('activity.subtitle')}
-        </Typography>
-        <Chip 
+    <PageShell maxWidth={1200}>
+      <PageHeader
+        title={t('activity.title')}
+        subtitle={t('activity.subtitle')}
+        actions={<Chip
           label={t('activity.approvedCount', { count: completedTasksList.length })}
           size="small"
           sx={{
@@ -640,8 +429,8 @@ const PostsPage = () => {
               fontWeight: 600,
             },
           }}
-        />
-      </Box>
+        />}
+      />
 
       <Paper variant="outlined" sx={{ mb: 3, p: { xs: 2, md: 2.5 }, borderRadius: 3, boxShadow: 'none' }}>
         <Typography variant="overline" color="primary.main">{t('feature.latestAchievement')}</Typography>
@@ -670,72 +459,7 @@ const PostsPage = () => {
         </Stack>}
       </Paper>
 
-      {/* Liquid Glass Search Section */}
-      <Box sx={{ mb: 3 }}>
-        <Box display="flex" gap={2} alignItems="center" flexWrap="wrap">
-          <TextField
-            fullWidth
-            placeholder={t('activity.searchCompleted')}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            onKeyPress={handleKeyPress}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon sx={{ color: getTextColor('secondary') }} />
-                </InputAdornment>
-              ),
-              endAdornment: searchQuery && (
-                <InputAdornment position="end">
-                  <IconButton onClick={handleClearSearch} size="small">
-                    <ClearIcon />
-                  </IconButton>
-                </InputAdornment>
-              )
-            }}
-            sx={{
-              flex: 1,
-              minWidth: 200,
-              '& .MuiOutlinedInput-root': {
-                borderRadius: 2,
-                backgroundColor: 'background.paper',
-              },
-              '& .MuiInputBase-input': {
-                color: getTextColor('primary'),
-              },
-              '& .MuiInputBase-input::placeholder': {
-                color: getTextColor('tertiary'),
-                opacity: 1,
-              },
-            }}
-          />
-          <Button
-            variant="contained"
-            onClick={handleSearch}
-            disabled={!searchQuery.trim() || searchLoading}
-            startIcon={<SearchIcon />}
-            sx={{ 
-              minWidth: '120px',
-              borderRadius: 2,
-              opacity: !searchQuery.trim() || searchLoading ? 0.6 : 1,
-            }}
-          >
-            {searchLoading ? t('activity.searching') : t('common.search')}
-          </Button>
-        </Box>
-        {isSearching && (
-          <Typography 
-            variant="caption" 
-            sx={{ 
-              mt: 1, 
-              display: 'block',
-              color: getTextColor('tertiary'),
-            }}
-          >
-            {t('activity.searchResults', { query: searchQuery })}
-          </Typography>
-        )}
-      </Box>
+      <CompletedWorkSearch value={searchQuery} searching={searchLoading} active={isSearching} colors={{ primary: getTextColor('primary'), secondary: getTextColor('secondary'), tertiary: getTextColor('tertiary') }} t={t} onChange={setSearchQuery} onSearch={handleSearch} onClear={handleClearSearch} />
 
       {/* iOS-style Segmented Control Tabs */}
       <Box sx={{ mb: 3 }}>
@@ -788,26 +512,19 @@ const PostsPage = () => {
       </Box>
 
       {/* Error Display */}
-      {allTasksError && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {t('activity.loadError')}
-        </Alert>
-      )}
+      {allTasksError && <Box mb={2}><PageError title={t('activity.loadError')} message={t('feedback.networkHelp')} retryLabel={t('feedback.retry')} onRetry={() => void refetchAllTasks()} /></Box>}
 
       {searchLoading || allTasksLoading ? (
-        <Box display="flex" justifyContent="center" p={4}><CircularProgress /></Box>
+        <PageLoading label={t('feedback.loadingPage')} />
       ) : (
         <Grid container spacing={2}>
           {completedTasksList.length === 0 ? (
             <Grid size={{ xs: 12 }}>
-              <Box textAlign="center" py={6}>
-                <Typography variant="h6" color="text.secondary">{t('activity.emptyTitle')}</Typography>
-                <Typography variant="body2" color="text.secondary">{t('activity.emptyHint')}</Typography>
-              </Box>
+              <PageEmpty title={t('activity.emptyTitle')} message={t('activity.emptyHint')} />
             </Grid>
           ) : completedTasksList.map((task) => (
             <Grid size={{ xs: 12 }} key={task.taskId}>
-              <TaskFeedCard
+              <CompletedWorkTaskCard
                 task={task}
                 likeSummary={taskLikeSummaries[task.taskId] || getEmbeddedLikeSummary(task)}
                 onLike={handleLike}
@@ -822,128 +539,13 @@ const PostsPage = () => {
       
       <DuplicateTaskDialog task={duplicateTask} open={Boolean(duplicateTask)} onClose={() => setDuplicateTask(null)} />
 
-      {/* Task Done Success Dialog */}
-      <Dialog
-        open={doneDialogOpen}
-        TransitionComponent={SlideTransition}
-        keepMounted
-        onClose={handleCloseDoneDialog}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle sx={{ textAlign: 'center', pb: 1 }}>
-          <DoneIcon color="success" sx={{ fontSize: 48, mb: 1 }} />
-          <Typography variant="h6" color="success.main" fontWeight="bold" component="div">
-            {t('activity.completedTitle')}
-          </Typography>
-        </DialogTitle>
-        <DialogContent sx={{ textAlign: 'center', py: 2 }}>
-          {doneTaskData && (
-            <>
-              <Typography variant="body1" sx={{ mb: 2 }}>
-                {t('activity.completedText', { title: doneTaskData.task.title })}
-              </Typography>
-              <Box sx={{ 
-                p: 2, 
-                bgcolor: 'success.50', 
-                borderRadius: 2, 
-                border: 2, 
-                borderColor: 'success.main' 
-              }}>
-                <Typography variant="h6" color="success.main" fontWeight="bold">
-                  {t('activity.newRank', { rank: doneTaskData.newRank.rank })}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {t('activity.completedTasks', { count: doneTaskData.newRank.completedTasks })}
-                </Typography>
-                {doneTaskData.newRank.rank <= 3 && (
-                  <Typography variant="body2" color="success.main" sx={{ mt: 1 }}>
-                    {t('activity.topThree')}
-                  </Typography>
-                )}
-                {doneTaskData.newRank.rank > 3 && (
-                  <Typography variant="body2" color="success.main" sx={{ mt: 1 }}>
-                    {t('activity.keepClimbing')}
-                  </Typography>
-                )}
-              </Box>
-            </>
-          )}
-        </DialogContent>
-        <DialogActions sx={{ justifyContent: 'center', pb: 3 }}>
-          <Button 
-            onClick={handleCloseDoneDialog} 
-            variant="contained" 
-            color="success"
-            size="large"
-          >
-            {t('activity.acknowledge')}
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Task Undone Dialog */}
-      <Dialog
-        open={undoneDialogOpen}
-        TransitionComponent={SlideTransition}
-        keepMounted
-        onClose={handleCloseUndoneDialog}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle sx={{ textAlign: 'center', pb: 1 }}>
-          <TrophyIcon sx={{ fontSize: 44, mb: 1, color: 'primary.main' }} />
-          <Typography variant="h6" color="warning.main" fontWeight="bold" component="div">
-            {t('activity.reopenedTitle')}
-          </Typography>
-        </DialogTitle>
-        <DialogContent sx={{ textAlign: 'center', py: 2 }}>
-          {undoneTaskData && (
-            <>
-              <Typography variant="body1" sx={{ mb: 2 }}>
-                {t('activity.reopenedText', { title: undoneTaskData.task.title })}
-              </Typography>
-              <Box sx={{ 
-                p: 2, 
-                bgcolor: 'warning.50', 
-                borderRadius: 2, 
-                border: 2, 
-                borderColor: 'warning.main' 
-              }}>
-                <Typography variant="h6" color="warning.main" fontWeight="bold">
-                  {t('activity.currentRank', { rank: undoneTaskData.newRank.rank })}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {t('activity.completedTasks', { count: undoneTaskData.newRank.completedTasks })}
-                </Typography>
-                <Typography variant="body2" color="warning.main" sx={{ mt: 1 }}>
-                  {t('activity.takeTime')}
-                </Typography>
-                {undoneTaskData.newRank.rank <= 3 && (
-                  <Typography variant="body2" color="warning.main" sx={{ mt: 1 }}>
-                    {t('activity.stillTopThree')}
-                  </Typography>
-                )}
-                {undoneTaskData.newRank.rank > 3 && (
-                  <Typography variant="body2" color="warning.main" sx={{ mt: 1 }}>
-                    {t('activity.setback')}
-                  </Typography>
-                )}
-              </Box>
-            </>
-          )}
-        </DialogContent>
-        <DialogActions sx={{ justifyContent: 'center', pb: 3 }}>
-          <Button 
-            onClick={handleCloseUndoneDialog} 
-            variant="contained" 
-            color="warning"
-            size="large"
-          >
-            {t('activity.gotIt')}
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <CompletedWorkOutcomeDialogs
+        completed={doneDialogOpen ? doneTaskData : null}
+        reopened={undoneDialogOpen ? undoneTaskData : null}
+        t={t}
+        onCloseCompleted={handleCloseDoneDialog}
+        onCloseReopened={handleCloseUndoneDialog}
+      />
 
       {/* Task Form */}
       <TaskForm
@@ -955,10 +557,12 @@ const PostsPage = () => {
           setTaskDialogOpen(false);
           setEditingTask(undefined);
         }}
-        onSave={async (taskData: any, intent) => {
+        onSave={async (taskData, intent) => {
           try {
             // Handle date conversion for backend
             const { dueDateRange, createdAt, updatedAt, ...editableTaskData } = taskData;
+            void createdAt;
+            void updatedAt;
             const dataToSave = {
               ...editableTaskData,
               status: intent === 'publish'
@@ -976,6 +580,7 @@ const PostsPage = () => {
 
             if (editingTask) {
               const { status, ...editableData } = dataToSave;
+              void status;
               await updateTaskMutation.mutateAsync({
                 taskId: editingTask.taskId,
                 data: intent === 'publish' && editingTask.status === 'draft'
@@ -983,7 +588,7 @@ const PostsPage = () => {
                   : editableData as UpdateTaskData
               });
             } else {
-              await createTaskMutation.mutateAsync(dataToSave as any);
+              await createTaskMutation.mutateAsync(dataToSave as CreateTaskData);
             }
             setTaskDialogOpen(false);
             setEditingTask(undefined);
@@ -993,7 +598,7 @@ const PostsPage = () => {
           }
         }}
       />
-    </Box>
+    </PageShell>
   );
 };
 

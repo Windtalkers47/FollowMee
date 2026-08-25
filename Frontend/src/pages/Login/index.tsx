@@ -33,6 +33,7 @@ import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import { useUserPreferences } from '../../contexts/UserPreferencesContext';
 import { env } from '../../utils/env';
 import { canUsePublicRegistration } from '../../utils/registrationPolicy';
+import { AuthMotionBoundary } from '../../components/AuthShell';
 
 const MAX_ATTEMPTS = 5;
 
@@ -64,7 +65,6 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (isAuthenticated) {
-      setAttempts(0);
       navigate(currentUser?.roles?.some((role) => ['Admin', 'Owner', 'Superadmin'].includes(role)) ? '/dashboard' : '/my-work');
     }
   }, [isAuthenticated, navigate, currentUser]);
@@ -87,7 +87,7 @@ export default function LoginPage() {
 
   /* ================= UI ================= */
   return (
-    <Box
+    <AuthMotionBoundary
       sx={{
         minHeight: '100vh',
         display: 'flex',
@@ -451,6 +451,6 @@ export default function LoginPage() {
         </Box>
         </Box>
       </Box>
-    </Box>
+    </AuthMotionBoundary>
   );
 }

@@ -40,6 +40,7 @@ export default defineConfig({
           'vendor-charts': ['chart.js', 'react-chartjs-2'],
           'vendor-media': ['html-to-image', 'qrcode'],
           'vendor-motion': ['framer-motion'],
+          'vendor-i18n': [resolve(__dirname, './src/i18n/messages.ts')],
         },
       },
     },

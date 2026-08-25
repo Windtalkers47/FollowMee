@@ -146,9 +146,19 @@ export class TaskRepository extends BaseRepository<Task> {
     return task;
   }
 
-  async updateTaskStatus(taskId: string, status: string): Promise<boolean> {
-    const result = await this.repository.update(taskId, { status: status as any, updatedAt: new Date() });
-    return result.affected !== undefined && result.affected > 0;
+  async updateTaskStatus(taskId: string, status: string): Promise<Task | null> {
+    const result = await this.repository.createQueryBuilder()
+      .update(Task)
+      .set({
+        status: status as Task['status'],
+        updatedAt: () => 'CURRENT_TIMESTAMP',
+        version: () => 'version + 1',
+      })
+      .where('taskId = :taskId', { taskId })
+      .andWhere('isActive = :isActive', { isActive: true })
+      .execute();
+    if (!result.affected) return null;
+    return this.findById(taskId);
   }
 
   async incrementViewCount(taskId: string): Promise<void> {

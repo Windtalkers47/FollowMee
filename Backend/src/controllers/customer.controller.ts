@@ -81,8 +81,9 @@ export class CustomerController {
       const search = req.query.search as string | undefined;
       const assignedTo = Number(req.query.assignedTo) || undefined;
       const createdBy = Number(req.query.createdBy) || undefined;
+      const missingImage = req.query.missingImage === 'true';
       
-      const result = await this.customerService.findPage({ page, limit, status, search, assignedTo, createdBy }, req.user!.userId);
+      const result = await this.customerService.findPage({ page, limit, status, search, assignedTo, createdBy, missingImage }, req.user!.userId);
       console.info(JSON.stringify({
         event: 'customer.list.completed',
         requestId: res.locals.requestId,
@@ -92,6 +93,13 @@ export class CustomerController {
         limit: result.limit,
         resultCount: result.items.length,
         total: result.total,
+        filter: {
+          status: status || 'all',
+          missingImage,
+          hasSearch: Boolean(search?.trim()),
+          hasAssignee: Boolean(assignedTo),
+          hasCreator: Boolean(createdBy),
+        },
       }));
       
       return res.json({ 

@@ -26,7 +26,7 @@ const config: Config = {
     '!src/**/__tests__/**',
   ],
 
-  coverageDirectory: 'coverage',
+  coverageDirectory: '../.local/test-artifacts/backend-coverage',
 
   coverageReporters: ['text', 'json', 'html', 'lcov'],
 

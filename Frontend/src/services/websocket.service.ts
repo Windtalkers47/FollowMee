@@ -3,6 +3,9 @@ import { TOKEN_REFRESH_EVENT } from '../store/slices/authSlice';
 import type { UserProfileUpdatedEvent } from '../types/profile-event.types';
 import { WS_URL } from '../utils/runtimeEnv';
 
+export type RealtimeConnectionState = 'connected' | 'reconnecting' | 'offline';
+export type RealtimeConnectionSnapshot = { state: RealtimeConnectionState; lastUpdated: number | null; reconnectAttempts: number };
+
 /**
  * WebSocket Service with Auto-Reconnect and Heartbeat
  * 
@@ -20,7 +23,16 @@ class WebSocketService {
   private readonly HEARTBEAT_INTERVAL = 30000; // 30 seconds
   private userId: number | null = null;
   private tokenRefreshListener: ((event: Event) => void) | null = null;
-  private domainListeners = new Map<string, Set<(data: any) => void>>();
+  private domainListeners = new Map<string, Set<(data: unknown) => void>>();
+  private statusListeners = new Set<(snapshot: RealtimeConnectionSnapshot) => void>();
+  private status: RealtimeConnectionSnapshot = { state: navigator.onLine ? 'reconnecting' : 'offline', lastUpdated: null, reconnectAttempts: 0 };
+  private onlineListener: (() => void) | null = null;
+  private offlineListener: (() => void) | null = null;
+
+  private updateStatus(patch: Partial<RealtimeConnectionSnapshot>) {
+    this.status = { ...this.status, ...patch };
+    this.statusListeners.forEach(listener => listener(this.status));
+  }
 
   /**
    * Connect to WebSocket server
@@ -39,6 +51,7 @@ class WebSocketService {
 
     // Set up token refresh listener (U1-RECONNECT: Token Refresh Integration)
     this.setupTokenRefreshListener();
+    this.setupConnectivityListeners();
 
     const wsUrl = WS_URL;
 
@@ -57,6 +70,7 @@ class WebSocketService {
     this.socket.on('connect', () => {
       console.log('[WebSocket] Connected');
       this.reconnectAttempts = 0;
+      this.updateStatus({ state: 'connected', lastUpdated: Date.now(), reconnectAttempts: 0 });
       // Start heartbeat
       this.startHeartbeat();
     });
@@ -64,18 +78,26 @@ class WebSocketService {
     this.socket.on('disconnect', (reason) => {
       console.log(`[WebSocket] Disconnected: ${reason}`);
       this.stopHeartbeat();
+      this.updateStatus({ state: navigator.onLine ? 'reconnecting' : 'offline' });
     });
 
     this.socket.on('connect_error', (error) => {
       console.error(`[WebSocket] Connection error: ${error.message}`);
       this.stopHeartbeat();
+      this.reconnectAttempts += 1;
+      this.updateStatus({ state: navigator.onLine ? 'reconnecting' : 'offline', reconnectAttempts: this.reconnectAttempts });
     });
 
-    this.socket.on('reconnect', (attemptNumber: number) => {
+    this.socket.io.on('reconnect', (attemptNumber: number) => {
       console.log(`[WebSocket] Reconnected after ${attemptNumber} attempts`);
       this.reconnectAttempts = 0;
+      this.updateStatus({ state: 'connected', lastUpdated: Date.now(), reconnectAttempts: 0 });
       this.startHeartbeat();
     });
+    this.socket.io.on('reconnect_attempt', (attemptNumber: number) => {
+      this.updateStatus({ state: navigator.onLine ? 'reconnecting' : 'offline', reconnectAttempts: attemptNumber });
+    });
+    this.socket.onAny(() => this.updateStatus({ lastUpdated: Date.now() }));
   }
 
   /**
@@ -142,6 +164,7 @@ class WebSocketService {
     
     // Clean up token refresh listener
     this.removeTokenRefreshListener();
+    this.removeConnectivityListeners();
     
     if (this.socket) {
       this.socket.emit('user:leave');
@@ -150,6 +173,24 @@ class WebSocketService {
     }
     
     this.userId = null;
+  }
+
+  private setupConnectivityListeners(): void {
+    if (this.onlineListener || this.offlineListener) return;
+    this.onlineListener = () => {
+      this.updateStatus({ state: this.socket?.connected ? 'connected' : 'reconnecting' });
+      if (!this.socket?.connected) this.socket?.connect();
+    };
+    this.offlineListener = () => this.updateStatus({ state: 'offline' });
+    window.addEventListener('online', this.onlineListener);
+    window.addEventListener('offline', this.offlineListener);
+  }
+
+  private removeConnectivityListeners(): void {
+    if (this.onlineListener) window.removeEventListener('online', this.onlineListener);
+    if (this.offlineListener) window.removeEventListener('offline', this.offlineListener);
+    this.onlineListener = null;
+    this.offlineListener = null;
   }
 
   /**
@@ -188,7 +229,7 @@ class WebSocketService {
     }
   }
 
-  onNotificationNew(callback: (data: any) => void) {
+  onNotificationNew<T>(callback: (data: T) => void) {
     this.socket?.on('notification:new', callback);
   }
 
@@ -196,19 +237,20 @@ class WebSocketService {
     this.socket?.on('notification:unread_count', callback);
   }
 
-  onDomainEvent(event: string, callback: (data: any) => void) {
+  onDomainEvent<T>(event: string, callback: (data: T) => void) {
     if (!this.domainListeners.has(event)) {
       this.domainListeners.set(event, new Set());
     }
     const callbacks = this.domainListeners.get(event)!;
-    if (callbacks.has(callback)) return;
-    callbacks.add(callback);
+    const normalized = callback as unknown as (data: unknown) => void;
+    if (callbacks.has(normalized)) return;
+    callbacks.add(normalized);
     this.socket?.on(event, callback);
   }
 
-  offDomainEvent(event: string, callback: (data: any) => void) {
+  offDomainEvent<T>(event: string, callback: (data: T) => void) {
     const callbacks = this.domainListeners.get(event);
-    callbacks?.delete(callback);
+    callbacks?.delete(callback as unknown as (data: unknown) => void);
     if (callbacks?.size === 0) {
       this.domainListeners.delete(event);
     }
@@ -224,7 +266,7 @@ class WebSocketService {
     this.socket?.on('profile:updated', callback);
   }
 
-  offNotificationNew(callback: (data: any) => void) {
+  offNotificationNew<T>(callback: (data: T) => void) {
     this.socket?.off('notification:new', callback);
   }
 
@@ -241,6 +283,16 @@ class WebSocketService {
 
   isConnected(): boolean {
     return this.socket?.connected || false;
+  }
+
+  onStatusChange(callback: (snapshot: RealtimeConnectionSnapshot) => void) {
+    this.statusListeners.add(callback);
+    callback(this.status);
+    return () => { this.statusListeners.delete(callback); };
+  }
+
+  getStatusSnapshot(): RealtimeConnectionSnapshot {
+    return this.status;
   }
 
   /**

@@ -11,6 +11,7 @@ import NotificationBell from '../components/NotificationBell/NotificationBell';
 import NotificationDropdown from '../components/NotificationDropdown/NotificationDropdown';
 import { clearCache } from '../services/api/dashboardApi';
 import { prefetchPrimaryRoute } from '../utils/routePrefetch';
+import RealtimeStatus from '../components/RealtimeStatus';
 
 import {
   Box,
@@ -174,6 +175,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
     userImageUrl: currentUser?.userImageUrl || null,
   });
 
+  /* eslint-disable react-hooks/set-state-in-effect -- hydrate UI drafts from external auth/storage state */
   useEffect(() => {
     const saved = localStorage.getItem(sidebarStorageKey);
     if (saved) setOpen(saved !== 'collapsed');
@@ -194,6 +196,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
       userImageUrl: currentUser?.userImageUrl || null,
     }));
   }, [currentUser]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const handleDrawerToggle = useCallback(() => {
     if (isMobile) {
@@ -210,7 +213,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
   const handleProfileModalOpen = useCallback(() => {
     setProfileModalOpen(true);
     handleMenuClose();
-  }, []);
+  }, [handleMenuClose]);
   
   const handleProfileModalClose = useCallback(() => {
     setProfileModalOpen(false);
@@ -219,7 +222,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
   const handleDeleteModalOpen = useCallback(() => {
     setDeleteModalOpen(true);
     handleProfileModalClose();
-  }, []);
+  }, [handleProfileModalClose]);
   
   const handleDeleteModalClose = useCallback(() => {
     setDeleteModalOpen(false);
@@ -360,7 +363,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
         showConfirmButton: false,
       });
       handleProfileModalClose();
-    } catch (error) {
+    } catch {
       feedback.close();
       await feedback.fire({
         icon: 'error',
@@ -414,14 +417,14 @@ const MainLayout = ({ children }: MainLayoutProps) => {
         duration: 5000,
         onDismiss: handleLogout,
       });
-    } catch (error) {
+    } catch {
       await feedback.fire({
         icon: 'error',
         title: t('account.deleteFailedTitle'),
         text: t('account.deleteFailedText'),
       });
     }
-  }, [currentUser, handleLogout, t]);
+  }, [currentUser, handleDeleteModalClose, handleLogout, t]);
 
   /* ================= Drawer ================= */
 
@@ -661,6 +664,8 @@ const MainLayout = ({ children }: MainLayoutProps) => {
 
           <Box flexGrow={1} />
 
+          <RealtimeStatus />
+
           <ThemeToggle />
 
           <Box data-tour="notifications" sx={{ position: 'relative' }}>
@@ -761,7 +766,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
           height: `calc(100vh - ${APP_BAR_HEIGHT}px)`,
           overflowY: 'auto',
           bgcolor: 'transparent',
-          pb: { xs: `${MOBILE_NAV_HEIGHT}px`, md: 0 },
+          pb: { xs: `calc(${MOBILE_NAV_HEIGHT + 16}px + env(safe-area-inset-bottom, 0px))`, md: 0 },
         }}
       >
         <Box
@@ -968,7 +973,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
                             });
                           };
                           reader.readAsDataURL(file);
-                        } catch (error) {
+                        } catch {
                           setIsUploadingImage(false);
                           feedback.close();
                           feedback.fire({

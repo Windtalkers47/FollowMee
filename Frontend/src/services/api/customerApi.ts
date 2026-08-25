@@ -1,4 +1,4 @@
-import { apiConfig } from '../../api/config';
+import { apiConfig } from '../../lib/api/client';
 import { CustomerData, CustomerStatus } from '../../types/customer.types';
 import { getAccessToken } from '../../utils/auth';
 
@@ -200,6 +200,7 @@ export const customerApi = {
     status?: CustomerStatus,
     assignedTo?: number,
     createdBy?: number,
+    missingImage?: boolean,
     signal?: AbortSignal,
   ): Promise<PaginatedCustomers> {
     const params = new URLSearchParams({
@@ -209,6 +210,7 @@ export const customerApi = {
       ...(status && { status }),
       ...(assignedTo && { assignedTo: String(assignedTo) }),
       ...(createdBy && { createdBy: String(createdBy) }),
+      ...(missingImage && { missingImage: 'true' }),
     });
 
     const result = await apiRequest<{
@@ -266,7 +268,7 @@ export const customerApi = {
 
   // Create
   async createCustomer(
-    customerData: Omit<CustomerData, 'customerId'> & { base64Image?: string }
+    customerData: Omit<CustomerData, 'customerId' | 'capabilities'> & { base64Image?: string }
   ): Promise<CustomerData> {
     // Create a copy of customerData to avoid mutating the original
     const requestData = { ...customerData };

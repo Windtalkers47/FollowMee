@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Alert,
@@ -9,7 +9,6 @@ import {
   CardActionArea,
   CardContent,
   Chip,
-  CircularProgress,
   Grid,
   MenuItem,
   Menu,
@@ -29,14 +28,19 @@ import { getOptimizedImageUrl } from '../../utils/imageUtils';
 import TaskFocusCard from '../../components/SmartSuggestions/TaskFocusCard';
 import DuplicateTaskDialog from '../../components/DuplicateTaskDialog';
 import { useFocusSession } from '../../hooks/useFocusSession';
+import { presentSavedViewName, savedViewStorageName } from '../../utils/savedViewPresentation';
+import { resolveMyWorkFocus, type MyWorkFilter } from '../../utils/myWorkFocus';
+import { PageEmpty, PageError, PageHeader, PageLoading, PageShell } from '../../components/PageState';
+import { applyTaskMutationSnapshot } from '../../utils/taskMutationCache';
 
-type WorkFilter = 'all' | 'todo' | 'in_progress' | 'review' | 'approval' | 'overdue' | 'due_today' | 'due_soon' | 'blocked';
+type WorkFilter = MyWorkFilter;
 
 const MyWorkPage = () => {
   const { t, locale } = useUserPreferences();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const queryClient = useQueryClient();
-  const [filter, setFilter] = useState<WorkFilter>('all');
+  const [filter, setFilter] = useState<WorkFilter>(() => resolveMyWorkFocus(searchParams.get('focus')));
   const [focusedTaskId, setFocusedTaskId] = useState<string | null>(null);
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   const [menuTask, setMenuTask] = useState<Task | null>(null);
@@ -67,7 +71,7 @@ const MyWorkPage = () => {
     if (snapshot) setFilter(snapshot.filter);
   };
   const userId = useAppSelector((state) => state.auth.user?.userId);
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['my-work', userId],
     queryFn: () => taskApi.getMyWork({ limit: 50 }),
     enabled: !!userId,
@@ -75,18 +79,18 @@ const MyWorkPage = () => {
   });
   const savedViews = useQuery({ queryKey: ['saved-views', 'my-work'], queryFn: () => taskApi.getSavedViews('my-work') });
   const saveViewMutation = useMutation({
-    mutationFn: () => taskApi.saveView({ pageKey: 'my-work', name: `My Work · ${filter}`, filters: { filter }, isDefault: false }),
+    mutationFn: () => taskApi.saveView({ pageKey: 'my-work', name: savedViewStorageName(filter), filters: { filter }, isDefault: false }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['saved-views', 'my-work'] }),
   });
 
-  const actionMutation = useMutation<any, Error, { task: Task; action: 'start' | 'submit_review' | 'block' }>({
+  const actionMutation = useMutation<Task, Error, { task: Task; action: 'start' | 'submit_review' | 'block' }>({
     mutationFn: ({ task, action }: { task: Task; action: 'start' | 'submit_review' | 'block' }) =>
       action === 'start'
-        ? taskApi.updateTask(task.taskId, { status: 'in_progress', expectedVersion: task.version } as any)
-        : action === 'block' ? taskApi.setBlocked(task.taskId, true, 'Blocked from My Work quick action', task.version)
+        ? taskApi.updateTask(task.taskId, { status: 'in_progress', expectedVersion: task.version })
+        : action === 'block' ? taskApi.setBlocked(task.taskId, true, t('feature.blockedQuickReason'), task.version)
         : taskApi.submitTaskForReview(task.taskId),
-    onSuccess: (_updatedTask, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['my-work', userId] });
+    onSuccess: (updatedTask, variables) => {
+      if (userId) applyTaskMutationSnapshot(queryClient, updatedTask, userId, variables.task);
       feedback.success({
         title: t('myWork.updated'),
         message: t('myWork.updatedText'),
@@ -155,8 +159,8 @@ const MyWorkPage = () => {
   useEffect(() => {
     if (!focusFilter || sections.length === 0 || sections[0].tasks.length === 0) return;
     const taskId = sections[0].tasks[0].taskId;
-    setFocusedTaskId(taskId);
     const timeout = window.setTimeout(() => {
+      setFocusedTaskId(taskId);
       const element = document.querySelector<HTMLElement>(`[data-task-id="${taskId}"]`);
       element?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'center' });
       element?.focus({ preventScroll: true });
@@ -201,8 +205,8 @@ const MyWorkPage = () => {
     return { label: t('myWork.open'), icon: <ArrowForward />, run: () => navigate(`/tasks/${task.taskId}`) };
   };
 
-  if (isLoading) return <Box display="flex" justifyContent="center" py={8}><CircularProgress /></Box>;
-  if (error) return <Alert severity="error">{t('myWork.loadFailed')}</Alert>;
+  if (isLoading) return <PageShell><PageLoading label={t('feedback.loadingPage')} /></PageShell>;
+  if (error) return <PageShell><PageError title={t('myWork.loadFailed')} message={t('feedback.networkHelp')} retryLabel={t('feedback.retry')} onRetry={() => void refetch()} /></PageShell>;
 
   const summaries: Array<{ key: WorkFilter; label: string; count: number }> = [
     { key: 'todo', label: t('schedule.todo'), count: data?.counts.todo || 0 },
@@ -212,14 +216,8 @@ const MyWorkPage = () => {
   ];
 
   return (
-    <Box sx={{ pb: { xs: 8, md: 3 } }}>
-      <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ sm: 'center' }} gap={1} mb={3}>
-        <Box>
-          <Typography variant="h3" fontWeight={750}>{t('myWork.title')}</Typography>
-          <Typography color="text.secondary">{t('myWork.subtitle')}</Typography>
-        </Box>
-        <Button variant="outlined" startIcon={<ScheduleIcon />} onClick={() => navigate('/schedule')}>{t('myWork.openSchedule')}</Button>
-      </Stack>
+    <PageShell>
+      <PageHeader title={t('myWork.title')} subtitle={t('myWork.subtitle')} actions={<Button variant="outlined" startIcon={<ScheduleIcon />} onClick={() => navigate('/schedule')}>{t('myWork.openSchedule')}</Button>} />
 
       <TaskFocusCard
         scope="personal"
@@ -241,7 +239,7 @@ const MyWorkPage = () => {
           const savedFilter = view?.filters?.filter;
           if (typeof savedFilter === 'string') applyNormalFilter(savedFilter as WorkFilter);
         }}>
-          {(savedViews.data || []).map(view => <MenuItem key={view.savedViewId} value={String(view.savedViewId)}>{view.name}</MenuItem>)}
+          {(savedViews.data || []).map(view => <MenuItem key={view.savedViewId} value={String(view.savedViewId)}>{presentSavedViewName(t, view.name)}</MenuItem>)}
         </TextField>
         <Button
           variant="outlined"
@@ -285,12 +283,7 @@ const MyWorkPage = () => {
       </Grid>
 
       {sections.length === 0 ? (
-        <Card variant="outlined">
-          <CardContent sx={{ py: 6, textAlign: 'center' }}>
-            <Typography variant="h6">{t('myWork.allClear')}</Typography>
-            <Typography color="text.secondary">{t('myWork.allClearHint')}</Typography>
-          </CardContent>
-        </Card>
+        <PageEmpty title={t('myWork.allClear')} message={t('myWork.allClearHint')} />
       ) : sections.map((section) => (
         <Box key={section.key} mb={3}>
           <Stack direction="row" alignItems="center" gap={1} mb={1.25}>
@@ -351,7 +344,7 @@ const MyWorkPage = () => {
         {menuTask?.workflow?.canDuplicate && <MenuItem onClick={() => { setDuplicateTask(menuTask); setMenuAnchor(null); setMenuTask(null); }}><ContentCopy fontSize="small" sx={{ mr: 1.5 }} />{t('feature.duplicateTask')}</MenuItem>}
       </Menu>
       <DuplicateTaskDialog task={duplicateTask} open={Boolean(duplicateTask)} onClose={() => setDuplicateTask(null)} />
-    </Box>
+    </PageShell>
   );
 };
 

@@ -8,6 +8,16 @@ import { API_BASE_URL } from './api/config';
 import { ErrorBoundary } from './components/ErrorBoundary/ErrorBoundary';
 import { AsyncErrorBoundary } from './components/ErrorBoundary/AsyncErrorBoundary';
 import { webSocketService } from './services/websocket.service';
+import {
+  applyRealtimeEventToCache,
+  isNewerRealtimeEvent,
+  realtimeEventKey,
+  realtimeRevisionOf,
+  splitRealtimeEventByEntity,
+  type RealtimeDomainEvent,
+  type RealtimeEventData,
+  type RealtimeRevision,
+} from './utils/realtimeCache';
 import { useQueryClient } from '@tanstack/react-query';
 import type { UserProfileUpdatedEvent } from './types/profile-event.types';
 import { patchUserInCache } from './utils/patchUserInCache';
@@ -182,34 +192,33 @@ const App = () => {
   useEffect(() => {
     if (!isAuthenticated || !currentUser?.userId) return;
 
-    const taskHandler = (data: { taskId?: string; status?: string }) => {
-      queryClient.invalidateQueries({ queryKey: ['my-work'] });
-      queryClient.invalidateQueries({ queryKey: ['assigned-tasks'] });
-      queryClient.invalidateQueries({ queryKey: ['tasks'] });
-      if (data?.taskId) queryClient.invalidateQueries({ queryKey: ['task', data.taskId] });
-      if (data?.status === 'done') {
-        queryClient.invalidateQueries({ queryKey: ['all-tasks'] });
-        queryClient.invalidateQueries({ queryKey: ['top-performers'] });
-        queryClient.invalidateQueries({ queryKey: ['user-rank'] });
-        queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-      }
-    };
-    const commentHandler = (data: { taskId?: string }) => {
-      if (data?.taskId) {
-        queryClient.invalidateQueries({ queryKey: ['task-comments', data.taskId] });
-      }
-      taskHandler(data);
-    };
-    const reactionHandler = (data: { taskId?: string }) => {
-      commentHandler(data);
-      window.dispatchEvent(new CustomEvent('followmee:reaction-updated', { detail: data }));
-    };
-    const rewardHandler = () => {
-      queryClient.invalidateQueries({ queryKey: ['rewards'] });
-      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+    const pendingEvents = new Map<string, RealtimeDomainEvent>();
+    const latestRevisions = new Map<string, RealtimeRevision>();
+    let flushTimer: ReturnType<typeof setTimeout> | null = null;
+    const queueEvent = (name: RealtimeDomainEvent['name'], data: RealtimeEventData = {}) => {
+      const event = { name, data } as RealtimeDomainEvent;
+      splitRealtimeEventByEntity(event).forEach(entityEvent => {
+        const eventKey = realtimeEventKey(entityEvent);
+        if (!isNewerRealtimeEvent(latestRevisions.get(eventKey), entityEvent)) return;
+        const revision = realtimeRevisionOf(entityEvent);
+        if (revision !== undefined) latestRevisions.set(eventKey, revision);
+        pendingEvents.set(eventKey, entityEvent);
+      });
+      if (!pendingEvents.size) return;
+      if (flushTimer) return;
+      flushTimer = setTimeout(() => {
+        const fallbackKeys = new Map<string, ReadonlyArray<unknown>>();
+        pendingEvents.forEach(pendingEvent => {
+          applyRealtimeEventToCache(queryClient, pendingEvent, currentUser.userId)
+            .forEach(queryKey => fallbackKeys.set(JSON.stringify(queryKey), queryKey));
+        });
+        pendingEvents.clear();
+        fallbackKeys.forEach(queryKey => { void queryClient.invalidateQueries({ queryKey }); });
+        flushTimer = null;
+      }, 80);
     };
     const ownerHandler = async () => {
-      queryClient.invalidateQueries({ queryKey: ['users'] });
+      queueEvent('owner:transferred');
       try {
         const response = await fetch(`${API_BASE_URL}/auth/me`, { credentials: 'include' });
         const payload = await response.json();
@@ -219,24 +228,26 @@ const App = () => {
       }
     };
 
-    const taskEvents = ['task:created', 'task:updated', 'task:deleted'];
-    const commentEvents = ['comment:created', 'comment:updated', 'comment:deleted'];
-    taskEvents.forEach(event => webSocketService.onDomainEvent(event, taskHandler));
-    webSocketService.onDomainEvent('activity:created', taskHandler);
-    commentEvents.forEach(event => webSocketService.onDomainEvent(event, commentHandler));
-    webSocketService.onDomainEvent('reaction:updated', reactionHandler);
-    ['reward:points-updated', 'reward:mission-progress', 'reward:redemption-updated', 'reward:season-updated']
-      .forEach(event => webSocketService.onDomainEvent(event, rewardHandler));
+    const domainEvents: RealtimeDomainEvent['name'][] = [
+      'task:created', 'task:updated', 'task:deleted', 'activity:created',
+      'comment:created', 'comment:updated', 'comment:deleted', 'reaction:updated',
+      'reward:points-updated', 'reward:mission-progress', 'reward:redemption-updated', 'reward:season-updated',
+    ];
+    const handlers = new Map<RealtimeDomainEvent['name'], (data: RealtimeEventData) => void>();
+    domainEvents.forEach(event => {
+      const handler = (data: RealtimeEventData) => {
+        queueEvent(event, data);
+        if (event === 'reaction:updated') window.dispatchEvent(new CustomEvent('followmee:reaction-updated', { detail: data }));
+      };
+      handlers.set(event, handler);
+      webSocketService.onDomainEvent(event, handler);
+    });
     webSocketService.onDomainEvent('owner:transferred', ownerHandler);
 
     return () => {
-      taskEvents.forEach(event => webSocketService.offDomainEvent(event, taskHandler));
-      webSocketService.offDomainEvent('activity:created', taskHandler);
-      commentEvents.forEach(event => webSocketService.offDomainEvent(event, commentHandler));
-      webSocketService.offDomainEvent('reaction:updated', reactionHandler);
-      ['reward:points-updated', 'reward:mission-progress', 'reward:redemption-updated', 'reward:season-updated']
-        .forEach(event => webSocketService.offDomainEvent(event, rewardHandler));
+      handlers.forEach((handler, event) => webSocketService.offDomainEvent(event, handler));
       webSocketService.offDomainEvent('owner:transferred', ownerHandler);
+      if (flushTimer) clearTimeout(flushTimer);
     };
   }, [dispatch, isAuthenticated, currentUser?.userId, queryClient]);
 

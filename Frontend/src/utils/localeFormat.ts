@@ -21,6 +21,11 @@ export const formatLocalizedNumber = (
   options?: Intl.NumberFormatOptions,
 ) => new Intl.NumberFormat(localeTag(locale), options).format(value);
 
+export const formatLocalizedTime = (
+  value: Date | string | number,
+  locale: Locale,
+) => new Intl.DateTimeFormat(localeTag(locale), { hour: '2-digit', minute: '2-digit' }).format(new Date(value));
+
 export const formatLocalizedRelativeTime = (
   value: Date | string | number,
   locale: Locale,
@@ -28,5 +33,11 @@ export const formatLocalizedRelativeTime = (
   addSuffix: true,
   locale: locale === 'th' ? th : enUS,
 });
+
+export const formatLocalizedWeekday = (weekday: number, locale: Locale) => {
+  const normalized = ((weekday % 7) + 7) % 7;
+  return new Intl.DateTimeFormat(localeTag(locale), { weekday: 'long', timeZone: 'UTC' })
+    .format(new Date(Date.UTC(2026, 7, 2 + normalized)));
+};
 
 export const getLocaleTag = localeTag;

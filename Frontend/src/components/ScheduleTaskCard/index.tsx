@@ -1,14 +1,19 @@
 import React, { useMemo, useState } from 'react';
 import {
   Box, Typography, Chip, IconButton, Menu, MenuItem, Button, Checkbox,
-  Dialog, DialogContent, DialogTitle, Tooltip, LinearProgress, useTheme,
+  Dialog, DialogContent, DialogTitle, Tooltip, LinearProgress, useTheme, ButtonBase,
 } from '@mui/material';
-import {
-  MoreVert as MoreVertIcon, Edit as EditIcon, Delete as DeleteIcon,
-  CalendarToday as CalendarIcon, Person as PersonIcon, Cancel as CancelIcon,
-  Check as CheckIcon, ArrowForward as ArrowForwardIcon, Close as CloseIcon,
-  AssignmentInd as AssignmentIndIcon, ContentCopy as ContentCopyIcon,
-} from '@mui/icons-material';
+import MoreVertIcon from '@mui/icons-material/MoreVert';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
+import CalendarIcon from '@mui/icons-material/CalendarToday';
+import PersonIcon from '@mui/icons-material/Person';
+import CancelIcon from '@mui/icons-material/Cancel';
+import CheckIcon from '@mui/icons-material/Check';
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+import CloseIcon from '@mui/icons-material/Close';
+import AssignmentIndIcon from '@mui/icons-material/AssignmentInd';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import feedback from '../../services/feedback.service';
 import { Task, TaskLikeSummary } from '../../api/task.api';
 import { getTaskPermissions } from '../../permissions/taskPermissions';
@@ -61,7 +66,7 @@ const timelineFor = (task: Task, t: Translate) => {
 const ScheduleTaskCard: React.FC<Props> = ({
   task, currentUserId, onEdit, onDelete, onStartProgress, onCancel,
   onUpdateTaskStatus, isSelected = false, onToggleSelect, isInSelectionMode = false,
-  onEnterSelectionMode, onCardClick,
+  onCardClick,
   onDuplicate,
   isFocused = false,
 }) => {
@@ -76,6 +81,7 @@ const ScheduleTaskCard: React.FC<Props> = ({
   const images = (task.images || []).slice().sort((a, b) => a.imageOrder - b.imageOrder);
   const visibleImages = images.slice(0, 4);
   const handleCardClick = () => isInSelectionMode ? onToggleSelect?.(task.taskId) : onCardClick?.();
+  const titleId = `schedule-task-title-${task.taskId}`;
 
   const confirmDelete = async () => {
     setAnchorEl(null);
@@ -84,22 +90,24 @@ const ScheduleTaskCard: React.FC<Props> = ({
   };
 
   return <>
-    <Box tabIndex={-1} data-testid={`task-card-${task.taskId}`} onClick={handleCardClick} sx={{ height: '100%', minHeight: 360, p: { xs: 2, sm: 2.5 }, borderRadius: 3, cursor: 'pointer', position: 'relative', backgroundColor: isSelected ? (theme.palette.mode === 'dark' ? 'rgba(52,199,89,.14)' : '#F0FBF2') : isFocused ? 'action.selected' : 'background.paper', border: isSelected || isFocused ? '2px solid' : '1px solid', borderColor: isSelected ? feedbackTokens.success : isFocused ? 'primary.main' : 'divider', boxShadow: isFocused ? `0 0 0 4px ${theme.palette.primary.main}22` : 'none', transition: 'border-color .2s, background-color .2s, box-shadow .2s', '&:hover': { borderColor: isSelected ? feedbackTokens.success : 'text.secondary' }, '&:focus-visible': { outline: `3px solid ${theme.palette.primary.main}`, outlineOffset: 3 } }}>
-      {images.length > 0 && <Box onClick={(e) => e.stopPropagation()} sx={{ display: 'grid', gridTemplateColumns: visibleImages.length > 1 ? 'repeat(2, 1fr)' : '1fr', gap: .5, mb: 2, borderRadius: 2, overflow: 'hidden', height: visibleImages.length === 1 ? 150 : 120 }}>
-        {visibleImages.map((image, index) => <Box key={image.imageId} component="img" {...getResponsiveImageProps(image.imageUrl, '(max-width: 600px) 100vw, (max-width: 1200px) 50vw, 320px')} alt={t('scheduleCard.imageAlt', { title: task.title, count: index + 1 })} loading="lazy" onClick={() => setLightbox(image.imageUrl)} sx={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'zoom-in', gridColumn: visibleImages.length === 3 && index === 0 ? 'span 2' : 'auto' }} />)}
+    <Box component="article" tabIndex={-1} aria-labelledby={titleId} aria-selected={isInSelectionMode ? isSelected : undefined} data-testid={`task-card-${task.taskId}`} sx={{ height: '100%', minHeight: 360, p: { xs: 2, sm: 2.5 }, borderRadius: 3, position: 'relative', backgroundColor: isSelected ? (theme.palette.mode === 'dark' ? 'rgba(52,199,89,.14)' : '#F0FBF2') : isFocused ? 'action.selected' : 'background.paper', border: isSelected || isFocused ? '2px solid' : '1px solid', borderColor: isSelected ? feedbackTokens.success : isFocused ? 'primary.main' : 'divider', boxShadow: isFocused ? `0 0 0 4px ${theme.palette.primary.main}22` : 'none', transition: 'border-color .2s, background-color .2s, box-shadow .2s', '&:hover': { borderColor: isSelected ? feedbackTokens.success : 'text.secondary' }, '&:focus-visible': { outline: `3px solid ${theme.palette.primary.main}`, outlineOffset: 3 } }}>
+      {images.length > 0 && <Box sx={{ display: 'grid', gridTemplateColumns: visibleImages.length > 1 ? 'repeat(2, 1fr)' : '1fr', gap: .5, mb: 2, borderRadius: 2, overflow: 'hidden', height: visibleImages.length === 1 ? 150 : 120 }}>
+        {visibleImages.map((image, index) => <ButtonBase key={image.imageId} aria-label={t('scheduleCard.imageAlt', { title: task.title, count: index + 1 })} onClick={() => setLightbox(image.imageUrl)} sx={{ minWidth: 44, minHeight: 44, overflow: 'hidden', gridColumn: visibleImages.length === 3 && index === 0 ? 'span 2' : 'auto', '&:focus-visible': { outline: `3px solid ${theme.palette.primary.main}`, outlineOffset: -3 } }}><Box component="img" {...getResponsiveImageProps(image.imageUrl, '(max-width: 600px) 100vw, (max-width: 1200px) 50vw, 320px')} alt="" loading="lazy" sx={{ width: '100%', height: '100%', objectFit: 'cover' }} /></ButtonBase>)}
         {images.length > 4 && <Box sx={{ position: 'absolute', mt: 9, ml: 'calc(100% - 74px)', bgcolor: 'rgba(0,0,0,.68)', color: '#fff', borderRadius: 1, px: 1, py: .5, fontSize: 12 }}>+{images.length - 4}</Box>}
       </Box>}
 
       <Box display="flex" alignItems="flex-start" gap={1} mb={1.5}>
-        {isInSelectionMode && <Checkbox checked={isSelected} onChange={() => onToggleSelect?.(task.taskId)} onClick={(e) => e.stopPropagation()} inputProps={{ 'aria-label': t('scheduleCard.selectTask', { title: task.title }) }} sx={{ p: .25, mt: -.3, color: 'text.secondary', '&.Mui-checked': { color: feedbackTokens.success } }} />}
+        {isInSelectionMode && <Checkbox checked={isSelected} onChange={() => onToggleSelect?.(task.taskId)} inputProps={{ 'aria-label': t('scheduleCard.selectTask', { title: task.title }) }} sx={{ width: 44, height: 44, mt: -.75, ml: -.75, color: 'text.secondary', '&.Mui-checked': { color: feedbackTokens.success } }} />}
         <Box sx={{ flex: 1, minWidth: 0 }}>
           <Box display="flex" gap={.75} flexWrap="wrap" mb={.75}>
             <Chip label={t(`taskStatus.${task.status === 'in_progress' ? 'inProgress' : task.status}` as MessageKey)} size="small" sx={{ bgcolor: theme.palette.mode === 'dark' ? status.softDark : status.softLight, color: theme.palette.mode === 'dark' ? '#F4F7F5' : '#24352A', fontWeight: 700, height: 24, border: '1px solid', borderColor: `${status.color}55` }} />
             {due.days !== null && <Chip icon={<CalendarIcon sx={{ fontSize: 14 }} />} label={due.label} size="small" variant="outlined" sx={{ color: due.color, borderColor: due.color.startsWith('#') ? `${due.color}55` : 'divider', height: 24 }} />}
           </Box>
-          <Typography variant="h6" fontWeight={750} sx={{ lineHeight: 1.25, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{task.title}</Typography>
+          <ButtonBase aria-label={t('scheduleCard.openTask', { title: task.title })} onClick={handleCardClick} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); handleCardClick(); } }} sx={{ display: 'flex', width: '100%', minHeight: 44, justifyContent: 'flex-start', textAlign: 'left', borderRadius: 1, '&:focus-visible': { outline: `3px solid ${theme.palette.primary.main}`, outlineOffset: 2 } }}>
+            <Typography id={titleId} variant="h6" fontWeight={750} sx={{ overflowWrap: 'anywhere', lineHeight: 1.25, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{task.title}</Typography>
+          </ButtonBase>
         </Box>
-        <Tooltip title={t('scheduleCard.moreActions')}><IconButton size="small" aria-label={`${t('scheduleCard.moreActions')}: ${task.title}`} aria-haspopup="menu" onClick={(e) => { e.stopPropagation(); setAnchorEl(e.currentTarget); }}><MoreVertIcon /></IconButton></Tooltip>
+        <Tooltip title={t('scheduleCard.moreActions')}><IconButton aria-label={`${t('scheduleCard.moreActions')}: ${task.title}`} aria-haspopup="menu" onClick={(e) => setAnchorEl(e.currentTarget)} sx={{ width: 44, height: 44, mt: -.75, mr: -.75 }}><MoreVertIcon /></IconButton></Tooltip>
       </Box>
 
       {task.description && <Typography variant="body2" color="text.secondary" sx={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', mb: 1.5 }}>{task.description}</Typography>}

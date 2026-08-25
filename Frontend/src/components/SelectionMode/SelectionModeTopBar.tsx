@@ -99,10 +99,10 @@ export const SelectionModeTopBar: React.FC<SelectionModeTopBarProps> = ({
         aria-live="polite"
         sx={{
           position: 'fixed',
-          bottom: 0,
+          bottom: { xs: 'calc(72px + env(safe-area-inset-bottom, 0px))', sm: 0 },
           left: { xs: 0, sm: 'var(--sidebar-width, 0px)' },
           width: { xs: '100%', sm: 'calc(100% - var(--sidebar-width, 0px))' },
-          height: { xs: 100, sm: 64 },
+          minHeight: { xs: 100, sm: 64 },
           backgroundColor: 'background.paper',
           borderTop: '1px solid',
           borderColor: 'divider',
@@ -114,6 +114,7 @@ export const SelectionModeTopBar: React.FC<SelectionModeTopBarProps> = ({
           justifyContent: { xs: 'flex-start', sm: 'space-between' },
           px: { xs: 2, sm: 3 },
           gap: { xs: 1, sm: 2 },
+          pb: { xs: 1, sm: 0 },
         }}
       >
         {/* Left Section: Count + Select All/Unselect All */}
@@ -127,7 +128,7 @@ export const SelectionModeTopBar: React.FC<SelectionModeTopBarProps> = ({
         >
           {/* Count Badge/Chip */}
           <Chip
-            label={selectedCount}
+            label={`${selectedCount}/${totalCount}`}
             size="medium"
             aria-label={t('selection.selectedCount', { count: selectedCount })}
             sx={{

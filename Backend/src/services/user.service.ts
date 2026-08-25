@@ -14,6 +14,12 @@ import AppDataSource from '../config/database';
 import { UserRole } from '../entities/UserRole';
 import { ApplicationError } from '../errors/application.error';
 import { isOwnerRole } from '../utils/role.util';
+import {
+  resolveManagedUserCapabilities,
+  resolveUserManagementCapabilities,
+  type ManagedUserCapabilities,
+  type UserManagementCapabilities,
+} from '../utils/user-management-capabilities';
 
 interface UserWithRolesResponse extends UserResponseDto {
   roles: string[];
@@ -24,6 +30,12 @@ export interface ManagedUserResponse extends UserResponseDto {
   role?: { roleId: number; roleName: string };
   roles: Array<{ roleId: number; roleName: string }>;
   permissions: string[];
+  capabilities?: ManagedUserCapabilities;
+}
+
+export interface UserManagementResponse {
+  users: ManagedUserResponse[];
+  capabilities: UserManagementCapabilities;
 }
 
 export class UserService {
@@ -75,6 +87,23 @@ export class UserService {
       order: { createdAt: 'ASC' },
     });
     return users.map((user) => this.mapManagedUser(user));
+  }
+
+  async getUserManagement(actorUserId: number, permissions: readonly string[]): Promise<UserManagementResponse> {
+    const [users, ownerRows] = await Promise.all([
+      this.getAllManagedUsers(),
+      AppDataSource.query('SELECT userId FROM system_owner WHERE singletonId = 1 LIMIT 1'),
+    ]);
+    const ownerUserId = ownerRows[0]?.userId ? Number(ownerRows[0].userId) : null;
+    const capabilities = resolveUserManagementCapabilities(actorUserId, permissions, ownerUserId);
+    return {
+      capabilities,
+      users: users.map(user => ({
+        ...user,
+        fullName: user.fullName,
+        capabilities: resolveManagedUserCapabilities(actorUserId, user.userId, ownerUserId, capabilities),
+      })),
+    };
   }
 
   async getManagedUser(userId: number): Promise<ManagedUserResponse> {

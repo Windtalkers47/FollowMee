@@ -34,6 +34,10 @@ import { translateRewardKey } from '../../utils/rewardPresentation';
 import feedback from '../../services/feedback.service';
 import { getOptimizedImageUrl } from '../../utils/imageUtils';
 import SmartAvatar from '../../components/SmartAvatar';
+import { PageError, PageHeader, PageLoading, PageShell } from '../../components/PageState';
+import { userFacingMutationError } from '../../utils/userFacingError';
+import { applyTaskMutationSnapshot } from '../../utils/taskMutationCache';
+import { useAppSelector } from '../../store/store';
 
 const workflowSteps: Task['status'][] = ['draft', 'todo', 'in_progress', 'review', 'done'];
 const statusKeys = {
@@ -49,6 +53,7 @@ const TaskDetailPage = () => {
   const { taskId = '' } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const userId = useAppSelector(state => state.auth.user?.userId);
   const { t } = useUserPreferences();
   const [changesOpen, setChangesOpen] = useState(false);
   const [reason, setReason] = useState('');
@@ -56,6 +61,10 @@ const TaskDetailPage = () => {
   const [blockReason, setBlockReason] = useState('');
   const [recurrenceOpen, setRecurrenceOpen] = useState(false);
   const [recurrence, setRecurrence] = useState({ cadence: 'weekly' as 'daily' | 'weekly' | 'monthly', intervalValue: 1, localTime: '09:00', startsOn: '' });
+  const showMutationError = (error: unknown) => {
+    const message = userFacingMutationError(error, t);
+    void feedback.error(message.title, message.message);
+  };
 
   const taskQuery = useQuery({
     queryKey: ['task-detail', taskId],
@@ -71,9 +80,8 @@ const TaskDetailPage = () => {
   });
 
   const syncTask = (task: Task) => {
-    queryClient.setQueryData(['task-detail', taskId], task);
-    queryClient.invalidateQueries({ queryKey: ['my-work'] });
-    queryClient.invalidateQueries({ queryKey: ['tasks'] });
+    if (userId) applyTaskMutationSnapshot(queryClient, task, userId, taskQuery.data);
+    else queryClient.setQueryData(['task-detail', taskId], task);
   };
 
   const approveMutation = useMutation({
@@ -87,9 +95,10 @@ const TaskDetailPage = () => {
         importance: 'milestone',
         nextAction: achievement ? { label: t('achievement.viewCollection'), onClick: () => navigate(`/rewards?tab=achievements&achievement=${achievement.badgeKey}`) } : { label: t('nav.activity'), onClick: () => navigate('/posts') },
       });
-      queryClient.invalidateQueries({ queryKey: ['rewards'] });
+      queryClient.invalidateQueries({ queryKey: ['rewards', 'summary'] });
+      queryClient.invalidateQueries({ queryKey: ['rewards', 'achievements'] });
     },
-    onError: () => feedback.error(t('feedback.failed'), t('feedback.tryAgain')),
+    onError: showMutationError,
   });
 
   const changesMutation = useMutation({
@@ -106,7 +115,7 @@ const TaskDetailPage = () => {
         nextAction: { label: t('myWork.title'), onClick: () => navigate('/my-work') },
       });
     },
-    onError: () => feedback.error(t('feedback.failed'), t('feedback.tryAgain')),
+    onError: showMutationError,
   });
 
   const duplicateMutation = useMutation({
@@ -114,26 +123,25 @@ const TaskDetailPage = () => {
     onSuccess: result => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
       navigate(`/tasks/${result.taskId}`);
-      feedback.success('Task duplicated', 'A private draft was created without assignee, dates, comments, or rewards.');
+      feedback.success(t('taskDetail.duplicated'), t('taskDetail.duplicatedHint'));
     },
-    onError: () => feedback.error(t('feedback.failed'), t('feedback.tryAgain')),
+    onError: showMutationError,
   });
 
   const checklistMutation = useMutation({
     mutationFn: ({ itemId, completed }: { itemId: number; completed: boolean }) => taskApi.toggleChecklist(taskId, itemId, completed),
     onSuccess: checklist => queryClient.setQueryData(['task-detail', taskId], (current: Task | undefined) => current ? { ...current, checklist } : current),
-    onError: () => feedback.error(t('feedback.failed'), t('feedback.tryAgain')),
+    onError: showMutationError,
   });
 
   const blockedMutation = useMutation({
     mutationFn: ({ blocked, reason, version }: { blocked: boolean; reason: string; version: number }) => taskApi.setBlocked(taskId, blocked, reason, version),
-    onSuccess: async () => {
+    onSuccess: (task) => {
       setBlockOpen(false);
       setBlockReason('');
-      await taskQuery.refetch();
-      queryClient.invalidateQueries({ queryKey: ['my-work'] });
+      syncTask(task);
     },
-    onError: () => feedback.error(t('feedback.failed'), t('feedback.tryAgain')),
+    onError: showMutationError,
   });
   const templateMutation = useMutation({
     mutationFn: async ({ recurring }: { recurring: boolean }) => {
@@ -142,8 +150,14 @@ const TaskDetailPage = () => {
       if (recurring) await taskApi.createRecurrence({ templateId: template.templateId, ...recurrence, weekdays: recurrence.cadence === 'weekly' ? [new Date(`${recurrence.startsOn}T00:00:00+07:00`).getDay()] : undefined, dayOfMonth: recurrence.cadence === 'monthly' ? new Date(`${recurrence.startsOn}T00:00:00+07:00`).getDate() : undefined });
       return recurring;
     },
-    onSuccess: recurring => { setRecurrenceOpen(false); feedback.success(recurring ? 'Recurring task created' : 'Template saved', recurring ? 'Occurrences use Asia/Bangkok time and are protected from duplicates.' : 'The private template is ready to reuse.'); },
-    onError: () => feedback.error(t('feedback.failed'), t('feedback.tryAgain')),
+    onSuccess: recurring => {
+      setRecurrenceOpen(false);
+      feedback.success(
+        recurring ? t('taskDetail.recurringCreated') : t('taskDetail.templateSaved'),
+        recurring ? t('taskDetail.recurringCreatedHint') : t('taskDetail.templateSavedHint'),
+      );
+    },
+    onError: showMutationError,
   });
 
   const handleApprove = async () => {
@@ -159,8 +173,8 @@ const TaskDetailPage = () => {
     if (result.isConfirmed) approveMutation.mutate();
   };
 
-  if (taskQuery.isLoading) return <Box display="flex" justifyContent="center" py={8}><CircularProgress /></Box>;
-  if (taskQuery.error || !taskQuery.data) return <Alert severity="error">{t('taskDetail.loadFailed')}</Alert>;
+  if (taskQuery.isLoading) return <PageShell maxWidth={1100}><PageLoading label={t('feedback.loadingPage')} /></PageShell>;
+  if (taskQuery.error || !taskQuery.data) return <PageShell maxWidth={1100}><PageError title={t('taskDetail.loadFailed')} message={t('feedback.networkHelp')} retryLabel={t('feedback.retry')} onRetry={() => void taskQuery.refetch()} /></PageShell>;
 
   const task = taskQuery.data;
   const activeStep = task.status === 'cancelled' ? -1 : workflowSteps.indexOf(task.status);
@@ -168,18 +182,16 @@ const TaskDetailPage = () => {
   const dateFormatter = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' });
 
   return (
-    <Box sx={{ pb: { xs: 8, md: 3 }, maxWidth: 1100, mx: 'auto' }}>
-      <Button startIcon={<ArrowBack />} onClick={() => navigate(-1)} sx={{ mb: 2 }}>{t('common.back')}</Button>
+    <PageShell maxWidth={1100}>
+      <PageHeader title={task.title} subtitle={task.description || t('myWork.noDescription')} actions={<Button startIcon={<ArrowBack />} onClick={() => navigate(-1)}>{t('common.back')}</Button>} />
 
       <Card variant="outlined" sx={{ borderRadius: 3, mb: 2 }}>
         <CardContent>
           <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" gap={2}>
             <Box>
               <Stack direction="row" gap={1} alignItems="center" flexWrap="wrap">
-                <Typography variant="h4" fontWeight={750}>{task.title}</Typography>
                 <Chip label={t(statusKeys[task.status])} color={task.status === 'review' ? 'warning' : task.status === 'done' ? 'success' : 'primary'} />
               </Stack>
-              <Typography color="text.secondary" sx={{ mt: 1 }}>{task.description || t('myWork.noDescription')}</Typography>
             </Box>
             <Stack direction={{ xs: 'column', sm: 'row' }} gap={1} alignSelf={{ sm: 'flex-start' }}>
               {task.workflow?.canDuplicate && (
@@ -210,7 +222,7 @@ const TaskDetailPage = () => {
               {t('feature.duplicatedFrom', { title: task.duplicatedFromTask.title })}
             </Alert>
           )}
-          {task.blockedAt && <Alert severity="warning" sx={{ mt: 2 }}>{t('feature.blockedReasonValue', { reason: task.blockedReason || '' })}</Alert>}
+          {task.blockedAt && <Alert severity="warning" sx={{ mt: 2 }}>{t('feature.blockedReasonValue', { reason: task.blockedReason || t('feature.blockedNoReason') })}</Alert>}
 
           <Divider sx={{ my: 3 }} />
           <Typography variant="subtitle1" fontWeight={700} mb={1}>{t('taskDetail.workflow')}</Typography>
@@ -370,7 +382,7 @@ const TaskDetailPage = () => {
       <Dialog open={recurrenceOpen} onClose={() => !templateMutation.isPending && setRecurrenceOpen(false)} maxWidth="xs" fullWidth>
         <DialogTitle>{t('feature.createRecurring')}</DialogTitle><DialogContent><Stack gap={2} mt={1}><FormControl><InputLabel>{t('feature.frequency')}</InputLabel><Select label={t('feature.frequency')} value={recurrence.cadence} onChange={event => setRecurrence(value => ({ ...value, cadence: event.target.value as typeof value.cadence }))}><MenuItem value="daily">{t('feature.daily')}</MenuItem><MenuItem value="weekly">{t('feature.weekly')}</MenuItem><MenuItem value="monthly">{t('feature.monthly')}</MenuItem></Select></FormControl><TextField type="number" label={t('feature.every')} value={recurrence.intervalValue} inputProps={{ min: 1, max: 365 }} onChange={event => setRecurrence(value => ({ ...value, intervalValue: Math.max(1, Number(event.target.value)) }))} /><TextField type="date" label={t('feature.startDate')} InputLabelProps={{ shrink: true }} value={recurrence.startsOn} onChange={event => setRecurrence(value => ({ ...value, startsOn: event.target.value }))} /><TextField type="time" label={t('feature.bangkokTime')} InputLabelProps={{ shrink: true }} value={recurrence.localTime} onChange={event => setRecurrence(value => ({ ...value, localTime: event.target.value }))} /></Stack></DialogContent><DialogActions><Button onClick={() => setRecurrenceOpen(false)}>{t('common.cancel')}</Button><Button variant="contained" disabled={templateMutation.isPending || !recurrence.startsOn} onClick={() => templateMutation.mutate({ recurring: true })}>{t('feature.createRecurrence')}</Button></DialogActions>
       </Dialog>
-    </Box>
+    </PageShell>
   );
 };
 

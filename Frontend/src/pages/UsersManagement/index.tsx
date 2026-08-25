@@ -11,7 +11,6 @@ import {
   TableRow,
   Chip,
   Typography,
-  CircularProgress,
   IconButton,
   Card,
   CardContent,
@@ -45,8 +44,8 @@ import feedback from '../../services/feedback.service';
 import { useUserPreferences } from '../../contexts/UserPreferencesContext';
 import { formatLocalizedDate } from '../../utils/localeFormat';
 import SmartAvatar from '../../components/SmartAvatar';
-import { useAppSelector } from '../../store/store';
 import { API_URL } from '../../utils/runtimeEnv';
+import { PageError, PageHeader, PageLoading, PageShell } from '../../components/PageState';
 
 // Styled components
 const StyledCard = styled(Card)(({ theme }) => ({
@@ -71,7 +70,7 @@ const getRoleIcon = (role: string) => {
   }
 };
 
-const getRoleColor = (role: string) => {
+const getRoleColor = (role: string): 'error' | 'primary' | 'warning' | 'success' => {
   switch (role) {
     case 'Owner':
       return 'error';
@@ -94,13 +93,11 @@ const UsersPage = () => {
     loading,
     assigningRole,
     error,
+    capabilities,
     fetchUsers,
     assignRoleToUser,
-    removeRoleFromUser,
     transferOwnership,
   } = useUsersManagement();
-  const currentUser = useAppSelector((state) => state.auth.user);
-  const currentUserIsOwner = Boolean(currentUser?.roles?.some((role) => normalizeRoleName(role) === ROLE_NAMES.OWNER));
 
   const emptyNewUser = {
     userName: '',
@@ -121,10 +118,11 @@ const UsersPage = () => {
     if (response.ok) setInvitations((await response.json()).data || []);
   }, []);
   useEffect(() => {
+    if (!capabilities.canInviteUsers) return;
     // Loading is asynchronous; state is updated only after the request resolves.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadInvitations();
-  }, [loadInvitations]);
+  }, [capabilities.canInviteUsers, loadInvitations]);
 
   // Calculate role counts
   const getRoleCounts = () => {
@@ -138,7 +136,7 @@ const UsersPage = () => {
     users.forEach(user => {
       user.roles.forEach(role => {
         const normalizedRole = role === 'Customer' ? 'Member' : role;
-        if (counts.hasOwnProperty(normalizedRole)) {
+        if (Object.prototype.hasOwnProperty.call(counts, normalizedRole)) {
           counts[normalizedRole as keyof typeof counts]++;
         }
       });
@@ -162,9 +160,6 @@ const UsersPage = () => {
     selectedRole: '',
     availableRoles: []
   });
-  const selectedUserIsOwner = Boolean(
-    assignRoleDialog.user?.roles?.some((role) => normalizeRoleName(role) === ROLE_NAMES.OWNER),
-  );
   const [ownerTransferDialog, setOwnerTransferDialog] = useState<{ open: boolean; user: User | null; password: string; error: string }>({ open: false, user: null, password: '', error: '' });
   const [deactivateDialog, setDeactivateDialog] = useState<{ open: boolean; user: User | null; impact: Record<string, number> | null; transferTo: number | ''; error: string }>({ open: false, user: null, impact: null, transferTo: '', error: '' });
 
@@ -214,8 +209,7 @@ const UsersPage = () => {
         dedupeKey: `user-created-${newUser.userEmail}`,
       });
     } else {
-      const body = await response.json().catch(() => ({}));
-      setCreateError(body.message || t('users.createFailed'));
+      setCreateError(t('users.createFailed'));
     }
   };
 
@@ -286,7 +280,7 @@ const UsersPage = () => {
       setAssignRoleError(t('users.assignmentTryAgain'));
       await feedback.error({
         title: t('users.assignmentFailed'),
-        message: error instanceof Error ? error.message : t('users.assignmentTryAgain'),
+        message: t('users.assignmentTryAgain'),
         persistent: true,
       });
     }
@@ -320,7 +314,7 @@ const UsersPage = () => {
   const handleDeleteUser = useCallback(async (user: User) => {
     const response = await fetch(`${API_URL}/user-management/users/${user.userId}/deactivation-impact`, { credentials: 'include' });
     const body = await response.json().catch(() => ({}));
-    if (!response.ok) { await feedback.error({ title: t('feedback.failed'), message: body.message || t('users.deleteFailed') }); return; }
+    if (!response.ok) { await feedback.error({ title: t('feedback.failed'), message: t('users.deleteFailed') }); return; }
     setDeactivateDialog({ open: true, user, impact: body.data, transferTo: '', error: '' });
   }, [t]);
 
@@ -328,31 +322,28 @@ const UsersPage = () => {
     const target = deactivateDialog.user;
     if (!target) return;
     const response = await fetch(`${API_URL}/user-management/users/${target.userId}/deactivate`, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ transferTo: deactivateDialog.transferTo || null }) });
-    const body = await response.json().catch(() => ({}));
-    if (!response.ok) { setDeactivateDialog(value => ({ ...value, error: body.message || t('users.deleteFailed') })); return; }
+    if (!response.ok) { setDeactivateDialog(value => ({ ...value, error: t('users.deleteFailed') })); return; }
     setDeactivateDialog({ open: false, user: null, impact: null, transferTo: '', error: '' });
     await fetchUsers();
     await feedback.success({ title: t('users.deletedTitle'), message: t('users.deletedText', { name: target.userName }), importance: 'milestone' });
   };
 
   if (loading) {
-    return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
-        <CircularProgress />
-      </Box>
-    );
+    return <PageShell><PageLoading label={t('feedback.loadingPage')} /></PageShell>;
   }
 
   return (
-    <Box>
-      <Typography variant="h4" gutterBottom fontWeight={600}>
-        {t('users.title')}
-      </Typography>
-      <Typography color="text.secondary" sx={{ mb: 2 }}>
-        {t('users.intro')}
-      </Typography>
+    <PageShell>
+      <PageHeader title={t('users.title')} subtitle={t('users.intro')} />
 
-      {roles.length > 0 && (
+      {error && <Box mb={2}><PageError
+        title={t('common.loadFailed')}
+        message={t(error.kind === 'network' ? 'feedback.networkHelp' : error.kind === 'permission' ? 'feedback.permissionHelp' : error.kind === 'validation' ? 'feedback.validationHelp' : error.kind === 'conflict' ? 'feedback.conflictHelp' : 'feedback.tryAgain')}
+        retryLabel={t('feedback.retry')}
+        onRetry={() => void fetchUsers()}
+      /></Box>}
+
+      {capabilities.canInviteUsers && roles.length > 0 && (
         <Button
           variant="contained"
           startIcon={<PersonAddIcon />}
@@ -360,9 +351,7 @@ const UsersPage = () => {
             setCreateError('');
             setNewUser({
               ...emptyNewUser,
-              roleId: roles.find((role) => role.roleName === 'Member')?.roleId
-                || roles.find((role) => role.roleName === 'Customer')?.roleId
-                || 0,
+              roleId: roles[0]?.roleId || 0,
             });
             setCreateDialogOpen(true);
           }}
@@ -387,8 +376,8 @@ const UsersPage = () => {
                 </Box>
               </Box>
               <Box>
-                <IconButton size="small" aria-label={t('users.manageRoles')} onClick={() => handleAssignRoleOpen(user)}><EditIcon fontSize="small" /></IconButton>
-                <IconButton size="small" aria-label={t('users.deleteUser')} color="error" onClick={() => handleDeleteUser(user)}><DeleteIcon fontSize="small" /></IconButton>
+                {user.capabilities.canEditRole && <IconButton aria-label={t('users.manageRoles')} onClick={() => handleAssignRoleOpen(user)} sx={{ width: 44, height: 44 }}><EditIcon fontSize="small" /></IconButton>}
+                {user.capabilities.canDeactivate && <IconButton aria-label={t('users.deleteUser')} color="error" onClick={() => handleDeleteUser(user)} sx={{ width: 44, height: 44 }}><DeleteIcon fontSize="small" /></IconButton>}
               </Box>
             </Box>
           </Paper>
@@ -438,7 +427,7 @@ const UsersPage = () => {
                             label={role.replace('_', ' ')}
                             size="small"
                             icon={getRoleIcon(role)}
-                            color={getRoleColor(role) as any}
+                            color={getRoleColor(role)}
                             variant="outlined"
                           />
                         ))}
@@ -463,17 +452,19 @@ const UsersPage = () => {
                       {formatLocalizedDate(user.createdAt, locale)}
                     </TableCell>
                     <TableCell align="center">
-                      <Tooltip title={t('users.manageRoles')}>
+                      {user.capabilities.canEditRole && <Tooltip title={t('users.manageRoles')}>
                         <IconButton
                           size="small"
+                          aria-label={t('users.manageRoles')}
                           onClick={() => handleAssignRoleOpen(user)}
                         >
                           <EditIcon fontSize="small" />
                         </IconButton>
-                      </Tooltip>
-                      <Tooltip title={t('users.deleteUser')}>
+                      </Tooltip>}
+                      {user.capabilities.canDeactivate && <Tooltip title={t('users.deleteUser')}>
                         <IconButton
                           size="small"
+                          aria-label={t('users.deleteUser')}
                           onClick={() => handleDeleteUser(user)}
                           sx={{
                             color: 'error.main',
@@ -485,7 +476,7 @@ const UsersPage = () => {
                         >
                           <DeleteIcon fontSize="small" />
                         </IconButton>
-                      </Tooltip>
+                      </Tooltip>}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -495,11 +486,11 @@ const UsersPage = () => {
         </CardContent>
       </StyledCard>
 
-      <Paper variant="outlined" sx={{ mt: 3, p: 2, borderRadius: 3 }}>
+      {capabilities.canInviteUsers && <Paper variant="outlined" sx={{ mt: 3, p: 2, borderRadius: 3 }}>
         <Typography variant="h6" fontWeight={700}>{t('feature.invitations')}</Typography>
         <Typography variant="body2" color="text.secondary" mb={2}>{t('feature.invitationHelp')}</Typography>
         <TableContainer><Table size="small"><TableHead><TableRow><TableCell>{t('feature.email')}</TableCell><TableCell>{t('feature.role')}</TableCell><TableCell>{t('feature.status')}</TableCell><TableCell>{t('feature.expires')}</TableCell><TableCell align="right">{t('feature.actions')}</TableCell></TableRow></TableHead><TableBody>{invitations.map(invite => <TableRow key={invite.invitationId}><TableCell>{invite.email}</TableCell><TableCell>{invite.roleName || t('role.member')}</TableCell><TableCell><Chip size="small" label={t(`feature.invitationStatus.${invite.status}`)} color={invite.status === 'pending' ? 'warning' : invite.status === 'accepted' ? 'success' : 'default'} /></TableCell><TableCell>{formatLocalizedDate(invite.expiresAt, locale)}</TableCell><TableCell align="right">{['pending','expired'].includes(invite.status) && <Button size="small" onClick={async () => { await fetch(`${API_URL}/user-management/invitations/${invite.invitationId}/resend`, { method: 'POST', credentials: 'include' }); await loadInvitations(); }}>{t('feature.resend')}</Button>}{invite.status === 'pending' && <Button size="small" color="error" onClick={async () => { await fetch(`${API_URL}/user-management/invitations/${invite.invitationId}/revoke`, { method: 'POST', credentials: 'include' }); await loadInvitations(); }}>{t('feature.revoke')}</Button>}</TableCell></TableRow>)}</TableBody></Table></TableContainer>
-      </Paper>
+      </Paper>}
 
       <Dialog open={createDialogOpen} onClose={() => !creatingUser && setCreateDialogOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>{t('feature.inviteMember')}</DialogTitle>
@@ -658,7 +649,7 @@ const UsersPage = () => {
           </Box>
         </DialogContent>
         <DialogActions>
-          {currentUserIsOwner && assignRoleDialog.user && !selectedUserIsOwner && (
+          {assignRoleDialog.user?.capabilities.canReceiveTransfer && (
             <Button
               color="warning"
               onClick={() => setOwnerTransferDialog({ open: true, user: assignRoleDialog.user, password: '', error: '' })}
@@ -707,7 +698,7 @@ const UsersPage = () => {
           </Button>
         </DialogActions>
       </Dialog>
-    </Box>
+    </PageShell>
   );
 };
 

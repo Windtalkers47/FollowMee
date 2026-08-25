@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import {
   Alert, Box, Button, Card, CardContent, FormControl, IconButton, InputLabel, Menu, MenuItem,
-  Select, Skeleton, Stack, Tab, Tabs, Typography,
+  Select, Stack, Tab, Tabs, Typography,
 } from '@mui/material';
 import { Download, MoreVert, TrendingDown, TrendingFlat, TrendingUp } from '@mui/icons-material';
 import { useQuery } from '@tanstack/react-query';
@@ -16,6 +16,7 @@ import AnalyticsPeriodToolbar from '../../components/AnalyticsPeriodToolbar';
 import AnalyticsInsightSummary from '../../components/AnalyticsInsightSummary';
 import AnalyticsAtAGlance from '../../components/AnalyticsAtAGlance';
 import AnalyticsFocusNext from '../../components/AnalyticsFocusNext';
+import { PageError, PageHeader, PageLoading, PageShell } from '../../components/PageState';
 
 type MetricGroup = Record<string, number | string | null>;
 type Overview = {
@@ -88,25 +89,22 @@ export default function AnalyticsPage() {
     if (!metrics || activeName === 'notifications') return null;
     if (activeName === 'work') {
       const total = numberValue(metrics.total); const completed = numberValue(metrics.completed); const blocked = numberValue(metrics.blocked);
-      return { value: total ? `${Math.round(completed / total * 100)}%` : '0%', title: t('analytics.insight.completion'), attention: blocked ? t('analytics.insight.blocked', { count: blocked }) : t('analytics.insight.noBlocked'), action: t('analytics.action.openWork'), path: '/my-work' };
+      return { value: total ? `${Math.round(completed / total * 100)}%` : '0%', title: t('analytics.insight.completion'), attention: blocked ? t('analytics.insight.blocked', { count: blocked }) : t('analytics.insight.noBlocked'), action: t('analytics.action.openWork'), path: blocked ? '/my-work?focus=blocked' : '/my-work' };
     }
     if (activeName === 'customers') {
       const missing = numberValue(metrics.missingImage); const ready = numberValue(metrics.profilesReady);
       const total = numberValue(metrics.portfolioTotal ?? metrics.total);
-      return { value: total ? `${formatter.format(ready)} / ${formatter.format(total)}` : t('analytics.summary.noData'), title: t('analytics.insight.readyProfiles'), attention: missing ? t('analytics.insight.missingImages', { count: missing }) : t('analytics.insight.customersReady'), action: t('analytics.action.openCustomers'), path: '/customer' };
+      return { value: total ? `${formatter.format(ready)} / ${formatter.format(total)}` : t('analytics.summary.noData'), title: t('analytics.insight.readyProfiles'), attention: missing ? t('analytics.insight.missingImages', { count: missing }) : t('analytics.insight.customersReady'), action: t('analytics.action.openCustomers'), path: missing ? '/customer?focus=missing-image' : '/customer' };
     }
     const conversion = numberValue(metrics.conversion);
-    return { value: `${formatter.format(conversion)}%`, title: t('analytics.insight.conversion'), attention: numberValue(metrics.views) ? t('analytics.insight.profileActivity') : t('analytics.insight.noViews'), action: t('analytics.action.openProfiles'), path: '/customer-profile' };
+    return { value: `${formatter.format(conversion)}%`, title: t('analytics.insight.conversion'), attention: numberValue(metrics.views) ? t('analytics.insight.profileActivity') : t('analytics.insight.noViews'), action: t('analytics.action.openProfiles'), path: '/customer-profile?focus=engagement' };
   }, [activeName, formatter, metrics, t]);
 
-  return <Box sx={{ p: { xs: 2, md: 4 }, maxWidth: 1400, mx: 'auto' }}>
-    <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" gap={2} mb={2}>
-      <Box><Typography variant="h3" fontWeight={800}>{t('nav.analytics')}</Typography><Typography color="text.secondary">{t('feature.analyticsSubtitle')}</Typography></Box>
-      <Stack direction="row" gap={1} alignItems="center">
+  return <PageShell maxWidth={1400}>
+    <PageHeader title={t('nav.analytics')} subtitle={t('feature.analyticsSubtitle')} actions={<>
         <FormControl size="small" sx={{ minWidth: 170 }}><InputLabel>{t('feature.scope')}</InputLabel><Select label={t('feature.scope')} value={scope} onChange={event => { const next = event.target.value as typeof scope; setScope(next); setParams(current => { const updated = new URLSearchParams(current); updated.set('scope', next); return updated; }); }}><MenuItem value="personal">{t('feature.myAnalytics')}</MenuItem>{canOrganization && <MenuItem value="organization">{t('feature.organization')}</MenuItem>}</Select></FormControl>
         {tab !== 3 && <><IconButton aria-label={t('common.more')} onClick={event => setMenuAnchor(event.currentTarget)}><MoreVert /></IconButton><Menu anchorEl={menuAnchor} open={Boolean(menuAnchor)} onClose={() => setMenuAnchor(null)}><MenuItem disabled={!metrics || Boolean(rangeError)} onClick={exportCsv}><Download fontSize="small" sx={{ mr: 1 }} />{t('feature.exportCsv')}</MenuItem></Menu></>}
-      </Stack>
-    </Stack>
+      </>} />
 
     <AnalyticsPeriodToolbar startDate={startDate} endDate={endDate} presetValue={presetValue} rangeOpen={rangeOpen} range={range} rangeError={rangeError} t={t} onToggleRange={() => setRangeOpen(value => !value)} onPresetChange={applyPreset} onRangeChange={applyRange} />
 
@@ -117,10 +115,10 @@ export default function AnalyticsPage() {
 
     <Tabs value={tab} onChange={(_, value) => { setTab(value); setParams(current => { const updated = new URLSearchParams(current); updated.set('tab', tabNames[value]); return updated; }); }} variant="scrollable" sx={{ mb: 2 }}><Tab label={t('feature.work')} /><Tab label={t('feature.customers')} /><Tab label={t('feature.profileCards')} /><Tab label={t('feature.notifications')} /></Tabs>
 
-    {tab === 3 ? <NotificationAnalytics startDate={startDate} endDate={endDate} /> : rangeError ? <Alert severity="warning">{rangeError}</Alert> : query.isError ? <Alert severity="error" action={<Button onClick={() => query.refetch()}>{t('feedback.retry')}</Button>}>{t('feature.analyticsLoadError')}</Alert> : query.isLoading ? <Stack gap={2}><Skeleton variant="rounded" height={150} /><Skeleton variant="rounded" height={130} /></Stack> : <>
+    {tab === 3 ? <NotificationAnalytics startDate={startDate} endDate={endDate} /> : rangeError ? <Alert severity="warning">{rangeError}</Alert> : query.isError ? <PageError title={t('feature.analyticsLoadError')} message={t('feedback.networkHelp')} retryLabel={t('feedback.retry')} onRetry={() => void query.refetch()} /> : query.isLoading ? <PageLoading rows={2} label={t('feedback.loadingPage')} /> : <>
       {activeName === 'work' && metrics && <AnalyticsInsightSummary metrics={metrics} previous={previous} formatter={formatter} t={t} onAction={() => navigate('/my-work')} />}
       {activeName !== 'work' && insight && <Card variant="outlined" sx={{ mb: 3, borderRadius: 3 }}><CardContent><Stack direction={{ xs: 'column', md: 'row' }} alignItems={{ md: 'center' }} gap={2}><Box><Typography variant="h3" fontWeight={850}>{insight.value}</Typography><Typography fontWeight={800}>{insight.title}</Typography></Box><Typography color="text.secondary" flex={1}>{insight.attention}</Typography><Button variant="contained" onClick={() => navigate(insight.path)}>{insight.action}</Button></Stack></CardContent></Card>}
       <Box display="grid" gridTemplateColumns="repeat(auto-fit,minmax(190px,1fr))" gap={2}>{metricOrder[activeName as 'work' | 'customers' | 'profiles'].map(([key, labelKey]) => { const value = numberValue(metrics?.[key]); const before = numberValue(previous?.[key]); const delta = value - before; const TrendIcon = delta > 0 ? TrendingUp : delta < 0 ? TrendingDown : TrendingFlat; const trend = before === 0 && value > 0 ? t('analytics.trend.new') : value === before ? t('analytics.trend.noChange') : value > before ? t('analytics.trend.upFrom', { value: formatter.format(before) }) : t('analytics.trend.downFrom', { value: formatter.format(before) }); return <Card key={key} variant="outlined" sx={{ borderRadius: 3, boxShadow: 'none' }}><CardContent><Typography color="text.secondary">{t(labelKey)}</Typography><Typography variant="h4" fontWeight={800}>{formatter.format(value)}{key === 'conversion' ? '%' : ''}</Typography><Stack direction="row" alignItems="center" gap={0.5} mt={1}><TrendIcon fontSize="small" color={delta === 0 ? 'disabled' : 'primary'} /><Typography variant="caption" color="text.secondary">{trend}</Typography></Stack></CardContent></Card>; })}</Box>
     </>}
-  </Box>;
+  </PageShell>;
 }

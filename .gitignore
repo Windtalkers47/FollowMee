@@ -52,6 +52,18 @@ yarn-error.log*
 
 # Coverage directory used by testing tools
 /coverage
+/Backend/coverage/
+/Frontend/coverage/
+
+# Generated browser and test output
+/playwright-report/
+/test-results/
+
+# Disposable local database sandboxes
+/mysql-clean-test-*/
+
+# Developer-local artifacts (logs, reports, backups and database sandboxes)
+/.local/
 
 # Local database backups may contain customer or authentication data
 /Backups/

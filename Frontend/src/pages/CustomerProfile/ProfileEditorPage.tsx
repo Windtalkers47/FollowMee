@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   AddRounded,
@@ -15,7 +15,6 @@ import {
   Button,
   Checkbox,
   Chip,
-  CircularProgress,
   Divider,
   FormControl,
   FormControlLabel,
@@ -44,6 +43,7 @@ import { useUserPreferences } from '../../contexts/UserPreferencesContext';
 import { formatLocalizedNumber } from '../../utils/localeFormat';
 import { getMissingPublishingFields } from '../../utils/profilePublishing';
 import type { MessageKey } from '../../i18n/messages';
+import { PageActionBar, PageError, PageHeader, PageLoading, PageShell } from '../../components/PageState';
 
 const emptyLink = (sortOrder: number): ProfileLink => ({
   platform: 'website',
@@ -90,13 +90,14 @@ const ProfileEditorPage = () => {
         setLastSavedSnapshot(JSON.stringify(record));
         setAnalytics(stats);
       } catch (loadError) {
-        setError(loadError instanceof Error ? loadError.message : t('profile.editor.loadError'));
+        console.error('Unable to load profile editor:', loadError);
+        setError(t('profile.editor.loadError'));
       } finally {
         setLoading(false);
       }
     };
     void load();
-  }, [profileId]);
+  }, [profileId, t]);
 
   const publicUrl = useMemo(
     () => profile ? `${window.location.origin}/p/${profile.slug}` : '',
@@ -140,7 +141,7 @@ const ProfileEditorPage = () => {
     });
   };
 
-  const save = async (silent = false, candidate = profile) => {
+  const save = useCallback(async (silent = false, candidate = profile) => {
     if (!candidate) return null;
     setSaving(true);
     setError('');
@@ -171,12 +172,13 @@ const ProfileEditorPage = () => {
       if (!silent) setNotice(t('profile.editor.draftSaved'));
       return saved;
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : t('profile.editor.saveError'));
+      console.error('Unable to save profile editor:', saveError);
+      setError(t('profile.editor.saveError'));
       return null;
     } finally {
       setSaving(false);
     }
-  };
+  }, [profile, t]);
 
   useEffect(() => {
     if (!isDirty || saving || !profile) return;
@@ -184,7 +186,7 @@ const ProfileEditorPage = () => {
       void save(true);
     }, 1400);
     return () => window.clearTimeout(timer);
-  }, [isDirty, profile]);
+  }, [isDirty, profile, save, saving]);
 
   const uploadAvatar = async (file?: File) => {
     if (!file || !profile) return;
@@ -261,7 +263,8 @@ const ProfileEditorPage = () => {
       } else if (publishError instanceof PublicProfileApiError && publishError.code === 'PROFILE_SLUG_CONFLICT') {
         showValidationErrors(['slug']);
       } else {
-        setError(publishError instanceof Error ? publishError.message : t('profile.editor.publishError'));
+        console.error('Unable to update profile publishing:', publishError);
+        setError(t('profile.editor.publishError'));
       }
     } finally {
       setSaving(false);
@@ -269,51 +272,34 @@ const ProfileEditorPage = () => {
   };
 
   if (loading) {
-    return <Box minHeight="70vh" display="grid" sx={{ placeItems: 'center' }}><CircularProgress /></Box>;
+    return <PageShell maxWidth={1480}><PageLoading label={t('feedback.loadingPage')} /></PageShell>;
   }
   if (!profile) {
-    return <Alert severity="error">{error || t('profile.editor.notFound')}</Alert>;
+    return <PageShell maxWidth={1480}><PageError title={t('profile.editor.notFound')} message={error || t('profile.editor.loadError')} retryLabel={t('feedback.retry')} onRetry={() => window.location.reload()} /></PageShell>;
   }
 
   return (
-    <Box sx={{ maxWidth: 1480, mx: 'auto', p: { xs: 1.5, md: 3 } }}>
-      <Stack
-        direction={{ xs: 'column', md: 'row' }}
-        justifyContent="space-between"
-        alignItems={{ xs: 'stretch', md: 'center' }}
-        spacing={2}
-        sx={{ mb: 3 }}
-      >
-        <Stack direction="row" spacing={1.5} alignItems="center">
-          <Button onClick={() => navigate('/customer-profile')} startIcon={<ArrowBackRounded />}>
-            {t('profile.editor.profiles')}
+    <PageShell maxWidth={1480}>
+      <Button onClick={() => navigate('/customer-profile')} startIcon={<ArrowBackRounded />} sx={{ mb: 1 }}>
+        {t('profile.editor.profiles')}
+      </Button>
+      <PageHeader
+        title={t('profile.editor.title')}
+        subtitle={saving ? t('profile.editor.saving') : isDirty ? t('profile.editor.unsaved') : t('profile.editor.saved')}
+        actions={profile.status === 'published' && profile.visibility !== 'private' ? (
+          <Button startIcon={<IosShareRounded />} onClick={() => setShareCenterOpen(true)}>
+            {t('profile.public.share')}
           </Button>
-          <Box>
-            <Typography variant="h4" fontWeight={850} letterSpacing="-.04em">
-              {t('profile.editor.title')}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              {saving ? t('profile.editor.saving') : isDirty ? t('profile.editor.unsaved') : t('profile.editor.saved')}
-            </Typography>
-          </Box>
-        </Stack>
-        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-          {profile.status === 'published' && profile.visibility !== 'private' && (
-            <Button
-              startIcon={<IosShareRounded />}
-              onClick={() => setShareCenterOpen(true)}
-            >
-              {t('profile.public.share')}
-            </Button>
-          )}
-          <Button variant="outlined" startIcon={<SaveRounded />} onClick={() => void save()} disabled={saving}>
-            {t('profile.editor.saveDraft')}
-          </Button>
-          {(profile.status === 'published' ? profile.capabilities?.canUnpublish : profile.capabilities?.canPublish) !== false && <Button variant="contained" onClick={togglePublish} disabled={saving}>
-            {profile.status === 'published' ? t('profile.editor.unpublish') : t('profile.editor.publish')}
-          </Button>}
-        </Stack>
-      </Stack>
+        ) : undefined}
+      />
+      <PageActionBar>
+        <Button variant="outlined" startIcon={<SaveRounded />} onClick={() => void save()} disabled={saving}>
+          {t('profile.editor.saveDraft')}
+        </Button>
+        {(profile.status === 'published' ? profile.capabilities?.canUnpublish : profile.capabilities?.canPublish) !== false && <Button variant="contained" onClick={togglePublish} disabled={saving}>
+          {profile.status === 'published' ? t('profile.editor.unpublish') : t('profile.editor.publish')}
+        </Button>}
+      </PageActionBar>
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
       {Object.keys(validationErrors).length > 0 && (
@@ -463,7 +449,7 @@ const ProfileEditorPage = () => {
                       onChange={(event) => setLink(index, { platform: event.target.value })}
                     >
                       {['website', 'facebook', 'instagram', 'tiktok', 'line', 'x'].map((platform) => (
-                        <MenuItem key={platform} value={platform}>{platform}</MenuItem>
+                        <MenuItem key={platform} value={platform}>{t(`profile.platform.${platform}` as MessageKey)}</MenuItem>
                       ))}
                     </Select>
                   </FormControl>
@@ -545,7 +531,7 @@ const ProfileEditorPage = () => {
                 { key: 'display_name', complete: Boolean(profile.displayName.trim()) },
                 { key: 'primary_link', complete: Boolean((profile.primaryCtaLabel && profile.primaryCtaUrl) || profile.links.some(link => link.isVisible && link.url)) },
                 { key: 'slug', complete: /^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$/.test(profile.slug) },
-              ]).map(item => `${item.complete ? '✓' : '○'} ${item.key.replaceAll('_', ' ')}`).join(' · ')}
+              ]).map(item => `${item.complete ? '✓' : '○'} ${t(`profile.validation.${item.key}` as MessageKey)}`).join(' · ')}
             </Alert>
             <Alert severity="info" sx={{ mt: 1 }}>{t('profile.validation.recommendations')}</Alert>
             <Stack spacing={2} sx={{ mt: 2 }}>
@@ -685,7 +671,7 @@ const ProfileEditorPage = () => {
         onClose={() => setNotice('')}
         message={notice}
       />
-    </Box>
+    </PageShell>
   );
 };
 

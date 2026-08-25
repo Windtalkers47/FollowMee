@@ -1,5 +1,6 @@
 import { Brackets, FindOneOptions, getRepository } from 'typeorm';
 import { Customer } from '../entities/Customer';
+import { missingCustomerImageSql } from '../utils/customer-image-filter';
 import { BaseRepository } from './base.repository';
 import { StatusCountsResponse } from '../types/status.types';
 import dataSource from '../config/database';
@@ -147,6 +148,7 @@ export class CustomerRepository extends BaseRepository<Customer> {
     search?: string;
     assignedTo?: number;
     createdBy?: number;
+    missingImage?: boolean;
   }): Promise<[Customer[], number]> {
     const page = Math.max(1, options.page);
     const limit = Math.min(100, Math.max(1, options.limit));
@@ -157,6 +159,7 @@ export class CustomerRepository extends BaseRepository<Customer> {
     }
     if (options.assignedTo) query.andWhere('customer.assignedTo = :assignedTo', { assignedTo: options.assignedTo });
     if (options.createdBy) query.andWhere('customer.createdBy = :createdBy', { createdBy: options.createdBy });
+    if (options.missingImage) query.andWhere(missingCustomerImageSql('customer'));
     const search = options.search?.trim();
     if (search) {
       query.andWhere(new Brackets(scope => {

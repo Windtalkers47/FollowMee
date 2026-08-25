@@ -39,14 +39,9 @@ jobs:
       - run: npm ci
       - run: npm ci --prefix Backend
       - run: npm ci --prefix Frontend
-      - run: npm run build --prefix Backend
-      - run: npm run build --prefix Frontend
-      - run: npm test --prefix Backend -- --runInBand
-      - run: npm run test:run --prefix Frontend
-      - run: npm run lint:critical --prefix Frontend
+      - run: npm run verify
       - run: npm run e2e:db:reset
       - run: npm run test:integration:seeded
-      - run: npm run test:bundle
       - run: npx playwright install --with-deps chromium
       - run: npm run e2e:db:reset
       - name: Critical browser and authorization paths

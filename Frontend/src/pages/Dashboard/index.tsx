@@ -1,18 +1,15 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Box,
   Typography,
-  Container,
   Grid,
   CircularProgress,
   LinearProgress,
   ToggleButtonGroup,
   ToggleButton,
   useTheme,
-  Avatar,
   Button,
   Alert,
-  Stack,
 } from '@mui/material';
 import {
   People as PeopleIcon,
@@ -35,11 +32,11 @@ import {
   Tooltip as ChartTooltip,
   Legend,
   Filler,
+  type ScriptableContext,
 } from 'chart.js';
 import { useAppSelector } from '../../store/store';
 import {
   LiquidGlassCard,
-  StatCard,
   LeaderboardCard,
   PendingTasksList,
 } from '../../components/LiquidGlassDashboard';
@@ -51,16 +48,18 @@ import {
   LeaderboardData,
   PendingTask,
 } from '../../services/api/dashboardApi';
-import { gradientPresets } from '../../styles/liquidGlassStyles';
-import { webSocketService } from '../../services/websocket.service';
 import { brandColors } from '../../styles/designTokens';
 import { useUserPreferences } from '../../contexts/UserPreferencesContext';
-import { translateRewardKey } from '../../utils/rewardPresentation';
 import { formatLocalizedDate, formatLocalizedNumber } from '../../utils/localeFormat';
 import type { MessageKey } from '../../i18n/messages';
 import { useQuery } from '@tanstack/react-query';
 import { taskApi } from '../../api/task.api';
 import { rewardApi } from '../../api/reward.api';
+import { prioritizeDashboardTasks } from '../../utils/dashboardPriority';
+import DashboardDailyFocus from '../../components/DashboardDailyFocus';
+import DashboardSummaryStrip from '../../components/DashboardSummaryStrip';
+import DashboardInsightsSection from '../../components/DashboardInsightsSection';
+import { PageHeader, PageShell } from '../../components/PageState';
 
 // Register ChartJS components (once, at module level)
 ChartJS.register(
@@ -96,17 +95,11 @@ const DashboardPage: React.FC = () => {
   
   // Refs
   const debounceTimer = React.useRef<NodeJS.Timeout | null>(null);
-  const hasInitializedWebSocket = useRef(false);
-  const hasFetchedStaticData = useRef(false);
-  
   const gradientPreset = 'freshGreen' as const;
   const isDarkMode = theme.palette.mode === 'dark';
   const todayWork = useQuery({ queryKey: ['my-work', user?.userId], queryFn: () => taskApi.getMyWork({ limit: 50 }), enabled: Boolean(user?.userId), staleTime: 15_000 });
   const rewardSummary = useQuery({ queryKey: ['dashboard', 'achievement'], queryFn: rewardApi.summary, enabled: Boolean(user?.userId), staleTime: 30_000 });
-  const todayItems = useMemo(() => [...(todayWork.data?.items || [])].sort((a, b) => {
-    const weight = (task: typeof a) => { const due = task.endDate || task.dueDate; const dueTime = due ? new Date(due).getTime() : Infinity; const endToday = new Date().setHours(23,59,59,999); return dueTime < Date.now() ? 0 : task.attentionReason === 'approval_required' ? 1 : dueTime <= endToday ? 2 : task.blockedAt ? 3 : 4; };
-    return weight(a) - weight(b);
-  }).slice(0, 5), [todayWork.data?.items]);
+  const todayItems = useMemo(() => prioritizeDashboardTasks(todayWork.data?.items || []), [todayWork.data?.items]);
 
   // Fetch Stats only (เรียกเมื่อเปลี่ยน time range)
   const fetchStatsOnly = useCallback(async (range: TimeRange) => {
@@ -115,7 +108,7 @@ const DashboardPage: React.FC = () => {
       setStatsError(false);
       const stats = await getDashboardStats(range);
       setDashboardStats(stats);
-    } catch (error) {
+    } catch {
       setStatsError(true);
     } finally {
       setIsStatsLoading(false);
@@ -169,7 +162,7 @@ const DashboardPage: React.FC = () => {
   useEffect(() => {
     if (!user?.userId) return;
     
-    const handleProfileUpdate = (event: CustomEvent<{ userId: number; userImageUrl?: string | null }>) => {
+    const handleProfileUpdate = () => {
       // Clear leaderboard cache เพื่อให้ได้ข้อมูลใหม่จาก server
       clearCache('leaderboard');
       // Refresh เฉพาะ Leaderboard และ Pending Tasks (ไม่ refresh Stats)
@@ -182,7 +175,7 @@ const DashboardPage: React.FC = () => {
     return () => {
       window.removeEventListener('followmee:profile-updated', handleProfileUpdate as EventListener);
     };
-  }, [user?.userId]);
+  }, [user?.userId, fetchStaticData]);
 
   // Refresh static data เป็นระยะ (ทุก 2 นาที) เพื่อข้อมูลที่เป็นปัจจุบัน
   useEffect(() => {
@@ -229,7 +222,7 @@ const DashboardPage: React.FC = () => {
           label: t('dashboard.activeSeries'),
           data: trend.map((item) => item.active),
           fill: true,
-          backgroundColor: (context: any) => {
+          backgroundColor: (context: ScriptableContext<'line'>) => {
             const ctx = context.chart.ctx;
             const gradient = ctx.createLinearGradient(0, 0, 0, 300);
             gradient.addColorStop(0, 'rgba(52, 199, 89, 0.4)');
@@ -249,7 +242,7 @@ const DashboardPage: React.FC = () => {
           label: t('dashboard.newSeries'),
           data: trend.map((item) => item.new),
           fill: true,
-          backgroundColor: (context: any) => {
+          backgroundColor: (context: ScriptableContext<'line'>) => {
             const ctx = context.chart.ctx;
             const gradient = ctx.createLinearGradient(0, 0, 0, 300);
             gradient.addColorStop(0, 'rgba(94, 92, 230, 0.3)');
@@ -424,7 +417,7 @@ const DashboardPage: React.FC = () => {
           font: {
             size: 11,
           },
-          callback: (value: any) => Number.isInteger(value) ? value : '',
+          callback: (value: string | number) => Number.isInteger(value) ? value : '',
         },
       },
       x: {
@@ -454,34 +447,12 @@ const DashboardPage: React.FC = () => {
   }, [timeRange, t]);
 
   return (
-    <Container maxWidth="xl" sx={{ py: 4, minHeight: '100vh' }}>
+    <PageShell maxWidth={1440} sx={{ minHeight: '100vh' }}>
       {isInitialLoading && <LinearProgress aria-label={t('dashboard.loading')} sx={{ mb: 2, borderRadius: 99 }} />}
       <Box
         sx={{ width: '100%' }}
       >
-        {/* Header - Welcome only */}
-        <Box mb={4}>
-          <Typography
-            variant="h4"
-            component="h1"
-            fontWeight="bold"
-            gutterBottom
-            sx={{
-              color: 'text.primary',
-            }}
-          >
-            {t('dashboard.welcome', { name: user?.userName || t('common.user') })}
-          </Typography>
-          <Typography
-            variant="subtitle1"
-            sx={{
-              color: isDarkMode ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.6)',
-              transition: 'color 0.3s ease',
-            }}
-          >
-            {t('dashboard.subtitle')}
-          </Typography>
-        </Box>
+        <PageHeader title={t('dashboard.welcome', { name: user?.userName || t('common.user') })} subtitle={t('dashboard.subtitle')} actions={<><Button variant="contained" startIcon={<AddIcon />} onClick={handleCreateTask}>{t('dashboard.createTask')}</Button><Button variant="outlined" startIcon={<ListIcon />} onClick={handleViewCustomers}>{t('dashboard.viewCustomers')}</Button></>} />
 
         {statsError && (
           <Alert
@@ -497,143 +468,17 @@ const DashboardPage: React.FC = () => {
           </Alert>
         )}
 
-        {/* Quick Actions */}
-        <Box display="flex" gap={2} mb={4} flexWrap="wrap">
-          <LiquidGlassCard
-            gradientPreset={gradientPreset}
-            isDarkMode={isDarkMode}
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 2,
-              p: 2,
-              cursor: 'pointer',
-            }}
-            onClick={handleCreateTask}
-          >
-            <Avatar
-              sx={{
-                width: 44,
-                height: 44,
-                bgcolor: 'rgba(52, 199, 89, 0.14)',
-                border: '2px solid rgba(52, 199, 89, 0.24)',
-              }}
-            >
-              <AddIcon sx={{ fontSize: 24, color: 'primary.main' }} />
-            </Avatar>
-            <Box>
-              <Typography variant="subtitle2" fontWeight={600}>
-                {t('dashboard.createTask')}
-              </Typography>
-              <Typography variant="caption" sx={{ opacity: 0.7 }}>
-                {t('dashboard.createTaskHint')}
-              </Typography>
-            </Box>
-          </LiquidGlassCard>
+        {/* Primary daily focus */}
+        <DashboardDailyFocus tasks={todayItems} loading={todayWork.isLoading} error={todayWork.isError} latestAchievement={rewardSummary.data?.latestAchievement} locale={locale} isDarkMode={isDarkMode} t={t} onRetry={() => void todayWork.refetch()} onOpenTask={taskId => navigate(`/tasks/${taskId}`)} onOpenMyWork={() => navigate('/my-work')} onOpenAchievements={() => navigate('/rewards')} />
 
-          <LiquidGlassCard
-            gradientPreset={gradientPreset}
-            isDarkMode={isDarkMode}
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 2,
-              p: 2,
-              cursor: 'pointer',
-            }}
-            onClick={handleViewCustomers}
-          >
-            <Avatar
-              sx={{
-                width: 44,
-                height: 44,
-                bgcolor: 'rgba(52, 199, 89, 0.14)',
-                border: '2px solid rgba(52, 199, 89, 0.24)',
-              }}
-            >
-              <ListIcon sx={{ fontSize: 24, color: 'primary.main' }} />
-            </Avatar>
-            <Box>
-              <Typography variant="subtitle2" fontWeight={600}>
-                {t('dashboard.viewCustomers')}
-              </Typography>
-              <Typography variant="caption" sx={{ opacity: 0.7 }}>
-                {t('dashboard.viewCustomersHint')}
-              </Typography>
-            </Box>
-          </LiquidGlassCard>
-        </Box>
+        <DashboardSummaryStrip items={[
+          { title: t('dashboard.totalCustomers'), value: formatLocalizedNumber(dashboardStats?.customerStats.totalCustomers || 0, locale), detail: t('dashboard.activeCount', { count: formatLocalizedNumber(dashboardStats?.customerStats.customersByStatus.active || 0, locale) }), icon: <PeopleIcon fontSize="small" />, color: brandColors.iosGreen },
+          { title: t('dashboard.pendingTasks'), value: formatLocalizedNumber(dashboardStats?.taskStats.pendingTasks || 0, locale), detail: t('dashboard.needAttention'), icon: <TaskIcon fontSize="small" />, color: brandColors.amber },
+          { title: t('dashboard.myRank'), value: `#${dashboardStats?.userRank.rank || '-'}`, detail: t('dashboard.taskCount', { count: formatLocalizedNumber(dashboardStats?.userRank.completedTasks || 0, locale) }), icon: <EmojiEventsIcon fontSize="small" />, color: brandColors.indigo },
+          { title: t('dashboard.totalTasks'), value: formatLocalizedNumber(dashboardStats?.taskStats.totalTasks || 0, locale), detail: t('dashboard.completedCount', { count: formatLocalizedNumber(dashboardStats?.taskStats.tasksByStatus.done || 0, locale) }), icon: <TrendingUpIcon fontSize="small" />, color: brandColors.blue },
+        ]} />
 
-        {/* Stats Cards */}
-        <Grid container spacing={3} sx={{ mb: 4 }}>
-          <Grid size={{ xs: 12, lg: 8 }}><LiquidGlassCard gradientPreset={gradientPreset} isDarkMode={isDarkMode} sx={{ p: 3, height: '100%' }}><Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}><Box><Typography variant="h6" fontWeight={800}>{t('feature.todayTitle')}</Typography><Typography variant="body2" color="text.secondary">{t('feature.todayOrder')}</Typography></Box><Button onClick={() => navigate('/my-work')}>{t('feature.openMyWork')}</Button></Stack>{todayWork.isError ? <Alert severity="error" action={<Button onClick={() => todayWork.refetch()}>{t('feedback.retry')}</Button>}>{t('feature.todayLoadError')}</Alert> : todayWork.isLoading ? <CircularProgress size={24} /> : todayItems.length ? <Stack gap={1}>{todayItems.map(task => <Button key={task.taskId} variant="outlined" onClick={() => navigate(`/tasks/${task.taskId}`)} sx={{ justifyContent: 'space-between' }}><span>{task.title}</span><span>{task.blockedAt ? t('feature.blocked') : task.attentionReason?.replaceAll('_', ' ') || task.status}</span></Button>)}</Stack> : <Alert severity="success">{t('feature.allClearToday')}</Alert>}</LiquidGlassCard></Grid>
-          <Grid size={{ xs: 12, lg: 4 }}><LiquidGlassCard gradientPreset={gradientPreset} isDarkMode={isDarkMode} sx={{ p: 3, height: '100%' }}><Typography variant="h6" fontWeight={800}>{t('feature.latestAchievement')}</Typography>{rewardSummary.data?.latestAchievement ? <Stack alignItems="center" textAlign="center" mt={2}><Typography fontSize={44}>🏅</Typography><Typography fontWeight={800}>{translateRewardKey(t, rewardSummary.data.latestAchievement.nameKey)}</Typography><Typography color="text.secondary">{t('feature.seasonProgress', { rank: rewardSummary.data.myRank || '—', score: rewardSummary.data.seasonScore })}</Typography><Button onClick={() => navigate('/rewards')} sx={{ mt: 1 }}>{t('feature.showBadges')}</Button></Stack> : <Typography color="text.secondary" mt={2}>{t('feature.noAchievement')}</Typography>}</LiquidGlassCard></Grid>
-        </Grid>
-
-        <Box sx={{ mb: 4 }}>
-          <Grid container spacing={3}>
-            <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
-              <StatCard
-                title={t('dashboard.totalCustomers')}
-                value={formatLocalizedNumber(dashboardStats?.customerStats.totalCustomers || 0, locale)}
-                icon={<PeopleIcon />}
-                color={brandColors.iosGreen}
-                trend={{
-                  value: t('dashboard.thisPeriod', { count: formatLocalizedNumber(dashboardStats?.customerStats.customersByStatus.newThisWeek || 0, locale) }),
-                  isPositive: true,
-                }}
-                subtitle={t('dashboard.activeCount', { count: formatLocalizedNumber(dashboardStats?.customerStats.customersByStatus.active || 0, locale) })}
-                gradientPreset={gradientPreset}
-                isDarkMode={isDarkMode}
-              />
-            </Grid>
-            <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
-              <StatCard
-                title={t('dashboard.pendingTasks')}
-                value={formatLocalizedNumber(dashboardStats?.taskStats.pendingTasks || 0, locale)}
-                icon={<TaskIcon />}
-                color={brandColors.amber}
-                trend={{
-                  value: t('dashboard.completionRate', { rate: formatLocalizedNumber(dashboardStats?.taskStats.completionRate || 0, locale) }),
-                  isPositive: true,
-                }}
-                subtitle={t('dashboard.needAttention')}
-                gradientPreset={gradientPreset}
-                isDarkMode={isDarkMode}
-              />
-            </Grid>
-            <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
-              <StatCard
-                title={t('dashboard.myRank')}
-                value={`#${dashboardStats?.userRank.rank || '-'}`}
-                icon={<EmojiEventsIcon />}
-                color={brandColors.indigo}
-                trend={{
-                  value: t('dashboard.taskCount', { count: formatLocalizedNumber(dashboardStats?.userRank.completedTasks || 0, locale) }),
-                  isPositive: true,
-                }}
-                subtitle={t('dashboard.ofUsers', { count: formatLocalizedNumber(dashboardStats?.userRank.totalUsers || 0, locale) })}
-                gradientPreset={gradientPreset}
-                isDarkMode={isDarkMode}
-              />
-            </Grid>
-            <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
-              <StatCard
-                title={t('dashboard.totalTasks')}
-                value={formatLocalizedNumber(dashboardStats?.taskStats.totalTasks || 0, locale)}
-                icon={<TrendingUpIcon />}
-                color={brandColors.blue}
-                trend={{
-                  value: t('dashboard.completedCount', { count: formatLocalizedNumber(dashboardStats?.taskStats.tasksByStatus.done || 0, locale) }),
-                  isPositive: true,
-                }}
-                subtitle={t('dashboard.allTime')}
-                gradientPreset={gradientPreset}
-                isDarkMode={isDarkMode}
-              />
-            </Grid>
-          </Grid>
-        </Box>
+        <DashboardInsightsSection title={t('dashboard.insights')} subtitle={t('dashboard.insightsHint')}>
 
         {/* Time Range Selector & Charts Row */}
         <Box sx={{ mb: 4 }}>
@@ -766,8 +611,9 @@ const DashboardPage: React.FC = () => {
             </Grid>
           </Grid>
         </Box>
+        </DashboardInsightsSection>
       </Box>
-    </Container>
+    </PageShell>
   );
 };
 

@@ -216,7 +216,6 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
   );
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [imageKey, setImageKey] = useState(0);
-  const [isProcessingImage, setIsProcessingImage] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Image compression function
@@ -288,7 +287,6 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
 
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
-  const [isRemovingImage, setIsRemovingImage] = useState(false);
 
   const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -298,14 +296,14 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
 
     // Validate file type
     if (!file.type.startsWith('image/')) {
-      setUploadError('Please upload a valid image file (JPG, PNG, GIF)');
+      setUploadError(t('customers.form.imageInvalid'));
       return;
     }
 
     // Check file size (5MB max)
     const maxSize = 5 * 1024 * 1024; // 5MB
     if (file.size > maxSize) {
-      setUploadError('Image size must be less than 5MB');
+      setUploadError(t('customers.form.imageTooLarge'));
       return;
     }
 
@@ -314,8 +312,8 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
       
       // Show loading toast
       feedback.fire({
-        title: 'Processing Image...',
-        text: 'Please wait while we process your image',
+        title: t('customers.form.processingImage'),
+        text: t('customers.form.processingImageHelp'),
         icon: 'info',
         allowOutsideClick: false,
         allowEscapeKey: false,
@@ -326,7 +324,7 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
       const compressedBlob = await compressImage(file, 800, 800, 0.7);
       const compressedFile = new File([compressedBlob], file.name, {
         type: 'image/jpeg',
-        lastModified: Date.now(),
+        lastModified: file.lastModified,
       });
 
       // Create preview
@@ -349,19 +347,19 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
       feedback.close();
       feedback.fire({
         icon: 'success',
-        title: 'Image Processed',
-        text: 'Your image has been processed successfully!',
+        title: t('customers.form.imageProcessed'),
+        text: t('customers.form.imageProcessedHelp'),
         timer: 1500,
         showConfirmButton: false,
       });
     } catch (error) {
       console.error('Error processing image:', error);
-      setUploadError('Failed to process image. Please try another one.');
+      setUploadError(t('customers.form.imageProcessFailed'));
       feedback.close();
       feedback.fire({
         icon: 'error',
-        title: 'Processing Failed',
-        text: 'Failed to process image. Please try another one.',
+        title: t('customers.form.imageProcessFailedTitle'),
+        text: t('customers.form.imageProcessFailed'),
       });
     } finally {
       setIsUploadingImage(false);
@@ -371,12 +369,12 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
   const handleRemoveImage = async () => {
     // Show confirmation dialog before removing image
     const result = await feedback.fire({
-      title: 'Remove Image?',
-      text: 'Are you sure you want to remove this image? It will be deleted from Cloudinary and database.',
+      title: t('customers.form.removeImageTitle'),
+      text: t('customers.form.removeImageQuestion'),
       icon: 'warning',
       showCancelButton: true,
-      confirmButtonText: 'Yes, remove it!',
-      cancelButtonText: 'Cancel',
+      confirmButtonText: t('customers.form.removeImageConfirm'),
+      cancelButtonText: t('common.cancel'),
     });
 
     if (result.isConfirmed) {
@@ -401,8 +399,8 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
       // Show success toast
       feedback.fire({
         icon: 'success',
-        title: 'Image Removed',
-        text: 'Your image has been removed successfully! Click "Update" to save changes.',
+        title: t('customers.form.imageRemoved'),
+        text: t('customers.form.imageRemovedHelp'),
         timer: 2000,
         showConfirmButton: false,
       });
@@ -423,8 +421,8 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
   const onSubmitForm = async (formData: FormValues) => {
     // Show loading state for form submission
     feedback.fire({
-      title: initialData?.customerId ? 'Updating Customer...' : 'Creating Customer...',
-      text: 'Please wait while we process your request',
+      title: initialData?.customerId ? t('customers.form.updating') : t('customers.form.creating'),
+      text: t('customers.form.submittingHelp'),
       icon: 'info',
       allowOutsideClick: false,
       allowEscapeKey: false,
@@ -432,24 +430,10 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
     });
 
     // Create a new object with all form values
-    const submitData: any = {
-      customerName: formData.customerName,
-      customerEmail: formData.customerEmail,
+    const submitData: CustomerFormData & { base64Image?: string } = {
+      ...formData,
       isActive: formData.isActive ?? true,
     };
-
-    // Add optional fields
-    const optionalFields = [
-      'customerId', 'customerLastName', 'customerPhone1', 'customerPhone2',
-      'customerFacebook', 'customerInstagram', 'customerTikTok', 
-      'customerLine', 'customerX', 'customerAddress', 'imageCrop'
-    ];
-    
-    optionalFields.forEach(field => {
-      if (formData[field as keyof FormValues]) {
-        submitData[field] = formData[field as keyof FormValues];
-      }
-    });
 
     // Add removeImage flag if set
     if (formData.removeImage) {
@@ -459,17 +443,14 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
     // Handle image upload
     if (selectedFile) {
       try {
-        setIsProcessingImage(true);
         // Convert to base64
         const base64Image = await fileToBase64(selectedFile);
         submitData.base64Image = base64Image;
       } catch (error) {
         console.error('Error processing image:', error);
-        setUploadError('Failed to process the image. Please try again.');
+        setUploadError(t('customers.form.imageProcessFailed'));
         feedback.close();
         return;
-      } finally {
-        setIsProcessingImage(false);
       }
     } else if (formData.customerImageUrl && !formData.customerImageUrl.startsWith('blob:')) {
       submitData.customerImageUrl = formData.customerImageUrl;
@@ -540,12 +521,10 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
     if (!open) return;
   
     reset(defaultValues);
+    // Resetting the preview follows the external dialog/open state.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setImagePreview(defaultValues.customerImageUrl ?? null);
-  }, [open, initialData?.customerId]);
-  
-
-  // Alias for onSubmitForm to maintain compatibility
-  const handleFormSubmit = onSubmitForm;
+  }, [defaultValues, open, reset]);
 
   const handleClose = () => {
     handleCloseProp();
@@ -593,8 +572,8 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
                     objectFit: 'cover',
                     display: 'block'
                   }}
-                  onError={(e) => {
-                    setUploadError('Failed to load the selected image. Please try another file.');
+                  onError={() => {
+                    setUploadError(t('customers.form.imageLoadFailed'));
                     handleRemoveImage();
                   }}
                 />
@@ -625,20 +604,22 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
                   <IconButton
                     color="primary"
                     onClick={triggerFileSelect}
+                    aria-label={t('customers.form.changeImage')}
                     size="small"
                     sx={{ backgroundColor: 'rgba(255, 255, 255, 0.9)' }}
-                    disabled={isUploadingImage || isRemovingImage}
+                    disabled={isUploadingImage}
                   >
                     {isUploadingImage ? <CircularProgress size={16} /> : <CloudUploadIcon />}
                   </IconButton>
                   <IconButton
                     color="error"
                     onClick={handleRemoveImage}
+                    aria-label={t('customers.form.removeImage')}
                     size="small"
                     sx={{ backgroundColor: 'rgba(255, 255, 255, 0.9)' }}
-                    disabled={isUploadingImage || isRemovingImage}
+                    disabled={isUploadingImage}
                   >
-                    {isRemovingImage ? <CircularProgress size={16} /> : <DeleteIcon />}
+                    <DeleteIcon />
                   </IconButton>
                 </ImageActions>
               )}

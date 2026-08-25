@@ -10,7 +10,8 @@ import {
   deleteCustomer as deleteCustomerAction,
   fetchStatusStats,
 } from '../store/slices/customerSlice';
-import { Customer, CustomerStatus } from '../types/customer.types';
+import { Customer } from '../types/customer.types';
+import { buildCustomerListRequest, mergeCustomerListFilter, type CustomerListFilter } from '../utils/customerListFilter';
 
 /**
  * iOS 2026 Design Pattern - Search & Pagination
@@ -22,6 +23,17 @@ import { Customer, CustomerStatus } from '../types/customer.types';
  * 4. No pagination memory - always reset on filter change
  */
 const DEFAULT_LIMIT = 25;
+
+const getErrorDetails = (error: unknown): unknown => {
+  if (typeof error !== 'object' || error === null) return error;
+  const record = error as Record<string, unknown>;
+  return record.error ?? record.message ?? error;
+};
+
+const getErrorMessage = (error: unknown, fallback: string): string => {
+  const details = getErrorDetails(error);
+  return typeof details === 'string' ? details : fallback;
+};
 
 export const useCustomers = () => {
   const dispatch = useAppDispatch();
@@ -48,63 +60,48 @@ export const useCustomers = () => {
   // ===============================
   // Pagination and filtering
   // ===============================
+  const requestFor = useCallback((nextFilter: CustomerListFilter, nextPage: number, nextLimit: number) =>
+    buildCustomerListRequest(nextFilter, nextPage, nextLimit), []);
+
   const handlePageChange = useCallback(
     (newPage: number) => {
       dispatch(setPage(newPage));
-      // Refetch data when page changes
-      runFetch({
-        page: newPage, 
-        limit: pageSize, 
-        status: filter.status === 'all' ? undefined : filter.status,
-        search: filter.search 
-      });
+      runFetch(requestFor(filter, newPage, pageSize));
     },
-    [dispatch, runFetch, pageSize, filter.status, filter.search]
+    [dispatch, filter, pageSize, requestFor, runFetch]
   );
 
   const handlePageSizeChange = useCallback(
     (newSize: number) => {
       dispatch(setPageSize(newSize));
       dispatch(setPage(1));
-      // Refetch data when page size changes
-      runFetch({
-        page: 1, 
-        limit: newSize, 
-        status: filter.status === 'all' ? undefined : filter.status,
-        search: filter.search 
-      });
+      runFetch(requestFor(filter, 1, newSize));
     },
-    [dispatch, runFetch, filter.status, filter.search]
+    [dispatch, filter, requestFor, runFetch]
   );
 
   /**
    * iOS 2026: Reset pageSize to default when clearing search
    * This ensures that after clearing search, we show all data (up to 100 items)
    */
-  const handleFilterChange = useCallback((newFilter: { status?: CustomerStatus | 'all'; search?: string; limit?: number; assignedTo?: number; createdBy?: number }) => {
-    const updatedFilter = { ...filter, ...newFilter };
+  const handleFilterChange = useCallback((newFilter: Partial<CustomerListFilter> & { limit?: number }) => {
+    const { limit, ...filterPatch } = newFilter;
+    const updatedFilter = mergeCustomerListFilter(filter, filterPatch);
     dispatch(setFilter(updatedFilter));
     // Reset to first page when filters change
     dispatch(setPage(1));
     
     // iOS 2026: When clearing search, reset to default limit (100)
     // This ensures we show all data after clearing search
-    const isClearingSearch = !newFilter.search || newFilter.search.trim() === '';
-    const limitToUse = isClearingSearch ? DEFAULT_LIMIT : (newFilter.limit ?? pageSize);
+    const isClearingSearch = 'search' in filterPatch && (!filterPatch.search || filterPatch.search.trim() === '');
+    const limitToUse = isClearingSearch ? DEFAULT_LIMIT : (limit ?? pageSize);
     
     // Refetch data when filter changes
-    runFetch({
-      page: 1, 
-      limit: limitToUse, 
-      status: updatedFilter.status === 'all' ? undefined : updatedFilter.status,
-      search: updatedFilter.search 
-      ,assignedTo: updatedFilter.assignedTo
-      ,createdBy: updatedFilter.createdBy
-    });
+    runFetch(requestFor(updatedFilter, 1, limitToUse));
     
     // Also fetch status stats to update tab counts
     dispatch(fetchStatusStats());
-  }, [dispatch, runFetch, pageSize, filter]);
+  }, [dispatch, filter, pageSize, requestFor, runFetch]);
 
   // ===============================
   // Refetch data
@@ -115,34 +112,25 @@ export const useCustomers = () => {
    */
   const refetch = useCallback(() => {
     // Read latest values from selector to avoid stale closure
-    const currentState = { 
-      page: 1, // Always refetch from page 1
-      limit: pageSize || DEFAULT_LIMIT,
-      status: filter.status === 'all' ? undefined : filter.status,
-      search: filter.search || undefined,
-      assignedTo: filter.assignedTo,
-      createdBy: filter.createdBy,
-    };
-    
-    runFetch(currentState);
+    runFetch(requestFor(filter, 1, pageSize || DEFAULT_LIMIT));
     dispatch(fetchStatusStats());
-  }, [dispatch, runFetch, pageSize, filter.status, filter.search, filter.assignedTo, filter.createdBy]);
+  }, [dispatch, filter, pageSize, requestFor, runFetch]);
 
   // ===============================
   // CRUD
   // ===============================
   const createCustomer = useCallback(
-    async (data: Omit<Customer, 'customerId' | 'fullName'>) => {
+    async (data: Omit<Customer, 'customerId' | 'fullName' | 'capabilities'>) => {
       try {
         const result = await dispatch(createCustomerAction(data)).unwrap();
         dispatch(fetchStatusStats());
         return { success: true, data: result };
-      } catch (err: any) {
+      } catch (err: unknown) {
         // Parse error message to provide user-friendly feedback
         let errorMessage = 'Failed to create customer';
         
         // Extract error message from various possible formats
-        const errorDetails = err?.error || err?.message || err;
+        const errorDetails = getErrorDetails(err);
         
         if (typeof errorDetails === 'string') {
           if (errorDetails.includes('email already exists') || errorDetails.includes('duplicate')) {
@@ -165,17 +153,17 @@ export const useCustomers = () => {
   );
 
   const updateCustomer = useCallback(
-    async (id: string, data: Partial<Omit<Customer, 'customerId' | 'fullName'>>) => {
+    async (id: string, data: Partial<Omit<Customer, 'customerId' | 'fullName' | 'capabilities'>>) => {
       try {
         const result = await dispatch(updateCustomerAction({ id, data })).unwrap();
         dispatch(fetchStatusStats());
         return { success: true, data: result };
-      } catch (err: any) {
+      } catch (err: unknown) {
         // Parse error message to provide user-friendly feedback
         let errorMessage = 'Failed to update customer';
         
         // Extract error message from various possible formats
-        const errorDetails = err?.error || err?.message || err;
+        const errorDetails = getErrorDetails(err);
         
         if (typeof errorDetails === 'string') {
           if (errorDetails.includes('email already exists') || errorDetails.includes('duplicate') || errorDetails.includes('Email is already in use')) {
@@ -201,8 +189,8 @@ export const useCustomers = () => {
         await dispatch(deleteCustomerAction(id)).unwrap();
         dispatch(fetchStatusStats());
         return { success: true };
-      } catch (err: any) {
-        return { success: false, message: err.message || 'Delete failed' };
+      } catch (err: unknown) {
+        return { success: false, message: getErrorMessage(err, 'Delete failed') };
       }
     },
     [dispatch]

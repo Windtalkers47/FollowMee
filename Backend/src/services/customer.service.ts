@@ -51,6 +51,7 @@ export class CustomerService {
     search?: string;
     assignedTo?: number;
     createdBy?: number;
+    missingImage?: boolean;
   }, viewerUserId: number) {
     const [customers, total] = await this.customerRepository.findPage(options);
     return {

@@ -25,9 +25,9 @@ export function resolveAnalyticsFocusKind(metrics: AnalyticsFocusMetrics): Analy
 export default function AnalyticsFocusNext({ metrics, t, onAction }: { metrics: AnalyticsFocusMetrics; t: Translator; onAction: (path: string) => void }) {
   const kind = resolveAnalyticsFocusKind(metrics);
   const config = {
-    blocked: { icon: <BlockOutlined />, title: t('analytics.focus.blockedTitle'), description: t('analytics.focus.blockedDescription', { count: numberValue(metrics.work.blocked) }), action: t('analytics.action.openWork'), path: '/my-work' },
-    customers: { icon: <GroupsOutlined />, title: t('analytics.focus.customersTitle'), description: t('analytics.focus.customersDescription', { count: numberValue(metrics.customers.missingImage) || numberValue(metrics.customers.portfolioTotal) - numberValue(metrics.customers.profilesReady) }), action: t('analytics.action.openCustomers'), path: '/customer' },
-    profiles: { icon: <InsightsOutlined />, title: t('analytics.focus.profilesTitle'), description: t('analytics.focus.profilesDescription'), action: t('analytics.action.openProfiles'), path: '/customer-profile' },
+    blocked: { icon: <BlockOutlined />, title: t('analytics.focus.blockedTitle'), description: t('analytics.focus.blockedDescription', { count: numberValue(metrics.work.blocked) }), action: t('analytics.action.openWork'), path: '/my-work?focus=blocked' },
+    customers: { icon: <GroupsOutlined />, title: t('analytics.focus.customersTitle'), description: t('analytics.focus.customersDescription', { count: numberValue(metrics.customers.missingImage) || numberValue(metrics.customers.portfolioTotal) - numberValue(metrics.customers.profilesReady) }), action: t('analytics.action.openCustomers'), path: '/customer?focus=missing-image' },
+    profiles: { icon: <InsightsOutlined />, title: t('analytics.focus.profilesTitle'), description: t('analytics.focus.profilesDescription'), action: t('analytics.action.openProfiles'), path: '/customer-profile?focus=engagement' },
     momentum: { icon: <TrendingUp />, title: t('analytics.focus.momentumTitle'), description: t('analytics.focus.momentumDescription'), action: t('analytics.action.openWork'), path: '/my-work' },
   }[kind];
   return <Card variant="outlined" sx={{ mb: 3, borderRadius: 3, boxShadow: 'none', bgcolor: 'action.hover' }}>

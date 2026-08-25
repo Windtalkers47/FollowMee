@@ -1,5 +1,6 @@
 import AppDataSource from '../config/database';
 import { ApplicationError } from '../errors/application.error';
+import { missingCustomerImageSql } from '../utils/customer-image-filter';
 import { UserService } from './user.service';
 
 export const resolveAnalyticsDateRange = (startDate?: string, endDate?: string, now = new Date()) => {
@@ -45,7 +46,7 @@ export class AnalyticsService {
         ROUND(AVG(CASE WHEN t.completedAt IS NOT NULL THEN TIMESTAMPDIFF(HOUR,t.createdAt,t.completedAt) END),1) AS cycleHours
         FROM tasks t WHERE t.createdAt >= ? AND t.createdAt < ?${personal ? ' AND t.assignedTo = ?' : ''}`, personal ? [windowStart, windowEnd, userId] : [windowStart, windowEnd]),
       AppDataSource.query(`SELECT COUNT(*) AS total, SUM(c.status = 'active') AS active,
-        SUM(c.customerImageUrl IS NULL OR c.customerImageUrl = '') AS missingImage,
+        SUM(${missingCustomerImageSql('c')}) AS missingImage,
         SUM(p.profileId IS NOT NULL AND p.status = 'published') AS profilesReady
         FROM customers c LEFT JOIN public_profiles p ON p.customerId = c.customerId AND p.deletedAt IS NULL
         WHERE c.createdAt >= ? AND c.createdAt < ?${personal ? ' AND (c.assignedTo = ? OR c.createdBy = ?)' : ''}`, personal ? [windowStart, windowEnd, userId, userId] : [windowStart, windowEnd]),
@@ -56,7 +57,7 @@ export class AnalyticsService {
       AppDataSource.query(`SELECT COUNT(*) AS portfolioTotal,
         SUM(c.status = 'active') AS active,
         SUM(EXISTS (SELECT 1 FROM public_profiles p WHERE p.customerId = c.customerId AND p.deletedAt IS NULL AND p.status = 'published')) AS profilesReady,
-        SUM(c.customerImageUrl IS NULL OR c.customerImageUrl = '') AS missingImage
+        SUM(${missingCustomerImageSql('c')}) AS missingImage
         FROM customers c
         WHERE c.deletedAt IS NULL AND c.createdAt < ?${personal ? ' AND (c.assignedTo = ? OR c.createdBy = ?)' : ''}`,
       personal ? [windowEnd, userId, userId] : [windowEnd]),

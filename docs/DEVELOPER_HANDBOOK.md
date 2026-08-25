@@ -216,6 +216,7 @@ npm start
 - `synchronize` ต้องเป็น `false`
 - ห้าม reset/drop/seed/mutation test บน `followmee`
 - `database/followmee-clean-schema.sql` ใช้สร้างฐานว่างเท่านั้น ห้ามรันบนฐานที่มีข้อมูล
+- TiDB Starter ต้องเพิ่มคอลัมน์ที่อ้างตำแหน่ง `AFTER` กันแบบแยก `ALTER TABLE` ทีละคอลัมน์; ห้ามรวมคอลัมน์ใหม่และอ้างคอลัมน์นั้นใน statement เดียว
 - migration source เป็น immutable operational history ห้ามลบหรือแก้ migration ที่เคยใช้งานแล้ว
 - production migration ต้องมี backup, checksum, restore drill และ maintenance/read-only window
 - ใช้ [database README](../database/README.md) และ [production migration runbook](PRODUCTION_MIGRATION_RUNBOOK.md) ก่อน database operation

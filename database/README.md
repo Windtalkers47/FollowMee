@@ -60,6 +60,11 @@ MariaDB 10.6+. It includes all tables used by the current backend, foreign keys,
 indexes, constraints, role/permission seed data, Public Profile tables and the
 TypeORM migration ledger for all migrations included in the schema.
 
+For TiDB Starter compatibility, dependent `ADD COLUMN ... AFTER ...` changes
+are intentionally separate `ALTER TABLE` statements. TiDB must commit the
+referenced column before the following statement positions another column
+after it.
+
 Before running it:
 
 1. Stop the FollowMee backend.

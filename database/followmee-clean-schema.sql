@@ -942,14 +942,19 @@ CREATE TABLE `reward_redemptions` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 ALTER TABLE `public_profiles`
-  ADD COLUMN `publishStartAt` DATETIME NULL AFTER `publishedAt`,
+  ADD COLUMN `publishStartAt` DATETIME NULL AFTER `publishedAt`;
+ALTER TABLE `public_profiles`
   ADD COLUMN `publishEndAt` DATETIME NULL AFTER `publishStartAt`;
 
 ALTER TABLE `public_profile_events`
-  ADD COLUMN `visitorHash` CHAR(64) NULL AFTER `referrer`,
-  ADD COLUMN `sessionId` VARCHAR(64) NULL AFTER `visitorHash`,
-  ADD COLUMN `utmSource` VARCHAR(120) NULL AFTER `sessionId`,
-  ADD COLUMN `utmMedium` VARCHAR(120) NULL AFTER `utmSource`,
+  ADD COLUMN `visitorHash` CHAR(64) NULL AFTER `referrer`;
+ALTER TABLE `public_profile_events`
+  ADD COLUMN `sessionId` VARCHAR(64) NULL AFTER `visitorHash`;
+ALTER TABLE `public_profile_events`
+  ADD COLUMN `utmSource` VARCHAR(120) NULL AFTER `sessionId`;
+ALTER TABLE `public_profile_events`
+  ADD COLUMN `utmMedium` VARCHAR(120) NULL AFTER `utmSource`;
+ALTER TABLE `public_profile_events`
   ADD COLUMN `utmCampaign` VARCHAR(120) NULL AFTER `utmMedium`;
 
 CREATE TABLE `public_profile_leads` (

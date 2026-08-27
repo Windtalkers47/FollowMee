@@ -3,7 +3,7 @@ name: FollowMee CI
 on:
   pull_request:
   push:
-    branches: [main, develop]
+    branches: [master, dev, deploy_uat, main, develop]
 
 jobs:
   verify:

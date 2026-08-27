@@ -10,7 +10,7 @@ services:
     env: node
     region: oregon
     plan: free
-    branch: main
+    branch: master
     rootDir: Backend
     buildCommand: npm ci && npm run build
     startCommand: npm run migration:run:prod && npm run start

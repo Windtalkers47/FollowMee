@@ -4,7 +4,8 @@ This runbook is for a free-tier, non-commercial UAT with 3–5 invited testers. 
 
 ## Release boundary
 
-- Frontend: Vercel Preview from `develop` or a UAT branch.
+- Source branch: `deploy_uat`; รับเฉพาะ UAT PR ที่ผ่าน CI จาก `dev` และส่งต่อไป `master` เมื่อ UAT ผ่าน
+- Frontend: Vercel UAT deployment from `deploy_uat` (อาจ promote เป็น public UAT alias เพื่อให้ social crawler เข้าถึงได้)
 - Backend: Render Free service created from `render.uat.yaml`.
 - Database: an isolated TiDB Starter database. `DB_NAME=followmee` is rejected by `npm run start:uat`.
 - Custom domains remain disabled. Use synthetic or explicitly consented UAT data only.
@@ -31,9 +32,11 @@ Confirm:
 
 Render Free can sleep after inactivity. The UAT invitation must explain the possible wake-up delay.
 
-## 3. Vercel Preview
+## 3. Vercel UAT
 
-Set Preview-only frontend values: API/WS URLs, registration flag, Turnstile site key and the public privacy-controller fields. Do not place server secrets or TiDB credentials in `VITE_*`.
+Set UAT frontend values: API/WS URLs, registration flag, Turnstile site key and the public privacy-controller fields. Do not place server secrets or TiDB credentials in `VITE_*`.
+
+Vercel project production branch remains `master`. Build `deploy_uat` as Preview first; when crawler access is required on Hobby, promote only the verified `deploy_uat` commit to the temporary public UAT alias and record that promotion. A later `master` release supersedes it.
 
 After deployment:
 

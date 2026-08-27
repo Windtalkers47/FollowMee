@@ -1,7 +1,7 @@
 # FollowMee Deployment Guide
 
 อัปเดตล่าสุด: 25 สิงหาคม 2026
-Production flow: **GitHub `main` → Render Backend + Vercel Frontend → TiDB Cloud**
+Production flow: **GitHub `master` → Render Backend + Vercel Frontend → TiDB Cloud**
 
 อ่าน [Developer Handbook](docs/DEVELOPER_HANDBOOK.md) และ [production migration runbook](docs/PRODUCTION_MIGRATION_RUNBOOK.md) ก่อน deployment ที่มี migration
 
@@ -9,7 +9,7 @@ Production flow: **GitHub `main` → Render Backend + Vercel Frontend → TiDB C
 
 ## Safety rules
 
-- `main` เป็น production branch; งานพัฒนาเข้า `develop` ผ่าน feature PR ก่อน แล้วใช้ release PR ไป `main`
+- `master` เป็น production branch, `dev` เป็น integration branch และ `deploy_uat` เป็น UAT branch; flow คือ feature PR → `dev` → `deploy_uat` → `master`
 - ห้ามใส่ credentials, tokens, connection strings หรือค่าจาก `.env` จริงใน Git/เอกสาร
 - ห้ามใช้ local schema export/import เป็น production update workflow ปกติ
 - production schema เปลี่ยนด้วย reviewed additive TypeORM migrations เท่านั้น
@@ -37,7 +37,7 @@ Production flow: **GitHub `main` → Render Backend + Vercel Frontend → TiDB C
 ค่าหลักถูกประกาศใน [render.yaml](render.yaml):
 
 - service: `followmee-backend`
-- branch: `main`
+- branch: `master`
 - root directory: `Backend`
 - build: `npm ci && npm run build`
 - start: `npm run migration:run:prod && npm run start`
@@ -75,7 +75,7 @@ Custom domain เปิดหลัง migration และ Phase 3 verification 
 
 ตั้ง project:
 
-- production branch: `main`
+- production branch: `master`
 - root directory: `Frontend`
 - framework: Vite
 - build: `npm run build`
@@ -101,15 +101,16 @@ VITE_ENCRYPTION_KEY=<non-secret-compatibility-value>
 
 ## 4. Release flow
 
-1. รวม feature PR เข้า `develop`
+1. รวม feature PR เข้า `dev`
 2. รัน `npm run verify` และตรวจ CI
-3. สร้าง release PR จาก `develop` ไป `main`
-4. หากมี migration ให้ทำ backup/restore drill และ maintenance coordination ก่อน merge; deploy ordered migration ของ Phase 1 (`1850000000000`), Phase 2 (`1851000000000`), Phase 3 (`1852000000000`) และ custom-domain redirect preference (`1853000000000`) ก่อนเปิด capability/flag ของเฟสนั้น
-5. Merge เมื่อ CI และ operational checklist ผ่าน
-6. Render และ Vercel deploy จาก `main`
-7. ตรวจ Render migration/start logs และ `GET /health`
-8. ตรวจ frontend load, auth, REST, Socket.IO connection และ critical read-only flows
-9. Mutation smoke/UAT ใช้เฉพาะ approved disposable/staging environment; ห้ามทดสอบด้วยข้อมูลจริงโดยไม่มีกระบวนการที่อนุมัติ
+3. สร้าง UAT PR จาก `dev` ไป `deploy_uat` และให้ Render/Vercel UAT ผ่าน acceptance
+4. สร้าง release PR จาก `deploy_uat` ไป `master`
+5. หากมี migration ให้ทำ backup/restore drill และ maintenance coordination ก่อน merge; deploy ordered migration ของ Phase 1 (`1850000000000`), Phase 2 (`1851000000000`), Phase 3 (`1852000000000`) และ custom-domain redirect preference (`1853000000000`) ก่อนเปิด capability/flag ของเฟสนั้น
+6. Merge เมื่อ CI และ operational checklist ผ่าน
+7. Render และ Vercel production deploy จาก `master`
+8. ตรวจ Render migration/start logs และ `GET /health`
+9. ตรวจ frontend load, auth, REST, Socket.IO connection และ critical read-only flows
+10. Mutation smoke/UAT ใช้เฉพาะ approved disposable/staging environment; ห้ามทดสอบด้วยข้อมูลจริงโดยไม่มีกระบวนการที่อนุมัติ
 
 ## 5. Verification
 

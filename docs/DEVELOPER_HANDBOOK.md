@@ -1,6 +1,6 @@
 # FollowMee Developer Handbook
 
-อัปเดตล่าสุด: 25 สิงหาคม 2026 (Asia/Bangkok) — closed-UAT readiness
+อัปเดตล่าสุด: 27 สิงหาคม 2026 (Asia/Bangkok) — deployment branch separation
 สถานะ: **เอกสารหลักสำหรับเริ่มพัฒนาและส่งต่องาน**
 
 อ่านไฟล์นี้ก่อนเริ่มงานทุกครั้ง แล้วเปิด runbook เฉพาะเมื่อกำลังทำ deployment หรือ database operation เท่านั้น เอกสารใน `docs/archive/` เป็นประวัติ ไม่ใช่ source of truth ปัจจุบัน
@@ -21,7 +21,7 @@ FollowMee เป็น full-stack workspace สำหรับจัดการ
 
 ### Current checkpoint — 25 สิงหาคม 2026
 
-- cleanup/documentation/tooling และ P1/M1 เดิมถูก checkpoint บน branch `develop` แล้ว (`a4c514f` และ commit ก่อนหน้า); งาน Profile Conversion รอบนี้เริ่มจาก clean tree และต้องรักษา checkpoint เหล่านั้น
+- cleanup/documentation/tooling และ P1/M1 เดิมถูก checkpoint บน legacy branch `develop` แล้ว (`a4c514f` และ commit ก่อนหน้า); checkpoint ปัจจุบันถูกยกเป็นฐานร่วมของ `master`, `dev` และ `deploy_uat` โดยต้องรักษาประวัติเดิม
 - generated artifacts 407 ไฟล์ถูกถอนออกจาก Git index และไฟล์จริงถูกเก็บแบบ recoverable ใต้ `.local/`
 - เอกสารปัจจุบันอยู่ที่ Handbook นี้; review, handoff และ validation รุ่นเก่าอยู่ใน `docs/archive/`
 - Profile Conversion ใช้ ordered additive migrations `1850000000000`, `1851000000000`, `1852000000000`, `1853000000000` (custom-domain redirect preference) และ `1854000000000` (UAT access, privacy, capacity และ funnel); migration ใหม่ต้อง verify กับ temporary schema ก่อนและห้ามนำ mutation testไปใช้กับ `followmee`
@@ -225,12 +225,15 @@ npm start
 
 ### Git workflow
 
-1. `develop` เป็น integration branch
-2. สร้าง feature/fix branch จาก `develop`
+1. `dev` เป็น integration branch สำหรับงานพัฒนา
+2. สร้าง feature/fix branch จาก `dev`
 3. เปิด PR และให้ CI ผ่าน
-4. รวมงานกลับ `develop`
-5. เปิด release PR จาก `develop` ไป `main`
-6. `main` เป็น production source สำหรับ Render/Vercel
+4. รวมงานกลับ `dev`
+5. เปิด UAT PR จาก `dev` ไป `deploy_uat`; Render/Vercel UAT ติดตาม `deploy_uat`
+6. เมื่อ UAT ผ่าน ให้เปิด release PR จาก `deploy_uat` ไป `master`
+7. `master` เป็น production source สำหรับ Render/Vercel
+
+`main` และ `develop` เป็น legacy compatibility branches ในช่วงเปลี่ยนผ่าน ห้ามใช้เป็น deployment source ใหม่ และห้ามลบจนกว่าจะตรวจ branch protection, open PR และ automation ภายนอกครบ
 
 ห้าม reset/drop uncommitted work ของผู้อื่น ตรวจ `git status`, `git diff` และ untracked files ก่อนแก้เสมอ
 
@@ -241,7 +244,7 @@ CI ติดตั้ง root/Backend/Frontend dependencies แล้วเร�
 ### Render
 
 - root directory: `Backend`
-- branch: `main`
+- branch: `master` สำหรับ production; UAT service ใช้ `deploy_uat`
 - build: `npm ci && npm run build`
 - start: `npm run migration:run:prod && npm run start`
 - `/health` เป็น health check
@@ -250,8 +253,8 @@ CI ติดตั้ง root/Backend/Frontend dependencies แล้วเร�
 ### Vercel
 
 - root directory: `Frontend`
-- production branch: `main`
-- PR branches ใช้ preview deployment
+- production branch: `master`
+- `deploy_uat` ใช้ UAT deployment; feature/PR branches จาก `dev` ใช้ preview deployment
 - build: `npm run build`
 - output: `dist`
 - `/p/:slug` rewrite ไป Vercel Function `api/profile.ts` เพื่อ inject metadata/initial payload โดย URL ไม่เปลี่ยน; route อื่นใช้ SPA fallback

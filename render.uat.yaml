@@ -5,7 +5,7 @@ services:
     env: node
     region: oregon
     plan: free
-    branch: develop
+    branch: deploy_uat
     rootDir: Backend
     buildCommand: npm ci && npm run build
     startCommand: npm run start:uat

@@ -1,4 +1,4 @@
-import { apiConfig, handleResponse } from './config';
+import { ApiError, apiConfig, handleResponse } from './config';
 import type { LoginResponse, ApiResponse } from '../types/api.types';
 import { encryptRequestData, decryptResponseData } from '../utils/requestEncryption';
 
@@ -23,7 +23,20 @@ export interface RegisterCredentials {
   funnelSessionId?: string;
 }
 
-export interface RegistrationResult { requestId?: string; status?: 'pending_email' | 'pending_approval' | 'approved'; userId?: number }
+export interface RegistrationResult {
+  requestId?: string;
+  status?: 'pending_email' | 'pending_approval' | 'approved';
+  userId?: number;
+  devVerificationUrl?: string;
+  bootstrapCompleted?: boolean;
+  ownerSetupRequired?: boolean;
+}
+
+export interface RegistrationPolicy {
+  mode: 'invite_only' | 'bootstrap' | 'approval' | 'recovery_required';
+}
+
+export const REGISTRATION_REQUEST_TIMEOUT_MS = 75_000;
 
 export interface InvitationPreview {
   email: string;
@@ -53,6 +66,18 @@ interface ForgotPasswordResponse {
 // API
 // --------------------
 const authApi = {
+  registrationPolicy: async (): Promise<ApiResponse<RegistrationPolicy>> => {
+    const response = await fetch(`${apiConfig.baseURL}/auth/registration-policy`, {
+      headers: { ...apiConfig.headers },
+    });
+    return handleResponse<ApiResponse<RegistrationPolicy>>(response);
+  },
+  verifyRegistration: async (token: string): Promise<ApiResponse<RegistrationResult>> => {
+    const response = await fetch(`${apiConfig.baseURL}/auth/registration-requests/verify?token=${encodeURIComponent(token)}`, {
+      headers: { ...apiConfig.headers },
+    });
+    return handleResponse<ApiResponse<RegistrationResult>>(response);
+  },
   invitation: async (token: string): Promise<ApiResponse<InvitationPreview>> => {
     const response = await fetch(`${apiConfig.baseURL}/auth/invitations/${encodeURIComponent(token)}`, {
       headers: { ...apiConfig.headers },
@@ -68,20 +93,32 @@ const authApi = {
   register: async (credentials: RegisterCredentials): Promise<ApiResponse<RegistrationResult>> => {
     // Encrypt sensitive data for development
     const encryptedData = encryptRequestData(credentials);
-    
-    const response = await fetch(`${apiConfig.baseURL}/auth/register`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...apiConfig.headers,
-      },
-      body: JSON.stringify(encryptedData),
-    });
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => controller.abort(), REGISTRATION_REQUEST_TIMEOUT_MS);
 
-    const result = handleResponse<ApiResponse<RegistrationResult>>(response);
-    
-    // Decrypt response if it was encrypted
-    return decryptResponseData(result);
+    try {
+      const response = await fetch(`${apiConfig.baseURL}/auth/register`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...apiConfig.headers,
+        },
+        body: JSON.stringify(encryptedData),
+        signal: controller.signal,
+      });
+
+      const result = handleResponse<ApiResponse<RegistrationResult>>(response);
+
+      // Decrypt response if it was encrypted
+      return decryptResponseData(result);
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        throw new ApiError('Registration request timed out', 408, 'REGISTRATION_REQUEST_TIMEOUT');
+      }
+      throw error;
+    } finally {
+      window.clearTimeout(timer);
+    }
   },
 
   /**

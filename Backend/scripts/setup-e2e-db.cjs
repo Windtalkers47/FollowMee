@@ -7,12 +7,17 @@ const bcrypt = require('bcryptjs');
 dotenv.config({ path: path.resolve(__dirname, '..', '.env') });
 
 const database = process.env.E2E_DB_NAME || 'followmee_e2e';
+const localDevSeed = process.env.LOCAL_DEV_SEED === 'true';
+const emptySeed = process.env.EMPTY_E2E_SEED === 'true';
+const preserveExisting = process.argv.includes('--preserve');
 if (!database.endsWith('_e2e')) {
   throw new Error(`Refusing to reset database "${database}". E2E database names must end with "_e2e".`);
 }
 
-const qaPassword = process.env.E2E_QA_PASSWORD || 'FollowMee-QA-2026!';
-const users = [
+const qaPassword = localDevSeed ? '12345678' : (process.env.E2E_QA_PASSWORD || 'FollowMee-QA-2026!');
+const users = emptySeed ? [] : localDevSeed ? [
+  ['Local', 'Owner', 'test@example.com', 'Owner'],
+] : [
   ['QA', 'Creator', 'qa-creator@example.test', 'Owner'],
   ['QA', 'Assignee', 'qa-assignee@example.test', 'Admin'],
   ['QA', 'Reviewer', 'qa-reviewer@example.test', 'Admin'],
@@ -25,8 +30,12 @@ const fixtureIds = {
 };
 
 async function main() {
+  const host = process.env.DB_HOST || 'localhost';
+  if (localDevSeed && !['localhost', '127.0.0.1', '::1'].includes(host.toLowerCase())) {
+    throw new Error(`Local development setup refuses non-loopback DB_HOST "${host}".`);
+  }
   const connection = await mysql.createConnection({
-    host: process.env.DB_HOST || 'localhost',
+    host,
     port: Number(process.env.DB_PORT || 3306),
     user: process.env.DB_USERNAME || 'root',
     password: process.env.DB_PASSWORD || '',
@@ -34,11 +43,23 @@ async function main() {
   });
 
   try {
+    if (preserveExisting) {
+      const [schemas] = await connection.execute('SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = ?', [database]);
+      if (schemas.length) {
+        console.log(`Local database "${database}" already exists; preserving its data.`);
+        return;
+      }
+    }
     const schemaPath = path.resolve(__dirname, '..', '..', 'database', 'followmee-clean-schema.sql');
     const source = fs.readFileSync(schemaPath, 'utf8');
     const schema = source.replaceAll('`followmee`', `\`${database}\``);
     await connection.query(schema);
     await connection.query(`USE \`${database}\``);
+
+    if (emptySeed) {
+      console.log(`E2E database "${database}" was reset with an empty workspace.`);
+      return;
+    }
 
     const passwordHash = await bcrypt.hash(qaPassword, 10);
     const userIds = {};
@@ -59,8 +80,13 @@ async function main() {
 
     await connection.execute(
       `INSERT INTO system_owner (singletonId, userId) VALUES (1, ?)`,
-      [userIds['qa-creator@example.test']],
+      [userIds[localDevSeed ? 'test@example.com' : 'qa-creator@example.test']],
     );
+
+    if (localDevSeed) {
+      console.log(`Local database "${database}" was prepared with test@example.com as Owner.`);
+      return;
+    }
 
     await connection.execute(
       `INSERT INTO customers

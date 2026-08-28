@@ -25,10 +25,12 @@
     "migration:show": "typeorm-ts-node-commonjs migration:show -d src/config/database.ts",
     "migration:run": "typeorm-ts-node-commonjs migration:run -d src/config/database.ts",
     "migration:run:prod": "typeorm migration:run -d dist/config/database.js",
+    "migration:run:prod:retry": "node scripts/run-prod-migrations-with-retry.cjs",
     "db:schema:verify": "node scripts/verify-clean-schema.cjs",
     "db:explain-work-lists": "node scripts/explain-work-lists.cjs",
+    "db:verify-registration": "node scripts/verify-registration-storage.cjs",
     "prod": "npm run build && npm run start"
-    ,"start:uat": "node dist/scripts/check-uat-config.js && npm run migration:run:prod && npm run start"
+    ,"start:uat": "node dist/scripts/check-uat-config.js && npm run migration:run:prod:retry && npm run start"
   },
   "keywords": [],
   "author": "",

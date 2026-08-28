@@ -40,7 +40,7 @@ Production flow: **GitHub `master` → Render Backend + Vercel Frontend → TiDB
 - branch: `master`
 - root directory: `Backend`
 - build: `npm ci && npm run build`
-- start: `npm run migration:run:prod && npm run start`
+- start: `npm run migration:run:prod:retry && npm run start`
 - health check: `/health`
 
 Render environment ต้องมีอย่างน้อย:
@@ -56,6 +56,8 @@ DB_NAME=<production-database>
 DB_SSL=true
 JWT_SECRET=<server-secret>
 JWT_EXPIRES_IN=24h
+ALLOW_PUBLIC_REGISTRATION=false
+BOOTSTRAP_OWNER_EMAIL=<real-first-owner-inbox-when-public-registration-is-enabled>
 INVITATION_SECRET=<server-secret>
 PROFILE_ANALYTICS_SALT=<server-secret>
 PROFILE_LEAD_RATE_LIMIT=8
@@ -65,7 +67,7 @@ CORS_ORIGIN=https://<production-vercel-domain>
 CORS_PREVIEW_ORIGINS=https://<approved-preview-domain-1>,https://<approved-preview-domain-2>
 ```
 
-เพิ่ม Cloudinary, email และ VAPID variables ตาม feature ที่เปิดใช้ โดยใช้ชื่อจาก `Backend/.env.example`; SMTP password ใช้ชื่อ `SMTP_PASS`
+เพิ่ม Cloudinary, email และ VAPID variables ตาม feature ที่เปิดใช้ โดยใช้ชื่อจาก `Backend/.env.example`; SMTP password ใช้ชื่อ `SMTP_PASS` เท่านั้น UAT ใช้ `SENDGRID_API_KEY` ผ่าน Render secret และห้ามใส่ Gmail App Password หรือ server secret ใน Vercel/`VITE_*`
 
 Custom domain เปิดหลัง migration และ Phase 3 verification เท่านั้น โดยตั้ง `VERCEL_ACCESS_TOKEN`, `VERCEL_PROJECT_ID`, `VERCEL_TEAM_ID` เป็น Render server secrets แล้วเปลี่ยน `PROFILE_CUSTOM_DOMAINS_ENABLED=true` ห้ามนำ token ไปไว้ในตัวแปร `VITE_*`
 

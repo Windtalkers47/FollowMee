@@ -22,8 +22,10 @@ interface EmailData {
   text?: string;
 }
 
-class EmailService {
+export class EmailService {
   private transporter: Transporter | null = null;
+  private sendgridApiKey: string | null = null;
+  private previewMode: boolean = false;
   private isConfigured: boolean = false;
   private dailyEmailCount: number = 0;
   private readonly DAILY_EMAIL_LIMIT = 100; // SendGrid free tier limit
@@ -38,29 +40,35 @@ class EmailService {
    * Uses SendGrid SMTP or falls back to local SMTP
    */
   private initializeTransporter(): void {
+    if (process.env.EMAIL_DELIVERY_MODE === 'preview') {
+      if (process.env.NODE_ENV !== 'development' || process.env.DB_NAME !== 'followmee_e2e') {
+        throw new Error('Email preview mode is restricted to development with DB_NAME=followmee_e2e');
+      }
+      this.previewMode = true;
+      this.isConfigured = true;
+      console.log('[EmailService] Local email preview configured');
+      return;
+    }
+
     const sendgridApiKey = process.env.SENDGRID_API_KEY;
     const sendgridFromEmail = process.env.SENDGRID_FROM_EMAIL || 'noreply@followmee.com';
 
     if (sendgridApiKey) {
-      // Use SendGrid
-      this.transporter = nodemailer.createTransport({
-        host: 'smtp.sendgrid.net',
-        port: 587,
-        secure: false,
-        auth: {
-          user: 'apikey',
-          pass: sendgridApiKey,
-        },
-      });
+      // Render's outbound SMTP connection can time out on free instances. SendGrid's
+      // HTTPS API uses the same key and is both faster and easier to bound safely.
+      this.sendgridApiKey = sendgridApiKey;
       this.isConfigured = true;
-      console.log('[EmailService] SendGrid SMTP configured');
+      console.log('[EmailService] SendGrid HTTPS API configured');
     } else {
       // Fallback to local SMTP (for development)
       console.log('[EmailService] SendGrid not configured, using development mode');
       this.transporter = nodemailer.createTransport({
         host: process.env.SMTP_HOST || 'localhost',
         port: parseInt(process.env.SMTP_PORT || '587'),
-        secure: false,
+        secure: process.env.SMTP_SECURE === 'true',
+        connectionTimeout: 10_000,
+        greetingTimeout: 10_000,
+        socketTimeout: 15_000,
         auth: process.env.SMTP_USER ? {
           user: process.env.SMTP_USER,
           pass: process.env.SMTP_PASS,
@@ -74,7 +82,43 @@ class EmailService {
    * Check if email service is available
    */
   isAvailable(): boolean {
-    return this.isConfigured && this.transporter !== null;
+    return this.isConfigured && (this.previewMode || this.sendgridApiKey !== null || this.transporter !== null);
+  }
+
+  isLocalPreview(): boolean {
+    return this.previewMode;
+  }
+
+  private async sendWithSendGridApi(mailOptions: SendMailOptions): Promise<void> {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 15_000);
+
+    try {
+      const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${this.sendgridApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          personalizations: [{ to: [{ email: String(mailOptions.to) }] }],
+          from: { email: String(mailOptions.from) },
+          subject: String(mailOptions.subject || ''),
+          content: [
+            ...(mailOptions.text ? [{ type: 'text/plain', value: String(mailOptions.text) }] : []),
+            { type: 'text/html', value: String(mailOptions.html || '') },
+          ],
+        }),
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        console.error('[EmailService] SendGrid API rejected email', { status: response.status });
+        throw new Error(`SendGrid API returned ${response.status}`);
+      }
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   /**
@@ -124,21 +168,27 @@ class EmailService {
 
     try {
       const mailOptions: SendMailOptions = {
-        from: process.env.SENDGRID_FROM_EMAIL || 'noreply@followmee.com',
+        from: this.sendgridApiKey
+          ? (process.env.SENDGRID_FROM_EMAIL || 'noreply@followmee.com')
+          : (process.env.SMTP_FROM || process.env.SMTP_USER || 'noreply@followmee.local'),
         to: data.to.email,
         subject: data.subject,
         html: data.html,
         text: data.text,
       };
 
-      await this.transporter!.sendMail(mailOptions);
+      if (this.previewMode) {
+        // The registration service returns its verification URL directly in the
+        // development-only API response. Never write tokens or recipient PII to logs.
+      } else if (this.sendgridApiKey) await this.sendWithSendGridApi(mailOptions);
+      else await this.transporter!.sendMail(mailOptions);
       this.dailyEmailCount++;
 
-      console.log(`[EmailService] Email sent to ${data.to.email} (${this.dailyEmailCount}/${this.DAILY_EMAIL_LIMIT})`);
+      console.log(`[EmailService] Email delivered (${this.dailyEmailCount}/${this.DAILY_EMAIL_LIMIT})`);
       return true;
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error('[EmailService] Failed to send email:', errorMessage);
+      const errorType = error instanceof Error ? error.name : 'UnknownError';
+      console.error('[EmailService] Failed to send email', { errorType });
       return false;
     }
   }

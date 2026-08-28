@@ -21,6 +21,7 @@ database are:
 - `ProfileCustomDomains1852000000000` (Phase 3: domain verification state; deploy before enabling its flag)
 - `ProfileDomainRedirectPreference1853000000000` (Phase 3: additive canonical-domain redirect preference)
 - `UatAccessPrivacyCapacity1854000000000` (closed-UAT signup approval, consent/privacy requests, product funnel and capacity alerts)
+- `RegistrationVerificationIndex1855000000000` (indexed hashed verification-token lookup)
 
 Before the public-profile migration on 26 July 2026, a SQL backup was written
 to `C:\PAom\data_backup_20260726\followmee_before_public_profiles.sql`.
@@ -40,7 +41,7 @@ public content:
   `customer_merge_snapshots` provide recovery/audit boundaries.
 - `public_profile_domains` stores verification state only. Vercel tokens stay
   in backend environment variables and the feature flag defaults to disabled.
-- `registration_requests` keeps password hashes inaccessible while email verification and Owner approval are pending; no User/role is created before approval.
+- `registration_requests` keeps password hashes inaccessible while email verification and Owner approval are pending. On a truly empty workspace only the configured bootstrap email creates the singleton Owner after verification; all later requests require approval.
 - `consent_records`, `privacy_requests`, `product_funnel_events` and `system_capacity_alerts` provide versioned privacy evidence, verified rights workflow, opt-in business funnel and deduplicated exact-capacity alerts.
 - The clean schema mirrors the MariaDB runtime collation (`utf8mb4_unicode_ci`)
   and UUID columns used by the TypeORM entities; use it only for an empty

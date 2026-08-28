@@ -2,6 +2,9 @@ import { NextFunction, Request, Response } from 'express';
 import { registrationRequestService } from '../services/registration-request.service';
 
 export class RegistrationRequestController {
+  policy = async (_req: Request, res: Response, next: NextFunction) => {
+    try { res.json({ success: true, data: await registrationRequestService.getPolicy() }); } catch (error) { next(error); }
+  };
   verify = async (req: Request, res: Response, next: NextFunction) => {
     try { res.json({ success: true, data: await registrationRequestService.verify(String(req.query.token || '')) }); } catch (error) { next(error); }
   };

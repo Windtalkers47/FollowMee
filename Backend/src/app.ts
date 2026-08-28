@@ -171,7 +171,8 @@ class App {
         });
 
         if (attempt < maxAttempts) {
-          const delayMs = Math.min(baseDelayMs * (2 ** (attempt - 1)), 10_000);
+          const exponentialDelay = Math.min(baseDelayMs * (2 ** (attempt - 1)), 10_000);
+          const delayMs = Math.round(exponentialDelay * (1 + Math.random() * 0.25));
           logger.warn(`Database unavailable (attempt ${attempt}/${maxAttempts}). Retrying in ${delayMs}ms.`);
           await new Promise(resolve => setTimeout(resolve, delayMs));
         }

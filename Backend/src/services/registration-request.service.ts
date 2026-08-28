@@ -26,6 +26,18 @@ const subjectHash = (value: string) => crypto.createHmac('sha256', process.env.P
 export class RegistrationRequestService {
   private repo = AppDataSource.getRepository(RegistrationRequest);
 
+  async getPolicy(): Promise<{ mode: 'invite_only' | 'bootstrap' | 'approval' | 'recovery_required' }> {
+    if (process.env.ALLOW_PUBLIC_REGISTRATION !== 'true') return { mode: 'invite_only' };
+    const [ownerRows, userRows] = await Promise.all([
+      AppDataSource.query('SELECT userId FROM system_owner WHERE singletonId = 1 LIMIT 1'),
+      AppDataSource.query('SELECT COUNT(*) AS total FROM users WHERE isActive = 1'),
+    ]);
+    if (ownerRows.length) return { mode: 'approval' };
+    const activeUsers = Number(userRows[0]?.total || 0);
+    if (activeUsers > 0 || !process.env.BOOTSTRAP_OWNER_EMAIL?.trim()) return { mode: 'recovery_required' };
+    return { mode: 'bootstrap' };
+  }
+
   async verifyTurnstile(token: string | undefined, remoteip?: string): Promise<void> {
     const secret = process.env.TURNSTILE_SECRET_KEY;
     if (!secret) {
@@ -62,8 +74,12 @@ export class RegistrationRequestService {
     termsAccepted?: boolean; privacyAccepted?: boolean; termsVersion?: string; privacyVersion?: string;
     analyticsConsent?: boolean; preferencesConsent?: boolean; website?: string; turnstileToken?: string;
     funnelSessionId?: string;
-  }, context: { ip?: string; userAgent?: string }): Promise<{ requestId: string; status: string }> {
+  }, context: { ip?: string; userAgent?: string }): Promise<{ requestId: string; status: string; devVerificationUrl?: string }> {
     if (input.website) return { requestId: crypto.randomUUID(), status: 'pending_email' };
+    const registrationPolicy = await this.getPolicy();
+    if (registrationPolicy.mode === 'recovery_required') {
+      throw new ApplicationError('Workspace ownership requires recovery', 'OWNER_RECOVERY_REQUIRED', 503);
+    }
     const policy = validateRegistrationPolicy(input);
     if (policy === 'required') throw new ApplicationError('Terms and privacy acceptance are required', 'POLICY_ACCEPTANCE_REQUIRED', 400);
     if (policy === 'outdated') throw new ApplicationError('Policy version is outdated', 'POLICY_VERSION_OUTDATED', 409);
@@ -91,23 +107,95 @@ export class RegistrationRequestService {
       source: 'registration', withdrawnAt: null,
     });
     const baseUrl = (process.env.FRONTEND_URL || 'http://localhost:5173').replace(/\/$/, '');
-    if (!await emailService.sendRegistrationVerificationEmail(email, `${baseUrl}/verify-registration?token=${encodeURIComponent(token)}`)) throw new ApplicationError('Verification email could not be delivered', 'REGISTRATION_EMAIL_DELIVERY_FAILED', 503);
+    const verificationUrl = `${baseUrl}/verify-registration?token=${encodeURIComponent(token)}`;
+    if (!await emailService.sendRegistrationVerificationEmail(email, verificationUrl)) throw new ApplicationError('Verification email could not be delivered', 'REGISTRATION_EMAIL_DELIVERY_FAILED', 503);
     await auditService.logEvent({ userId: null, action: 'REGISTRATION_REQUEST_CREATED', status: 'SUCCESS', ipAddress: context.ip, userAgent: context.userAgent, details: { requestId: saved.requestId } });
-    return { requestId: saved.requestId, status: saved.status };
+    return {
+      requestId: saved.requestId,
+      status: saved.status,
+      ...(emailService.isLocalPreview() ? { devVerificationUrl: verificationUrl } : {}),
+    };
   }
 
-  async verify(token: string): Promise<{ requestId: string; status: string }> {
-    const request = await this.repo.findOne({ where: { verificationTokenHash: tokenHash(token) }, select: ['requestId','email','status','verificationTokenHash','verificationExpiresAt','verifiedAt','funnelSessionHash'] });
-    if (!request || !request.verificationExpiresAt || request.verificationExpiresAt <= new Date()) throw new ApplicationError('Verification link is invalid or expired', 'REGISTRATION_VERIFICATION_INVALID', 400);
-    if (request.status === 'pending_email') {
-      request.status = 'pending_approval'; request.verifiedAt = new Date(); request.verificationTokenHash = null; request.verificationExpiresAt = null;
-      await this.repo.save(request);
+  async verify(token: string): Promise<{ requestId: string; status: string; bootstrapCompleted?: boolean; ownerSetupRequired?: boolean }> {
+    const result = await AppDataSource.transaction(async manager => {
+      // Serializing on the immutable Owner role row prevents two first-user
+      // verification requests from both observing an empty singleton.
+      await manager.query("SELECT roleId FROM roles WHERE roleName = 'Owner' FOR UPDATE");
+      const repo = manager.getRepository(RegistrationRequest);
+      const request = await repo.findOne({
+        where: { verificationTokenHash: tokenHash(token) },
+        select: ['requestId','email','userName','userLastName','userPhone1','passwordHash','status','verificationTokenHash','verificationExpiresAt','verifiedAt','termsVersion','privacyVersion','consentAt','funnelSessionHash'],
+      });
+      if (!request || !request.verificationExpiresAt || request.verificationExpiresAt <= new Date()) {
+        throw new ApplicationError('Verification link is invalid or expired', 'REGISTRATION_VERIFICATION_INVALID', 400);
+      }
+      if (request.status !== 'pending_email') return { requestId: request.requestId, status: request.status };
+
+      const ownerRows = await manager.query('SELECT userId FROM system_owner WHERE singletonId = 1 FOR UPDATE');
+      const userRows = await manager.query('SELECT COUNT(*) AS total FROM users WHERE isActive = 1');
+      const activeUsers = Number(userRows[0]?.total || 0);
+      if (!ownerRows.length && activeUsers > 0) {
+        throw new ApplicationError('Workspace ownership requires recovery', 'OWNER_RECOVERY_REQUIRED', 503);
+      }
+
+      const bootstrapEmail = normalizeEmail(process.env.BOOTSTRAP_OWNER_EMAIL || '');
+      const shouldBootstrap = !ownerRows.length && activeUsers === 0 && Boolean(bootstrapEmail) && request.email === bootstrapEmail;
+      request.verifiedAt = new Date();
+      request.verificationTokenHash = null;
+      request.verificationExpiresAt = null;
+
+      if (shouldBootstrap) {
+        const ownerRole = await manager.getRepository(Role).findOne({ where: { roleName: 'Owner', isActive: true } });
+        if (!ownerRole) throw new ApplicationError('Owner role is unavailable', 'OWNER_ROLE_CONFIG_INVALID', 500);
+        const user = manager.getRepository(User).create({
+          userEmail: request.email,
+          userName: request.userName,
+          userLastName: request.userLastName,
+          userPhone1: request.userPhone1,
+          userPhone2: null,
+          userPassword: request.passwordHash,
+          isActive: true,
+        });
+        const savedUser = await manager.getRepository(User).save(user);
+        await manager.getRepository(UserRole).save({ userId: savedUser.userId, roleId: ownerRole.roleId });
+        await manager.query('INSERT INTO system_owner (singletonId, userId) VALUES (1, ?)', [savedUser.userId]);
+        await manager.getRepository(ConsentRecord).save({
+          userId: savedUser.userId,
+          subjectHash: subjectHash(request.email),
+          policyVersion: request.privacyVersion,
+          categories: { essential: true },
+          source: 'registration',
+          withdrawnAt: null,
+        });
+        request.status = 'approved';
+        request.reviewedBy = savedUser.userId;
+        request.reviewedAt = new Date();
+        await repo.save(request);
+        return { requestId: request.requestId, status: request.status, bootstrapCompleted: true, userId: savedUser.userId, email: request.email, funnelSessionHash: request.funnelSessionHash };
+      }
+
+      request.status = 'pending_approval';
+      await repo.save(request);
+      return { requestId: request.requestId, status: request.status, ownerSetupRequired: !ownerRows.length, funnelSessionHash: request.funnelSessionHash };
+    });
+
+    if (result.bootstrapCompleted) {
+      await auditService.logEvent({ userId: result.userId, action: 'BOOTSTRAP_OWNER_CREATED', status: 'SUCCESS', details: { requestId: result.requestId } });
+      await emailService.sendRegistrationDecisionEmail(result.email!, true);
+      if (result.funnelSessionHash) await productFunnelService.recordHashed('registration_approved', result.funnelSessionHash, result.userId);
+    } else {
       const users = await AppDataSource.getRepository(User).find({ where: { isActive: true }, relations: ['userRoles','userRoles.role'] });
       const owners = users.filter(user => user.userRoles.some(item => item.role.roleName === 'Owner')).map(user => user.userId);
-      await NotificationHelper.notifyRegistrationApproval(request.requestId, owners);
-      if (request.funnelSessionHash) await productFunnelService.recordHashed('registration_verified', request.funnelSessionHash);
+      await NotificationHelper.notifyRegistrationApproval(result.requestId, owners);
+      if (result.funnelSessionHash) await productFunnelService.recordHashed('registration_verified', result.funnelSessionHash);
     }
-    return { requestId: request.requestId, status: request.status };
+    return {
+      requestId: result.requestId,
+      status: result.status,
+      ...(result.bootstrapCompleted ? { bootstrapCompleted: true } : {}),
+      ...(result.ownerSetupRequired ? { ownerSetupRequired: true } : {}),
+    };
   }
 
   async resend(emailValue: string): Promise<void> {

@@ -1009,6 +1009,7 @@ CREATE TABLE `registration_requests` (
   `consentAt` DATETIME NOT NULL, `ipHash` CHAR(64) NULL, `funnelSessionHash` CHAR(64) NULL, `createdAt` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updatedAt` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`requestId`), UNIQUE KEY `UQ_registration_request_email` (`email`),
+  UNIQUE KEY `UQ_registration_verification_token` (`verificationTokenHash`),
   KEY `IDX_registration_status_created` (`status`,`createdAt`),
   CONSTRAINT `FK_registration_reviewed_by` FOREIGN KEY (`reviewedBy`) REFERENCES `users` (`userId`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -1087,7 +1088,8 @@ INSERT INTO `migrations` (`timestamp`, `name`) VALUES
   (1851000000000, 'ProfileTrustCampaign1851000000000'),
   (1852000000000, 'ProfileCustomDomains1852000000000'),
   (1853000000000, 'ProfileDomainRedirectPreference1853000000000'),
-  (1854000000000, 'UatAccessPrivacyCapacity1854000000000');
+  (1854000000000, 'UatAccessPrivacyCapacity1854000000000'),
+  (1855000000000, 'RegistrationVerificationIndex1855000000000');
 
 INSERT INTO `roles` (`roleName`, `description`, `roleLevel`) VALUES
   ('Owner', 'System owner with full access and ownership transfer authority', 999),

@@ -13,7 +13,7 @@ services:
     branch: master
     rootDir: Backend
     buildCommand: npm ci && npm run build
-    startCommand: npm run migration:run:prod && npm run start
+    startCommand: npm run migration:run:prod:retry && npm run start
     healthCheckPath: /health
     envVars:
       - key: NODE_ENV

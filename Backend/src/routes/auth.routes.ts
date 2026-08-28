@@ -13,6 +13,7 @@ const registrationRequestController = new RegistrationRequestController();
 const registrationLimiter = rateLimit({ windowMs: 60 * 60 * 1000, limit: 5, standardHeaders: true, legacyHeaders: false });
 
 // Public routes
+router.get('/registration-policy', registrationRequestController.policy);
 router.get('/invitations/:token', invitationController.validate);
 router.get('/registration-requests/verify', registrationRequestController.verify);
 router.post('/registration-requests/resend-verification', registrationLimiter, registrationRequestController.resend);

@@ -19,6 +19,8 @@ services:
         value: "false"
       - key: ALLOW_PUBLIC_REGISTRATION
         value: "true"
+      - key: BOOTSTRAP_OWNER_EMAIL
+        sync: false
       - key: PROFILE_CUSTOM_DOMAINS_ENABLED
         value: "false"
       - key: DB_SSL

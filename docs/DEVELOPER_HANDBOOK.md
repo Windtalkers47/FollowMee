@@ -160,6 +160,49 @@ npm start
 
 `npm start` เรียก DB doctor ก่อน หากพบ pending migration ให้หยุด ตรวจ backup/runbook และอย่ารัน migration โดยเดา
 
+### Local dev กับฐาน disposable (แนะนำ)
+
+โครงสร้างและ migration ของ local/e2e/UAT ใช้ชุดเดียวกันได้ แต่ข้อมูลต้องแยกฐานเสมอ
+โดย local ที่ใช้ทดสอบ mutation ให้ใช้ `followmee_e2e` เท่านั้น ห้ามเปลี่ยน `DB_NAME`
+เป็น `followmee` เพื่อหลบ DB doctor
+
+```powershell
+# เตรียมฐานแบบ idempotent, local Owner และ email preview แล้วเปิดทั้งระบบ
+npm run dev:local
+
+# ใช้เฉพาะเมื่อตั้งใจล้าง followmee_e2e และเริ่มใหม่
+npm run dev:local:fresh
+```
+
+`npm run dev:local` ใช้ค่าการเชื่อมต่อ host/port/user/password จาก `Backend/.env`
+แต่ยอมรับเฉพาะ loopback host, override ชื่อฐานเป็น `followmee_e2e`, รักษาข้อมูลเดิม
+และสร้าง `test@example.com` เป็น Owner เฉพาะเมื่อฐานว่าง จึงไม่ต้องแก้ไฟล์สลับไปมา
+Local email preview ไม่ใช้ Gmail/SendGrid และคืนลิงก์ยืนยันให้หน้า Register โดยตรง
+Frontend local ใช้ `Frontend/.env.development` (`VITE_API_URL` และ `VITE_WS_URL` ชี้ไป
+`localhost:5000`) ส่วน `Backend/.env.development` ไม่ได้ถูกโหลดอัตโนมัติโดย Node
+และไม่ควรใช้เป็นที่เก็บค่าหลัก
+
+### ความหมายของฐานข้อมูลแต่ละตัว
+
+- `followmee` คือฐาน local หลักที่มีข้อมูลพัฒนาเดิม ใช้เปิดแอปเพื่อดู/ทำงานตามปกติได้
+  แต่ห้าม reset, seed, migration แบบเดา หรือใส่ข้อมูลทดสอบลงฐานนี้
+- `followmee_e2e` คือฐาน disposable สำหรับการทดสอบที่เขียนข้อมูล, reset, seed และ E2E
+  คำสั่ง `npm run dev:local` บังคับใช้ฐานนี้เพื่อป้องกันการชี้ผิด
+- `followmee_uat` คือฐาน TiDB ของ UAT ที่ Render ใช้งานอยู่ ไม่ใช่ฐาน local และไม่ใช่
+  production เชิงพาณิชย์ การทดสอบ UAT ให้ใช้ [URL ที่ deploy แล้ว](https://follow-mee.vercel.app)
+  กับ backend Render; ไม่ควรสตาร์ท backend local ให้ต่อฐานนี้โดยตรง
+
+ดังนั้น `npm start` เป็นคำสั่งเดิมสำหรับ local ที่อิง `Backend/.env` ส่วนคำสั่งที่ปลอดภัย
+สำหรับงานประจำคือ `npm run dev:local` (Front + Back local บน `followmee_e2e`)
+และ UAT ใช้บริการที่ deploy แล้ว (Front บน Vercel + Back บน Render) แทนการสร้าง
+`dev:uat` ที่ต่อฐาน TiDB ระยะไกลจากเครื่องนักพัฒนา
+
+### สลับไป UAT
+
+UAT จริงรันบน Render จาก branch `deploy_uat` และ TiDB ฐาน `followmee_uat` ผ่าน
+`render.uat.yaml` ไม่ควรให้ local ต่อฐาน UAT เพื่อทำ mutation หากต้องทดสอบ flow
+ให้ใช้ URL UAT ที่ deploy แล้ว หรือใช้ `followmee_e2e` ในเครื่องแทน
+
 ## 7. Environment matrix
 
 ### Backend
@@ -169,10 +212,10 @@ npm start
 | Runtime | `NODE_ENV`, `PORT` | production ใช้ค่าจาก Render |
 | Database | `DB_HOST`, `DB_PORT`, `DB_USERNAME`, `DB_PASSWORD`, `DB_NAME` | secret เฉพาะ server |
 | TLS/pool | `DB_SSL`, `DB_SSL_CA_BASE64`, `DB_POOL_SIZE`, `DB_CONNECT_TIMEOUT_MS` | TiDB production ต้องใช้ TLS |
-| Auth | `JWT_SECRET`, `JWT_EXPIRES_IN`, `ALLOW_PUBLIC_REGISTRATION`, `INVITATION_SECRET` | secrets อยู่ใน Render เท่านั้น |
+| Auth | `JWT_SECRET`, `JWT_EXPIRES_IN`, `ALLOW_PUBLIC_REGISTRATION`, `BOOTSTRAP_OWNER_EMAIL`, `INVITATION_SECRET` | bootstrap email อยู่ backend เท่านั้นและหมดสิทธิ์พิเศษเมื่อมี Owner |
 | Browser origins | `FRONTEND_URL`, `CORS_ORIGIN`, `CORS_PREVIEW_ORIGINS` | exact origins; comma-separated previews |
 | Media | `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` | API secret ห้ามอยู่ frontend |
-| Email | `SENDGRID_API_KEY`, `SENDGRID_FROM_EMAIL`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` | `SMTP_PASS` คือชื่อ runtime ที่ถูกต้อง |
+| Email | `SENDGRID_API_KEY`, `SENDGRID_FROM_EMAIL`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`, `EMAIL_DELIVERY_MODE` | UAT ใช้ SendGrid HTTPS API; preview จำกัดเฉพาะ development + `followmee_e2e` |
 | Push | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_CONTACT_EMAIL` | private key เป็น server secret |
 | Privacy | `PROFILE_ANALYTICS_SALT` | ต้องตั้งใน production |
 | Profile conversion | `PROFILE_LEAD_RATE_LIMIT` | จำกัด lead ต่อ IP/profile window; ค่าเริ่มต้น 8 |
@@ -293,6 +336,9 @@ git diff --check
 - `doctor:db` ขึ้น `ECONNREFUSED`: เปิด MySQL/MariaDB และตรวจ port/credentials; ไม่ต้อง reset schema
 - pending migrations: หยุด app, อ่าน migration list, backup และใช้ runbook
 - CORS: ตรวจ exact `FRONTEND_URL`, `CORS_ORIGIN`, preview origins และ trailing slash
+- สมัคร UAT ค้างที่ `Creating account`: ตรวจ Render log ของ `EmailService`; production ต้องใช้ SendGrid HTTPS API และ `SENDGRID_FROM_EMAIL` ต้องเป็น Sender Identity ที่ verify แล้ว
+- UAT ไม่มี User/Owner: ตั้ง `BOOTSTRAP_OWNER_EMAIL` ใน Render แล้วให้อีเมลนั้นสมัครและยืนยัน; ถ้ามี User แต่ singleton หายให้ใช้ audited Owner recovery CLI
+- Render/TiDB outage: startup ใช้ bounded retry แล้ว exit ให้ platform restart; ห้าม auto-restore ทับฐานเดิม
 - WebSocket offline/reconnecting: ตรวจ `VITE_WS_URL`, backend availability, CORS และ auth cookie ก่อนแก้ cache logic
 - production frontend build ล้ม: `VITE_API_URL` และ `VITE_WS_URL` ต้องมีค่า
 - หน้าเว็บใช้ endpoint เก่า: Vite env ถูกฝังตอน build ต้อง redeploy หลังแก้ env

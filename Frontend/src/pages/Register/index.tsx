@@ -1,8 +1,9 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useCallback, useEffect, useState, useRef } from 'react';
 import { useNavigate, Link as RouterLink, useSearchParams } from 'react-router-dom';
 import { useAppDispatch } from '../../store/store';
 import { loginUser } from '../../store/slices/authSlice';
-import authApi, { LoginCredentials, RegisterCredentials } from '../../api/auth.api';
+import authApi, { LoginCredentials, RegisterCredentials, type RegistrationPolicy } from '../../api/auth.api';
+import { ApiError } from '../../api/config';
 import {
   Box,
   Typography,
@@ -16,12 +17,11 @@ import {
   FormControlLabel,
   IconButton,
   InputAdornment,
+  Stack,
 } from '@mui/material';
 import { LockOutlined, Visibility, VisibilityOff } from '@mui/icons-material';
 import feedback from '../../services/feedback.service';
 import { useUserPreferences } from '../../contexts/UserPreferencesContext';
-import { env } from '../../utils/env';
-import { canUsePublicRegistration } from '../../utils/registrationPolicy';
 import AuthShell from '../../components/AuthShell';
 import TurnstileWidget from '../../components/TurnstileWidget';
 import { CONSENT_VERSION } from '../../utils/consentPreferences';
@@ -47,7 +47,9 @@ const Register = () => {
   const [searchParams] = useSearchParams();
   const invitationToken = searchParams.get('invite') || '';
   const returnTo = searchParams.get('returnTo');
-  const publicRegistrationAllowed = canUsePublicRegistration(env.isDev, env.features.registration);
+  const [registrationPolicy, setRegistrationPolicy] = useState<RegistrationPolicy | null>(null);
+  const [policyLoading, setPolicyLoading] = useState(!invitationToken);
+  const [policyError, setPolicyError] = useState(false);
   const [invitationState, setInvitationState] = useState<'loading' | 'valid' | 'invalid' | 'public'>(invitationToken ? 'loading' : 'public');
   const [formData, setFormData] = useState({
     userName: '',
@@ -79,10 +81,27 @@ const Register = () => {
   const [preferencesConsent, setPreferencesConsent] = useState(false);
   const [analyticsConsent, setAnalyticsConsent] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState('');
+  const [devVerificationUrl, setDevVerificationUrl] = useState('');
   
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const { t } = useUserPreferences();
+
+  const loadRegistrationPolicy = useCallback(async () => {
+    if (invitationToken) return;
+    setPolicyLoading(true);
+    setPolicyError(false);
+    try {
+      const response = await authApi.registrationPolicy();
+      setRegistrationPolicy(response.data || null);
+    } catch {
+      setPolicyError(true);
+    } finally {
+      setPolicyLoading(false);
+    }
+  }, [invitationToken]);
+
+  useEffect(() => { void loadRegistrationPolicy(); }, [loadRegistrationPolicy]);
 
   useEffect(() => {
     if (!invitationToken) return;
@@ -278,6 +297,11 @@ const Register = () => {
       
       if (!invitationToken && response.data?.status?.startsWith('pending')) {
         recordProductFunnel('registration_submitted');
+        if (response.data.devVerificationUrl) {
+          setDevVerificationUrl(response.data.devVerificationUrl);
+          await feedback.success({ title: t('auth.register.localPreviewTitle'), message: t('auth.register.localPreviewText'), importance: 'milestone' });
+          return;
+        }
         await feedback.success({ title: t('auth.register.verifyEmailTitle'), message: t('auth.register.verifyEmailText'), importance: 'milestone' });
         navigate('/login?registration=pending-email', { replace: true });
         return;
@@ -314,7 +338,8 @@ const Register = () => {
         navigate(returnTo?.startsWith('/') && !returnTo.startsWith('//') ? returnTo : '/my-work');
       }
     } catch (error: unknown) {
-      console.error('Registration error:', error);
+      // Keep diagnostics limited to status/code; never log request payloads or passwords.
+      if (error instanceof ApiError) console.warn('Registration request rejected', { status: error.status, code: error.code });
       
       // Hide loading
       feedback.hideLoading();
@@ -322,13 +347,24 @@ const Register = () => {
       // Show detailed error message
       const errorMessage = error instanceof Error ? error.message : '';
       const isDuplicateEmail = errorMessage.includes('Duplicate entry') || errorMessage.includes('already in use') || errorMessage.includes('Email already in use');
+      const errorCode = error instanceof ApiError ? error.code : undefined;
+      const codeText: Record<string, string> = {
+        TURNSTILE_REQUIRED: t('auth.register.turnstileRequired'),
+        TURNSTILE_FAILED: t('auth.register.turnstileFailed'),
+        REGISTRATION_EMAIL_DELIVERY_FAILED: t('auth.register.emailDeliveryFailed'),
+        REGISTRATION_REQUEST_TIMEOUT: t('auth.register.requestTimeout'),
+        POLICY_ACCEPTANCE_REQUIRED: t('auth.register.policyRequiredHelp'),
+        POLICY_VERSION_OUTDATED: t('auth.register.policyOutdated'),
+        INVITATION_REQUIRED: t('auth.register.invitationRequired'),
+      };
+      const specificText = errorCode ? codeText[errorCode] : undefined;
       
       await feedback.fire({
         icon: 'error',
         title: isDuplicateEmail ? t('auth.register.emailExists') : t('auth.register.failed'),
-        text: isDuplicateEmail 
+        text: isDuplicateEmail
           ? t('auth.register.duplicateText')
-          : t('auth.register.failedText'),
+          : specificText || t('auth.register.failedText'),
       });
     } finally {
       setIsLoading(false);
@@ -357,12 +393,22 @@ const Register = () => {
 
   return (
     <AuthShell maxWidth="sm" title={t('auth.register.title')} subtitle={t('auth.register.subtitle')} icon={<LockOutlined />}>
-          
-          {!invitationToken && !publicRegistrationAllowed ? <Box>
+          {!invitationToken && policyLoading ? <Stack alignItems="center" gap={2} py={4}>
+            <CircularProgress />
+            <Typography color="text.secondary">{t('auth.register.checkingAvailability')}</Typography>
+          </Stack> : !invitationToken && policyError ? <Box>
+            <Alert severity="warning" sx={{ mb: 2 }}>{t('auth.register.serverWaking')}</Alert>
+            <Button onClick={() => void loadRegistrationPolicy()} fullWidth variant="contained">{t('feedback.retry')}</Button>
+          </Box> : !invitationToken && registrationPolicy?.mode === 'recovery_required' ? <Box>
+            <Alert severity="error" sx={{ mb: 2 }}>{t('auth.register.ownerRecoveryRequired')}</Alert>
+            <Button component={RouterLink} to="/login" fullWidth variant="contained">{t('auth.login.signIn')}</Button>
+          </Box> : !invitationToken && registrationPolicy?.mode === 'invite_only' ? <Box>
             <Alert severity="info" sx={{ mb: 2 }}>{t('auth.register.inviteOnly')}</Alert>
             <Typography color="text.secondary" mb={3}>{t('auth.register.inviteOnlyHelp')}</Typography>
             <Button component={RouterLink} to="/login" fullWidth variant="contained">{t('auth.login.signIn')}</Button>
           </Box> : <Box component="form" onSubmit={handleSubmit} noValidate>
+            {!invitationToken && registrationPolicy?.mode === 'bootstrap' && <Alert severity="info" sx={{ mb: 2 }}>{t('auth.register.bootstrapHelp')}</Alert>}
+            {devVerificationUrl && <Alert severity="success" sx={{ mb: 2 }} action={<Button color="inherit" href={devVerificationUrl}>{t('auth.register.verifyLocally')}</Button>}>{t('auth.register.localPreviewText')}</Alert>}
             {invitationState === 'loading' && <Alert severity="info" sx={{ mb: 2 }}>{t('feature.inviteValidating')}</Alert>}
             {invitationState === 'invalid' && <Alert severity="error" sx={{ mb: 2 }}>{t('feature.inviteInvalid')}</Alert>}
             <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>

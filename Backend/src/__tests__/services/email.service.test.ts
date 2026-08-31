@@ -34,11 +34,16 @@ describe('EmailService SendGrid delivery', () => {
   });
 
   it('returns false when SendGrid rejects the request', async () => {
-    global.fetch = jest.fn().mockResolvedValue(new Response(null, { status: 403 })) as jest.Mock;
-    jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    global.fetch = jest.fn().mockResolvedValue(new Response(JSON.stringify({
+      errors: [{ message: 'The from address does not match a verified Sender Identity: private@example.test', field: 'from' }],
+    }), { status: 403, headers: { 'Content-Type': 'application/json' } })) as jest.Mock;
+    const errorLog = jest.spyOn(console, 'error').mockImplementation(() => undefined);
     const service = new EmailService();
 
     await expect(service.sendRegistrationVerificationEmail('recipient@example.test', 'https://followmee.test/verify')).resolves.toBe(false);
+    expect(errorLog).toHaveBeenCalledWith('[EmailService] SendGrid API rejected email', { status: 403, reason: 'sender_identity' });
+    expect(JSON.stringify(errorLog.mock.calls)).not.toContain('private@example.test');
+    expect(JSON.stringify(errorLog.mock.calls)).not.toContain('recipient@example.test');
   });
 
   it('allows token-free local preview only on the disposable development database', async () => {

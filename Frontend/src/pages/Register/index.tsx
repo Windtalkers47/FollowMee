@@ -81,7 +81,9 @@ const Register = () => {
   const [preferencesConsent, setPreferencesConsent] = useState(false);
   const [analyticsConsent, setAnalyticsConsent] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState('');
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0);
   const [devVerificationUrl, setDevVerificationUrl] = useState('');
+  const turnstileSiteKey = import.meta.env.VITE_TURNSTILE_SITE_KEY || '';
   
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
@@ -348,6 +350,12 @@ const Register = () => {
       const errorMessage = error instanceof Error ? error.message : '';
       const isDuplicateEmail = errorMessage.includes('Duplicate entry') || errorMessage.includes('already in use') || errorMessage.includes('Email already in use');
       const errorCode = error instanceof ApiError ? error.code : undefined;
+      // Siteverify tokens are single-use. The backend may have consumed a valid
+      // token even when a later step (for example email delivery) failed.
+      if (turnstileSiteKey) {
+        setTurnstileToken('');
+        setTurnstileResetKey(current => current + 1);
+      }
       const codeText: Record<string, string> = {
         TURNSTILE_REQUIRED: t('auth.register.turnstileRequired'),
         TURNSTILE_FAILED: t('auth.register.turnstileFailed'),
@@ -550,14 +558,14 @@ const Register = () => {
               <FormControlLabel control={<Checkbox checked={analyticsConsent} onChange={(_, value) => setAnalyticsConsent(value)} />} label={t('privacy.cookies.analyticsOptional')} />
             </Box>
             <Box sx={{ position: 'absolute', left: -10000, width: 1, height: 1, overflow: 'hidden' }} aria-hidden><TextField name="website" tabIndex={-1} autoComplete="off" /></Box>
-            <TurnstileWidget siteKey={import.meta.env.VITE_TURNSTILE_SITE_KEY || ''} onToken={setTurnstileToken} />
+            <TurnstileWidget siteKey={turnstileSiteKey} onToken={setTurnstileToken} resetKey={turnstileResetKey} />
             
             <Button
               type="submit"
               fullWidth
               variant="contained"
               sx={{ mt: 3, mb: 2, py: 1.5 }}
-              disabled={isLoading}
+              disabled={isLoading || Boolean(turnstileSiteKey && !turnstileToken)}
               startIcon={isLoading ? <CircularProgress size={20} /> : null}
             >
               {isLoading ? t('auth.register.creating') : t('auth.register.create')}

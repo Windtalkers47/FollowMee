@@ -113,7 +113,17 @@ export class EmailService {
       });
 
       if (!response.ok) {
-        console.error('[EmailService] SendGrid API rejected email', { status: response.status });
+        const payload = await response.json().catch(() => null) as { errors?: Array<{ message?: string; field?: string }> } | null;
+        const diagnostic = (payload?.errors || []).map(item => `${item.message || ''} ${item.field || ''}`).join(' ').toLowerCase();
+        const reason = /verified sender|sender identity|from address/.test(diagnostic)
+          ? 'sender_identity'
+          : /permission|authorization|access forbidden|api key/.test(diagnostic)
+            ? 'authorization'
+            : /suspend|deactivat|account/.test(diagnostic)
+              ? 'account_status'
+              : 'unknown';
+        // Never log SendGrid's raw body: it can contain recipient or sender PII.
+        console.error('[EmailService] SendGrid API rejected email', { status: response.status, reason });
         throw new Error(`SendGrid API returned ${response.status}`);
       }
     } finally {

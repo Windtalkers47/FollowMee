@@ -50,8 +50,22 @@ export class RegistrationRequestService {
     const timer = setTimeout(() => controller.abort(), 5_000);
     try {
       const response = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', { method: 'POST', body, signal: controller.signal });
-      const result = await response.json() as { success?: boolean };
-      if (!result.success) throw new ApplicationError('Human verification failed', 'TURNSTILE_FAILED', 400);
+      const result = await response.json() as { success?: boolean; hostname?: string; 'error-codes'?: string[] };
+      const errorCodes = Array.isArray(result['error-codes']) ? result['error-codes'] : [];
+      let expectedHostname: string | undefined;
+      if (process.env.NODE_ENV === 'production' && process.env.FRONTEND_URL) {
+        try { expectedHostname = new URL(process.env.FRONTEND_URL).hostname; } catch { /* startup validation reports malformed URLs */ }
+      }
+      const hostnameMismatch = Boolean(result.success && expectedHostname && result.hostname !== expectedHostname);
+      if (!result.success || hostnameMismatch) {
+        // Turnstile tokens and secrets must never be logged. Error codes and the
+        // returned hostname are enough to diagnose expiry, replay, or bad config.
+        console.warn('[Turnstile] Verification rejected', {
+          errorCodes: hostnameMismatch ? ['hostname-mismatch'] : errorCodes,
+          hostname: result.hostname || null,
+        });
+        throw new ApplicationError('Human verification failed', 'TURNSTILE_FAILED', 400);
+      }
     } finally { clearTimeout(timer); }
   }
 

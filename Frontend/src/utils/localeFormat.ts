@@ -13,7 +13,7 @@ export const formatLocalizedDate = (
     month: 'short',
     year: 'numeric',
   },
-) => new Intl.DateTimeFormat(localeTag(locale), options).format(new Date(value));
+) => new Intl.DateTimeFormat(localeTag(locale), { timeZone: 'Asia/Bangkok', ...options }).format(new Date(value));
 
 export const formatLocalizedNumber = (
   value: number,

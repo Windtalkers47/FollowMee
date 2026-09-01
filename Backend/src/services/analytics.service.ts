@@ -8,8 +8,10 @@ export const resolveAnalyticsDateRange = (startDate?: string, endDate?: string, 
   const todayParts = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Bangkok', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(now);
   const today = `${todayParts.find(part => part.type === 'year')?.value}-${todayParts.find(part => part.type === 'month')?.value}-${todayParts.find(part => part.type === 'day')?.value}`;
   const resolvedEnd = endDate || today;
-  const fallbackStart = new Date(`${resolvedEnd}T00:00:00+07:00`); fallbackStart.setDate(fallbackStart.getDate() - 29);
-  const resolvedStart = startDate || `${fallbackStart.getFullYear()}-${String(fallbackStart.getMonth() + 1).padStart(2, '0')}-${String(fallbackStart.getDate()).padStart(2, '0')}`;
+  // Treat date-only values as Bangkok calendar dates. Using local Date setters here
+  // made the result depend on the server timezone (CI runs in UTC and shifted one day).
+  const fallbackStart = new Date(`${resolvedEnd}T00:00:00Z`); fallbackStart.setUTCDate(fallbackStart.getUTCDate() - 29);
+  const resolvedStart = startDate || fallbackStart.toISOString().slice(0, 10);
   if (!datePattern.test(resolvedStart) || !datePattern.test(resolvedEnd)) throw new ApplicationError('A valid date range is required', 'ANALYTICS_DATE_INVALID', 400);
   const start = new Date(`${resolvedStart}T00:00:00+07:00`);
   const endInclusive = new Date(`${resolvedEnd}T00:00:00+07:00`);

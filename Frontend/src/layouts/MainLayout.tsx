@@ -162,9 +162,9 @@ const MainLayout = ({ children }: MainLayoutProps) => {
     '/posts': t('nav.activity'),
     '/rewards': t('nav.rewards'),
     '/users': t('nav.users'),
-    '/users/registration-requests': 'คำขอเข้า UAT',
-    '/system-capacity': 'System Capacity',
-    '/privacy-requests': 'คำขอความเป็นส่วนตัว',
+    '/users/registration-requests': t('nav.registrationRequests'),
+    '/system-capacity': t('nav.systemCapacity'),
+    '/privacy-requests': t('nav.privacyRequests'),
   }), [t]);
   const groupLabels = useMemo<Record<string, string>>(() => ({
     Workspace: t('nav.workspace'),

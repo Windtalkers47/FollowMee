@@ -733,16 +733,6 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
                         required
                         error={!!error || apiError?.field === 'customerEmail'}
                         helperText={emailError}
-                        onChange={(e) => {
-                          // Pass the primitive value explicitly. This avoids
-                          // event-wrapper differences between MUI and React
-                          // Hook Form in the production bundle.
-                          field.onChange(e.target.value);
-                          // Clear API error when user starts typing
-                          if (apiError?.field === 'customerEmail' && onClearApiError) {
-                            onClearApiError();
-                          }
-                        }}
                       />
                     );
                   }}

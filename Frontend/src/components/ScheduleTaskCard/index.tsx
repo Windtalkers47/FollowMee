@@ -14,6 +14,7 @@ import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import CloseIcon from '@mui/icons-material/Close';
 import AssignmentIndIcon from '@mui/icons-material/AssignmentInd';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import VisibilityIcon from '@mui/icons-material/Visibility';
 import feedback from '../../services/feedback.service';
 import { Task, TaskLikeSummary } from '../../api/task.api';
 import { getTaskPermissions } from '../../permissions/taskPermissions';
@@ -81,6 +82,11 @@ const ScheduleTaskCard: React.FC<Props> = ({
   const images = (task.images || []).slice().sort((a, b) => a.imageOrder - b.imageOrder);
   const visibleImages = images.slice(0, 4);
   const handleCardClick = () => isInSelectionMode ? onToggleSelect?.(task.taskId) : onCardClick?.();
+  const handleArticleClick = (event: React.MouseEvent<HTMLElement>) => {
+    const target = event.target as HTMLElement;
+    if (target.closest('button, a, input, [role="menuitem"], [data-task-interactive="true"]')) return;
+    handleCardClick();
+  };
   const titleId = `schedule-task-title-${task.taskId}`;
 
   const confirmDelete = async () => {
@@ -90,7 +96,7 @@ const ScheduleTaskCard: React.FC<Props> = ({
   };
 
   return <>
-    <Box component="article" tabIndex={-1} aria-labelledby={titleId} aria-selected={isInSelectionMode ? isSelected : undefined} data-testid={`task-card-${task.taskId}`} sx={{ height: '100%', minHeight: 360, p: { xs: 2, sm: 2.5 }, borderRadius: 3, position: 'relative', backgroundColor: isSelected ? (theme.palette.mode === 'dark' ? 'rgba(52,199,89,.14)' : '#F0FBF2') : isFocused ? 'action.selected' : 'background.paper', border: isSelected || isFocused ? '2px solid' : '1px solid', borderColor: isSelected ? feedbackTokens.success : isFocused ? 'primary.main' : 'divider', boxShadow: isFocused ? `0 0 0 4px ${theme.palette.primary.main}22` : 'none', transition: 'border-color .2s, background-color .2s, box-shadow .2s', '&:hover': { borderColor: isSelected ? feedbackTokens.success : 'text.secondary' }, '&:focus-visible': { outline: `3px solid ${theme.palette.primary.main}`, outlineOffset: 3 } }}>
+    <Box component="article" tabIndex={-1} aria-labelledby={titleId} aria-selected={isInSelectionMode ? isSelected : undefined} data-testid={`task-card-${task.taskId}`} onClick={onCardClick ? handleArticleClick : undefined} sx={{ height: '100%', minHeight: 360, p: { xs: 2, sm: 2.5 }, borderRadius: 3, position: 'relative', backgroundColor: isSelected ? (theme.palette.mode === 'dark' ? 'rgba(52,199,89,.14)' : '#F0FBF2') : isFocused ? 'action.selected' : 'background.paper', border: isSelected || isFocused ? '2px solid' : '1px solid', borderColor: isSelected ? feedbackTokens.success : isFocused ? 'primary.main' : 'divider', boxShadow: isFocused ? `0 0 0 4px ${theme.palette.primary.main}22` : 'none', transition: 'border-color .2s, background-color .2s, box-shadow .2s', cursor: onCardClick && !isInSelectionMode ? 'pointer' : 'default', '&:hover': { borderColor: isSelected ? feedbackTokens.success : 'text.secondary' }, '&:focus-visible': { outline: `3px solid ${theme.palette.primary.main}`, outlineOffset: 3 } }}>
       {images.length > 0 && <Box sx={{ display: 'grid', gridTemplateColumns: visibleImages.length > 1 ? 'repeat(2, 1fr)' : '1fr', gap: .5, mb: 2, borderRadius: 2, overflow: 'hidden', height: visibleImages.length === 1 ? 150 : 120 }}>
         {visibleImages.map((image, index) => <ButtonBase key={image.imageId} aria-label={t('scheduleCard.imageAlt', { title: task.title, count: index + 1 })} onClick={() => setLightbox(image.imageUrl)} sx={{ minWidth: 44, minHeight: 44, overflow: 'hidden', gridColumn: visibleImages.length === 3 && index === 0 ? 'span 2' : 'auto', '&:focus-visible': { outline: `3px solid ${theme.palette.primary.main}`, outlineOffset: -3 } }}><Box component="img" {...getResponsiveImageProps(image.imageUrl, '(max-width: 600px) 100vw, (max-width: 1200px) 50vw, 320px')} alt="" loading="lazy" sx={{ width: '100%', height: '100%', objectFit: 'cover' }} /></ButtonBase>)}
         {images.length > 4 && <Box sx={{ position: 'absolute', mt: 9, ml: 'calc(100% - 74px)', bgcolor: 'rgba(0,0,0,.68)', color: '#fff', borderRadius: 1, px: 1, py: .5, fontSize: 12 }}>+{images.length - 4}</Box>}
@@ -134,6 +140,15 @@ const ScheduleTaskCard: React.FC<Props> = ({
             <ArrowForwardIcon fontSize="small" sx={{ mr: 1.5 }} />{t('scheduleCard.publishTask')}
           </MenuItem>
         )}
+        {task.status === 'review' && onUpdateTaskStatus && (
+          <MenuItem
+            onClick={() => { onUpdateTaskStatus(task.taskId, 'todo'); setAnchorEl(null); }}
+            disabled={!task.workflow?.canEdit}
+          >
+            <ArrowForwardIcon fontSize="small" sx={{ mr: 1.5 }} />{t('task.moveTodo')}
+          </MenuItem>
+        )}
+        {onCardClick && <MenuItem onClick={() => { onCardClick(); setAnchorEl(null); }}><VisibilityIcon fontSize="small" sx={{ mr: 1.5 }} />{t('task.view')}</MenuItem>}
         {task.status !== 'cancelled' && onCancel && <MenuItem onClick={() => { onCancel(task.taskId); setAnchorEl(null); }} disabled={!permissions.canCancel}><CancelIcon fontSize="small" sx={{ mr: 1.5 }} />{t('scheduleCard.cancelTask')}</MenuItem>}
         <MenuItem onClick={() => void confirmDelete()} disabled={!permissions.canDelete} sx={{ color: 'error.main' }}><DeleteIcon fontSize="small" sx={{ mr: 1.5 }} />{t('scheduleCard.deleteTask')}</MenuItem>
       </Menu>

@@ -1,6 +1,8 @@
-import { useState, useEffect } from 'react';
-import { Task, TaskImage, CreateTaskData, User } from '../api/task.api';
+import { useState, useEffect, useRef } from 'react';
+import { Task, TaskImage, CreateTaskData, User, taskApi } from '../api/task.api';
 import { useUserPreferences } from '../contexts/UserPreferencesContext';
+import feedback from '../services/feedback.service';
+import { userFacingMutationError } from '../utils/userFacingError';
 
 export type TaskSaveIntent = 'draft' | 'publish' | 'save';
 
@@ -33,10 +35,55 @@ export const useTaskForm = ({ task, users, onSave }: UseTaskFormProps) => {
   const [images, setImages] = useState<TaskImage[]>([]);
   const [formErrors, setFormErrors] = useState<FormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [conflictFields, setConflictFields] = useState<string[]>([]);
+  const originalTaskRef = useRef<Task | undefined>(task);
+  const firstValidationFieldRef = useRef<string | undefined>(undefined);
+
+  const changedFields = (current: CreateTaskData, baseline: Task): string[] => {
+    const changed: string[] = [];
+    if (current.title !== baseline.title) changed.push('title');
+    if ((current.description || '') !== (baseline.description || '')) changed.push('description');
+    if ((current.assignedTo || null) !== (baseline.assignedTo || null)) changed.push('assignedTo');
+    if (current.priority !== baseline.priority) changed.push('priority');
+    if (JSON.stringify(current.watcherIds || []) !== JSON.stringify(baseline.watcherIds || [])) changed.push('watcherIds');
+    const baselineRange = baseline.startDate && baseline.endDate ? [baseline.startDate, baseline.endDate] : [];
+    if (JSON.stringify(current.dueDateRange || []) !== JSON.stringify(baselineRange)) changed.push('dueDateRange');
+    return changed;
+  };
+
+  const reloadLatest = async (keepDraft: boolean) => {
+    if (!task) return;
+    const latest = await taskApi.getTaskById(task.taskId);
+    const changed = keepDraft && originalTaskRef.current ? changedFields(formData, originalTaskRef.current) : [];
+    const latestData: CreateTaskData = {
+      title: latest.title, description: latest.description || '', assignedTo: latest.assignedTo,
+      priority: latest.priority, watcherIds: latest.watcherIds, expectedVersion: latest.version,
+      dueDate: latest.dueDate ? new Date(latest.dueDate) : undefined,
+      startDate: latest.startDate ? new Date(latest.startDate) : undefined,
+      endDate: latest.endDate ? new Date(latest.endDate) : undefined,
+      dueDateRange: latest.startDate && latest.endDate ? [new Date(latest.startDate), new Date(latest.endDate)] : undefined,
+      status: latest.status, images: latest.images || [], createdAt: latest.createdAt, updatedAt: latest.updatedAt,
+    };
+    const merged = keepDraft ? {
+      ...latestData,
+      ...(changed.includes('title') ? { title: formData.title } : {}),
+      ...(changed.includes('description') ? { description: formData.description } : {}),
+      ...(changed.includes('assignedTo') ? { assignedTo: formData.assignedTo } : {}),
+      ...(changed.includes('priority') ? { priority: formData.priority } : {}),
+      ...(changed.includes('watcherIds') ? { watcherIds: formData.watcherIds } : {}),
+      ...(changed.includes('dueDateRange') ? { dueDateRange: formData.dueDateRange } : {}),
+    } : latestData;
+    setFormData(merged);
+    setImages(latest.images || []);
+    setConflictFields(changed);
+    originalTaskRef.current = latest;
+    setFormErrors({});
+  };
 
   // Reset form when task changes
   useEffect(() => {
     if (task) {
+      originalTaskRef.current = task;
       setFormData({
         title: task.title,
         description: task.description || '',
@@ -72,6 +119,7 @@ export const useTaskForm = ({ task, users, onSave }: UseTaskFormProps) => {
       setImages([]);
     }
     setFormErrors({});
+    setConflictFields([]);
   }, [task]);
 
   const handleInputChange = <K extends keyof CreateTaskData>(field: K, value: CreateTaskData[K]) => {
@@ -120,11 +168,19 @@ export const useTaskForm = ({ task, users, onSave }: UseTaskFormProps) => {
     }
 
     setFormErrors(errors);
+    firstValidationFieldRef.current = Object.keys(errors)[0];
     return Object.keys(errors).length === 0;
   };
 
   const handleSubmit = async (intent: TaskSaveIntent = 'save') => {
     if (!validateForm(intent)) {
+      const firstField = firstValidationFieldRef.current;
+      if (firstField) window.setTimeout(() => {
+        const element = document.querySelector<HTMLElement>(`[name="${firstField}"]`);
+        element?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'center' });
+        element?.focus({ preventScroll: true });
+      }, 0);
+      void feedback.error({ title: t('feedback.validationTitle'), message: t('feedback.validationHelp'), importance: 'milestone' });
       return false;
     }
 
@@ -142,8 +198,15 @@ export const useTaskForm = ({ task, users, onSave }: UseTaskFormProps) => {
       await onSave(taskData, intent);
       return true;
     } catch (error) {
-      console.error('Failed to save task:', error);
       setFormErrors({ submit: t('task.form.saveFailed') });
+      const code = (error as { response?: { data?: { code?: string } } })?.response?.data?.code;
+      console.warn('Task mutation rejected', { code: code || 'UNKNOWN' });
+      const descriptor = userFacingMutationError(error, t);
+      if (code === 'TASK_VERSION_CONFLICT' && task) {
+        void feedback.error({ title: t('feedback.conflictTitle'), message: t('feedback.conflictDraftHelp'), importance: 'milestone', nextAction: { label: t('feedback.reloadKeepDraft'), onClick: async () => { try { await reloadLatest(true); } catch { void feedback.error({ title: t('feedback.networkTitle'), message: t('feedback.networkHelp'), importance: 'milestone' }); } } } });
+      } else {
+        void feedback.error({ title: descriptor.title, message: descriptor.message, importance: 'milestone' });
+      }
       return false;
     } finally {
       setIsSubmitting(false);
@@ -173,6 +236,7 @@ export const useTaskForm = ({ task, users, onSave }: UseTaskFormProps) => {
     formData,
     images,
     formErrors,
+    conflictFields,
     isSubmitting,
     
     // Actions

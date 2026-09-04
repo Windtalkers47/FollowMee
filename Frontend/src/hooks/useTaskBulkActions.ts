@@ -1,12 +1,14 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { bulkActionApi, type Task, type TaskListResponse } from '../api/task.api';
-import toast from '../utils/toast';
+import feedback from '../services/feedback.service';
+import { useUserPreferences } from '../contexts/UserPreferencesContext';
 import { useAppSelector } from '../store/store';
 import { applyTaskMutationDelete, applyTaskMutationSnapshot } from '../utils/taskMutationCache';
 
 export const useTaskBulkActions = (onSettled?: () => void) => {
   const queryClient = useQueryClient();
   const userId = useAppSelector(state => state.auth.user?.userId);
+  const { t } = useUserPreferences();
   const cachedTask = (taskId: string): Task | undefined => {
     const lists = queryClient.getQueriesData<TaskListResponse>({ queryKey: ['tasks'] });
     return lists.flatMap(([, data]) => data?.tasks || []).find(task => task.taskId === taskId)
@@ -27,12 +29,12 @@ export const useTaskBulkActions = (onSettled?: () => void) => {
         else onSettled?.();
       } else refreshAffectedLists();
       if (result.failed.length > 0) {
-        toast.warning(`Updated ${result.updated} tasks; ${result.failed.length} could not be updated.`);
+        void feedback.warning({ title: t('task.bulkUpdatePartialTitle'), message: t('task.bulkUpdatePartialText', { updated: result.updated, failed: result.failed.length }), importance: 'milestone' });
       } else {
-        toast.success(`Updated ${result.updated} tasks.`);
+        void feedback.success({ title: t('task.bulkUpdateTitle'), message: t('task.bulkUpdateText', { updated: result.updated }), importance: 'milestone' });
       }
     },
-    onError: () => toast.error('Could not update the selected tasks.'),
+    onError: () => void feedback.error({ title: t('task.bulkUpdateFailedTitle'), message: t('task.bulkUpdateFailedText'), importance: 'milestone', persistent: true }),
   });
 
   const remove = useMutation({
@@ -48,12 +50,12 @@ export const useTaskBulkActions = (onSettled?: () => void) => {
         else onSettled?.();
       } else refreshAffectedLists();
       if (result.failed.length > 0) {
-        toast.warning(`Deleted ${result.deleted} tasks; ${result.failed.length} could not be deleted.`);
+        void feedback.warning({ title: t('task.bulkDeletePartialTitle'), message: t('task.bulkDeletePartialText', { deleted: result.deleted ?? 0, failed: result.failed.length }), importance: 'milestone' });
       } else {
-        toast.success(`Deleted ${result.deleted} tasks.`);
+        void feedback.success({ title: t('task.bulkDeleteTitle'), message: t('task.bulkDeleteText', { deleted: result.deleted ?? 0 }), importance: 'milestone' });
       }
     },
-    onError: () => toast.error('Could not delete the selected tasks.'),
+    onError: () => void feedback.error({ title: t('task.bulkDeleteFailedTitle'), message: t('task.bulkDeleteFailedText'), importance: 'milestone', persistent: true }),
   });
 
   return {

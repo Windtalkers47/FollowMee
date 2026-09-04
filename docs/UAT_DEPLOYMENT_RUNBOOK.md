@@ -83,4 +83,6 @@ Exit only when at least 80% publish without help, no P0/P1 remains, Lead realtim
 
 `GET /api/system/capacity` is available to Owner/Admin/Moderator. Exact metrics generate deduplicated 70/85/95/100 notifications; provider-only metrics display a dashboard link and never invent a percentage. At 95% the app shows a persistent banner. Provider-native email/dashboard notifications remain the source of truth for Vercel/Render/TiDB quotas not exposed through reliable APIs.
 
+The response is additive and may include `remaining`, `resetAt`, `lastUpdatedAt`, `source` and `errorCode` for each metric. Cloudinary usage is read server-side from its Admin API when `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY` and `CLOUDINARY_API_SECRET` are configured; `CLOUDINARY_DASHBOARD_URL` is only a fallback link. Provider requests use bounded timeouts and a short cache so a quota API outage does not take down the application. Never put provider credentials in `VITE_*` or expose them in the response. `Unavailable` and `Stale` are valid visible states; missing reset dates must remain unknown rather than estimated.
+
 If a provider pauses the service, communicate a maintenance window and preserve data. Do not reset the database or silently disable writes.

@@ -9,7 +9,6 @@ import {
   Select,
   MenuItem,
   Typography,
-  Alert,
   FormHelperText,
   Checkbox,
   ListItemText
@@ -26,6 +25,7 @@ interface TaskFormFieldsProps {
   images: TaskImage[];
   users: User[];
   formErrors: Record<string, string | undefined>;
+  conflictFields?: string[];
   isSubmitting: boolean;
   onInputChange: <K extends keyof CreateTaskData>(field: K, value: CreateTaskData[K]) => void;
   onImagesChange: (images: TaskImage[]) => void;
@@ -37,6 +37,7 @@ export const TaskFormFields: React.FC<TaskFormFieldsProps> = ({
   images,
   users,
   formErrors,
+  conflictFields = [],
   isSubmitting,
   onInputChange,
   onImagesChange,
@@ -59,6 +60,7 @@ export const TaskFormFields: React.FC<TaskFormFieldsProps> = ({
                 value={formData.title}
                 onChange={(e) => onInputChange('title', e.target.value)}
                 error={!!formErrors.title}
+                sx={conflictFields.includes('title') ? { '& .MuiOutlinedInput-root': { boxShadow: '0 0 0 3px rgba(122, 79, 139, .24)' } } : undefined}
                 helperText={formErrors.title}
                 disabled={isSubmitting}
                 placeholder={t('task.form.enterTitle')}
@@ -72,13 +74,14 @@ export const TaskFormFields: React.FC<TaskFormFieldsProps> = ({
                 value={formData.description}
                 onChange={(e) => onInputChange('description', e.target.value)}
                 error={!!formErrors.description}
+                sx={conflictFields.includes('description') ? { '& .MuiOutlinedInput-root': { boxShadow: '0 0 0 3px rgba(122, 79, 139, .24)' } } : undefined}
                 helperText={formErrors.description}
                 disabled={isSubmitting}
                 placeholder={t('task.form.enterDescription')}
               />
 
               <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-                <FormControl error={!!formErrors.assignedTo} sx={{ flex: 1, minWidth: 200 }}>
+                <FormControl error={!!formErrors.assignedTo} sx={{ flex: 1, minWidth: 200, ...(conflictFields.includes('assignedTo') ? { outline: '3px solid rgba(122, 79, 139, .24)', borderRadius: 1 } : {}) }}>
                   <InputLabel id="assigned-to-label">{t('task.form.assignedTo')}</InputLabel>
                   <Select
                     labelId="assigned-to-label"
@@ -97,7 +100,7 @@ export const TaskFormFields: React.FC<TaskFormFieldsProps> = ({
                   </Select>
                   {formErrors.assignedTo && <FormHelperText>{formErrors.assignedTo}</FormHelperText>}
                 </FormControl>
-                <FormControl sx={{ flex: 1, minWidth: 180 }}>
+                <FormControl sx={{ flex: 1, minWidth: 180, ...(conflictFields.includes('priority') ? { outline: '3px solid rgba(122, 79, 139, .24)', borderRadius: 1 } : {}) }}>
                   <InputLabel id="priority-label">{t('task.form.priority')}</InputLabel>
                   <Select labelId="priority-label" value={formData.priority || 'normal'} label={t('task.form.priority')} onChange={(e) => onInputChange('priority', e.target.value)} disabled={isSubmitting}>
                     {(['low', 'normal', 'high', 'urgent'] as const).map(priority => <MenuItem key={priority} value={priority}>{t(`task.priority.${priority}`)}</MenuItem>)}
@@ -105,7 +108,7 @@ export const TaskFormFields: React.FC<TaskFormFieldsProps> = ({
                 </FormControl>
               </Box>
 
-              <FormControl fullWidth>
+              <FormControl fullWidth sx={conflictFields.includes('watcherIds') ? { outline: '3px solid rgba(122, 79, 139, .24)', borderRadius: 1 } : undefined}>
                 <InputLabel id="watchers-label">{t('task.form.watchers')}</InputLabel>
                 <Select multiple labelId="watchers-label" value={formData.watcherIds || []} label={t('task.form.watchers')} onChange={(e) => onInputChange('watcherIds', typeof e.target.value === 'string' ? e.target.value.split(',').map(Number) : e.target.value)} renderValue={(selected) => users.filter(user => (selected as number[]).includes(user.userId)).map(user => `${user.userName} ${user.userLastName}`).join(', ')} disabled={isSubmitting}>
                   {users.map(user => <MenuItem key={user.userId} value={user.userId}><Checkbox checked={(formData.watcherIds || []).includes(user.userId)} /><ListItemText primary={`${user.userName} ${user.userLastName}`} /></MenuItem>)}
@@ -114,7 +117,7 @@ export const TaskFormFields: React.FC<TaskFormFieldsProps> = ({
 
               <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
                 <Box sx={{ flex: 1, minWidth: 250 }}>
-                  <RangeCalendar
+                  <Box sx={conflictFields.includes('dueDateRange') ? { outline: '3px solid rgba(122, 79, 139, .24)', borderRadius: 1 } : undefined}><RangeCalendar
                     value={formData.dueDateRange || [null, null]}
                     onChange={(range) => onInputChange('dueDateRange', range)}
                     disabled={isSubmitting}
@@ -122,7 +125,7 @@ export const TaskFormFields: React.FC<TaskFormFieldsProps> = ({
                     helperText={formErrors.dueDateRange}
                     label={formData.dueDateRange && formData.dueDateRange[0] && formData.dueDateRange[1] ? t('task.form.dateRange') : t('task.form.dueDate')}
                     bookedDates={bookedDates}
-                  />
+                  /></Box>
                 </Box>
               </Box>
               
@@ -179,12 +182,6 @@ export const TaskFormFields: React.FC<TaskFormFieldsProps> = ({
           </CardContent>
         </Card>
 
-        {/* Error Display */}
-        {formErrors.submit && (
-          <Alert severity="error" sx={{ mt: 2 }}>
-            {formErrors.submit}
-          </Alert>
-        )}
       </Box>
   );
 };

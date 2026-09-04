@@ -18,7 +18,7 @@ export const showToast = (options: ToastOptions) => {
   const outcome: OutcomeOptions = {
     title: options.title || 'Updated',
     message: options.text,
-    duration: options.timer ?? 3000,
+    importance: 'milestone',
   };
   switch (options.icon) {
     case 'success': return feedback.success(outcome);
@@ -29,16 +29,16 @@ export const showToast = (options: ToastOptions) => {
 };
 
 export const showSuccess = (title: string, text?: string) =>
-  feedback.success({ title, message: text, duration: 3000 });
+  feedback.success({ title, message: text, importance: 'milestone' });
 
 export const showError = (title: string, text?: string) =>
-  feedback.error({ title, message: text, duration: 5000 });
+  feedback.error({ title, message: text, importance: 'milestone', persistent: true });
 
 export const showWarning = (title: string, text?: string) =>
-  feedback.warning({ title, message: text, duration: 4000 });
+  feedback.warning({ title, message: text, importance: 'milestone' });
 
 export const showInfo = (title: string, text?: string) =>
-  feedback.info({ title, message: text, duration: 3500 });
+  feedback.info({ title, message: text, importance: 'milestone' });
 
 export const showConfirm = async (
   title: string,

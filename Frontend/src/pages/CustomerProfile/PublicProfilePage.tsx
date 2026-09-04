@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import ContentCopyRounded from '@mui/icons-material/ContentCopyRounded';
 import DownloadRounded from '@mui/icons-material/DownloadRounded';
@@ -14,7 +14,6 @@ import {
   ListItemIcon,
   Menu,
   MenuItem,
-  Snackbar,
   Stack,
   Typography,
 } from '@mui/material';
@@ -24,6 +23,7 @@ import ProfileShareCenter, { type ProfileShareMode } from '../../components/Publ
 import type { ProfileEventType, PublicProfileLanding } from '../../types/publicProfile.types';
 import { useUserPreferences } from '../../contexts/UserPreferencesContext';
 import ProfileLeadForm from '../../components/PublicProfile/ProfileLeadForm';
+import feedback from '../../services/feedback.service';
 
 const PublicProfilePage = () => {
   const { slug = '' } = useParams();
@@ -32,7 +32,9 @@ const PublicProfilePage = () => {
   const [profile, setProfile] = useState<PublicProfileLanding | null>(initialProfile || null);
   const [loading, setLoading] = useState(!initialProfile);
   const [error, setError] = useState('');
-  const [notice, setNotice] = useState('');
+  const notifyNotice = useCallback((message: string) => {
+    void feedback.success({ title: t('feedback.done'), message, importance: 'milestone' });
+  }, [t]);
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   const [shareCenterOpen, setShareCenterOpen] = useState(false);
   const [shareCenterMode, setShareCenterMode] = useState<ProfileShareMode>('image');
@@ -84,7 +86,7 @@ const PublicProfilePage = () => {
   const copy = async () => {
     await navigator.clipboard.writeText(profileUrl);
     record('share', 'copy');
-    setNotice(t('profile.public.linkCopied'));
+    notifyNotice(t('profile.public.linkCopied'));
   };
 
   const share = async () => {
@@ -195,17 +197,11 @@ const PublicProfilePage = () => {
         profile={profile}
         publicUrl={profileUrl}
         initialMode={shareCenterMode}
-        onNotice={setNotice}
-        onError={setNotice}
+        onNotice={notifyNotice}
+        onError={(message) => void feedback.error({ title: t('feedback.failed'), message, importance: 'milestone', persistent: true })}
         onEvent={record}
       />
 
-      <Snackbar
-        open={Boolean(notice)}
-        autoHideDuration={2600}
-        onClose={() => setNotice('')}
-        message={notice}
-      />
     </Box>
   );
 };

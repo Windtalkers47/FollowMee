@@ -100,7 +100,20 @@ const MyWorkPage = () => {
           : undefined,
       });
     },
-    onError: () => feedback.error(t('myWork.updateFailed'), t('feedback.tryAgain')),
+    onError: (error, variables) => {
+      const payload = (error as { response?: { data?: { code?: string; currentStatus?: Task['status'] } } })?.response?.data;
+      if (variables.action === 'submit_review' && payload?.code === 'INVALID_TASK_ACTION' && payload.currentStatus === 'review') {
+        void queryClient.invalidateQueries({ queryKey: ['my-work', userId] });
+        void feedback.error({
+          title: t('myWork.alreadyInReviewTitle'),
+          message: t('myWork.alreadyInReviewText'),
+          nextAction: { label: t('myWork.open'), onClick: () => navigate(`/tasks/${variables.task.taskId}`) },
+          persistent: true,
+        });
+        return;
+      }
+      void feedback.error({ title: t('myWork.updateFailed'), message: t('feedback.tryAgain'), retryAction: { label: t('feedback.retry'), onClick: async () => { await refetch(); } } });
+    },
   });
 
   const sections = useMemo(() => {

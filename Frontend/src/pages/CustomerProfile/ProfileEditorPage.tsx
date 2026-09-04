@@ -22,7 +22,6 @@ import {
   MenuItem,
   Paper,
   Select,
-  Snackbar,
   Stack,
   TextField,
   ToggleButton,
@@ -73,7 +72,9 @@ const ProfileEditorPage = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const [notice, setNotice] = useState('');
+  const notifyNotice = useCallback((message: string) => {
+    void feedback.success({ title: t('feedback.done'), message, importance: 'milestone' });
+  }, [t]);
   const [mobileMode, setMobileMode] = useState<'edit' | 'preview'>('edit');
   const [mobileStep, setMobileStep] = useState(0);
   const [lastSavedSnapshot, setLastSavedSnapshot] = useState('');
@@ -188,7 +189,7 @@ const ProfileEditorPage = () => {
       });
       setProfile(saved);
       setLastSavedSnapshot(JSON.stringify(saved));
-      if (!silent) setNotice(t('profile.editor.draftSaved'));
+      if (!silent) notifyNotice(t('profile.editor.draftSaved'));
       return saved;
     } catch (saveError) {
       console.error('Unable to save profile editor:', saveError);
@@ -225,7 +226,7 @@ const ProfileEditorPage = () => {
       const saved = await publicProfileApi.uploadAvatar(profile.profileId, image);
       setProfile(saved);
       setLastSavedSnapshot(JSON.stringify(saved));
-      setNotice(t('profile.editor.imageUploaded'));
+      notifyNotice(t('profile.editor.imageUploaded'));
     } catch (uploadError) {
       setError(uploadError instanceof Error ? uploadError.message : t('profile.editor.imageUploadError'));
     } finally {
@@ -281,7 +282,7 @@ const ProfileEditorPage = () => {
       }
       setProfile(updated);
       setLastSavedSnapshot(JSON.stringify(updated));
-      setNotice(autoUnlisted && updated.status === 'published'
+      notifyNotice(autoUnlisted && updated.status === 'published'
         ? t('profile.validation.publishedUnlisted')
         : t(updated.status === 'published' ? 'profile.editor.profilePublished' : 'profile.editor.profileUnpublished'));
     } catch (publishError) {
@@ -576,7 +577,7 @@ const ProfileEditorPage = () => {
                       aria-label={t('profile.editor.copyUrl')}
                       onClick={() => {
                         void navigator.clipboard.writeText(publicUrl);
-                        setNotice(t('profile.editor.urlCopied'));
+                        notifyNotice(t('profile.editor.urlCopied'));
                       }}
                     >
                       <ContentCopyRounded />
@@ -712,17 +713,11 @@ const ProfileEditorPage = () => {
         profile={profile}
         publicUrl={publicUrl}
         initialMode={searchParams.get('share') === 'qr' ? 'qr' : 'link'}
-        onNotice={setNotice}
+        onNotice={notifyNotice}
         onError={setError}
         onEvent={(eventType, target) => void publicProfileApi.recordEvent(profile.slug, eventType, target)}
       />
 
-      <Snackbar
-        open={Boolean(notice)}
-        autoHideDuration={2400}
-        onClose={() => setNotice('')}
-        message={notice}
-      />
     </PageShell>
   );
 };

@@ -6,21 +6,8 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import {
-  Box,
-  Button,
-  CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  IconButton,
-  Portal,
-  TextField,
-  Typography,
-  useMediaQuery,
-  useTheme,
-} from '@mui/material';
-import { alpha } from '@mui/material/styles';
+import { useTheme } from '@mui/material';
+import { createPortal } from 'react-dom';
 import { useLocation } from 'react-router-dom';
 import CheckRounded from '@mui/icons-material/CheckRounded';
 import CloseRounded from '@mui/icons-material/CloseRounded';
@@ -59,7 +46,6 @@ const toneIcons = {
 
 const FollowMeeFeedbackProvider = ({ children }: { children: ReactNode }) => {
   const theme = useTheme();
-  const reduceMotion = useMediaQuery('(prefers-reduced-motion: reduce)');
   const { t, brandTheme } = useUserPreferences();
   const location = useLocation();
   const nextId = useRef(0);
@@ -71,6 +57,7 @@ const FollowMeeFeedbackProvider = ({ children }: { children: ReactNode }) => {
   const [submittingModal, setSubmittingModal] = useState(false);
   const previousPath = useRef(location.pathname);
   const modalQueueRef = useRef<QueuedModal[]>([]);
+  const modalSurfaceRef = useRef<HTMLDivElement>(null);
   const remainingOutcomeDuration = useRef(0);
   const outcomeTimerStartedAt = useRef(0);
 
@@ -160,6 +147,27 @@ const FollowMeeFeedbackProvider = ({ children }: { children: ReactNode }) => {
     });
   }, []);
 
+  useEffect(() => {
+    if (!modal) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !submittingModal) {
+        event.preventDefault();
+        closeModal();
+        return;
+      }
+      if (event.key !== 'Tab' || !modalSurfaceRef.current) return;
+      const focusable = Array.from(modalSurfaceRef.current.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled)'));
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    window.setTimeout(() => modalSurfaceRef.current?.querySelector<HTMLElement>('input, button:not(:disabled)')?.focus(), 0);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [closeModal, modal, submittingModal]);
+
   const confirmModal = async () => {
     if (!modal) return;
     if (modal.request.kind === 'prompt') {
@@ -211,283 +219,48 @@ const FollowMeeFeedbackProvider = ({ children }: { children: ReactNode }) => {
   const milestone = visibleOutcome?.options.importance === 'milestone';
   const semantic = brandThemeTokens[brandTheme][theme.palette.mode];
 
+  const feedbackPortal = typeof document === 'undefined' ? null : document.body;
   return (
     <>
       {children}
-      {visibleOutcome && visual && !milestone && (
-        <Portal>
-          <Box
-            role={visibleOutcome.tone === 'error' ? 'alert' : 'status'}
-            aria-live={visibleOutcome.tone === 'error' ? 'assertive' : 'polite'}
-            onMouseEnter={() => setPaused(true)}
-            onMouseLeave={() => setPaused(false)}
-            onFocusCapture={() => setPaused(true)}
-            onBlurCapture={() => setPaused(false)}
-            sx={{
-              position: 'fixed',
-              zIndex: (muiTheme) => muiTheme.zIndex.modal + 30,
-              top: 'auto',
-              right: { xs: 12, md: 'auto' },
-              bottom: {
-                xs: 'calc(76px + env(safe-area-inset-bottom, 0px))',
-                md: 24,
-              },
-              left: { xs: 12, md: '50%' },
-              transform: { xs: 'none', md: 'translateX(-50%)' },
-              width: { xs: 'auto', md: 420 },
-              minHeight: 76,
-              display: 'grid',
-              gridTemplateColumns: '4px 40px 1fr 44px',
-              overflow: 'hidden',
-              color: visual.palette.text,
-              bgcolor: visual.palette.surface,
-              border: `1px solid ${visual.palette.border}`,
-              borderRadius: radii.panel,
-              boxShadow: theme.palette.mode === 'dark' ? shadows.floatingDark : shadows.floatingLight,
-              animation: reduceMotion ? 'none' : 'followmee-outcome-up 200ms ease-out',
-              '@keyframes followmee-outcome-up': {
-                from: { opacity: 0, transform: 'translate3d(0, 12px, 0)' },
-                to: { opacity: 1, transform: 'translate3d(0, 0, 0)' },
-              },
-            }}
-          >
-            <Box sx={{ bgcolor: visual.palette.accent }} />
-            <Box sx={{ display: 'grid', placeItems: 'center', color: visual.palette.accent }}>
-              <visual.Icon fontSize="small" />
-            </Box>
-            <Box sx={{ py: 1.5, pr: 1, minWidth: 0 }}>
-              <Typography sx={{ fontWeight: 750, lineHeight: 1.3 }}>{visibleOutcome.options.title}</Typography>
-              {visibleOutcome.options.message && (
-                <Typography variant="body2" sx={{ mt: 0.35, color: visual.palette.secondaryText }}>
-                  {visibleOutcome.options.message}
-                </Typography>
-              )}
-              {action && (
-                <Button
-                  size="small"
-                  startIcon={retryAction ? <ReplayRounded /> : undefined}
-                  onClick={() => {
-                    void action.onClick();
-                    dismissOutcome();
-                  }}
-                  sx={{ mt: 0.75, minHeight: 36, px: 0, color: visual.palette.action }}
-                >
-                  {action.label}
-                </Button>
-              )}
-            </Box>
-            <IconButton
-              aria-label={t('feedback.close')}
-              onClick={dismissOutcome}
-              sx={{ alignSelf: 'start', color: visual.palette.secondaryText }}
-            >
-              <CloseRounded fontSize="small" />
-            </IconButton>
-          </Box>
-        </Portal>
+      {feedbackPortal && visibleOutcome && visual && !milestone && createPortal(
+        <div role={visibleOutcome.tone === 'error' ? 'alert' : 'status'} aria-live={visibleOutcome.tone === 'error' ? 'assertive' : 'polite'} onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)} style={{ position: 'fixed', zIndex: 1600, right: 16, bottom: 'calc(24px + env(safe-area-inset-bottom, 0px))', width: 'min(420px, calc(100vw - 32px))', display: 'grid', gridTemplateColumns: '4px 40px 1fr 40px', overflow: 'hidden', color: visual.palette.text, background: visual.palette.surface, border: `1px solid ${visual.palette.border}`, borderRadius: radii.panel, boxShadow: theme.palette.mode === 'dark' ? shadows.floatingDark : shadows.floatingLight }}>
+          <span style={{ background: visual.palette.accent }} />
+          <span style={{ display: 'grid', placeItems: 'center', color: visual.palette.accent }}><visual.Icon fontSize="small" /></span>
+          <div style={{ padding: '16px 8px 16px 0' }}>
+            <strong>{visibleOutcome.options.title}</strong>
+            {visibleOutcome.options.message && <p style={{ margin: '4px 0 0', color: visual.palette.secondaryText }}>{visibleOutcome.options.message}</p>}
+            {action && <button type="button" onClick={() => { void action.onClick(); dismissOutcome(); }} style={{ marginTop: 8, border: 0, background: 'none', color: visual.palette.action, fontWeight: 700, cursor: 'pointer' }}>{retryAction && <ReplayRounded fontSize="small" />} {action.label}</button>}
+          </div>
+          <button type="button" aria-label={t('feedback.close')} onClick={dismissOutcome} style={{ alignSelf: 'start', margin: 6, border: 0, background: 'none', color: visual.palette.secondaryText, cursor: 'pointer' }}><CloseRounded fontSize="small" /></button>
+        </div>, feedbackPortal,
       )}
-      <Dialog
-        open={Boolean(visibleOutcome && visual && milestone)}
-        onClose={dismissOutcome}
-        fullWidth
-        maxWidth="xs"
-        aria-labelledby="followmee-milestone-title"
-        onMouseEnter={() => setPaused(true)}
-        onMouseLeave={() => setPaused(false)}
-        onKeyDown={() => setPaused(true)}
-        PaperProps={{
-          sx: {
-            position: 'relative',
-            overflow: 'hidden',
-            m: 2,
-            width: 'calc(100% - 32px)',
-            maxWidth: 440,
-            borderRadius: `${radii.modal}px`,
-            border: `1px solid ${semantic.border}`,
-            bgcolor: semantic.panel,
-            color: semantic.text,
-            boxShadow: theme.palette.mode === 'dark' ? shadows.floatingDark : shadows.floatingLight,
-          },
-        }}
-        sx={{ zIndex: (muiTheme) => muiTheme.zIndex.modal + 25 }}
-      >
-        {visibleOutcome && visual && milestone && (
-          <>
-            <DialogContent sx={{ px: { xs: 2.5, sm: 4 }, pt: { xs: 3, sm: 4 }, pb: 2 }}>
-              <Box
-                sx={{
-                  width: 48,
-                  height: 48,
-                  display: 'grid',
-                  placeItems: 'center',
-                  borderRadius: 2.5,
-                  bgcolor: semantic.muted,
-                  color: semantic.action,
-                  mb: 2,
-                }}
-              >
-                <visual.Icon />
-              </Box>
-              <IconButton
-                aria-label={t('feedback.close')}
-                onClick={dismissOutcome}
-                sx={{ position: 'absolute', right: 10, top: 10, color: semantic.secondaryText }}
-              >
-                <CloseRounded fontSize="small" />
-              </IconButton>
-              <Typography id="followmee-milestone-title" variant="h5" sx={{ color: semantic.text }}>
-                {visibleOutcome.options.title}
-              </Typography>
-              {visibleOutcome.options.message && (
-                <Typography sx={{ mt: 1, color: semantic.secondaryText, lineHeight: 1.65 }}>
-                  {visibleOutcome.options.message}
-                </Typography>
-              )}
-            </DialogContent>
-            <DialogActions sx={{ px: { xs: 2.5, sm: 4 }, pb: { xs: 3, sm: 4 }, gap: 1 }}>
-              <Button color="inherit" onClick={dismissOutcome} sx={{ minHeight: layoutTokens.mobileTapTarget }}>
-                {t('feedback.done')}
-              </Button>
-              {action && (
-                <Button
-                  variant="contained"
-                  onClick={() => {
-                    void action.onClick();
-                    dismissOutcome();
-                  }}
-                  sx={{ minHeight: layoutTokens.mobileTapTarget }}
-                >
-                  {action.label}
-                </Button>
-              )}
-            </DialogActions>
-            {!reduceMotion && (
-              <Box
-                key={visibleOutcome.id}
-                aria-hidden="true"
-                sx={{
-                  position: 'absolute',
-                  left: 0,
-                  bottom: 0,
-                  height: 3,
-                  bgcolor: semantic.action,
-                  animation: `followmee-milestone-progress ${visibleOutcome.options.duration ?? 5000}ms linear forwards`,
-                  animationPlayState: paused ? 'paused' : 'running',
-                  '@keyframes followmee-milestone-progress': {
-                    from: { width: '100%' },
-                    to: { width: 0 },
-                  },
-                }}
-              />
-            )}
-          </>
-        )}
-      </Dialog>
-      <Dialog
-        open={Boolean(modal)}
-        onClose={(_, reason) => {
-          if (reason === 'backdropClick') return;
-          closeModal();
-        }}
-        fullWidth
-        maxWidth="xs"
-        aria-labelledby="followmee-feedback-title"
-        PaperProps={{
-          sx: {
-            m: { xs: 1.5, sm: 3 },
-            width: { xs: 'calc(100% - 24px)', sm: 448 },
-            maxWidth: 480,
-            borderRadius: { xs: `${radii.panel}px ${radii.panel}px ${radii.modal}px ${radii.modal}px`, sm: radii.modal },
-            border: '1px solid',
-            borderColor: 'divider',
-            boxShadow: theme.palette.mode === 'dark' ? shadows.floatingDark : shadows.floatingLight,
-            bgcolor: theme.palette.mode === 'dark' ? '#19211D' : '#FFFFFF',
-          },
-        }}
-        sx={{
-          zIndex: (muiTheme) => muiTheme.zIndex.modal + 20,
-          '& .MuiDialog-container': {
-            alignItems: { xs: 'flex-end', sm: 'center' },
-          },
-        }}
-      >
-        <DialogContent sx={{ px: { xs: 2.5, sm: 3.5 }, pt: { xs: 3, sm: 3.5 }, pb: 1.5 }}>
-          <Typography id="followmee-feedback-title" variant="h5">
-            {modalOptions?.title || t('feedback.confirmTitle')}
-          </Typography>
-          {modalOptions?.message && (
-            <Typography sx={{ mt: 1, color: 'text.secondary', lineHeight: 1.6 }}>
-              {modalOptions.message}
-            </Typography>
-          )}
-          {'consequence' in (modalOptions || {}) && modalOptions?.consequence && (
-            <Box
-              sx={{
-                mt: 2,
-                p: 1.5,
-                bgcolor: destructive ? alpha(theme.palette.error.main, 0.08) : alpha(theme.palette.primary.main, 0.07),
-                borderRadius: radii.control,
-                color: 'text.secondary',
-              }}
-            >
-              <Typography variant="body2">{modalOptions.consequence}</Typography>
-            </Box>
-          )}
-          {modal?.request.kind === 'prompt' && (
-            <TextField
-              autoFocus
-              fullWidth
-              sx={{ mt: 2.5 }}
-              label={modal.request.options.field.label}
-              placeholder={modal.request.options.field.placeholder}
-              value={inputValue}
-              error={Boolean(validationError)}
-              helperText={validationError}
-              onChange={(event) => {
-                setInputValue(event.target.value);
-                if (validationError) setValidationError('');
-              }}
-            />
-          )}
-          {modal?.request.kind === 'confirm' && validationError && (
-            <Box
-              role="alert"
-              sx={{
-                mt: 2,
-                p: 1.5,
-                color: 'error.main',
-                bgcolor: alpha(theme.palette.error.main, 0.08),
-                borderRadius: radii.control,
-              }}
-            >
-              <Typography variant="body2">{validationError}</Typography>
-            </Box>
-          )}
-        </DialogContent>
-        <DialogActions
-          sx={{
-            display: 'grid',
-            gridTemplateColumns: '1fr 1fr',
-            gap: 1,
-            px: { xs: 2.5, sm: 3.5 },
-            pb: { xs: 'calc(20px + env(safe-area-inset-bottom, 0px))', sm: 3.5 },
-          }}
-        >
-          <Button disabled={submittingModal} color="inherit" onClick={() => closeModal()} sx={{ minHeight: layoutTokens.mobileTapTarget }}>
-            {modalOptions?.cancelLabel || t('feedback.cancel')}
-          </Button>
-          <Button
-            variant="contained"
-            color={destructive ? 'error' : 'primary'}
-            onClick={() => void confirmModal()}
-            disabled={submittingModal}
-            startIcon={submittingModal ? <CircularProgress size={16} color="inherit" /> : undefined}
-            sx={{ minHeight: layoutTokens.mobileTapTarget }}
-          >
-            {modalOptions?.confirmLabel || t('feedback.confirm')}
-          </Button>
-        </DialogActions>
-      </Dialog>
+      {feedbackPortal && visibleOutcome && visual && milestone && createPortal(
+        <div role="dialog" aria-modal="true" aria-labelledby="followmee-milestone-title" onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)} style={{ position: 'fixed', inset: 0, zIndex: 1550, display: 'grid', placeItems: 'center', padding: 16, background: 'rgba(15, 18, 16, .48)' }}>
+          <div style={{ position: 'relative', width: 'min(440px, 100%)', borderRadius: radii.modal, border: `1px solid ${semantic.border}`, background: semantic.panel, color: semantic.text, boxShadow: theme.palette.mode === 'dark' ? shadows.floatingDark : shadows.floatingLight, padding: '32px 32px 24px' }}>
+            <div style={{ width: 48, height: 48, display: 'grid', placeItems: 'center', borderRadius: 12, background: semantic.muted, color: semantic.action }}><visual.Icon /></div>
+            <button type="button" aria-label={t('feedback.close')} onClick={dismissOutcome} style={{ position: 'absolute', top: 10, right: 10, border: 0, background: 'none', color: semantic.secondaryText, cursor: 'pointer' }}><CloseRounded fontSize="small" /></button>
+            <h2 id="followmee-milestone-title" style={{ margin: '18px 0 0', fontSize: 24 }}>{visibleOutcome.options.title}</h2>
+            {visibleOutcome.options.message && <p style={{ margin: '10px 0 0', color: semantic.secondaryText, lineHeight: 1.65 }}>{visibleOutcome.options.message}</p>}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 24 }}>
+              <button type="button" onClick={dismissOutcome} style={{ minHeight: layoutTokens.mobileTapTarget, border: 0, background: 'none', color: semantic.secondaryText, fontWeight: 700, cursor: 'pointer' }}>{t('feedback.done')}</button>
+              {action && <button type="button" onClick={() => { void action.onClick(); dismissOutcome(); }} style={{ minHeight: layoutTokens.mobileTapTarget, border: 0, borderRadius: 10, padding: '0 18px', background: semantic.action, color: '#fff', fontWeight: 700, cursor: 'pointer' }}>{action.label}</button>}
+            </div>
+          </div>
+        </div>, feedbackPortal,
+      )}
+      {feedbackPortal && modal && createPortal(
+        <div role="presentation" style={{ position: 'fixed', inset: 0, zIndex: 1500, display: 'grid', placeItems: 'center', padding: 16, background: 'rgba(15, 18, 16, .48)' }}>
+          <div ref={modalSurfaceRef} role="dialog" aria-modal="true" aria-labelledby="followmee-feedback-title" style={{ width: 'min(448px, 100%)', borderRadius: radii.modal, border: '1px solid #D8D1DD', background: theme.palette.mode === 'dark' ? '#19211D' : '#FFFFFF', color: theme.palette.text.primary, boxShadow: theme.palette.mode === 'dark' ? shadows.floatingDark : shadows.floatingLight, padding: '28px 28px 20px' }}>
+            <h2 id="followmee-feedback-title" style={{ margin: 0, fontSize: 22 }}>{modalOptions?.title || t('feedback.confirmTitle')}</h2>
+            {modalOptions?.message && <p style={{ margin: '10px 0 0', lineHeight: 1.6, color: theme.palette.text.secondary }}>{modalOptions.message}</p>}
+            {'consequence' in (modalOptions || {}) && modalOptions?.consequence && <p style={{ margin: '16px 0 0', padding: 12, borderRadius: 10, background: destructive ? 'rgba(211, 47, 47, .08)' : 'rgba(111, 75, 128, .08)', color: theme.palette.text.secondary }}>{modalOptions.consequence}</p>}
+            {modal?.request.kind === 'prompt' && <label style={{ display: 'grid', gap: 6, marginTop: 20 }}>{modal.request.options.field.label}<input autoFocus value={inputValue} placeholder={modal.request.options.field.placeholder} onChange={(event) => { setInputValue(event.target.value); if (validationError) setValidationError(''); }} style={{ minHeight: 44, borderRadius: 10, border: `1px solid ${validationError ? theme.palette.error.main : '#CFC7D4'}`, padding: '0 12px', font: 'inherit' }} />{validationError && <span role="alert" style={{ color: theme.palette.error.main }}>{validationError}</span>}</label>}
+            {modal?.request.kind === 'confirm' && validationError && <p role="alert" style={{ marginTop: 16, color: theme.palette.error.main }}>{validationError}</p>}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 24 }}><button type="button" disabled={submittingModal} onClick={() => closeModal()} style={{ minHeight: layoutTokens.mobileTapTarget, border: '1px solid #CFC7D4', borderRadius: 10, background: 'transparent', color: 'inherit', fontWeight: 700 }}>{modalOptions?.cancelLabel || t('feedback.cancel')}</button><button type="button" disabled={submittingModal} onClick={() => void confirmModal()} style={{ minHeight: layoutTokens.mobileTapTarget, border: 0, borderRadius: 10, background: destructive ? theme.palette.error.main : semantic.action, color: '#fff', fontWeight: 700 }}>{modalOptions?.confirmLabel || t('feedback.confirm')}</button></div>
+          </div>
+        </div>, feedbackPortal,
+      )}
     </>
   );
 };

@@ -1,7 +1,8 @@
 import { useState, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { bulkActionApi, PrioritySuggestion, SuggestionAction, type Task, type TaskListResponse } from '../api/task.api';
-import toast from '../utils/toast';
+import feedback from '../services/feedback.service';
+import { useUserPreferences } from '../contexts/UserPreferencesContext';
 import { useAppSelector } from '../store/store';
 import { applyTaskMutationDelete, applyTaskMutationSnapshot } from '../utils/taskMutationCache';
 
@@ -21,6 +22,7 @@ export const useSmartSuggestions = ({
 }: UseSmartSuggestionsOptions = {}) => {
   const queryClient = useQueryClient();
   const userId = useAppSelector(state => state.auth.user?.userId);
+  const { t } = useUserPreferences();
   const cachedTask = (taskId: string): Task | undefined => queryClient
     .getQueriesData<TaskListResponse>({ queryKey: ['tasks'] })
     .flatMap(([, data]) => data?.tasks || [])
@@ -50,17 +52,15 @@ export const useSmartSuggestions = ({
       queryClient.invalidateQueries({ queryKey: ['prioritySummary'] });
       
       if (data.failed.length > 0) {
-        toast.warning(
-          `Updated ${data.updated} tasks. ${data.failed.length} failed.`
-        );
+        void feedback.warning({ title: t('task.bulkUpdatePartialTitle'), message: t('task.bulkUpdatePartialText', { updated: data.updated, failed: data.failed.length }), importance: 'milestone' });
       } else {
-        toast.success(`Updated ${data.updated} tasks successfully!`);
+        void feedback.success({ title: t('task.bulkUpdateTitle'), message: t('task.bulkUpdateText', { updated: data.updated }), importance: 'milestone' });
       }
       
       onSuccess?.('bulk-update', data);
     },
     onError: (error: Error) => {
-      toast.error('Failed to update tasks');
+      void feedback.error({ title: t('task.bulkUpdateFailedTitle'), message: t('task.bulkUpdateFailedText'), importance: 'milestone', persistent: true });
       onError?.(error);
     },
   });
@@ -78,17 +78,15 @@ export const useSmartSuggestions = ({
       queryClient.invalidateQueries({ queryKey: ['prioritySummary'] });
       
       if (data.failed.length > 0) {
-        toast.warning(
-          `Deleted ${data.deleted} tasks. ${data.failed.length} failed (permission denied).`
-        );
+        void feedback.warning({ title: t('task.bulkDeletePartialTitle'), message: t('task.bulkDeletePartialText', { deleted: data.deleted ?? 0, failed: data.failed.length }), importance: 'milestone' });
       } else {
-        toast.success(`Deleted ${data.deleted} tasks successfully!`);
+        void feedback.success({ title: t('task.bulkDeleteTitle'), message: t('task.bulkDeleteText', { deleted: data.deleted ?? 0 }), importance: 'milestone' });
       }
       
       onSuccess?.('bulk-delete', data);
     },
     onError: (error: Error) => {
-      toast.error('Failed to delete tasks');
+      void feedback.error({ title: t('task.bulkDeleteFailedTitle'), message: t('task.bulkDeleteFailedText'), importance: 'milestone', persistent: true });
       onError?.(error);
     },
   });
@@ -115,7 +113,7 @@ export const useSmartSuggestions = ({
 
       case 'reschedule':
         // TODO: Open reschedule dialog
-        toast.info('Reschedule feature coming soon');
+        void feedback.info({ title: t('task.rescheduleUnavailableTitle'), message: t('task.rescheduleUnavailableText'), importance: 'milestone' });
         break;
 
       case 'review':
@@ -125,7 +123,7 @@ export const useSmartSuggestions = ({
         });
         break;
     }
-  }, [bulkUpdateMutation]);
+  }, [bulkUpdateMutation, t]);
 
   // Dismiss a suggestion
   const dismissSuggestion = useCallback((id: string) => {

@@ -6,7 +6,8 @@ import {
   DialogActions,
   Button,
   Typography,
-  CircularProgress
+  CircularProgress,
+  Alert,
 } from '@mui/material';
 import {
   Save as SaveIcon,
@@ -56,11 +57,13 @@ export const TaskForm: React.FC<TaskFormProps> = ({
       </DialogTitle>
 
       <DialogContent dividers>
+        {taskForm.formErrors.submit && <Alert severity="error" role="alert" sx={{ mb: 2 }}>{taskForm.formErrors.submit}</Alert>}
         <TaskFormFields
           formData={taskForm.formData}
           images={taskForm.images}
           users={users}
           formErrors={taskForm.formErrors}
+          conflictFields={taskForm.conflictFields}
           isSubmitting={taskForm.isSubmitting}
           onInputChange={taskForm.handleInputChange}
           onImagesChange={taskForm.handleImagesChange}

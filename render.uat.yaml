@@ -63,6 +63,14 @@ services:
         sync: false
       - key: SENDGRID_FROM_EMAIL
         sync: false
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      - key: CLOUDINARY_DASHBOARD_URL
+        value: "https://console.cloudinary.com/"
       - key: TIDB_STORAGE_LIMIT_BYTES
         value: "5368709120"
       - key: TIDB_STORAGE_USAGE_CONFIRMED

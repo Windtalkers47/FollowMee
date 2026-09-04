@@ -125,6 +125,7 @@ React page/component
 - Translation key เป็น compatibility boundary; ห้าม hard-code user-facing copy หากมี i18n
 - URL filter/deep-link ต้อง round-trip ได้ และ pagination/refetch ต้องรักษา filter เดิม
 - Realtime mutation ต้องตอบสนองทันที แต่ยังเก็บ refetch fallback สำหรับ partial failure, aggregate หรือ unknown later pages
+- Mutation error UX ใช้มาตรฐานกลางใน `docs/UX_ERROR_FEEDBACK_STANDARD.md`; ต้องใช้ branded Dialog และ translation keys เดียวกัน
 
 ## 6. Local development
 

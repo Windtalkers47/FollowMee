@@ -100,6 +100,12 @@ const present = async (request: FeedbackRequest): Promise<FeedbackResult> => {
     }
     return { isConfirmed: false };
   }
+  // Errors always require deliberate acknowledgement. Keeping this rule at
+  // the shared presenter boundary prevents legacy callers from silently
+  // downgrading an actionable mutation failure to a transient toast.
+  if (request.kind === 'outcome' && request.tone === 'error' && !request.options.importance) {
+    return presenter({ ...request, options: { ...request.options, importance: 'milestone' } });
+  }
   return presenter(request);
 };
 

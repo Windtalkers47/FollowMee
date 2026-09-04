@@ -132,6 +132,11 @@ interface CustomerFormProps {
   canReassign?: boolean;
 }
 
+// Keep the add-form defaults referentially stable. A fresh object here would
+// make `defaultValues` change on every render, causing the effect below to
+// reset the form while the user is typing.
+const EMPTY_CUSTOMER_DATA: Partial<CustomerFormData> = { isActive: true };
+
 const ImagePreview = styled('div')(({ theme }) => ({
   width: 120,
   height: 120,
@@ -200,7 +205,7 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
   open,
   onClose: handleCloseProp,
   onSubmit,
-  initialData = { isActive: true },
+  initialData = EMPTY_CUSTOMER_DATA,
   apiError,
   onClearApiError,
   canReassign = true,

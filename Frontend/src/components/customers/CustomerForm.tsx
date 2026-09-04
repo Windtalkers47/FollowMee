@@ -222,6 +222,7 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [imageKey, setImageKey] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const dialogWasOpenRef = useRef(false);
 
   // Image compression function
   const compressImage = useCallback(async (file: File, maxWidth: number, maxHeight: number, quality: number = 0.7): Promise<Blob> => {
@@ -523,8 +524,15 @@ const CustomerForm: React.FC<CustomerFormProps> = ({
   
 
   React.useEffect(() => {
-    if (!open) return;
-  
+    if (!open) {
+      dialogWasOpenRef.current = false;
+      return;
+    }
+
+    // Initialise only on the closed -> open transition. Parent renders (for
+    // example while clearing an API error) must never erase values being typed.
+    if (dialogWasOpenRef.current) return;
+    dialogWasOpenRef.current = true;
     reset(defaultValues);
     // Resetting the preview follows the external dialog/open state.
     // eslint-disable-next-line react-hooks/set-state-in-effect
